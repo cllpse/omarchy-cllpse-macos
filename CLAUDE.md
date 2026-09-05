@@ -42,6 +42,10 @@ QEMU, RetroArch, YouTube/Zoom web apps; browsers set their own `1.0 0.985`), and
 only then is `opacity = "0.985 0.96"` applied to whatever still carries it.
 **Match the tag, never `.*`** — a blanket match silently overrides every one of
 those deliberate exclusions and dims colour-critical and video windows.
+Figma Desktop isn't in Omarchy's own list, so `overrides/hypr/looknfeel-decoration.lua`
+adds it: `.*[Ff]igma.*` against the class (the live class is lowercase
+`figma-desktop`), untagged and pinned to `1 1`, same idiom as
+`davinci-resolve.lua`.
 
 **Backgrounds are filtered by extension.** Both `omarchy-theme-bg-next` and
 `omarchy-menu-images` enumerate with

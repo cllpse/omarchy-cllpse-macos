@@ -155,7 +155,7 @@ cursor/settings.json          Cursor editor prefs, jq-merged in; omits workbench
 hypr/hyprland-env.lua         OMARCHY_MENU_FONT + cursor theme/size + no_warps + kb layout
 hypr/window-switcher-bindings.lua  SUPER+TAB keybinds driving the switcher plugin
 hypr/input-tuning.lua         mouse sensitivity/accel/follow_mouse
-hypr/looknfeel-decoration.lua rounding 18 / rounding_power 2.2 / border_part_of_window true / blur / border_size 2 / gaps 12,24 / window opacity 0.98 0.875 / 2x animations / layer_rule blur on shell surfaces
+hypr/looknfeel-decoration.lua rounding 18 / rounding_power 2.2 / border_part_of_window true / blur / border_size 2 / gaps 12,24 / window opacity 0.98 0.875 (Figma fully opaque) / 2x animations / layer_rule blur on shell surfaces
 bash/shell.sh                 FZF_DEFAULT_OPTS derived from the live palette + lsd alias
 display-lib.sh                shared readers/writers for scale + text size (sourced, not run)
 display.conf                  saved text-size / monitor-scale / gdk-scale

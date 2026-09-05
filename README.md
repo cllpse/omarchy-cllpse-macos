@@ -209,6 +209,12 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   `browser.lua` has run) and pins those to `0.98 0.875` too — same glass as
   everywhere else. The YouTube/Zoom exclusion still holds: `browser.lua` strips
   the browser tag from those windows before this runs.
+  Figma Desktop isn't one of Omarchy's stock colour-critical exclusions, so
+  `looknfeel-decoration.lua` adds its own: `.*[Ff]igma.*` matched loosely
+  against the class (the live window class is the lowercase `figma-desktop`,
+  not the `Figma` its `.desktop`'s `StartupWMClass` claims), untagged and
+  pinned to `1 1` — same reasoning and idiom as Omarchy's own
+  `davinci-resolve.lua`.
   Because `blur.ignore_opacity` is true, a semi-transparent window has the full
   blur pass rendered behind it, so unfocused windows read as glass over whatever
   is beneath. That is the intended effect, which is why `dim_inactive` is
