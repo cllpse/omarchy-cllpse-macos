@@ -116,7 +116,7 @@ hypr/hyprland-env.lua         OMARCHY_MENU_FONT + cursor theme/size + no_warps +
 hypr/window-switcher-bindings.lua  SUPER+TAB keybinds driving the switcher plugin
 hypr/input-tuning.lua         mouse sensitivity/accel/follow_mouse
 hypr/looknfeel-decoration.lua rounding 14 / rounding_power 2.2 / blur / border_size 2 / gaps 8,16 / window opacity 1.0 0.88 / 2x animations / layer_rule blur on shell surfaces
-bash/fzf.sh                   export FZF_DEFAULT_OPTS='--color=...'
+bash/shell.sh                 FZF_DEFAULT_OPTS derived from the live palette + lsd alias
 display-lib.sh                shared readers/writers for scale + text size (sourced, not run)
 display.conf                  saved text-size / monitor-scale / gdk-scale
 save-display.sh               capture the live values into display.conf

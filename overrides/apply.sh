@@ -167,7 +167,7 @@ say "lazygit -> ~/.config/lazygit/config.yml (ANSI theme)"
 mkdir -p ~/.config/lazygit; backup ~/.config/lazygit/config.yml
 cp "$HERE/lazygit/config.yml" ~/.config/lazygit/config.yml
 
-sync_fenced ~/.bashrc "$HERE/bash/fzf.sh"
+sync_fenced ~/.bashrc "$HERE/bash/shell.sh"
 
 # ── 7b. display scaling + text size ──────────────────────────────────────────
 # Restore overrides/display.conf (written by ./overrides/save-display.sh). Any
