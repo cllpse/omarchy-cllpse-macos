@@ -165,6 +165,19 @@ and the original is kept in prose as provenance. Don't leave the two out of sync
   radius there is close to invisible; `background-alpha` is the stronger lever.
 - The repo carries ~229 MB of Apple fonts and wallpapers it does not own, on a
   public remote. See [`THIRD-PARTY.md`](THIRD-PARTY.md) before adding more.
+- **`macos-*` Ghostty keys are no-ops on Linux.** `macos-titlebar-style`,
+  `macos-window-buttons`, `macos-icon` and friends are read only on macOS. A
+  config full of them looks configured and does nothing.
+- **Hand-edited app configs replace the packaged defaults rather than extending
+  them.** `~/.config/ghostty/config` had been edited in place and had quietly
+  lost Omarchy's own keybinds (shift+insert, control+insert, the CSI sequences,
+  the resize_split set), `gtk-toolbar-style`, `async-backend` and `ssh-env`.
+  When something looks missing, diff against `/usr/share/omarchy/config/` before
+  assuming it was never there. That directory is the stock copy of every user
+  config Omarchy ships, and is the right base to reset to.
+- **Check a setting against the program's own defaults before shipping it.**
+  `ghostty +show-config --default` showed five settings in that config were
+  restating defaults verbatim. Most tools have an equivalent.
 
 ## Reproducing this on another machine
 
