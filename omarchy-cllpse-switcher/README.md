@@ -33,7 +33,7 @@ plugin-side theming. Under **omarchy-cllpse-theme** that means:
   `Style.font.heading`/Medium and the secondary line in `Style.font.bodySmall`
   at 0.52. Cell height derives from those tokens with a floor, the way the
   menu's `baseRowHeight` does, so it survives `omarchy display text size`.
-  **The one deliberate departure is the icon** at `Style.font.iconLarge × 1.5`:
+  **The one deliberate departure is the icon** at `Style.font.iconLarge × 1.4`:
   in the menu the icon sits inline beside a label, here it is the primary
   element of a card, like a macOS Cmd-Tab tile;
 - blur comes from the `hl.layer_rule` in
