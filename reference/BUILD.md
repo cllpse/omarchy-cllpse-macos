@@ -273,7 +273,7 @@ Three facts drive the mapping:
 | shadow range | `40` | large and soft [chosen] |
 | shadow offset | `0 8` | macOS shadows sit below the window [chosen] |
 | shadow colour | `rgba(00000040)` | [chosen] |
-| blur size / passes | `12` / `3` | NSVisualEffectView is a heavy blur [chosen] — effective spread ≈ size × 2^(passes−1), so ≈48; widened from an initial 8 via size, which keeps the blur's character where more passes would double the reach at real GPU cost |
+| blur size / passes | `12` / `4` | NSVisualEffectView is a heavy blur [chosen] — effective spread ≈ size × 2^(passes−1), so ≈96. `size` scales sampling offsets and is essentially free; each `pass` adds a downsample+upsample iteration (~+30% blur work). The 4th pass was chosen over more size because passes change the character — the softer, more diffuse falloff of a large macOS material — where size only widens the same blur |
 | blur vibrancy | `0.20` | macOS boosts saturation behind glass [chosen] |
 | blur brightness / contrast | `1.0` / `1.0` | macOS does not darken [chosen] |
 | active / inactive opacity | `1.0` / `0.875` | focused opaque per macOS; unfocused translucent so the blur pass renders through them — glass, not a flat dim [chosen] — overrides Omarchy's 0.985/0.96 |

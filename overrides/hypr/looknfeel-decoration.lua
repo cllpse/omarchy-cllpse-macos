@@ -59,12 +59,22 @@ o.window({ tag = "default-opacity" }, { opacity = "1.0 0.875" })
 -- ("macOS boosts saturation behind glass"), brightness/contrast 1.0 ("macOS
 -- does not darken"). Omarchy ships blur disabled.
 --
--- size is 12 rather than the 8 section 5 started from. size is the radius per
--- pass and passes is the number of downsample rounds, each roughly doubling the
--- reach, so effective spread is about size * 2^(passes-1): 8/3 ~= 32, 12/3 ~= 48.
--- Widening via size keeps the character of the blur and costs almost nothing;
--- passes = 4 would double the spread again but is markedly more expensive and
--- can band on gradients.
+-- 12/4 rather than the 8/3 section 5 started from -- effective spread is about
+-- size * 2^(passes-1), so ~96 against the original ~32.
+--
+-- The two knobs are not equivalent, and they do not cost the same. Hyprland's
+-- blur is dual-Kawase: `size` scales the sampling OFFSETS, so raising it is
+-- essentially free (identical number of texture fetches, just further apart),
+-- while each `pass` adds a whole downsample+upsample iteration -- roughly +30%
+-- blur work going from 3 to 4, and it scales with how many blurred surfaces are
+-- on screen. Trivial on this machine (RTX 3070 Ti driving 6.1 Mpx), but it is
+-- the knob that actually costs something.
+--
+-- Bought the extra reach with a pass rather than more size on purpose: passes
+-- change the character, giving the softer, more diffuse falloff a large macOS
+-- material has, where more size just widens the same blur. The tradeoff is that
+-- very smooth gradient wallpapers are where a 4th pass would show banding first
+-- -- if that ever appears, drop back to 3 and raise size instead.
 --
 -- Note this is only visible through whatever a surface leaves translucent. At
 -- shell.menu/notifications alpha 0.92 just 8% of the backdrop shows, so radius
@@ -89,7 +99,7 @@ hl.config({
     blur = {
       enabled = true,
       size = 12,
-      passes = 3,
+      passes = 4,
       vibrancy = 0.20,
       brightness = 1.0,
       contrast = 1.0,
