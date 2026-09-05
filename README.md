@@ -149,7 +149,7 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   `decoration.border_part_of_window = true` (border drawn inside each window's
   tile), enables `decoration.blur` (size 7,
   passes 4, vibrancy 0.30, vibrancy_darkness 0.30, noise 0.02, brightness/contrast
-  1.0), keeps `general.border_size = 2` (Omarchy's default) with `gaps_in = 8` / `gaps_out = 16` (§5's Apple 8pt grid),
+  1.0), keeps `general.border_size = 2` (Omarchy's default) with `gaps_in = 12` / `gaps_out = 24` (§5's Apple 8pt grid, `md`/`xxl` steps),
   overrides window opacity to `0.98 0.875` (re-matched onto browsers directly too,
   since Omarchy pins those to their own `1.0 0.985` otherwise), and halves every `hl.animation` leaf's
   stock speed for 2× faster animations. A separate, hand-written block higher up

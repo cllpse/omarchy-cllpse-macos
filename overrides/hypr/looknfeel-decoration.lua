@@ -32,12 +32,16 @@
 -- border_size is 2 (Omarchy's default). BUILD.md section 5's hairline (1) is
 -- macOS-faithful but a weak focus cue in a tiling WM.
 --
--- On a machine with the Omaland plugin these four keys are also in its managed
--- block lower in looknfeel.lua and it wins by file position -- so tune them
--- there or in Omaland's UI; this block is the no-Omaland fallback.
+-- On a machine with the Omaland plugin some of these keys may also be in its
+-- managed block lower in looknfeel.lua, which wins by file position -- so
+-- check there (or Omaland's UI) if a value here doesn't seem to be landing;
+-- this block is the no-Omaland fallback. Its managed block currently carries
+-- gaps_in/gaps_out too -- kept in sync below so the two agree either way.
 --
--- gaps_in/gaps_out follow BUILD.md section 5's Apple 8pt layout grid: 8 between
--- windows, 16 (2x the inner step) at the screen edge. Omarchy defaults to 5/10.
+-- gaps_in/gaps_out follow BUILD.md section 5's Apple 8pt layout grid: 12
+-- between windows (the grid's `md` step), 24 (2x, the `xxl` step) at the
+-- screen edge -- widened from the grid's sm/lg steps (8/16). Omarchy defaults
+-- to 5/10.
 
 -- ── Window opacity ──────────────────────────────────────────────────────────
 -- default.hypr.windows tags every window +default-opacity, lets the per-app
@@ -153,7 +157,7 @@ hl.config({
       contrast = 1.0,
     },
   },
-  general = { border_size = 2, gaps_in = 8, gaps_out = 16 },
+  general = { border_size = 2, gaps_in = 12, gaps_out = 24 },
 })
 
 -- ── Blur on shell layer surfaces ──────────────────────────────────────────

@@ -270,8 +270,8 @@ Three facts drive the mapping:
 | rounding_power | `2.2` | barely off Hyprland's plain circular arc (`2.0`) [chosen] — a stronger squircle (`3`–`3.4`) was tried, but the border renderer draws the stroke's outer edge under-curved above ≈ 3 and it pinches at the 45° corner, so it is kept near circular. The knob is windows-only anyway — the shell surfaces that mirror `rounding` stay a pure arc |
 | border_part_of_window | `true` | the Hyprland default, set explicitly — border drawn *inside* each window's tile (content shrinks to fit) rather than as its own decoration outside it. `false` helped a thin stroke's corner at higher `rounding_power`; at `2.2` there is nothing to gain, and inside is tidier in a tiling WM |
 | border_size | `2` | Omarchy's default; the macOS hairline (`1`) is a weak focus cue in a tiling WM [chosen] |
-| gaps_in | `8` | Apple 8pt layout grid [chosen] |
-| gaps_out | `16` | 2× inner step [chosen] |
+| gaps_in | `12` | Apple 8pt grid, `md` step [chosen] — widened from the `sm` step (`8`) for more breathing room between tiled windows |
+| gaps_out | `24` | 2× inner step, the grid's `xxl` step [chosen] — widened from `lg` (`16`) |
 | shadow range | `40` | large and soft [chosen] |
 | shadow offset | `0 8` | macOS shadows sit below the window [chosen] |
 | shadow colour | `rgba(00000040)` | [chosen] |
