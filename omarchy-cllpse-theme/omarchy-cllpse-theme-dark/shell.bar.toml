@@ -1,0 +1,16 @@
+[bar]
+# omarchy-cllpse-theme — BUILD.md §6: the macOS menu bar is translucent over the
+# wallpaper. omarchy-theme-set-templates splices this in by replacing the whole
+# generated [bar] section, so every key it had is restated here. background/
+# border/scrim-type keys are role-name tokens Color.qml resolves via
+# composed()->flatColor(); text/active are read with a plain pick() that never
+# unwraps role names, so those two must be literal hex or they render black.
+# Only visible with the omarchy-bar layer blur rule in
+# overrides/hypr/looknfeel-decoration.lua — an opaque bar has nothing to blur.
+background        = "background"
+background-alpha  = 0.72
+text             = "#DDDDDD"   # foreground
+active           = "#FF383C"   # urgent (Color.qml derives it from colors.toml `red`)
+scale-with-font  = true
+size-horizontal  = 26
+size-vertical    = 28

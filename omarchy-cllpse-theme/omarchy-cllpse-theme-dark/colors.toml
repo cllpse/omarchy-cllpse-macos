@@ -1,0 +1,56 @@
+# cllpse-macos — dark palette
+# Values are macOS 27 (Tahoe) NSColor readings converted to sRGB, per
+# reference/BUILD.md §1. These are authoritative: what macOS reports.
+# Do not adjust or reconcile against other themes.
+
+mode = "dark"
+
+accent    = "#007AFF"   # controlAccentColor
+selection = "#3F638B"   # selectedTextBackgroundColor
+muted     = "#565656"   # tertiaryLabelColor (composited over #1E1E1E)
+
+background         = "#1E1E1E"   # windowBackgroundColor
+dark_background    = "#1A1A1A"   # gridColor
+darker_background  = "#000000"   # shadowColor
+lighter_background = "#282828"   # underPageBackgroundColor
+
+foreground        = "#DDDDDD"    # labelColor (composited)
+dark_foreground   = "#9A9A9A"    # secondaryLabelColor (composited)
+light_foreground  = "#FFFFFF"    # textColor
+bright_foreground  = "#FFFFFF"   # textColor (macOS has one tier above labelColor)
+
+selection_foreground = "#FFFFFF"
+
+# Hues: normal row = aqua (light) appearance, bright row = darkAqua appearance.
+# macOS's two appearances sit close together, so bright_* barely differs from
+# the base — that is the real system palette (BUILD.md §7).
+red     = "#FF383C"   # systemRed      aqua
+yellow  = "#FFCC00"   # systemYellow   aqua
+orange  = "#FF8D28"   # systemOrange   aqua
+green   = "#34C759"   # systemGreen    aqua
+cyan    = "#00C0E8"   # systemCyan     aqua
+blue    = "#0088FF"   # systemBlue     aqua
+magenta = "#CB30E0"   # systemPurple   aqua
+brown   = "#AC7F5E"   # systemBrown    aqua
+
+bright_red     = "#FF4245"   # systemRed      darkAqua
+bright_yellow  = "#FFD600"   # systemYellow   darkAqua
+bright_green   = "#30D158"   # systemGreen    darkAqua
+bright_cyan    = "#3CD3FE"   # systemCyan     darkAqua
+bright_blue    = "#0091FF"   # systemBlue     darkAqua
+bright_magenta = "#DB34F2"   # systemPurple   darkAqua
+
+# Window borders. macOS signals focus with shadow depth, not a coloured edge
+# (BUILD.md §5); in a tiling WM a visible active border still helps, so the
+# active border carries the system accent. Inactive border colour is driven
+# separately by ~/.config/hypr/looknfeel.lua, which reads `muted` from here.
+hyprland_active_border   = "rgba(007affee) rgba(0091ffee) 45deg"
+hyprland_inactive_border = "rgba(565656aa)"
+
+# Reserve hues (BUILD.md §3) — macOS system colours with no schema slot.
+# Kept here for reference / hand-authored use. light / dark:
+#   systemMint   #00C8B3 / #00DAC3
+#   systemTeal   #00C3D0 / #00D2E0
+#   systemIndigo #6155F5 / #6D7CFF
+#   systemPink   #FF2D55 / #FF375F
+#   systemGray   #8E8E93 / #98989D

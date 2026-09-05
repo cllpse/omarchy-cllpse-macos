@@ -1,0 +1,12 @@
+[notifications]
+# omarchy-cllpse-theme — BUILD.md §6: near-opaque glass (0.92). Whole-section replace.
+# Needs the omarchy-notifications layer blur rule in
+# overrides/hypr/looknfeel-decoration.lua. text/countdown are read via a plain
+# pick() that never unwraps role names (unlike background/border, which go
+# through composed()->flatColor()) — they must be literal hex or render black.
+background       = "background"
+background-alpha = 0.92
+text             = "#272727"   # foreground
+border           = "hyprland.active-border"
+border-alpha     = 1.0
+countdown        = "#007AFF"   # accent

@@ -1,0 +1,17 @@
+[launcher]
+# omarchy-cllpse-theme — BUILD.md §6: Spotlight is more translucent than a menu (0.85)
+# and dims the desktop only lightly (scrim 0.35). Whole-section replace; same
+# token set as [menu]. Needs the omarchy-menu layer blur rule (the launcher and
+# the menu share that one surface namespace).
+background                = "background"
+background-alpha          = 0.85
+text                      = "#272727"   # foreground — text is a plain pick(), never unwrapped through flatColor()
+border                    = "hyprland.active-border-foreground"
+border-alpha              = 1.0
+scrim                     = "background"
+scrim-alpha               = 0.35
+selected-background        = "#F6F6F6"   # dark_background — background (#FFFFFF) has no brighter tier in light mode (BUILD.md: white is the ceiling), so this is the nearest ramp step; role names only resolve foreground/accent/urgent/muted/background via composed(), so this can't be a token ref
+selected-background-alpha  = 1.0
+selected-text              = "#007AFF"   # accent — selected-text is a plain pick(), so this must be literal hex too
+selected-border            = "hyprland.active-border-foreground"
+selected-border-alpha      = 0.25

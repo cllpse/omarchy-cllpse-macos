@@ -1,0 +1,18 @@
+[menu]
+# omarchy-cllpse-theme — BUILD.md §6: near-opaque glass (0.92). Whole-section replace,
+# so all [menu] keys are restated; role-name tokens resolve to the palette,
+# hyprland.* refs to the active-border gradient. Clipboard + emojis inherit
+# these. Needs the omarchy-menu layer blur rule in
+# overrides/hypr/looknfeel-decoration.lua.
+background                = "background"
+background-alpha          = 0.92
+text                     = "#272727"   # foreground — text is a plain pick(), never unwrapped through flatColor()
+border                   = "hyprland.active-border-foreground"
+border-alpha              = 1.0
+scrim                     = "background"
+scrim-alpha               = 0.5
+selected-background       = "#F6F6F6"   # dark_background — background (#FFFFFF) has no brighter tier in light mode (BUILD.md: white is the ceiling), so this is the nearest ramp step; role names only resolve foreground/accent/urgent/muted/background via composed(), so this can't be a token ref
+selected-background-alpha = 1.0
+selected-text             = "#007AFF"   # accent — selected-text is a plain pick(), so this must be literal hex too
+selected-border           = "hyprland.active-border-foreground"
+selected-border-alpha     = 0.25

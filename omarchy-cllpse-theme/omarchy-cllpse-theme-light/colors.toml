@@ -1,0 +1,53 @@
+# cllpse-macos — light palette
+# Values are macOS 27 (Tahoe) NSColor readings converted to sRGB, per
+# reference/BUILD.md §2. These are authoritative: what macOS reports.
+# Do not adjust or reconcile against other themes.
+
+mode = "light"
+
+accent    = "#007AFF"   # controlAccentColor
+selection = "#B3D7FF"   # selectedTextBackgroundColor
+muted     = "#BDBDBD"   # tertiaryLabelColor (composited over #FFFFFF)
+
+background         = "#FFFFFF"   # windowBackgroundColor
+dark_background    = "#F6F6F6"   # underPageBackgroundColor
+darker_background  = "#E6E6E6"   # gridColor
+lighter_background = "#FFFFFF"   # windowBackgroundColor (white is the lightest surface)
+
+foreground        = "#272727"   # labelColor (composited)
+dark_foreground   = "#808080"   # secondaryLabelColor (composited)
+light_foreground  = "#000000"   # textColor
+bright_foreground  = "#000000"  # textColor
+
+selection_foreground = "#000000"
+
+# In the light appearance macOS uses the aqua hues; the darkAqua variants are
+# lighter and belong to dark mode. So the bright row carries the SAME values
+# as the normal row here (BUILD.md §2).
+red     = "#FF383C"   # systemRed      aqua
+yellow  = "#FFCC00"   # systemYellow   aqua
+orange  = "#FF8D28"   # systemOrange   aqua
+green   = "#34C759"   # systemGreen    aqua
+cyan    = "#00C0E8"   # systemCyan     aqua
+blue    = "#0088FF"   # systemBlue     aqua
+magenta = "#CB30E0"   # systemPurple   aqua
+brown   = "#AC7F5E"   # systemBrown    aqua
+
+bright_red     = "#FF383C"
+bright_yellow  = "#FFCC00"
+bright_green   = "#34C759"
+bright_cyan    = "#00C0E8"
+bright_blue    = "#0088FF"
+bright_magenta = "#CB30E0"
+
+# Active border carries the system accent (see dark/colors.toml for rationale).
+# Inactive border colour is driven by ~/.config/hypr/looknfeel.lua reading `muted`.
+hyprland_active_border   = "rgba(007affee) rgba(0091ffee) 45deg"
+hyprland_inactive_border = "rgba(bdbdbdaa)"
+
+# Reserve hues (BUILD.md §3), light / dark:
+#   systemMint   #00C8B3 / #00DAC3
+#   systemTeal   #00C3D0 / #00D2E0
+#   systemIndigo #6155F5 / #6D7CFF
+#   systemPink   #FF2D55 / #FF375F
+#   systemGray   #8E8E93 / #98989D
