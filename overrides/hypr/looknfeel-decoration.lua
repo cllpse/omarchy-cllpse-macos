@@ -59,11 +59,11 @@ o.window({ tag = "default-opacity" }, { opacity = "1.0 0.875" })
 -- ("macOS boosts saturation behind glass"), brightness/contrast 1.0 ("macOS
 -- does not darken"). Omarchy ships blur disabled.
 --
--- 6/3: effective spread (about size * 2^(passes-1)) is ~24, tighter even than
--- section 5's original 8/3 (~32). Walked down from 12/4 (~96) through 10/4,
--- 8/4 and 7/4 -- every wider setting read muddy, the backdrop turning into an
--- undifferentiated wash instead of a suggestion of what sits behind the
--- surface. A tight blur keeps more structure, which is what was wanted.
+-- 7/4: effective spread (about size * 2^(passes-1)) is ~56, against ~32 for
+-- section 5's original 8/3. This is where a long walk landed. 12/4 (~96), 10/4
+-- and 8/4 all read muddy -- the backdrop turning into an undifferentiated wash
+-- rather than a suggestion of what sits behind the surface -- while 6/3 (~24)
+-- overshot the other way and lost the glass entirely.
 --
 -- The two knobs are not equivalent, and they do not cost the same. Hyprland's
 -- blur is dual-Kawase: `size` scales the sampling OFFSETS, so raising it is
@@ -104,8 +104,8 @@ hl.config({
     rounding_power = 2.2,
     blur = {
       enabled = true,
-      size = 6,
-      passes = 3,
+      size = 7,
+      passes = 4,
       -- Saturation of the blurred backdrop. BUILD.md section 5 started at 0.20
       -- ("macOS boosts saturation behind glass"); 0.30 pulls more colour
       -- through. Pure shader parameters, no render cost.
