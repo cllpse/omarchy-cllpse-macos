@@ -53,7 +53,7 @@
 -- exclusions, dimming video and colour-critical windows; matching the tag
 -- inherits them all for free.
 --
--- Focused windows at 0.97, per BUILD.md section 5 ("macOS windows are opaque")
+-- Focused windows at 0.98, per BUILD.md section 5 ("macOS windows are opaque")
 -- with a hair of glass so focused windows read as the same material as
 -- unfocused rather than a flat cutout -- a deliberate deviation from section
 -- 5's 1.0/1.0. Unfocused drops further to 0.875, not only as a focus cue.
@@ -65,21 +65,21 @@
 -- stays off -- stacking a darkening pass on top of it muddied the result and
 -- worked against the effect.
 --
--- 0.97/0.875 currently. Focused was 1.0 (fully opaque) before; unfocused alone
--- went through 0.9 and 0.88 on the way to 0.875.
-o.window({ tag = "default-opacity" }, { opacity = "0.97 0.875" })
+-- 0.98/0.875 currently. Focused was 1.0 (fully opaque), then 0.97, before
+-- landing here; unfocused alone went through 0.9 and 0.88 on the way to 0.875.
+o.window({ tag = "default-opacity" }, { opacity = "0.98 0.875" })
 
 -- ── Browser opacity: same unfocused glass as everything else ───────────────
 -- default/hypr/apps/browser.lua strips +default-opacity from every
 -- chromium/firefox-based browser and pins them to opacity "1.0 0.985", so the
 -- tag-matched rule above never touches them -- browsers stay effectively opaque
 -- when unfocused (98.5%) and no blur reads through. Re-match the browser tags
--- directly, after browser.lua has run, so browsers get the same 0.97/0.875
+-- directly, after browser.lua has run, so browsers get the same 0.98/0.875
 -- frost as the rest of the desktop. browser.lua removes the
 -- chromium-based-browser tag from YouTube/Zoom web-app windows, so those stay
 -- excluded here too.
-o.window({ tag = "chromium-based-browser" }, { opacity = "0.97 0.875" })
-o.window({ tag = "firefox-based-browser" }, { opacity = "0.97 0.875" })
+o.window({ tag = "chromium-based-browser" }, { opacity = "0.98 0.875" })
+o.window({ tag = "firefox-based-browser" }, { opacity = "0.98 0.875" })
 
 -- ── Blur (global) ─────────────────────────────────────────────────────────
 -- BUILD.md section 5 ("NSVisualEffectView is a heavy blur"): vibrancy 0.20
