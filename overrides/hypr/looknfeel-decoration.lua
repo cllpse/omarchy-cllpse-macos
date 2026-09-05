@@ -59,10 +59,10 @@ o.window({ tag = "default-opacity" }, { opacity = "1.0 0.875" })
 -- ("macOS boosts saturation behind glass"), brightness/contrast 1.0 ("macOS
 -- does not darken"). Omarchy ships blur disabled.
 --
--- 10/4 rather than the 8/3 section 5 started from -- effective spread is about
--- size * 2^(passes-1), so ~80 against the original ~32. Came down from 12/4
--- (~96), which read muddy: past a point the backdrop stops being a suggestion
--- of what is behind and becomes an undifferentiated wash.
+-- 7/4: effective spread (about size * 2^(passes-1)) is ~56, against the ~32 of
+-- section 5's original 8/3. Walked down from 12/4 (~96) through 10/4 and 8/4 --
+-- the wider settings read muddy, the backdrop turning into an undifferentiated
+-- wash rather than a suggestion of what sits behind the surface.
 --
 -- The two knobs are not equivalent, and they do not cost the same. Hyprland's
 -- blur is dual-Kawase: `size` scales the sampling OFFSETS, so raising it is
@@ -76,8 +76,10 @@ o.window({ tag = "default-opacity" }, { opacity = "1.0 0.875" })
 -- change the character, giving the softer, more diffuse falloff a large macOS
 -- material has, where more size just widens the same blur. So when it needed
 -- toning down, size came off and the 4th pass stayed -- dropping to 3 passes
--- would have halved the spread to ~48 and lost that falloff in one move.
--- Next step down, if it is still too heavy, is size 8 (~64).
+-- would have halved the spread and lost that falloff in one move. Size is now
+-- below section 5's own figure; easing further is better done by raising the
+-- unfocused window opacity (letting less of the blur through) than by shrinking
+-- size again, which starts to make the 4th pass pointless.
 --
 -- Note this is only visible through whatever a surface leaves translucent. At
 -- shell.menu/notifications alpha 0.92 just 8% of the backdrop shows, so radius
@@ -101,7 +103,7 @@ hl.config({
     rounding_power = 2.2,
     blur = {
       enabled = true,
-      size = 10,
+      size = 7,
       passes = 4,
       -- Saturation of the blurred backdrop. BUILD.md section 5 started at 0.20
       -- ("macOS boosts saturation behind glass"); 0.30 pulls more colour
