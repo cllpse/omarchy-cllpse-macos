@@ -237,6 +237,12 @@ fi
 #
 # Re-running must not yank a light-mode user back to dark, so an already-active
 # cllpse-macos theme is refreshed in place; anything else defaults to dark.
+# `omarchy theme set` does not keep the current wallpaper: choose_theme_background
+# advances to the NEXT one in the folder every call (next_index = index + 1), so
+# without this a re-run walks the background forward each time. Remember it by
+# name and put it back afterwards if the new theme still has a file by that name.
+prev_bg="$(basename "$(readlink -f ~/.local/state/omarchy/current/background 2>/dev/null || true)" 2>/dev/null || true)"
+
 current_theme="$(cat ~/.local/state/omarchy/current/theme.name 2>/dev/null || true)"
 case "$current_theme" in
   omarchy-cllpse-theme-dark | omarchy-cllpse-theme-light)
@@ -248,6 +254,14 @@ case "$current_theme" in
     omarchy theme set omarchy-cllpse-theme-dark >/dev/null 2>&1 || true
     ;;
 esac
+
+restored_bg="$HOME/.local/state/omarchy/current/theme/backgrounds/$prev_bg"
+if [[ -n $prev_bg && -f $restored_bg ]]; then
+  if [[ "$(basename "$(readlink -f ~/.local/state/omarchy/current/background 2>/dev/null || true)" 2>/dev/null || true)" != "$prev_bg" ]]; then
+    omarchy theme bg set "$restored_bg" >/dev/null 2>&1 || true
+    skip "kept the current background ($prev_bg)"
+  fi
+fi
 
 echo
 say "Done. Follow-ups:"

@@ -274,8 +274,9 @@ Three facts drive the mapping:
 | shadow offset | `0 8` | macOS shadows sit below the window [chosen] |
 | shadow colour | `rgba(00000040)` | [chosen] |
 | blur size / passes | `12` / `4` | NSVisualEffectView is a heavy blur [chosen] — effective spread ≈ size × 2^(passes−1), so ≈96. `size` scales sampling offsets and is essentially free; each `pass` adds a downsample+upsample iteration (~+30% blur work). The 4th pass was chosen over more size because passes change the character — the softer, more diffuse falloff of a large macOS material — where size only widens the same blur |
-| blur vibrancy | `0.20` | macOS boosts saturation behind glass [chosen] |
-| blur brightness / contrast | `1.0` / `1.0` | macOS does not darken [chosen] |
+| blur vibrancy / vibrancy_darkness | `0.30` / `0.30` | macOS boosts saturation behind glass [chosen] — Hyprland leaves vibrancy_darkness at 0, which barely touches dark backdrops and left the dark theme's glass flat next to the light one; matched so both saturate alike |
+| blur brightness / contrast | `1.0` / `1.0` | macOS does not darken [chosen] — Hyprland defaults to 0.8172 / 0.8916 |
+| blur noise | `0.02` | frosted grain, just above Hyprland's 0.0117 [chosen] — largely academic at these alphas: only 8–12% of the noisy backdrop shows through the menu (0.92) or a window (0.875) |
 | active / inactive opacity | `1.0` / `0.875` | focused opaque per macOS; unfocused translucent so the blur pass renders through them — glass, not a flat dim [chosen] — overrides Omarchy's 0.985/0.96 |
 | dim_inactive | `false` | [chosen] — tried at 0.10 and removed; a darkening pass stacked on the unfocused opacity muddied it and worked against the blur-through the opacity is there for |
 

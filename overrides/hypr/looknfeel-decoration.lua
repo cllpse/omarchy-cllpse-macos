@@ -100,7 +100,21 @@ hl.config({
       enabled = true,
       size = 12,
       passes = 4,
-      vibrancy = 0.20,
+      -- Saturation of the blurred backdrop. BUILD.md section 5 started at 0.20
+      -- ("macOS boosts saturation behind glass"); 0.30 pulls more colour
+      -- through. Pure shader parameters, no render cost.
+      vibrancy = 0.30,
+      -- How far vibrancy reaches into dark areas. Hyprland defaults this to 0,
+      -- which means dark backdrops get almost no boost -- so the dark theme's
+      -- glass read flat next to the light theme's. Matched to vibrancy so both
+      -- themes saturate alike.
+      vibrancy_darkness = 0.30,
+      -- Frosted grain, a touch above Hyprland's 0.0117 default. Worth knowing
+      -- how little this shows: at the surface alphas here -- menu 0.92, windows
+      -- 0.875 -- only 8-12% of the noisy backdrop is visible, so even 0.2 was
+      -- near-indistinguishable from this in a side-by-side. The bar at 0.72 is
+      -- the only surface transparent enough for grain to really read.
+      noise = 0.02,
       brightness = 1.0,
       contrast = 1.0,
     },
