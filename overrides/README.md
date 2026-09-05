@@ -31,6 +31,7 @@ Both are idempotent, need **no sudo**, and are safe to re-run.
 
 | # | Action | Target |
 |---|---|---|
+| 0 | Record the font and theme the machine had *before* the first apply, so `revert.sh` has something true to restore. Written once; values already ours are refused | `~/.local/state/cllpse-macos/previous-{font,theme}` |
 | 1 | Symlink both `omarchy-cllpse-theme/` folders as themes, and `omarchy-cllpse-switcher/` as a plugin | `~/.config/omarchy/themes/omarchy-cllpse-theme-{dark,light}`, `~/.config/omarchy/plugins/io.eject.window-switcher` |
 | 2 | Install SF fonts + fontconfig drop-ins (UI font + hintnone) | `~/.local/share/fonts/SF/`, `~/.config/fontconfig/conf.d/{99-cllpse-macos-ui-font,11-cllpse-macos-hinting}.conf` |
 | 3 | Monospace → SF Mono (Omarchy's own knob) | `omarchy font set` → terminal configs + `fonts.conf` |
@@ -93,6 +94,29 @@ Hinting is `hintnone` on three fronts that don't share a knob: the fontconfig
 drop-in covers Qt / Alacritty / Electron; `gsettings font-hinting` covers
 GTK/GNOME; the Ghostty block covers Ghostty (Kitty hardcodes light hinting —
 no override). Middle ground if it reads too soft: `hintslight` + `autohint`.
+
+## What `apply.sh` does and does not guarantee
+
+Within what it controls it is deterministic: every step is idempotent, fenced
+blocks are replaced rather than appended so a re-run converges on the snippet,
+pre-existing state is recorded once and never overwritten, and re-running changes
+nothing that already matches. Running it twice gives the same result as once.
+
+It is **not** a complete machine build. On a clean install these are the gaps:
+
+| Gap | Effect |
+|---|---|
+| **No sudo, so no packages.** `bibata-cursor-theme` is warned about but not installed — yet the cursor theme is still set in `gsettings` and `hl.env`, so a missing package leaves the cursor falling back. `lsd` missing just skips the alias (guarded). Ghostty, Foot, `lazygit`, `bat` are assumed present | Cursor visibly wrong; other items silently absent |
+| **Third-party plugins are not installed** — `bobbynicholas.omaland`, `dizziee.system-updates`, `nomarkoo.keyboard-layout` | Absent, and the blocks that coordinate with them behave differently (see below) |
+| **`display.conf` values are hardware-specific** — text size 14, monitor scale 1.25, GDK scale 1 are tuned for one ~110 PPI 3840x1600 display. `gdk-scale` in particular is wrong on a HiDPI panel, where Omarchy's default of 2 is right | Wrong sizing on different hardware, applied confidently |
+| **Some settings need a relogin** — the `environment.d` drop-ins (Figma → Wayland, FreeType darkening) and `OMARCHY_MENU_FONT` are read at session start | State immediately after `apply.sh` is not the final state |
+| **`sync_fenced` creates the target if absent.** If `~/.config/ghostty/config` does not exist, the file it writes contains only our block — losing Omarchy's `config-file` line that pulls in theme colours | Terminal colours silently unthemed |
+| **Plugin-owned regions are won on file position, not ownership.** `input-tuning.lua` sits after Omaland's mouse block, and the keyboard layout after `default.hypr.toggles` — but opening Omaland's settings panel rewrites its block below ours | Mouse/keyboard settings can flip back later |
+| **`revert.sh`'s restore paths are unit-tested but never run end-to-end** | Unverified on a real machine |
+
+So: an agent following this on a clean install gets the look right, and every value
+in it is written down. It will not get a byte-identical machine, and the
+differences above are the ones to check by hand.
 
 ## Follow-ups `apply.sh` can't do live
 

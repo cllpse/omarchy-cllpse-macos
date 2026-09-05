@@ -166,6 +166,15 @@ and the original is kept in prose as provenance. Don't leave the two out of sync
 - The repo carries ~229 MB of Apple fonts and wallpapers it does not own, on a
   public remote. See [`THIRD-PARTY.md`](THIRD-PARTY.md) before adding more.
 
+## Reproducing this on another machine
+
+`apply.sh` is deterministic and idempotent for what it controls, but it is not a
+full machine build — it installs no packages (no sudo), no third-party plugins,
+and `display.conf` carries values tuned for one specific display. Several
+settings only take effect after a relogin. `overrides/README.md` has the full
+list under *What apply.sh does and does not guarantee*; read it before assuming a
+clean install ended up identical.
+
 ## Still open
 
 - Light-specific `preview*.png` / `unlock.png` — both themes still ship identical
