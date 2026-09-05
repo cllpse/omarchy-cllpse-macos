@@ -39,6 +39,7 @@ Both are idempotent, need **no sudo**, and are safe to re-run.
 | 6 | `OMARCHY_MENU_FONT` (shell popups) + `decoration` (`rounding = 14` / `rounding_power = 2.2`, `blur` on @ size 12 / passes 3 / vibrancy 0.20, `border_size = 2`, `gaps_in/out = 8/16`) + window `opacity = 1.0 0.88` + 2× animation speeds + `layer_rule` blur on the shell surfaces | fenced blocks synced into `~/.config/hypr/hyprland.lua` and `~/.config/hypr/looknfeel.lua` |
 | 7 | `bat` / `lazygit` / `fzf` colours → terminal ANSI | `~/.config/bat/config`, `~/.config/lazygit/config.yml`, fenced block in `~/.bashrc` |
 | 7b | Restore saved display scaling + text size from `display.conf` (skipped if the file is absent; each empty key skipped) | `omarchy display text size`, the two scale variables in `~/.config/hypr/monitors.lua` |
+| 7c | Install session environment drop-ins (Figma → native Wayland) | `~/.config/environment.d/50-cllpse-macos-figma-wayland.conf` |
 | 8 | Apply the theme — refreshes whichever cllpse-macos theme is already active, else sets dark | `omarchy theme set …` |
 
 The blur `layer_rule` only opts the shell surfaces *into* blur; the matching
@@ -99,6 +100,7 @@ no override). Middle ground if it reads too soft: `hintslight` + `autohint`.
 - **Open a new shell** for the `fzf` colours.
 - **Restart Ghostty / Foot** windows for the new monospace font + `hintnone` (Kitty/Alacritty reload themselves).
 - **Relaunch running GTK/Qt apps + the bar** to pick up `hintnone`.
+- **Log out / back in** for the `environment.d` drop-ins — the systemd user session reads them at session start.
 
 ## Contents
 
@@ -116,4 +118,5 @@ bash/fzf.sh                   export FZF_DEFAULT_OPTS='--color=...'
 display-lib.sh                shared readers/writers for scale + text size (sourced, not run)
 display.conf                  saved text-size / monitor-scale / gdk-scale
 save-display.sh               capture the live values into display.conf
+environment.d/*.conf          systemd user-session env (Figma native Wayland)
 ```

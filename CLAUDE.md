@@ -112,6 +112,20 @@ so a failed rewrite cannot truncate a real config.
 inactive-border block, our fenced block, and an Omaland-managed block. Only ours
 is safe to rewrite, and edits must preserve the other two.
 
+**Per-app environment belongs in `environment.d`, not a wrapper.** The session is
+started by uwsm through systemd, which imports `~/.config/environment.d/*.conf`
+(verified: `FREETYPE_PROPERTIES` and `SSH_AUTH_SOCK` from existing drop-ins are
+live in `systemctl --user show-environment`). A wrapper placed inside an
+application directory — an AppImage's `AppRun`, say — is silently deleted by the
+app's next self-update, and the behaviour reverts with no visible cause. A
+drop-in is out of reach of that. Applies from the next login.
+
+Figma Desktop is the live example: its bundled launcher defaults to X11 and
+passes `--ozone-platform=x11` explicitly, overriding Omarchy's global
+`ELECTRON_OZONE_PLATFORM_HINT=wayland`, and under XWayland with
+`force_zero_scaling` it renders at 1/monitor-scale (80% at 1.25).
+`FIGMA_USE_WAYLAND=1` is the launcher's own opt-in.
+
 **`revert.sh` only undoes.** It never picks a font or theme. `apply.sh` records
 the pre-existing font and theme once, into `~/.local/state/cllpse-macos/`,
 refusing to record values that are already ours; revert restores those, or falls

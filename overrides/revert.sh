@@ -66,6 +66,15 @@ for k in font-name document-font-name monospace-font-name font-hinting; do
   gsettings reset org.gnome.desktop.interface "$k" 2>/dev/null || true
 done
 
+# Remove only the drop-ins this repo ships, by name — never the whole directory.
+if [[ -d $HERE/environment.d ]]; then
+  for f in "$HERE"/environment.d/*.conf; do
+    [[ -e $f ]] || continue
+    t=~/.config/environment.d/"$(basename "$f")"
+    [[ -e $t ]] && { rm -f "$t"; say "removed $(basename "$f")"; }
+  done
+fi
+
 strip_fenced ~/.config/ghostty/config
 strip_fenced ~/.config/hypr/hyprland.lua
 strip_fenced ~/.config/hypr/looknfeel.lua

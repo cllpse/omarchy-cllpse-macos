@@ -197,6 +197,24 @@ if [[ -f "$HERE/display.conf" ]]; then
   done
 fi
 
+# ── 7c. session environment drop-ins ─────────────────────────────────────────
+# Read by the systemd user session (uwsm starts Hyprland through it), so these
+# survive application updates in a way a wrapper script inside an app directory
+# does not. Applies from the next login.
+if [[ -d "$HERE/environment.d" ]]; then
+  say "environment.d drop-ins -> ~/.config/environment.d/"
+  mkdir -p ~/.config/environment.d
+  for f in "$HERE"/environment.d/*.conf; do
+    [[ -e $f ]] || continue
+    if cmp -s "$f" ~/.config/environment.d/"$(basename "$f")"; then
+      skip "$(basename "$f") already current"
+    else
+      cp "$f" ~/.config/environment.d/"$(basename "$f")"
+      say "installed $(basename "$f")  (takes effect on next login)"
+    fi
+  done
+fi
+
 # ── 8. apply theme ───────────────────────────────────────────────────────────
 # `omarchy theme set` COPIES the theme folder into
 # ~/.local/state/omarchy/current/theme/ — it does not symlink it. So this step
