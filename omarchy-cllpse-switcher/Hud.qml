@@ -279,7 +279,10 @@ Item {
     // Visual only: empty input region, so the strip never intercepts a click.
     mask: Region {}
 
-    // Same dim as the Omarchy menu (Color.menu.scrim = theme bg at ~0.5).
+    // Same dim as the Omarchy menu (Color.menu.scrim = theme bg at 0.25). The
+    // layer rule in overrides/hypr/looknfeel-decoration.lua sets ignore_alpha
+    // above this, so the scrim is NOT blurred -- the windows being switched
+    // between stay readable through it, while the card above keeps its blur.
     Rectangle {
       anchors.fill: parent
       color: Color.menu.scrim

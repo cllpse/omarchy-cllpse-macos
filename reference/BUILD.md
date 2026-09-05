@@ -314,10 +314,18 @@ The Omarchy column is [measured] from `shell.toml`; the macOS column is
 | bar | 1.0 | **0.72** — menu bar is translucent over the wallpaper |
 | launcher | 0.95 | **0.85** — Spotlight is more translucent |
 | launcher scrim | 0.5 | **0.35** — macOS dims the desktop only lightly |
+| menu scrim | 1.0 | **0.25** — the menu and the window switcher share this layer; it has to stay readable enough to pick the window you are switching to |
 | menu | 1.0 | **0.92** — near-opaque glass |
 | tooltip | 0.97 | 0.97 — already correct |
 | notifications | 1.0 | **0.92** |
 | lock | 0.8 | 0.8 — already correct |
+
+Scrims are deliberately excluded from blur. A card and the scrim behind it are
+one layer surface, so Hyprland cannot blur them separately — the only per-layer
+controls are blur on/off and `ignore_alpha`, which leaves pixels below a given
+alpha unblurred. Setting that threshold at 0.6 puts it between the scrims (0.25,
+0.35) and every card (0.72–0.92), so cards stay frosted while the backdrop stays
+sharp. If a card's alpha is ever taken below 0.6 it will silently lose its blur.
 
 **All of these depend on layer blur reaching the shell's surfaces.**
 Translucency without blur looks washed out, not like macOS. If blur can't be

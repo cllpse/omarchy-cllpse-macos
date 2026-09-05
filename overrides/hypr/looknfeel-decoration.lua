@@ -134,10 +134,25 @@ hl.config({
 -- These rules are additive to Omarchy's own no_anim layer rules in
 -- default/hypr/apps/omarchy-shell.lua -- they don't replace them.
 --
--- ignore_alpha = 0.1 keeps the fully-transparent margin around rounded cards
--- (menu, launcher, polkit, notifications are fullscreen layers with a centred
--- card) from blurring into a rectangle. blur_popups extends blur to child
--- dropdowns (bar module menus, panel flyouts).
+-- ignore_alpha leaves any pixel below that alpha unblurred. It started at 0.1,
+-- purely to keep the fully-transparent margin around rounded cards (menu,
+-- launcher, polkit, notifications are fullscreen layers with a centred card)
+-- from blurring into a rectangle.
+--
+-- It is now 0.6, which does more work. A card and the scrim behind it are the
+-- SAME layer surface, so Hyprland cannot blur them differently -- per layer the
+-- only controls are blur on/off and this threshold. Sitting it between the
+-- scrims and the cards splits them:
+--
+--   launcher scrim 0.35, menu scrim 0.25   -> below 0.6, not blurred
+--   bar 0.72, launcher 0.85, menu 0.92     -> at or above 0.6, blurred
+--
+-- so the menu and the window switcher keep their frosted card while the dimmed
+-- backdrop stays sharp and the windows behind it remain readable -- which is the
+-- point of a switcher. Watch this if any surface alpha changes: a card dropped
+-- below 0.6 would silently lose its blur.
+--
+-- blur_popups extends blur to child dropdowns (bar module menus, panel flyouts).
 --
 -- window-switcher-hud is our own plugin (omarchy-cllpse-switcher/, symlinked to
 -- ~/.config/omarchy/plugins/io.eject.window-switcher). Its card already binds
@@ -154,7 +169,7 @@ hl.layer_rule({
   match = { namespace = "^omarchy-(bar|menu|notifications|osd|polkit|clipboard|emojis|reminders|image-selector|network-qr|keyboard-panel|lock-preview|window-switcher-hud)$" },
   blur = true,
   blur_popups = true,
-  ignore_alpha = 0.1,
+  ignore_alpha = 0.6,
 })
 
 -- ── Animation speed (2x) ───────────────────────────────────────────────────
