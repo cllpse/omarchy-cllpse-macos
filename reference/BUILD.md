@@ -267,8 +267,9 @@ Three facts drive the mapping:
 | Setting | Value | Basis |
 |---|---|---|
 | rounding | `16` | macOS window corner radius [chosen] — 26 is the reported Tahoe toolbar-window figure, but it is third-party and dramatic on tiled windows; 16 sits above the 12 fallback below and is treated as satisfying this row (14 previously) |
-| rounding_power | `2.0` | Hyprland's default circular arc [chosen] — 2.2 was tried as a nudge toward Apple's continuous corner, but the knob is windows-only and left window corners subtly out of step with the shell surfaces that mirror `rounding` |
-| border_size | `2` | macOS hairline edge is 1, but that is a weak focus cue in a tiling WM [chosen] — 2 is also the Omarchy default |
+| rounding_power | `3.2` | Apple's continuous-corner squircle [chosen] — 2.0 is Hyprland's plain circular arc (kept as the fallback), 2.2 an earlier half-measure. 3.2 sits a little under the point where Hyprland's border renderer stops tracking the curve. The knob is windows-only, so the shell surfaces that mirror `rounding` stay a circular arc — a slight mismatch, accepted for the more faithful window corner |
+| border_part_of_window | `false` | what makes `rounding_power 3.2` usable [chosen] — with the default `true` the border is drawn in the window pass and its outer edge renders under-curved against the squircle, so the stroke fattens at the 45° corner from `rounding_power` ≈ 3 up; as a standalone decoration it stays even to ≈ 3.5–4. Past that the bulge returns at any border width — a Hyprland 0.56.2 rendering limit, not a knob |
+| border_size | `2` | Omarchy's default, and the macOS hairline (1) is a weak focus cue in a tiling WM [chosen]. Thickening does not fix the corner bulge — that scales with the stroke — so `border_part_of_window` is the lever, not width |
 | gaps_in | `8` | Apple 8pt layout grid [chosen] |
 | gaps_out | `16` | 2× inner step [chosen] |
 | shadow range | `40` | large and soft [chosen] |
@@ -289,10 +290,16 @@ uniform: windows without a toolbar are less rounded, and pre-Tahoe macOS used
 **Shipped: 14**, just above the 12 fallback and inside the pre-Tahoe range. This
 is the settled value, not a deferred approximation — it satisfies this row, and
 the 26 above is kept only as the provenance of where the number came from.
-`border_size = 2` likewise settles the row below.
+`border_size = 2` settles the row below.
 
-`border_size = 1` is the faithful hairline, but a weak focus cue in a tiling WM —
-hence the 2 above.
+`rounding_power` and the border: Hyprland's border renderer keeps the stroke's
+*inner* edge on the window's squircle but draws the *outer* edge under-curved, so
+above `rounding_power` ≈ 3 the 2px stroke visibly fattens at the 45° corner.
+`border_part_of_window = false` draws the border as a standalone decoration and
+holds the corner even to ≈ 3.5–4; `3.2` is chosen with a bit of margin under
+that. Thickening the border does not help — the bulge scales with stroke width.
+Past ≈ 4 there is no config fix in Hyprland 0.56.2. `border_size = 1` is the
+faithful macOS hairline but a weak focus cue in a tiling WM — hence `2`.
 
 Window decoration belongs in the user Hyprland config, not the theme: v4 strips
 `.lua` files from git-cloned themes, so a theme-shipped decoration file would

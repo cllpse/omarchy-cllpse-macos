@@ -7,8 +7,9 @@
 #   3. point monospace at SF Mono (omarchy font set)
 #   4. point GTK / GNOME apps at SF Pro / SF Mono (gsettings)
 #   5. force hintnone for GTK/GNOME (gsettings) + Ghostty (freetype-load-flags)
+#   5b. strip GTK window buttons (gsettings button-layout)
 #   6. hypr overrides: OMARCHY_MENU_FONT (shell popups) + decoration (rounding, blur)
-#   7. install bat / lazygit theme configs, add fzf colours to .bashrc
+#   7. install bat / lazygit theme configs, merge Cursor settings, add fzf colours to .bashrc
 #   8. apply the theme (refreshes whichever cllpse-macos theme is active; dark otherwise)
 
 set -euo pipefail
@@ -141,6 +142,15 @@ say "gsettings: GTK/GNOME font-hinting -> none"
 gsettings set org.gnome.desktop.interface font-hinting 'none'
 sync_fenced ~/.config/ghostty/config "$HERE/ghostty/ghostty.conf"
 
+# ── 5b. GTK window buttons -> none ───────────────────────────────────────────
+# Hyprland draws no titlebars; the min/max/close a GTK/libadwaita app shows are
+# its own client-side decoration, laid out from this key (Nautilus, Files, the
+# GNOME apps). ':' = nothing either side of the divider. Omarchy's default is
+# 'appmenu:close'. Electron/Qt draw their own controls and ignore this — Cursor
+# is handled in step 7. `gsettings reset` (revert.sh) restores the default.
+say "gsettings: GTK window buttons -> none"
+gsettings set org.gnome.desktop.wm.preferences button-layout ':'
+
 # ── 6. hypr overrides ────────────────────────────────────────────────────────
 # Each block is appended at the END of its file, which is what makes it win on
 # load order — see the notes in the snippets themselves.
@@ -167,6 +177,37 @@ cp "$HERE/bat/config" ~/.config/bat/config
 say "lazygit -> ~/.config/lazygit/config.yml (ANSI theme)"
 mkdir -p ~/.config/lazygit; backup ~/.config/lazygit/config.yml
 cp "$HERE/lazygit/config.yml" ~/.config/lazygit/config.yml
+
+# Cursor — deep-merge our editor prefs into settings.json with jq: our keys win,
+# any key we don't set is kept. Omarchy owns workbench.colorTheme (it rewrites it
+# to "Omarchy" on every `omarchy theme set`, via omarchy-theme-set-vscode), so
+# cursor/settings.json deliberately omits it. Cursor is the only editor of this
+# family installed here; VS Code / VSCodium would each want their own merge.
+cursor_settings=~/.config/Cursor/User/settings.json
+if [[ -x /usr/bin/cursor || -d ${cursor_settings%/*} ]]; then
+  mkdir -p "${cursor_settings%/*}"
+  if [[ -s $cursor_settings ]] && ! jq -e . "$cursor_settings" >/dev/null 2>&1; then
+    skip "Cursor settings.json has comments / trailing commas jq won't parse —"
+    skip "  merge $HERE/cursor/settings.json in by hand"
+  else
+    backup "$cursor_settings"
+    _merged=$(mktemp)
+    if [[ -s $cursor_settings ]]; then
+      jq -s '.[0] * .[1]' "$cursor_settings" "$HERE/cursor/settings.json" >"$_merged" 2>/dev/null || true
+    else
+      jq . "$HERE/cursor/settings.json" >"$_merged" 2>/dev/null || true
+    fi
+    if [[ -s $_merged ]]; then
+      mv "$_merged" "$cursor_settings"
+      say "Cursor -> $cursor_settings (jq merge)"
+    else
+      rm -f "$_merged"
+      skip "Cursor settings merge produced nothing — left settings.json untouched"
+    fi
+  fi
+else
+  skip "Cursor not installed — skipped settings.json merge"
+fi
 
 sync_fenced ~/.bashrc "$HERE/bash/shell.sh"
 

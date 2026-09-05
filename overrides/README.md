@@ -2,8 +2,8 @@
 
 Everything the `omarchy-cllpse-theme` themes need that lives **outside** an
 Omarchy theme folder — fonts, fontconfig, GTK settings, font hinting, Hyprland
-env var + window decoration (rounding, blur), and colour configs for apps Omarchy
-doesn't theme. Omarchy's design puts all of this at
+env var + window decoration (rounding, blur), Cursor editor prefs, and colour
+configs for apps Omarchy doesn't theme. Omarchy's design puts all of this at
 machine level (it applies to every theme, reading whatever palette is active),
 so it can't ship inside a theme folder.
 
@@ -37,8 +37,9 @@ Both are idempotent, need **no sudo**, and are safe to re-run.
 | 3 | Monospace → SF Mono (Omarchy's own knob) | `omarchy font set` → terminal configs + `fonts.conf` |
 | 4 | GTK/GNOME fonts → SF Pro / SF Mono | `gsettings org.gnome.desktop.interface` |
 | 5 | Font hinting → `none` — SF faces render unhinted; grid-snapped stems read as sharp under grayscale AA (Wayland fractional scaling) | `gsettings … font-hinting 'none'` (GTK/GNOME) + fenced `freetype-load-flags = no-hinting` in `~/.config/ghostty/config`, on top of Omarchy's stock config (fontconfig side is the step-2 drop-in) |
-| 6 | `OMARCHY_MENU_FONT` + cursor theme + `no_warps` + keyboard layout (`hyprland.lua`), decoration/blur/opacity/animations (`looknfeel.lua`), window-switcher keybinds (`bindings.lua`), mouse tuning (`input.lua`) + `decoration` (`rounding = 16` / `rounding_power = 2.0`, `blur` on @ size 7 / passes 4 / vibrancy 0.30, `border_size = 2`, `gaps_in/out = 8/16`) + window `opacity = 1.0 0.875` + 2× animation speeds + `layer_rule` blur on the shell surfaces | fenced blocks synced into `~/.config/hypr/hyprland.lua` and `~/.config/hypr/looknfeel.lua` |
-| 7 | `bat` / `lazygit` / `fzf` colours → terminal ANSI | `~/.config/bat/config`, `~/.config/lazygit/config.yml`, fenced block in `~/.bashrc` |
+| 5b | GTK window buttons → none. Hyprland draws no titlebars; a GTK/libadwaita app's min/max/close is its own CSD, laid out from this key. `':'` vs Omarchy's `'appmenu:close'`. Electron/Qt ignore it — Cursor's are step 7 | `gsettings org.gnome.desktop.wm.preferences button-layout ':'` |
+| 6 | `OMARCHY_MENU_FONT` + cursor theme + `no_warps` + keyboard layout (`hyprland.lua`), decoration/blur/opacity/animations (`looknfeel.lua`), window-switcher keybinds (`bindings.lua`), mouse tuning (`input.lua`) + `decoration` (`rounding = 16` / `rounding_power = 3.2` / `border_part_of_window = false` — squircle corner without the border fattening at it, see the snippet, `blur` on @ size 7 / passes 4 / vibrancy 0.30, `border_size = 2`, `gaps_in/out = 8/16`) + window `opacity = 1.0 0.875` + 2× animation speeds + `layer_rule` blur on the shell surfaces | fenced blocks synced into `~/.config/hypr/hyprland.lua` and `~/.config/hypr/looknfeel.lua` |
+| 7 | `bat` / `lazygit` / `fzf` colours → terminal ANSI; Cursor editor prefs (whitespace/format-on-save, chrome trimmed — activity + status bars, menu bar, layout control, agents-window button and the `custom` title bar's min/max/close all hidden) merged into `settings.json` with `jq` — our keys win, `workbench.colorTheme` left to Omarchy, no extension-dependent keys | `~/.config/bat/config`, `~/.config/lazygit/config.yml`, `~/.config/Cursor/User/settings.json`, fenced block in `~/.bashrc` |
 | 7b | Restore saved display scaling + text size from `display.conf` (skipped if the file is absent; each empty key skipped) | `omarchy display text size`, the two scale variables in `~/.config/hypr/monitors.lua` |
 | 7c | Install session environment drop-ins (Figma → native Wayland) | `~/.config/environment.d/50-cllpse-macos-figma-wayland.conf` |
 | 7d | Chromium scale: `--force-device-scale-factor=1` (browser UI 20% under DP-2's 1.25) + `110%` default page zoom. Page size is the product of the two — 125% would be exactly 1:1 with native | fenced block in `~/.config/chromium-flags.conf` + `partition.default_zoom_level` in each `~/.config/chromium/*/Preferences` |
@@ -53,8 +54,15 @@ namespace match also covers `omarchy-window-switcher-hud`, so the
 Injected blocks are wrapped in `>>> cllpse-macos overrides >>>` fences (comment
 leader `--` in Lua, `#` in shell — Ghostty config takes `#`); `revert.sh` deletes
 exactly those. Pre-existing `~/.config/bat/config` /
-`~/.config/lazygit/config.yml` are saved as `*.pre-cllpse` and restored on
-revert.
+`~/.config/lazygit/config.yml` / `~/.config/Cursor/User/settings.json` are saved
+as `*.pre-cllpse` and restored on revert.
+
+Cursor `settings.json` is the one JSON target: `apply.sh` deep-merges
+`cursor/settings.json` with `jq` (`.[0] * .[1]` — our keys win, everything else
+stays). It refuses if the live file has JSONC comments `jq` can't parse, and
+never writes an empty result. `workbench.colorTheme` is intentionally absent from
+our file — `omarchy-theme-set-vscode` rewrites it to `"Omarchy"` on every theme
+switch, and merging in a competing value would just lose that race.
 
 **Re-running updates an existing block in place.** `sync_fenced` replaces the
 fenced region and leaves everything around it alone, so edits to
@@ -107,7 +115,8 @@ It is **not** a complete machine build. On a clean install these are the gaps:
 
 | Gap | Effect |
 |---|---|
-| **No sudo, so no packages.** `bibata-cursor-theme-bin` (AUR — `pacman -S` will not find it) is warned about but not installed — yet the cursor theme is still set in `gsettings` and `hl.env`, so a missing package leaves the cursor falling back. `lsd` missing just skips the alias (guarded). Ghostty, Foot, `lazygit`, `bat` are assumed present | Cursor visibly wrong; other items silently absent |
+| **No sudo, so no packages.** `bibata-cursor-theme-bin` (AUR — `pacman -S` will not find it) is warned about but not installed — yet the cursor theme is still set in `gsettings` and `hl.env`, so a missing package leaves the cursor falling back. `lsd` missing just skips the alias (guarded). Ghostty, Foot, `lazygit`, `bat`, `jq` are assumed present | Cursor visibly wrong; other items silently absent |
+| **Cursor editor not installed.** The `settings.json` merge is skipped when both `/usr/bin/cursor` and `~/.config/Cursor/User/` are absent. The override carries no marketplace-extension keys, so nothing in it needs a network step | Merge skipped on a machine without Cursor |
 | **Third-party plugins are not installed** — `bobbynicholas.omaland`, `dizziee.system-updates`, `nomarkoo.keyboard-layout` | Absent, and the blocks that coordinate with them behave differently (see below) |
 | **`display.conf` values are hardware-specific** — text size 14, monitor scale 1.25, GDK scale 1 are tuned for one ~110 PPI 3840x1600 display. `gdk-scale` in particular is wrong on a HiDPI panel, where Omarchy's default of 2 is right | Wrong sizing on different hardware, applied confidently |
 | **Some settings need a relogin** — the `environment.d` drop-ins (Figma → Wayland, FreeType darkening) and `OMARCHY_MENU_FONT` are read at session start | State immediately after `apply.sh` is not the final state |
@@ -138,10 +147,11 @@ fontconfig/conf.d/11-cllpse-macos-hinting.conf   hintstyle -> hintnone (override
 ghostty/ghostty.conf          freetype-load-flags = no-hinting + a few non-default prefs
 bat/config                    --theme="ansi"
 lazygit/config.yml            gui.theme with ANSI colour names
+cursor/settings.json          Cursor editor prefs, jq-merged in; omits workbench.colorTheme (Omarchy's) + extension-dependent keys
 hypr/hyprland-env.lua         OMARCHY_MENU_FONT + cursor theme/size + no_warps + kb layout
 hypr/window-switcher-bindings.lua  SUPER+TAB keybinds driving the switcher plugin
 hypr/input-tuning.lua         mouse sensitivity/accel/follow_mouse
-hypr/looknfeel-decoration.lua rounding 16 / rounding_power 2.0 / blur / border_size 2 / gaps 8,16 / window opacity 1.0 0.875 / 2x animations / layer_rule blur on shell surfaces
+hypr/looknfeel-decoration.lua rounding 16 / rounding_power 3.2 / border_part_of_window false / blur / border_size 2 / gaps 8,16 / window opacity 1.0 0.875 / 2x animations / layer_rule blur on shell surfaces
 bash/shell.sh                 FZF_DEFAULT_OPTS derived from the live palette + lsd alias
 display-lib.sh                shared readers/writers for scale + text size (sourced, not run)
 display.conf                  saved text-size / monitor-scale / gdk-scale

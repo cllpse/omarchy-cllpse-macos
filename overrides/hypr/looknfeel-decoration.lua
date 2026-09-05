@@ -17,13 +17,24 @@
 -- drives both window and shell rounding.
 --
 -- rounding_power shapes the corner curve (higher = squircle, closer to Apple's
--- continuous corners). Left at Hyprland's default 2.0, a plain circular arc:
--- it is windows-only anyway -- the shell's Rectangle.radius ignores it -- so the
--- earlier 2.2 nudge only ever applied to half the surfaces on screen, and set
--- window corners subtly out of step with the bar and menu that mirror them.
+-- continuous corners). 3.2 -- a clear squircle, kept a little under the point
+-- where Hyprland's border renderer stops keeping up (~3.5-4). The knob is
+-- windows-only: the shell's Rectangle.radius ignores it, so the bar and menu
+-- stay a circular arc while windows curve tighter. Accepted -- the mismatch is
+-- slight at 3.2 and the squircle is the more macOS-faithful window corner. (2.0,
+-- the plain arc, is the fallback; 2.2 was an earlier half-measure.)
 --
--- border_size is pinned at 2 (also the Omarchy default). BUILD.md section 5 notes
--- 1 is faithful to the macOS hairline but a weak focus cue in a tiling WM.
+-- border_part_of_window = false is what makes 3.2 usable. With the default true,
+-- the border is drawn in the window pass and its outer edge is rendered
+-- under-curved against the squircle, so the 2px stroke fattens visibly at the
+-- 45 degree corner from rounding_power ~3 up. As a standalone decoration (false)
+-- the corner stays even to ~3.5-4; past that the bulge returns at any width, so
+-- this is a ceiling, not a knob. Hyprland 0.56.2 -- may improve upstream.
+--
+-- border_size is 2 (the Omarchy default). BUILD.md section 5's hairline (1) is
+-- macOS-faithful but a weak focus cue in a tiling WM. Thickening it does not
+-- fix the corner bulge -- that scales with the stroke -- so the fix above is
+-- border_part_of_window, not width.
 --
 -- gaps_in/gaps_out follow BUILD.md section 5's Apple 8pt layout grid: 8 between
 -- windows, 16 (2x the inner step) at the screen edge. Omarchy defaults to 5/10.
@@ -102,7 +113,8 @@ hl.config({
   decoration = {
     dim_inactive = false,
     rounding = 16,
-    rounding_power = 2.0,
+    rounding_power = 3.2,
+    border_part_of_window = false,
     blur = {
       enabled = true,
       size = 7,

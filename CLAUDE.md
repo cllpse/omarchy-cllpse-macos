@@ -131,6 +131,52 @@ the pre-existing font and theme once, into `~/.local/state/cllpse-macos/`,
 refusing to record values that are already ours; revert restores those, or falls
 back to deleting the generated `fonts.conf`.
 
+**Cursor `settings.json` is merged, not copied.** `apply.sh` step 7 deep-merges
+`overrides/cursor/settings.json` into `~/.config/Cursor/User/settings.json` with
+`jq '.[0] * .[1]'` — our keys win, every other key the user or Omarchy set stays.
+It skips (never truncates) if the live file has JSONC comments `jq` rejects, and
+`backup`/`restore` handle the `.pre-cllpse` round-trip. **Our file must not carry
+`workbench.colorTheme`** — `omarchy-theme-set-vscode` rewrites that to `"Omarchy"`
+on every `omarchy theme set` (it also installs the generated `omarchy-theme`
+VS Code extension into `~/.cursor/extensions`), so a competing value just loses
+the race on the next theme switch. The file is kept to stock-Cursor keys — no
+setting in it depends on a marketplace extension (`iconTheme`, GitLens/Copilot
+keys and the Biome / ESLint per-language formatters were all stripped), and it
+sets no `editor.fontFamily` / `editor.fontWeight`: Cursor's default stack ends in
+`monospace`, which fontconfig resolves to SF Mono (from `omarchy font set`), so
+the editor inherits the system monospace without Omarchy writing a font key into
+Cursor — it never does, `omarchy-theme-set-vscode` only touches `colorTheme`.
+`editor.fontSize` (15) stays: it is a user preference with no Omarchy equivalent.
+Only Cursor is handled; VS Code / VSCodium would each need their own merge.
+
+**Merge into a running Cursor doesn't reliably stick.** Cursor rewrites the whole
+`settings.json` from its in-memory model whenever a setting changes through the
+UI, so a `jq` merge run while Cursor is open survives only until the next
+in-app toggle, which reverts any key that differed from what Cursor had loaded
+(`window.menuBarVisibility` was lost exactly this way). Run `apply.sh` with Cursor
+closed for the merge to hold — same failure shape as the Chromium `Preferences`
+trap. Panel/UI state that has no settings key (sidebar/panel open-closed, the
+`cursor/unifiedAppLayout` IDE-vs-agent mode) lives in
+`~/.config/Cursor/User/globalStorage/state.vscdb` and can't go in the override at
+all; only the settings-backed toggles (`workbench.statusBar.visible`,
+`workbench.layoutControl.enabled`, `workbench.agentsWindowButton.enabled`,
+`workbench.activityBar.location`, …) can.
+
+**Window frames are all client-side — Hyprland draws none.** No window on
+Hyprland gets a compositor titlebar, only the 2px `decoration:border_size`; every
+min/max/close is the app's own CSD, so each toolkit is a separate lever:
+- **GTK / libadwaita** (Nautilus, the GNOME apps) — `gsettings
+  org.gnome.desktop.wm.preferences button-layout`. `apply.sh` step 5b sets `':'`
+  (nothing); Omarchy's default is `'appmenu:close'`. Global to every GTK app.
+- **Cursor** (Electron) — `window.titleBarStyle: "custom"` +
+  `window.menuBarVisibility: "hidden"` + `window.controlsStyle: "hidden"` in the
+  override leave a bare drag strip. `controlsStyle` is Linux/Windows-only
+  (`included:!isMacintosh`); this build has no key to remove the strip itself.
+- **Figma Desktop** (`figma-linux` AppImage, Electron, forced to native Wayland
+  by `~/Applications/figma-desktop/AppRun` + the `FIGMA_USE_WAYLAND=1` drop-in) —
+  draws its own top panel (`panelHeight` in `~/.config/figma-linux/settings.json`)
+  and exposes no frame or menu toggle. Nothing to script.
+
 **BUILD.md is reconciled to what ships.** Where a shipped value differs from the
 spec's starting figure, the table row carries the shipped value tagged `[chosen]`
 and the original is kept in prose as provenance. Don't leave the two out of sync.

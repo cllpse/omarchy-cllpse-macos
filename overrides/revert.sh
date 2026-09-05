@@ -61,10 +61,11 @@ else
   say "  set one yourself with:  omarchy font set \"<font>\"   (omarchy font list)"
 fi
 
-say "gsettings: reset GTK/GNOME fonts + hinting"
+say "gsettings: reset GTK/GNOME fonts + hinting + window buttons"
 for k in font-name document-font-name monospace-font-name font-hinting cursor-theme cursor-size; do
   gsettings reset org.gnome.desktop.interface "$k" 2>/dev/null || true
 done
+gsettings reset org.gnome.desktop.wm.preferences button-layout 2>/dev/null || true
 
 # Remove only the drop-ins this repo ships, by name — never the whole directory.
 if [[ -d $HERE/environment.d ]]; then
@@ -84,6 +85,7 @@ strip_fenced ~/.bashrc
 
 restore ~/.config/bat/config
 restore ~/.config/lazygit/config.yml
+restore ~/.config/Cursor/User/settings.json
 
 # Display scaling + text size: put back only what was recorded at first apply.
 # Nothing recorded means the machine already matched display.conf, so there is
