@@ -12,16 +12,71 @@ Both live under `omarchy-cllpse-theme/`:
 | `omarchy-cllpse-theme/omarchy-cllpse-theme-dark/`  | **omarchy-cllpse-theme-dark**  | `dark`  | BUILD.md §1 (macOS 27 `NSColor` → sRGB) |
 | `omarchy-cllpse-theme/omarchy-cllpse-theme-light/` | **omarchy-cllpse-theme-light** | `light` | BUILD.md §2 |
 
+## Before you run this
+
+Built against **Omarchy 4.0.2** (`quattro`). The `master` branch is stale at
+3.8.5 and uses an incompatible theme format — this will not work there.
+
+`apply.sh` is idempotent and needs no sudo — which also means it installs no
+packages and makes no decisions about your hardware. Six things to settle first;
+everything after them can be handed to an agent.
+
+**1. Clone it where it will live.** `apply.sh` symlinks the two theme folders
+into `~/.config/omarchy/themes/`, pointing at this checkout. Moving or deleting
+the clone later breaks both themes.
+
+**2. Install what `apply.sh` can't.** None of these are installed for you:
+
+```bash
+yay -S bibata-cursor-theme-bin      # AUR — pacman -S will NOT find it
+sudo pacman -S lsd bat lazygit fzf
+```
+
+`bibata-cursor-theme-bin` is the one that matters: the cursor theme is set in
+`gsettings` and `hl.env` **whether or not the package is present**, so without it
+you get a fallback cursor and only a warning in the output. The rest degrade
+quietly — `lsd` missing just skips the `ls` alias.
+
+**3. Set the display values for *your* hardware.** `overrides/display.conf` ships
+values tuned for one ~110 PPI 3840x1600 display and applies them confidently:
+
+```bash
+./overrides/save-display.sh   # capture this machine's current values instead
+```
+
+Or edit the file. `gdk-scale` is the one to get right — `1` for standard DPI,
+`2` for a HiDPI panel (Omarchy's own default). A wrong value here is actively
+wrong, not merely unfamiliar.
+
+**4. Fix the keyboard layout unless you are Danish.**
+`overrides/hypr/hyprland-env.lua` sets `kb_layout = "dk"`, `kb_variant = "mac"`.
+Change or delete that block.
+
+**5. Check `~/.config/ghostty/config` exists** and contains Omarchy's
+`config-file = ?"…/current/theme/ghostty.conf"` line. If the file is absent,
+`apply.sh` creates one holding only its own block, and the terminal loses theme
+colours with no error.
+
+**6. Decide about third-party plugins.** `bobbynicholas.omaland`,
+`dizziee.system-updates` and `nomarkoo.keyboard-layout` are not installed by
+`apply.sh`. If you do install them, Omaland's settings panel will rewrite the
+mouse block and `nomarkoo` owns the keyboard layout — both take back settings
+this repo also sets. See *Also on the author's machine* below.
+
 ## Install
 
 ```bash
-./overrides/apply.sh      # symlink both themes, install fonts + all system overrides, apply dark
+./overrides/apply.sh      # symlink both themes, install fonts + all system overrides, apply the theme
 ./overrides/revert.sh     # undo it
 ```
 
-Idempotent, no sudo. See [`overrides/README.md`](overrides/README.md) for exactly
-what it touches and the manual follow-ups (relogin for the shell popup font, new
-shell for fzf).
+**Then log out and back in.** The `environment.d` drop-ins (Figma → native
+Wayland, FreeType stem darkening) and `OMARCHY_MENU_FONT` are read at session
+start, so the desktop is not in its final state until you do.
+
+`overrides/README.md` has the full list of what is and isn't guaranteed under
+*What `apply.sh` does and does not guarantee* — worth reading before assuming a
+fresh machine came out identical to this one.
 
 Switch themes with `omarchy theme set omarchy-cllpse-theme-dark` / `… -light`.
 `mode` drives `gsettings` on apply: light → `color-scheme prefer-light` +

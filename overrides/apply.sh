@@ -152,7 +152,8 @@ sync_fenced ~/.config/hypr/input.lua     "$HERE/hypr/input-tuning.lua"
 # Bibata is referenced by hyprland-env.lua and the gsettings below. No sudo
 # here, so warn rather than install.
 if [[ ! -d /usr/share/icons/Bibata-Modern-Ice && ! -d ~/.local/share/icons/Bibata-Modern-Ice ]]; then
-  skip "cursor theme Bibata-Modern-Ice not found — install it with: sudo pacman -S bibata-cursor-theme"
+  skip "cursor theme Bibata-Modern-Ice not found — install it with: yay -S bibata-cursor-theme-bin"
+  skip "  (AUR, so pacman -S will not find it; the cursor setting below is applied regardless)"
 fi
 say "gsettings: cursor theme -> Bibata-Modern-Ice @ 22"
 gsettings set org.gnome.desktop.interface cursor-theme 'Bibata-Modern-Ice'
