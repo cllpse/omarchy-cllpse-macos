@@ -37,9 +37,11 @@
 -- overrides Omarchy's 0.985/0.96.
 --
 -- Deviates from BUILD.md section 5's "macOS windows are opaque" spec (1.0/1.0)
--- by choice: focused stays fully opaque, unfocused windows dim to 0.9 so focus
--- is easier to track at a glance across a tiled layout.
-o.window(".*", { opacity = "1.0 0.9" })
+-- by choice: focused stays fully opaque, unfocused windows dim to 0.89 so focus
+-- is easier to track at a glance across a tiled layout. Focused windows being
+-- 1.0 means no blur shows through a window -- blur stays a shell-surface effect,
+-- which is what section 5 wants ("blur belongs on layer surfaces, not windows").
+o.window(".*", { opacity = "1.0 0.89" })
 
 -- ── Blur (global) ─────────────────────────────────────────────────────────
 -- BUILD.md section 5 ("NSVisualEffectView is a heavy blur"): vibrancy 0.20
