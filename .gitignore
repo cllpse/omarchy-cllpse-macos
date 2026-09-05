@@ -1,0 +1,12 @@
+# macOS Finder metadata — the reference/ material was gathered on a Mac.
+.DS_Store
+._*
+
+# Backups written by overrides/apply.sh and by Omarchy's own config edits.
+*.pre-cllpse
+*.bak
+*.bak.*
+
+# Editor / OS scratch
+*.swp
+*~
