@@ -41,12 +41,16 @@
 -- exclusions, dimming video and colour-critical windows; matching the tag
 -- inherits them all for free.
 --
--- Deviates from BUILD.md section 5's "macOS windows are opaque" spec (1.0/1.0)
--- by choice: focused stays fully opaque, unfocused windows dim to 0.88 so focus
--- is easier to track at a glance across a tiled layout. Focused windows being
--- 1.0 means no blur shows through a window -- blur stays a shell-surface effect,
--- which is what section 5 wants ("blur belongs on layer surfaces, not windows").
-o.window({ tag = "default-opacity" }, { opacity = "1.0 0.88" })
+-- 1.0/1.0, per BUILD.md section 5: macOS app windows are opaque, translucency is
+-- reserved for shell surfaces.
+--
+-- An earlier version dimmed unfocused windows to 0.88 as a focus cue. Opacity is
+-- the wrong tool for that: blur.ignore_opacity is true, so a window made
+-- semi-transparent gets the full blur pass rendered behind it -- every unfocused
+-- window smears whatever sits underneath, the result changes with the wallpaper,
+-- and it contradicts section 5's own "blur belongs on layer surfaces, not
+-- windows". dim_inactive below is the purpose-built cue and costs none of that.
+o.window({ tag = "default-opacity" }, { opacity = "1.0 1.0" })
 
 -- ── Blur (global) ─────────────────────────────────────────────────────────
 -- BUILD.md section 5 ("NSVisualEffectView is a heavy blur"): vibrancy 0.20
@@ -67,8 +71,19 @@ o.window({ tag = "default-opacity" }, { opacity = "1.0 0.88" })
 --
 -- This is only the global engine. On its own it does nothing to the Omarchy
 -- shell surfaces -- the per-namespace layer rules below opt each one in.
+-- ── Unfocused window dim ───────────────────────────────────────────────────
+-- The focus cue, replacing the old unfocused-opacity dim. This darkens the
+-- window rather than making it translucent, so nothing blurs or bleeds through
+-- and the result is identical over any wallpaper or window beneath.
+--
+-- Hyprland's default dim_strength is 0.5, far too heavy; Omarchy's own
+-- looknfeel template suggests 0.15. 0.10 here because the border already
+-- carries a strong signal -- accent-blue gradient active against a flat grey
+-- inactive -- so the dim only has to confirm it, not do the work alone.
 hl.config({
   decoration = {
+    dim_inactive = true,
+    dim_strength = 0.10,
     rounding = 14,
     rounding_power = 2.2,
     blur = {

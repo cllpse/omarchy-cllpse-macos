@@ -110,16 +110,21 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   restates its full section. The dark/light copies are currently identical
   (same α over each mode's own `background` colour); tune light up if it reads
   washed out.
-- **Window opacity is overridden to 1.0/0.88.** Omarchy's `windows.lua` tags every
-  window `+default-opacity`, lets the per-app files strip that tag, then applies
-  `0.985 0.96` to whatever still carries it. `looknfeel-decoration.lua` repeats
-  that *same tag match* later in load order, so its own rule wins the field.
-  Matching the tag rather than `.*` matters: Omarchy deliberately untags what
-  must not go translucent — DaVinci Resolve, PiP and webcam overlays, Steam,
-  QEMU, RetroArch, YouTube/Zoom web apps — and gives browsers their own
-  `1.0 0.985`. Focused windows are fully opaque (BUILD.md §5: macOS windows are
-  opaque); unfocused dim to 0.88 — a deliberate deviation from §5's 1.0/1.0, for
-  at-a-glance focus tracking in a tiling WM.
+- **Windows are opaque; focus is signalled by dim, not transparency.** Omarchy's
+  `windows.lua` tags every window `+default-opacity`, lets the per-app files strip
+  that tag, then applies `0.985 0.96` to whatever still carries it.
+  `looknfeel-decoration.lua` repeats that *same tag match* later in load order and
+  sets `1.0 1.0` (BUILD.md §5: macOS windows are opaque). Matching the tag rather
+  than `.*` matters: Omarchy deliberately untags what must not go translucent —
+  DaVinci Resolve, PiP and webcam overlays, Steam, QEMU, RetroArch, YouTube/Zoom
+  web apps — and gives browsers their own `1.0 0.985`.
+  The focus cue is `decoration.dim_inactive` at `dim_strength = 0.10`, not an
+  opacity drop: `blur.ignore_opacity` is true, so a semi-transparent window gets
+  the whole blur pass rendered behind it, smearing whatever sits underneath and
+  changing with the wallpaper. Dimming darkens instead, costing none of that and
+  keeping blur a shell-surface effect as §5 intends. Hyprland's default
+  `dim_strength` is 0.5; 0.10 suffices because the accent-blue active border
+  already carries the signal.
 - **The Omarchy shell slaves its surface radius to `decoration:rounding`.**
   `Style.qml` runs `hyprctl getoption decoration:rounding` on startup and after
   `omarchy theme set`, so bar/menu/launcher/notification/OSD corners follow the
