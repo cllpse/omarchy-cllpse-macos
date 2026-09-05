@@ -128,6 +128,18 @@ and the original is kept in prose as provenance. Don't leave the two out of sync
 - **`awk -v close=...` is fatal** — `close` is a gawk builtin. It failed silently
   mid-pipeline and truncated the target file to zero bytes. Test any script that
   rewrites a real config against a harness first.
+- **`Style.qml`'s trailing size comments are base-12 annotations, not sizes.**
+  `heading: fontToken("heading", fontPx(1.333)) // 16` reads as "16px", but
+  `fontPx(mult) = round(fontBaseSize * mult)` and this machine runs
+  `base-size = 14` — so heading is 19, body 14, `iconLarge` 21, `display` 28.
+  Compute against the live base, never quote the comment. Check it with
+  `omarchy display text size`.
+- **Size from a token, not a multiple of one.** Every `Style.font.*` value is
+  already rounded, so scaling one rounds twice and lands on numbers that drift
+  off the scale as base-size moves (`iconLarge * 1.4` → 25/29/34/38 px at base
+  12/14/16/18, versus `display` → 24/28/32/36). `Style.space(px)` is the same
+  deal for geometry — it scales by `spacingScale * fontScale`, so pass the
+  base-12 pixel value and let it scale.
 - **`hl.animation` `speed` is inverse**: *smaller is faster*. Every leaf in our
   block is Omarchy's stock speed halved to run 2× faster. Doubling the number
   would have made it 2× slower.
