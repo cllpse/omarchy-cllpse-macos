@@ -53,30 +53,33 @@
 -- exclusions, dimming video and colour-critical windows; matching the tag
 -- inherits them all for free.
 --
--- Focused windows stay fully opaque, per BUILD.md section 5 ("macOS windows are
--- opaque"). Unfocused drop to 0.875 -- a deliberate deviation from section 5's
--- 1.0/1.0, and not only as a focus cue.
+-- Focused windows at 0.97, per BUILD.md section 5 ("macOS windows are opaque")
+-- with a hair of glass so focused windows read as the same material as
+-- unfocused rather than a flat cutout -- a deliberate deviation from section
+-- 5's 1.0/1.0. Unfocused drops further to 0.875, not only as a focus cue.
 --
 -- blur.ignore_opacity is true, so a window made semi-transparent gets the full
--- blur pass rendered behind it: an unfocused window blurs whatever sits beneath.
--- That is the intended look here, glass rather than a flat dim, which is why the
--- dim_inactive block below stays off -- stacking a darkening pass on top of it
--- muddied the result and worked against the effect.
+-- blur pass rendered behind it: even the focused window blurs whatever sits
+-- beneath it now, and unfocused blurs more. That is the intended look here,
+-- glass rather than a flat dim, which is why the dim_inactive block below
+-- stays off -- stacking a darkening pass on top of it muddied the result and
+-- worked against the effect.
 --
--- 0.875 currently. 0.9 and 0.88 were both tried on the way here.
-o.window({ tag = "default-opacity" }, { opacity = "1.0 0.875" })
+-- 0.97/0.875 currently. Focused was 1.0 (fully opaque) before; unfocused alone
+-- went through 0.9 and 0.88 on the way to 0.875.
+o.window({ tag = "default-opacity" }, { opacity = "0.97 0.875" })
 
 -- ── Browser opacity: same unfocused glass as everything else ───────────────
 -- default/hypr/apps/browser.lua strips +default-opacity from every
 -- chromium/firefox-based browser and pins them to opacity "1.0 0.985", so the
 -- tag-matched rule above never touches them -- browsers stay effectively opaque
 -- when unfocused (98.5%) and no blur reads through. Re-match the browser tags
--- directly, after browser.lua has run, so browsers get the same 1.0/0.875
--- unfocused frost as the rest of the desktop. browser.lua removes the
+-- directly, after browser.lua has run, so browsers get the same 0.97/0.875
+-- frost as the rest of the desktop. browser.lua removes the
 -- chromium-based-browser tag from YouTube/Zoom web-app windows, so those stay
 -- excluded here too.
-o.window({ tag = "chromium-based-browser" }, { opacity = "1.0 0.875" })
-o.window({ tag = "firefox-based-browser" }, { opacity = "1.0 0.875" })
+o.window({ tag = "chromium-based-browser" }, { opacity = "0.97 0.875" })
+o.window({ tag = "firefox-based-browser" }, { opacity = "0.97 0.875" })
 
 -- ── Blur (global) ─────────────────────────────────────────────────────────
 -- BUILD.md section 5 ("NSVisualEffectView is a heavy blur"): vibrancy 0.20
