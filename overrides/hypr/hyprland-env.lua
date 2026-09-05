@@ -24,22 +24,8 @@ hl.env("HYPRCURSOR_SIZE", "22")
 -- matching follow_mouse = 0 / mouse_refocus = false in the input block.
 hl.config({ cursor = { no_warps = true } })
 
--- Keyboard layout: Danish, "mac" variant.
---
--- This has to live here rather than in hypr/input.lua because hyprland.lua
--- requires default.hypr.toggles AFTER hypr.input, so a layout set in input.lua
--- loses to any toggle plugin that writes one. On this machine that is
--- nomarkoo.keyboard-layout, whose state file
--- (~/.local/state/omarchy/toggles/hypr/) sets exactly these values -- so where
--- both are present they agree and the plugin simply wins. The point of keeping
--- it here is the same as the animation block in looknfeel-decoration.lua: the
--- theme should be self-sufficient on a machine with no such plugin installed.
---
--- Obviously regional. Anyone not on a Danish keyboard wants this line gone.
-hl.config({
-  input = {
-    kb_layout = "dk",
-    kb_variant = "mac",
-    kb_options = "compose:caps,shift:both_capslock_cancel,grp:alt_shift_toggle",
-  },
-})
+-- No forced keyboard layout here anymore: the Preonic now emits plain US
+-- keycodes in firmware (key overrides on the board itself, not an xkb
+-- translation), so the host should just run Omarchy's own us default instead
+-- of overriding it to dk(mac). nomarkoo.keyboard-layout's own toggle state
+-- still lists dk(mac) as a secondary layout, reachable via alt+shift.

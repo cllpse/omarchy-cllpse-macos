@@ -48,9 +48,10 @@ Or edit the file. `gdk-scale` is the one to get right — `1` for standard DPI,
 `2` for a HiDPI panel (Omarchy's own default). A wrong value here is actively
 wrong, not merely unfamiliar.
 
-**4. Fix the keyboard layout unless you are Danish.**
-`overrides/hypr/hyprland-env.lua` sets `kb_layout = "dk"`, `kb_variant = "mac"`.
-Change or delete that block.
+**4. Keyboard layout is untouched.** `overrides/hypr/hyprland-env.lua` no longer
+forces a `kb_layout`/`kb_variant` — it leaves Omarchy's own default in place.
+If you need a non-default layout, set it in `hypr/input.lua` or your own
+toggle plugin, not here.
 
 **5. Check `~/.config/ghostty/config` exists** and contains Omarchy's
 `config-file = ?"…/current/theme/ghostty.conf"` line. If the file is absent,
