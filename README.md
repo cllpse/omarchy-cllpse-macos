@@ -110,21 +110,19 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   restates its full section. The dark/light copies are currently identical
   (same α over each mode's own `background` colour); tune light up if it reads
   washed out.
-- **Windows are opaque; focus is signalled by dim, not transparency.** Omarchy's
-  `windows.lua` tags every window `+default-opacity`, lets the per-app files strip
-  that tag, then applies `0.985 0.96` to whatever still carries it.
+- **Focused windows opaque, unfocused at 0.9 so the blur renders through them.**
+  Omarchy's `windows.lua` tags every window `+default-opacity`, lets the per-app
+  files strip that tag, then applies `0.985 0.96` to whatever still carries it.
   `looknfeel-decoration.lua` repeats that *same tag match* later in load order and
-  sets `1.0 1.0` (BUILD.md §5: macOS windows are opaque). Matching the tag rather
-  than `.*` matters: Omarchy deliberately untags what must not go translucent —
-  DaVinci Resolve, PiP and webcam overlays, Steam, QEMU, RetroArch, YouTube/Zoom
-  web apps — and gives browsers their own `1.0 0.985`.
-  The focus cue is `decoration.dim_inactive` at `dim_strength = 0.10`, not an
-  opacity drop: `blur.ignore_opacity` is true, so a semi-transparent window gets
-  the whole blur pass rendered behind it, smearing whatever sits underneath and
-  changing with the wallpaper. Dimming darkens instead, costing none of that and
-  keeping blur a shell-surface effect as §5 intends. Hyprland's default
-  `dim_strength` is 0.5; 0.10 suffices because the accent-blue active border
-  already carries the signal.
+  sets `1.0 0.9`. Matching the tag rather than `.*` matters: Omarchy deliberately
+  untags what must not go translucent — DaVinci Resolve, PiP and webcam overlays,
+  Steam, QEMU, RetroArch, YouTube/Zoom web apps — and gives browsers their own
+  `1.0 0.985`.
+  Because `blur.ignore_opacity` is true, a semi-transparent window has the full
+  blur pass rendered behind it, so unfocused windows read as glass over whatever
+  is beneath. That is the intended effect, which is why `dim_inactive` is
+  explicitly `false` — it was tried at 0.10 and stacking a darkening pass on top
+  muddied the result and worked against the blur.
 - **The Omarchy shell slaves its surface radius to `decoration:rounding`.**
   `Style.qml` runs `hyprctl getoption decoration:rounding` on startup and after
   `omarchy theme set`, so bar/menu/launcher/notification/OSD corners follow the
