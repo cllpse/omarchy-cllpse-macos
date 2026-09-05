@@ -28,20 +28,25 @@
 -- windows, 16 (2x the inner step) at the screen edge. Omarchy defaults to 5/10.
 
 -- ── Window opacity ──────────────────────────────────────────────────────────
--- default.hypr.windows tags every window +default-opacity during Omarchy's own
--- require chain (default.hypr.omarchy, required before hypr.looknfeel) and
--- sets opacity = "0.985 0.96" on that tag. Rather than touch the tag, match
--- every window again here: window_rule entries are matched in load order and a
--- later matching rule wins the same field for a given window, same
--- last-write-wins semantics as the animation leaves below -- so this simply
--- overrides Omarchy's 0.985/0.96.
+-- default.hypr.windows tags every window +default-opacity, lets the per-app
+-- files strip that tag again, then applies opacity = "0.985 0.96" to whatever
+-- still carries it. All of that runs during default.hypr.omarchy, which is
+-- required before hypr.looknfeel, so repeating the same tag match here lands
+-- later in load order and wins the field.
+--
+-- Match the TAG, not ".*". Omarchy removes default-opacity from things that
+-- must not go translucent -- DaVinci Resolve, PiP and webcam overlays, Steam,
+-- QEMU, RetroArch, YouTube/Zoom web apps -- and gives browsers their own
+-- 1.0/0.985. A ".*" match silently overrides every one of those deliberate
+-- exclusions, dimming video and colour-critical windows; matching the tag
+-- inherits them all for free.
 --
 -- Deviates from BUILD.md section 5's "macOS windows are opaque" spec (1.0/1.0)
--- by choice: focused stays fully opaque, unfocused windows dim to 0.89 so focus
+-- by choice: focused stays fully opaque, unfocused windows dim to 0.88 so focus
 -- is easier to track at a glance across a tiled layout. Focused windows being
 -- 1.0 means no blur shows through a window -- blur stays a shell-surface effect,
 -- which is what section 5 wants ("blur belongs on layer surfaces, not windows").
-o.window(".*", { opacity = "1.0 0.89" })
+o.window({ tag = "default-opacity" }, { opacity = "1.0 0.88" })
 
 -- ── Blur (global) ─────────────────────────────────────────────────────────
 -- BUILD.md section 5 ("NSVisualEffectView is a heavy blur"): vibrancy 0.20

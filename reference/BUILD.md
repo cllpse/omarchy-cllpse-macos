@@ -276,7 +276,7 @@ Three facts drive the mapping:
 | blur size / passes | `12` / `3` | NSVisualEffectView is a heavy blur [chosen] — effective spread ≈ size × 2^(passes−1), so ≈48; widened from an initial 8 via size, which keeps the blur's character where more passes would double the reach at real GPU cost |
 | blur vibrancy | `0.20` | macOS boosts saturation behind glass [chosen] |
 | blur brightness / contrast | `1.0` / `1.0` | macOS does not darken [chosen] |
-| active / inactive opacity | `1.0` / `0.89` | macOS windows are opaque, but unfocused windows dim to 0.89 for at-a-glance focus tracking in a tiled layout [chosen] — overrides Omarchy's 0.985/0.96 |
+| active / inactive opacity | `1.0` / `0.88` | macOS windows are opaque, but unfocused windows dim to 0.88 for at-a-glance focus tracking in a tiled layout [chosen] — overrides Omarchy's 0.985/0.96 |
 
 The 26pt figure comes from third-party reporting on Tahoe, not from a
 measurement of this machine — treat it as approximate. Tahoe radii are not

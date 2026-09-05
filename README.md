@@ -110,11 +110,15 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   restates its full section. The dark/light copies are currently identical
   (same α over each mode's own `background` colour); tune light up if it reads
   washed out.
-- **Window opacity is overridden to 1.0/0.9.** Omarchy's `windows.lua` tags every
-  window `+default-opacity` and applies `0.985 0.96`; `looknfeel-decoration.lua`
-  matches every window again, later in load order, so its own rule wins the same
-  field. Focused windows are fully opaque (BUILD.md §5: macOS windows are
-  opaque); unfocused dim to 0.9 — a deliberate deviation from §5's 1.0/1.0, for
+- **Window opacity is overridden to 1.0/0.88.** Omarchy's `windows.lua` tags every
+  window `+default-opacity`, lets the per-app files strip that tag, then applies
+  `0.985 0.96` to whatever still carries it. `looknfeel-decoration.lua` repeats
+  that *same tag match* later in load order, so its own rule wins the field.
+  Matching the tag rather than `.*` matters: Omarchy deliberately untags what
+  must not go translucent — DaVinci Resolve, PiP and webcam overlays, Steam,
+  QEMU, RetroArch, YouTube/Zoom web apps — and gives browsers their own
+  `1.0 0.985`. Focused windows are fully opaque (BUILD.md §5: macOS windows are
+  opaque); unfocused dim to 0.88 — a deliberate deviation from §5's 1.0/1.0, for
   at-a-glance focus tracking in a tiling WM.
 - **The Omarchy shell slaves its surface radius to `decoration:rounding`.**
   `Style.qml` runs `hyprctl getoption decoration:rounding` on startup and after
