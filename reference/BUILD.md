@@ -266,7 +266,8 @@ Three facts drive the mapping:
 
 | Setting | Value | Basis |
 |---|---|---|
-| rounding | `14` | macOS window corner radius [chosen] — 26 is the reported Tahoe toolbar-window figure, but it is third-party and dramatic on tiled windows; 14 sits just above the 12 fallback below and is treated as satisfying this row |
+| rounding | `16` | macOS window corner radius [chosen] — 26 is the reported Tahoe toolbar-window figure, but it is third-party and dramatic on tiled windows; 16 sits above the 12 fallback below and is treated as satisfying this row (14 previously) |
+| rounding_power | `2.0` | Hyprland's default circular arc [chosen] — 2.2 was tried as a nudge toward Apple's continuous corner, but the knob is windows-only and left window corners subtly out of step with the shell surfaces that mirror `rounding` |
 | border_size | `2` | macOS hairline edge is 1, but that is a weak focus cue in a tiling WM [chosen] — 2 is also the Omarchy default |
 | gaps_in | `8` | Apple 8pt layout grid [chosen] |
 | gaps_out | `16` | 2× inner step [chosen] |
@@ -349,9 +350,11 @@ Prefer scaling over hand-editing individual tokens.
 
 ### Corner radius
 
-Shell surfaces (menus, popovers) want ~12 [chosen] — distinct from the window
-`rounding` of 26. The shell exposes a corner-radius style token; its config key
-is not documented and needs discovery on the running system.
+Shell surfaces (menus, popovers) want ~12 — distinct from the window `rounding`
+of 26. Superseded on 4.0.2 [chosen]: the shell does not expose a corner-radius
+config key at all. `Style.qml` reads `hyprctl getoption decoration:rounding` and
+slaves every surface to it, so shell and window radius are one value — the
+shipped 16 — and cannot be set apart.
 
 ---
 

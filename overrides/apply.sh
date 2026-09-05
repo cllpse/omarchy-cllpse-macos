@@ -229,6 +229,34 @@ if [[ -d "$HERE/environment.d" ]]; then
   done
 fi
 
+# ── 7d. Chromium scale ───────────────────────────────────────────────────────
+# Two settings that only make sense together: the flag pins the device pixel
+# ratio to 1 (20% under DP-2's 1.25), and the preference puts page zoom back on
+# top. Page size is the product of the two — 110% ships, so 0.8 x 1.1 = 0.88;
+# 125% would be exactly 1:1 with native. Browser UI stays at 0.8 either way,
+# since zoom does not touch it. See the header of each file.
+#
+# The flag file is Omarchy's, so it takes a fenced block like every other
+# shared config here; the launcher skips "#" lines, which makes the markers
+# inert. Drop any bare copy of the flag first: it predates the fenced block on
+# this machine and would otherwise be passed twice.
+if [[ -f "$HERE/chromium/chromium-flags.conf" ]]; then
+  if [[ -f ~/.config/chromium-flags.conf ]] &&
+     grep -q '^--force-device-scale-factor=' ~/.config/chromium-flags.conf &&
+     ! grep -q "$MARK" ~/.config/chromium-flags.conf; then
+    sed -i '/^--force-device-scale-factor=/d' ~/.config/chromium-flags.conf
+    skip "dropped a pre-existing --force-device-scale-factor line"
+  fi
+  sync_fenced ~/.config/chromium-flags.conf "$HERE/chromium/chromium-flags.conf"
+fi
+
+# There is no command-line flag for default page zoom — see the script header
+# for what was checked and for the log-scale the preference is stored in.
+if [[ -x "$HERE/chromium/default-zoom.py" ]]; then
+  say "Chromium default page zoom -> ${CLLPSE_CHROMIUM_ZOOM:-110}%"
+  "$HERE/chromium/default-zoom.py" "${CLLPSE_CHROMIUM_ZOOM:-110}" || true
+fi
+
 # ── 8. apply theme ───────────────────────────────────────────────────────────
 # `omarchy theme set` COPIES the theme folder into
 # ~/.local/state/omarchy/current/theme/ — it does not symlink it. So this step

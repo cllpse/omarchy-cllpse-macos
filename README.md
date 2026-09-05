@@ -135,10 +135,11 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   not a theme (v4 strips `.lua` from git-cloned themes; `rounding` has no
   `colors.toml` key). `overrides/apply.sh` syncs a fenced block into
   `~/.config/hypr/looknfeel.lua` (`overrides/hypr/looknfeel-decoration.lua`)
-  setting `decoration.rounding = 14` — just above the BUILD.md §5 fallback of 12
-  (26 is faithful but dramatic on tiled windows), nudges
-  `decoration.rounding_power` to 2.2 (toward Apple's squircle corner — windows
-  only), enables `decoration.blur` (size 7, passes 4, vibrancy 0.30,
+  setting `decoration.rounding = 16` — above the BUILD.md §5 fallback of 12
+  (26 is faithful but dramatic on tiled windows), leaves
+  `decoration.rounding_power` at Hyprland's default 2.0 (a circular arc; the
+  squircle knob is windows-only, so it never reached the shell surfaces that
+  mirror the radius), enables `decoration.blur` (size 7, passes 4, vibrancy 0.30,
   vibrancy_darkness 0.30, noise 0.02, brightness/contrast 1.0), pins
   `general.border_size = 2` (also the
   Omarchy default) with `gaps_in = 8` / `gaps_out = 16` (§5's Apple 8pt grid),
@@ -154,6 +155,17 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   `ignore_alpha = 0.6`, which sits between the scrims (0.25/0.35) and the cards
   (0.72–0.92) so cards stay frosted while the dimmed backdrop stays sharp — the
   windows being switched between remain readable. Additive to Omarchy's own `no_anim` layer rules.
+- **Chromium scale is two settings that multiply, not one.**
+  `overrides/chromium/chromium-flags.conf` is fenced into
+  `~/.config/chromium-flags.conf` (the launcher skips `#` lines, so the markers
+  are inert) and pins `--force-device-scale-factor=1` against DP-2's 1.25
+  monitor scale, putting the browser UI 20% under the rest of the desktop.
+  `overrides/chromium/default-zoom.py` then sets page zoom to 110%, so page
+  layout lands at 0.8 × 1.1 = 0.88 of native; 125% would cancel the flag
+  outright. There is no command-line flag for default zoom — it is the profile
+  preference `partition.default_zoom_level`, stored as `ln(factor)/ln(1.2)` —
+  and Chromium must be closed when it is written, since it rewrites
+  `Preferences` from memory on exit.
 - **Shell-surface translucency lives in the theme, per section.** A theme-shipped
   `shell.<section>.toml` is spliced into the generated `shell.toml` by
   `omarchy-theme-set-templates`, *replacing that whole `[section]`*. Each theme
@@ -189,7 +201,7 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
 - **The Omarchy shell slaves its surface radius to `decoration:rounding`.**
   `Style.qml` runs `hyprctl getoption decoration:rounding` on startup and after
   `omarchy theme set`, so bar/menu/launcher/notification/OSD corners follow the
-  same 14 (plain circular — `rounding_power` and `border_size` don't reach the
+  same 16 (plain circular — `rounding_power` and `border_size` don't reach the
   shell; its border widths come from generated `shell.toml` tokens). A live
   `hyprctl reload` alone won't update a running shell — `omarchy-restart-shell`
   or `omarchy theme set` does.

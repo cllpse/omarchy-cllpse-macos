@@ -9,17 +9,18 @@
 -- Omarchy 4 defaults to rounding = 0; macOS has rounded window corners. BUILD.md
 -- section 5 specifies 26 (macOS Tahoe toolbar-window radius, third-party
 -- reported) with 12 as the defensible fallback -- 26 is dramatic on tiled
--- windows. cllpse-macos ships 14, just above that fallback.
+-- windows. cllpse-macos ships 16; 14 was the value before it.
 --
 -- The Omarchy shell (bar, menu, launcher, notifications, OSD) slaves its own
 -- surface corner radius to this value: Style.qml runs `hyprctl getoption
 -- decoration:rounding` on startup and after `omarchy theme set`. So this one key
 -- drives both window and shell rounding.
 --
--- rounding_power shapes the corner curve (Hyprland default 2.0 = circular arc;
--- higher = squircle, closer to Apple's continuous corners). 2.2 is a gentle
--- nudge in that direction. Windows only -- the shell's Rectangle.radius is a
--- plain circular arc and ignores it.
+-- rounding_power shapes the corner curve (higher = squircle, closer to Apple's
+-- continuous corners). Left at Hyprland's default 2.0, a plain circular arc:
+-- it is windows-only anyway -- the shell's Rectangle.radius ignores it -- so the
+-- earlier 2.2 nudge only ever applied to half the surfaces on screen, and set
+-- window corners subtly out of step with the bar and menu that mirror them.
 --
 -- border_size is pinned at 2 (also the Omarchy default). BUILD.md section 5 notes
 -- 1 is faithful to the macOS hairline but a weak focus cue in a tiling WM.
@@ -100,8 +101,8 @@ o.window({ tag = "default-opacity" }, { opacity = "1.0 0.875" })
 hl.config({
   decoration = {
     dim_inactive = false,
-    rounding = 14,
-    rounding_power = 2.2,
+    rounding = 16,
+    rounding_power = 2.0,
     blur = {
       enabled = true,
       size = 7,

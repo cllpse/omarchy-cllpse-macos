@@ -37,10 +37,11 @@ Both are idempotent, need **no sudo**, and are safe to re-run.
 | 3 | Monospace → SF Mono (Omarchy's own knob) | `omarchy font set` → terminal configs + `fonts.conf` |
 | 4 | GTK/GNOME fonts → SF Pro / SF Mono | `gsettings org.gnome.desktop.interface` |
 | 5 | Font hinting → `none` — SF faces render unhinted; grid-snapped stems read as sharp under grayscale AA (Wayland fractional scaling) | `gsettings … font-hinting 'none'` (GTK/GNOME) + fenced `freetype-load-flags = no-hinting` in `~/.config/ghostty/config`, on top of Omarchy's stock config (fontconfig side is the step-2 drop-in) |
-| 6 | `OMARCHY_MENU_FONT` + cursor theme + `no_warps` + keyboard layout (`hyprland.lua`), decoration/blur/opacity/animations (`looknfeel.lua`), window-switcher keybinds (`bindings.lua`), mouse tuning (`input.lua`) + `decoration` (`rounding = 14` / `rounding_power = 2.2`, `blur` on @ size 7 / passes 4 / vibrancy 0.30, `border_size = 2`, `gaps_in/out = 8/16`) + window `opacity = 1.0 0.875` + 2× animation speeds + `layer_rule` blur on the shell surfaces | fenced blocks synced into `~/.config/hypr/hyprland.lua` and `~/.config/hypr/looknfeel.lua` |
+| 6 | `OMARCHY_MENU_FONT` + cursor theme + `no_warps` + keyboard layout (`hyprland.lua`), decoration/blur/opacity/animations (`looknfeel.lua`), window-switcher keybinds (`bindings.lua`), mouse tuning (`input.lua`) + `decoration` (`rounding = 16` / `rounding_power = 2.0`, `blur` on @ size 7 / passes 4 / vibrancy 0.30, `border_size = 2`, `gaps_in/out = 8/16`) + window `opacity = 1.0 0.875` + 2× animation speeds + `layer_rule` blur on the shell surfaces | fenced blocks synced into `~/.config/hypr/hyprland.lua` and `~/.config/hypr/looknfeel.lua` |
 | 7 | `bat` / `lazygit` / `fzf` colours → terminal ANSI | `~/.config/bat/config`, `~/.config/lazygit/config.yml`, fenced block in `~/.bashrc` |
 | 7b | Restore saved display scaling + text size from `display.conf` (skipped if the file is absent; each empty key skipped) | `omarchy display text size`, the two scale variables in `~/.config/hypr/monitors.lua` |
 | 7c | Install session environment drop-ins (Figma → native Wayland) | `~/.config/environment.d/50-cllpse-macos-figma-wayland.conf` |
+| 7d | Chromium scale: `--force-device-scale-factor=1` (browser UI 20% under DP-2's 1.25) + `110%` default page zoom. Page size is the product of the two — 125% would be exactly 1:1 with native | fenced block in `~/.config/chromium-flags.conf` + `partition.default_zoom_level` in each `~/.config/chromium/*/Preferences` |
 | 8 | Apply the theme — refreshes whichever cllpse-macos theme is already active, else sets dark | `omarchy theme set …` |
 
 The blur `layer_rule` only opts the shell surfaces *into* blur; the matching
@@ -125,6 +126,7 @@ differences above are the ones to check by hand.
 - **Restart Ghostty / Foot** windows for the new monospace font + `hintnone` (Kitty/Alacritty reload themselves).
 - **Relaunch running GTK/Qt apps + the bar** to pick up `hintnone`.
 - **Log out / back in** for the `environment.d` drop-ins — the systemd user session reads them at session start.
+- **Quit Chromium before step 7d's zoom half**, and relaunch after. Chromium rewrites `Preferences` from memory on exit, so a write made while it runs is discarded; the script detects this and skips rather than reporting a change that will not survive. The flag half needs only a relaunch. Sites already zoomed with ctrl+/- keep their own `per_host_zoom_levels` and ignore the default.
 
 ## Contents
 
@@ -139,10 +141,12 @@ lazygit/config.yml            gui.theme with ANSI colour names
 hypr/hyprland-env.lua         OMARCHY_MENU_FONT + cursor theme/size + no_warps + kb layout
 hypr/window-switcher-bindings.lua  SUPER+TAB keybinds driving the switcher plugin
 hypr/input-tuning.lua         mouse sensitivity/accel/follow_mouse
-hypr/looknfeel-decoration.lua rounding 14 / rounding_power 2.2 / blur / border_size 2 / gaps 8,16 / window opacity 1.0 0.875 / 2x animations / layer_rule blur on shell surfaces
+hypr/looknfeel-decoration.lua rounding 16 / rounding_power 2.0 / blur / border_size 2 / gaps 8,16 / window opacity 1.0 0.875 / 2x animations / layer_rule blur on shell surfaces
 bash/shell.sh                 FZF_DEFAULT_OPTS derived from the live palette + lsd alias
 display-lib.sh                shared readers/writers for scale + text size (sourced, not run)
 display.conf                  saved text-size / monitor-scale / gdk-scale
 save-display.sh               capture the live values into display.conf
 environment.d/*.conf          systemd user-session env (Figma native Wayland, FreeType stem darkening on + stronger curve)
+chromium/chromium-flags.conf  --force-device-scale-factor=1 (fenced into Omarchy's flags file)
+chromium/default-zoom.py      default page zoom -> 110% (no flag exists; it is a profile preference)
 ```

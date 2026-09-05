@@ -10,3 +10,7 @@
 # Editor / OS scratch
 *.swp
 *~
+
+# Python bytecode — overrides/chromium/default-zoom.py is imported by its tests.
+__pycache__/
+*.pyc

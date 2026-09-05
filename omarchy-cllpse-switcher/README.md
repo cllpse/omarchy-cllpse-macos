@@ -23,7 +23,7 @@ The card binds `Color.menu.background` / `Color.menu.scrim` / `Color.menu.border
 and `Style.cornerRadius`, so it tracks the active theme's menu chrome with no
 plugin-side theming. Under **omarchy-cllpse-theme** that means:
 
-- corner radius follows `decoration:rounding` (14) like every shell surface;
+- corner radius follows `decoration:rounding` (16) like every shell surface;
 - translucency comes from `[menu] background-alpha` (0.92) in
   `omarchy-cllpse-theme/*/shell.menu.toml`;
 - the scrim is composed in `Hud.qml` at 0.35 rather than bound to

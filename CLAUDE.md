@@ -178,6 +178,30 @@ and the original is kept in prose as provenance. Don't leave the two out of sync
 - **Check a setting against the program's own defaults before shipping it.**
   `ghostty +show-config --default` showed five settings in that config were
   restating defaults verbatim. Most tools have an equivalent.
+- **Ghostty has no inline comments.** `#` only opens a comment at the start of a
+  line, so `copy-on-select = false  # default: true` parses the entire trailing
+  string as the value and Ghostty rejects the line at startup — seven keys in
+  `overrides/ghostty/ghostty.conf` were silently inert this way. Put the note on
+  its own line above the key, and check the result with `ghostty
+  +validate-config` (exit 1 and one message per bad line; silent on success).
+- **Chromium ignores `FREETYPE_PROPERTIES`.** The stem darkening in
+  `overrides/environment.d/10-cllpse-macos-font-rendering.conf` reaches every
+  app on the desktop *except* Chromium, so page text there renders at the thin
+  weight the SF faces are drawn at. Measured: identical output with darkening
+  off, on and strong, while the same value through system FreeType (ImageMagick,
+  same `.otf`) adds 24% ink. Fontconfig `embolden` is ignored too; hinting is
+  the only render param Chromium honours, and it is already at `hintnone`. No
+  flag fixes this — `--text-contrast` and `--text-gamma` exist in the binary but
+  are inert, and `--font-render-hinting` is Electron's, not Chromium's. The only
+  working lever is CSS (`-webkit-text-stroke: .2px` ≈ +21% ink, against
+  FreeType's +24%), which needs a content-script extension since Chromium
+  dropped user stylesheets.
+- **`pgrep -f` matches whole command lines, including the caller's.** A guard
+  written as `pgrep -f /usr/lib/chromium/chromium` matched the shell running the
+  script that contained the string, so `default-zoom.py` refused every write
+  while Chromium was closed — and failed quietly, printing a plausible "quit it
+  and re-run" and returning success. Resolve `/proc/<pid>/exe` to test for a
+  running binary. Suspect any guard in this repo that greps for a path.
 
 ## Reproducing this on another machine
 
