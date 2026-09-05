@@ -224,3 +224,24 @@ hl.animation({ leaf = "fadeLayersIn", enabled = true, speed = 0.9, bezier = "alm
 hl.animation({ leaf = "fadeLayersOut", enabled = true, speed = 0.7, bezier = "almostLinear" })
 hl.animation({ leaf = "workspaces", enabled = false })
 hl.animation({ leaf = "specialWorkspace", enabled = true, speed = 1.5, bezier = "easeOutQuint", style = "slidevert" })
+
+-- ── Presentation-popup width ───────────────────────────────────────────────
+-- The floating terminal Omarchy shows for `omarchy pkg remove` / install /
+-- menu actions (class org.omarchy.terminal, title "Omarchy") opens the
+-- OMARCHY block-art banner via omarchy-show-logo -- built from U+2580/2584/2588
+-- (upper/lower/full block). Ghostty rasterises those solid glyphs with a ~1px
+-- inter-cell seam whenever the surface width does not land on a whole device
+-- pixel at the monitor's fractional scale. Omarchy's default float size is
+-- 875x600 (default/hypr/apps/system.lua, matched on the "floating-window" tag);
+-- 875 x 1.25 = 1093.75 px -> seams. Invisible on a dark background, a stark
+-- white grid on the light theme's white popup.
+--
+-- 896 is the nearest width above 875 that is a clean multiple for the cell grid
+-- (896 x 1.25 = 1120 px exactly). Verified 2025-09-05 by screenshotting the
+-- banner at 875..1000 in 1-4px steps: solid from 896 on, seamed below. This
+-- rule loads after default.hypr.omarchy (hyprland.lua requires hypr.looknfeel
+-- later), so it wins by file position. Height is left at Omarchy's 600.
+--
+-- If `omarchy display text size` changes the Ghostty font size, the clean
+-- width changes with the cell metrics -- re-sweep and update the 896.
+hl.window_rule({ match = { tag = "floating-window", class = "org.omarchy.terminal" }, size = { 896, 600 } })
