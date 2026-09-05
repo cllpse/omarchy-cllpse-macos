@@ -120,6 +120,15 @@ picker — generate it with `omarchy plymouth preview <bg-hex> <text-hex>
 <unlock.png> <output-path>`, no sudo needed. `preview.png` is unrelated: the
 desktop-screenshot thumbnail for Omarchy's *main* theme picker.
 
+**`unlock.svg` is a companion, not an input.** Omarchy's Plymouth/SDDM pipeline
+only ever reads the PNG, so the SVG is purely a checked-in editable source.
+Built with a small local script (not committed -- one-off) that reads
+`magick unlock.png txt:-`, run-length-encodes each row's alpha into segments,
+and merges vertically identical rows into one `<rect>` -- an exact pixel trace
+(rsvg-convert round-trip back to PNG differs from the source by ~6 of 150,400
+pixels, all sub-1% opacity rounding), not a smoothed potrace-style
+vectorisation, which would round the deliberately blocky pixel-art corners.
+
 **Shell surfaces** read `shell.<section>.toml`, spliced in by
 `omarchy-theme-set-templates`, which **replaces the whole section** — any key you
 omit falls back to the `Color.qml` default, not the generated value. That is why

@@ -95,6 +95,7 @@ self-contained Omarchy theme:
 | `icons.theme` | dark → `Yaru-dark`, light → `Yaru-blue`. Fed to `gsettings icon-theme` by `omarchy-theme-set-gnome`. |
 | `backgrounds/` | Wallpapers — macOS stock (Big Sur → Sequoia) plus macOS-styled community art; 17 dark / 15 light. Not redistributable, see [`THIRD-PARTY.md`](THIRD-PARTY.md). |
 | `unlock.png`, `preview-unlock.png` | Boot-splash (Plymouth) / SDDM login-screen logo, and its `omarchy plymouth switcher` picker thumbnail — per-theme now (`#DDDDDD` on dark, `#272727` on light, each theme's own `foreground`). Applied separately from `omarchy theme set`: `omarchy plymouth set by theme <name>` (needs sudo). |
+| `unlock.svg` | Vector source for `unlock.png` — not read by Omarchy itself (Plymouth/SDDM only take the PNG), kept for editing/rescaling. Exact rect-per-pixel trace, not a smoothed vectorisation — see below. |
 | `preview.png` | Desktop-screenshot thumbnail for Omarchy's *main* theme picker — still Last Horizon's dark art in both. |
 
 `btop.theme`, `hyprland.lua`, `vscode-theme.json`, `neovim.lua`
