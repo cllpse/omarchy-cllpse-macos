@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "io.eject.window-switcher",
+  "name": "Window Switcher HUD",
+  "version": "1.0.0",
+  "author": "thomas@eject.io",
+  "license": "MIT",
+  "description": "Hold SUPER, tap TAB / SHIFT+TAB to cycle a horizontal strip of open windows; release SUPER to focus the highlighted one.",
+  "kinds": [
+    "panel"
+  ],
+  "keepLoaded": true,
+  "entryPoints": {
+    "panel": "Hud.qml"
+  }
+}
