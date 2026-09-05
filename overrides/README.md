@@ -140,6 +140,7 @@ differences above are the ones to check by hand.
 - **Quit Chromium / Helium / Brave Origin before the step 7d / 7e / 7f zoom half**, and relaunch after. All rewrite `Preferences` from memory on exit, so a write made while running is discarded; the script detects this and skips rather than reporting a change that will not survive. The flag half needs only a relaunch. Sites already zoomed with ctrl+/- keep their own `per_host_zoom_levels` and ignore the default.
 - **Helium's scale flag rides on its `.desktop` entry**, not a flags file — Helium is an extracted AppImage with no `chromium-flags.conf` launcher. Re-extracting the AppImage can regenerate `~/.local/share/applications/helium.desktop` without the flag; re-run `apply.sh` to re-inject it. `revert.sh` strips just the flag and leaves the file (it is Helium's).
 - **Brave Origin's flags file must already exist** (`~/.config/brave-origin-flags.conf`) — step 7f fences into it but won't create it, because it also holds the `--ozone-platform` lines that keep Brave on Wayland here. If it's missing, install/launch Brave Origin once (or recreate it with the Omarchy `chromium-flags.conf` lines) and re-run.
+- **The boot splash / login screen needs its own command, deliberately not run by this sudo-free script**: `omarchy plymouth set by theme omarchy-cllpse-theme-dark` (or `-light`), which needs sudo. Step 8 prints this as a reminder.
 
 ## Contents
 

@@ -102,6 +102,24 @@ composited window as `#FFFFFF`, which is the degenerate case), dark `30,30,30`
 (`#1E1E1E`, matches BUILD.md §1). `omarchy-theme-set-templates` skips generation
 when the file already exists in the staged theme.
 
+**The boot splash (Plymouth) and the real login screen (SDDM) are a separate
+step from `omarchy theme set`**, and not run by `apply.sh` (which stays
+sudo-free): `omarchy plymouth set by theme <name>` (needs sudo). It reads
+`background`/`foreground` straight from that theme's `colors.toml` and installs
+the theme's `unlock.png` as the logo on *both* Plymouth and
+`/usr/share/sddm/themes/omarchy`, auto-recolouring the shared
+bullet/entry/lock/progress-bar glyphs to `foreground` via ImageMagick
+`+level-colors` — only `unlock.png` itself needs authoring per theme.
+`unlock.png` is the ~800×188 alpha-transparent "OMARCHY" wordmark every stock
+theme ships (tinted to that theme's own colours); ours is generated with
+`magick unlock.png -channel RGB -fill '#hex' -colorize 100 unlock.png`, which
+recolours every pixel to `#hex` while leaving each pixel's original alpha (so
+the antialiased edges) untouched. `preview-unlock.png` (1920×1080) is a
+rendered mockup of that boot/login screen, shown by `omarchy plymouth switcher`'s
+picker — generate it with `omarchy plymouth preview <bg-hex> <text-hex>
+<unlock.png> <output-path>`, no sudo needed. `preview.png` is unrelated: the
+desktop-screenshot thumbnail for Omarchy's *main* theme picker.
+
 **Shell surfaces** read `shell.<section>.toml`, spliced in by
 `omarchy-theme-set-templates`, which **replaces the whole section** — any key you
 omit falls back to the `Color.qml` default, not the generated value. That is why
@@ -310,7 +328,9 @@ clean install ended up identical.
 
 ## Still open
 
-- Light-specific `preview*.png` / `unlock.png` — both themes still ship identical
-  art.
+- Light-specific `preview.png` — the desktop-screenshot thumbnail Omarchy's own
+  theme picker shows; both themes still ship an identical screenshot. (`unlock.png`
+  / `preview-unlock.png` — the boot-splash/SDDM login logo and its picker
+  thumbnail — are now per-theme; see the Plymouth section below.)
 - `revert.sh`'s restore paths have unit-tested helpers but have never been run
   end-to-end; that needs a spare machine or VM, not this one.

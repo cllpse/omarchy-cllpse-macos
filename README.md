@@ -94,7 +94,8 @@ self-contained Omarchy theme:
 | `shell.{bar,menu,launcher,notifications}.toml` | Per-section overrides spliced into the generated `shell.toml` — surface `background-alpha` (BUILD.md §6) for the blur set up in `overrides/`. |
 | `icons.theme` | dark → `Yaru-dark`, light → `Yaru-blue`. Fed to `gsettings icon-theme` by `omarchy-theme-set-gnome`. |
 | `backgrounds/` | Wallpapers — macOS stock (Big Sur → Sequoia) plus macOS-styled community art; 17 dark / 15 light. Not redistributable, see [`THIRD-PARTY.md`](THIRD-PARTY.md). |
-| `preview*.png`, `unlock.png` | Theme-picker / lock-screen art — still Last Horizon's dark art in both. |
+| `unlock.png`, `preview-unlock.png` | Boot-splash (Plymouth) / SDDM login-screen logo, and its `omarchy plymouth switcher` picker thumbnail — per-theme now (`#DDDDDD` on dark, `#272727` on light, each theme's own `foreground`). Applied separately from `omarchy theme set`: `omarchy plymouth set by theme <name>` (needs sudo). |
+| `preview.png` | Desktop-screenshot thumbnail for Omarchy's *main* theme picker — still Last Horizon's dark art in both. |
 
 `btop.theme`, `hyprland.lua`, `vscode-theme.json`, `neovim.lua`
 and the terminal color files are **generated** from `colors.toml` by Omarchy on
