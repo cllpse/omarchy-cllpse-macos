@@ -1,0 +1,20 @@
+# Colours use ANSI names, which resolve to the terminal's 16-colour palette —
+# themed by Omarchy from the active theme's colors.toml. Follows cllpse-macos
+# (blue accent) and every other theme automatically.
+gui:
+  theme:
+    activeBorderColor:
+      - blue
+      - bold
+    inactiveBorderColor:
+      - default
+    optionsTextColor:
+      - blue
+    selectedLineBgColor:
+      - reverse
+    cherryPickedCommitFgColor:
+      - blue
+    cherryPickedCommitBgColor:
+      - default
+    unstagedChangesColor:
+      - red

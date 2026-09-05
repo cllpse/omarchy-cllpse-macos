@@ -1,0 +1,4 @@
+# Render using the terminal's 16 ANSI colours, which Omarchy themes from the
+# active theme's colors.toml. Keeps bat in sync with cllpse-macos (and every
+# other theme) with no per-theme upkeep.
+--theme="ansi"
