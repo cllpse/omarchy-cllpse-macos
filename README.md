@@ -97,6 +97,7 @@ self-contained Omarchy theme:
 | `unlock.png`, `preview-unlock.png` | Boot-splash (Plymouth) / SDDM login-screen logo, and its `omarchy plymouth switcher` picker thumbnail — per-theme now (`#DDDDDD` on dark, `#272727` on light, each theme's own `foreground`). Applied separately from `omarchy theme set`: `omarchy plymouth set by theme <name>` (needs sudo). |
 | `unlock.svg` | Vector source for `unlock.png` — not read by Omarchy itself (Plymouth/SDDM only take the PNG), kept for editing/rescaling. Exact rect-per-pixel trace, not a smoothed vectorisation — see below. |
 | `preview.png` | Desktop-screenshot thumbnail for Omarchy's *main* theme picker — still Last Horizon's dark art in both. |
+| `colors.svg` | Not read by Omarchy or anything else — a generated reference sheet of every named colour in that theme's `colors.toml` (swatch + key + hex, grouped Core/Backgrounds/Foregrounds/System Hues/Hyprland Borders), for visually checking or comparing the two palettes. Regenerate after editing `colors.toml`; it does not stay in sync on its own. |
 
 `btop.theme`, `hyprland.lua`, `vscode-theme.json`, `neovim.lua`
 and the terminal color files are **generated** from `colors.toml` by Omarchy on

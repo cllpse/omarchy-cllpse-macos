@@ -129,6 +129,17 @@ and merges vertically identical rows into one `<rect>` -- an exact pixel trace
 pixels, all sub-1% opacity rounding), not a smoothed potrace-style
 vectorisation, which would round the deliberately blocky pixel-art corners.
 
+**`colors.svg` is likewise a generated companion, not an input** -- nothing in
+Omarchy or this repo reads it. A one-off script parses `colors.toml`'s
+`key = "value"` lines (grouping into Core / Backgrounds / Foregrounds / System
+Hues (aqua + darkAqua rows) / Hyprland Borders by a hardcoded key list, so a
+future new key silently has nowhere to land -- extend the list if one is
+added), renders one swatch per key plus its hex, and special-cases the two
+`hyprland_*_border` values: `rgba(RRGGBBAA)` decodes to hex + an alpha
+percentage noted next to the swatch, and `hyprland_active_border`'s two-stop
+`45deg` spec becomes an actual SVG `linearGradient`. It is a snapshot, not
+live: re-run the script after hand-editing a `colors.toml` or it goes stale.
+
 **Shell surfaces** read `shell.<section>.toml`, spliced in by
 `omarchy-theme-set-templates`, which **replaces the whole section** — any key you
 omit falls back to the `Color.qml` default, not the generated value. That is why
