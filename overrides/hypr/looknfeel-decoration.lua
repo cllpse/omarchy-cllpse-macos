@@ -9,32 +9,32 @@
 -- Omarchy 4 defaults to rounding = 0; macOS has rounded window corners. BUILD.md
 -- section 5 specifies 26 (macOS Tahoe toolbar-window radius, third-party
 -- reported) with 12 as the defensible fallback -- 26 is dramatic on tiled
--- windows. cllpse-macos ships 16; 14 was the value before it.
+-- windows. cllpse-macos ships 18; 16 and 14 were earlier values.
 --
 -- The Omarchy shell (bar, menu, launcher, notifications, OSD) slaves its own
 -- surface corner radius to this value: Style.qml runs `hyprctl getoption
--- decoration:rounding` on startup and after `omarchy theme set`. So this one key
--- drives both window and shell rounding.
+-- decoration:rounding` on startup and after `omarchy theme set`. So 18 rounds
+-- both the windows and the bar / menu / notifications.
 --
--- rounding_power shapes the corner curve (higher = squircle, closer to Apple's
--- continuous corners). 3 -- a clear squircle, kept a little under the point
--- where Hyprland's border renderer stops keeping up (~3.5-4). The knob is
+-- rounding_power shapes the corner curve (2.0 = plain circular arc, higher =
+-- squircle toward Apple's continuous corner). 2.2 -- barely off circular. It is
 -- windows-only: the shell's Rectangle.radius ignores it, so the bar and menu
--- stay a circular arc while windows curve tighter. Accepted -- the mismatch is
--- slight at 3 and the squircle is the more macOS-faithful window corner. (2.0,
--- the plain arc, is the fallback; 2.2 was an earlier half-measure.)
+-- stay a pure arc. A stronger squircle (3-3.4) was tried, but Hyprland's border
+-- renderer draws the stroke's outer edge under-curved above ~3 and it pinches at
+-- the 45 degree corner, so it is kept near circular.
 --
--- border_part_of_window = false is what makes 3 usable. With the default true,
--- the border is drawn in the window pass and its outer edge is rendered
--- under-curved against the squircle, so the 2px stroke fattens visibly at the
--- 45 degree corner from rounding_power ~3 up. As a standalone decoration (false)
--- the corner stays even to ~3.5-4; past that the bulge returns at any width, so
--- this is a ceiling, not a knob. Hyprland 0.56.2 -- may improve upstream.
+-- border_part_of_window = true (the Hyprland default, set explicitly) draws the
+-- border inside each window's tile -- the content shrinks to fit -- rather than
+-- as its own decoration outside it. `false` was used while rounding_power was
+-- high (it curved a thin stroke's corner better); at 2.2 there is nothing to
+-- gain, and inside is the tidier model in a tiling WM.
 --
--- border_size is 2 (the Omarchy default). BUILD.md section 5's hairline (1) is
--- macOS-faithful but a weak focus cue in a tiling WM. Thickening it does not
--- fix the corner bulge -- that scales with the stroke -- so the fix above is
--- border_part_of_window, not width.
+-- border_size is 2 (Omarchy's default). BUILD.md section 5's hairline (1) is
+-- macOS-faithful but a weak focus cue in a tiling WM.
+--
+-- On a machine with the Omaland plugin these four keys are also in its managed
+-- block lower in looknfeel.lua and it wins by file position -- so tune them
+-- there or in Omaland's UI; this block is the no-Omaland fallback.
 --
 -- gaps_in/gaps_out follow BUILD.md section 5's Apple 8pt layout grid: 8 between
 -- windows, 16 (2x the inner step) at the screen edge. Omarchy defaults to 5/10.
@@ -65,6 +65,18 @@
 --
 -- 0.875 currently. 0.9 and 0.88 were both tried on the way here.
 o.window({ tag = "default-opacity" }, { opacity = "1.0 0.875" })
+
+-- ── Browser opacity: same unfocused glass as everything else ───────────────
+-- default/hypr/apps/browser.lua strips +default-opacity from every
+-- chromium/firefox-based browser and pins them to opacity "1.0 0.985", so the
+-- tag-matched rule above never touches them -- browsers stay effectively opaque
+-- when unfocused (98.5%) and no blur reads through. Re-match the browser tags
+-- directly, after browser.lua has run, so browsers get the same 1.0/0.875
+-- unfocused frost as the rest of the desktop. browser.lua removes the
+-- chromium-based-browser tag from YouTube/Zoom web-app windows, so those stay
+-- excluded here too.
+o.window({ tag = "chromium-based-browser" }, { opacity = "1.0 0.875" })
+o.window({ tag = "firefox-based-browser" }, { opacity = "1.0 0.875" })
 
 -- ── Blur (global) ─────────────────────────────────────────────────────────
 -- BUILD.md section 5 ("NSVisualEffectView is a heavy blur"): vibrancy 0.20
@@ -112,9 +124,9 @@ o.window({ tag = "default-opacity" }, { opacity = "1.0 0.875" })
 hl.config({
   decoration = {
     dim_inactive = false,
-    rounding = 16,
-    rounding_power = 3,
-    border_part_of_window = false,
+    rounding = 18,
+    rounding_power = 2.2,
+    border_part_of_window = true,
     blur = {
       enabled = true,
       size = 7,

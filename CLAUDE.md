@@ -79,11 +79,24 @@ marker → background luminance → dark. It only *signals*: it drives
 `prefers-color-scheme`), VS Code's `type`, and Claude's `base`. Terminals, bar,
 btop and Hyprland just render the hex from `colors.toml`.
 
-**Generated, never committed:** `btop.theme`, `chromium.theme`, `hyprland.lua`,
+**Generated, never committed:** `btop.theme`, `hyprland.lua`,
 `vscode-theme.json`, `neovim.lua` and the terminal colour files are produced from
 `colors.toml` on every theme-set. Omarchy strips `.lua` from *git-cloned* themes,
 which is why window decoration lives in `overrides/hypr/`, not in a theme folder.
 Our themes are symlinked rather than cloned, so nothing is stripped.
+
+**`chromium.theme` is committed, by exception.** Omarchy's template is
+`{{ background_rgb }}`, so the generated seed for the light theme is
+`255,255,255` — pure white. Fed to Chromium as the `BrowserThemeColor` managed
+policy (`/etc/chromium/policies/managed/color.json`, written by
+`omarchy-theme-set-browser` from `~/.local/state/omarchy/current/theme/chromium.theme`),
+a zero-chroma seed leaves menu colour IDs unresolved and Chromium paints
+separators with its placeholder cyan. Each theme folder therefore ships an
+explicit `chromium.theme`: light `236,236,236` (`#ECECEC`, the AppKit
+`NSColor.windowBackgroundColor` catalog value for aqua — BUILD.md §2 reads the
+composited window as `#FFFFFF`, which is the degenerate case), dark `30,30,30`
+(`#1E1E1E`, matches BUILD.md §1). `omarchy-theme-set-templates` skips generation
+when the file already exists in the staged theme.
 
 **Shell surfaces** read `shell.<section>.toml`, spliced in by
 `omarchy-theme-set-templates`, which **replaces the whole section** — any key you
@@ -125,6 +138,39 @@ passes `--ozone-platform=x11` explicitly, overriding Omarchy's global
 `ELECTRON_OZONE_PLATFORM_HINT=wayland`, and under XWayland with
 `force_zero_scaling` it renders at 1/monitor-scale (80% at 1.25).
 `FIGMA_USE_WAYLAND=1` is the launcher's own opt-in.
+
+**Helium** (Chromium fork, extracted AppImage at `~/Applications/helium/AppRun`)
+is the counter-case where `environment.d` has nothing to offer. `apply.sh` step
+7e wants it on the same `--force-device-scale-factor=1` + 110% zoom pairing as
+system Chromium (7d), but: there is *no env var* for the device scale factor,
+and Helium's `AppRun` is not the `chromium-flags.conf`-reading C stub that Arch's
+`/usr/bin/chromium` is — it just `exec`s the binary. So the flag is injected
+into the three `Exec=` lines of `~/.local/share/applications/helium.desktop` in
+place, guarded by an `is the flag already there` grep; `revert.sh` strips exactly
+that substring and keeps the file (it is Helium's, only edited). Re-extracting
+the AppImage can rewrite that `.desktop` without the flag — a re-run of
+`apply.sh` re-injects it. No ozone flag is needed: Helium picks up
+`OZONE_PLATFORM=wayland` from the session env and already runs Wayland (verified
+in its process list), which is the part Omarchy's stock `chromium-flags.conf`
+does for system Chromium. The zoom half is the *same* profile preference
+(`partition.default_zoom_level`), so `overrides/chromium/default-zoom.py` is
+reused unchanged, pointed at Helium's profile tree / binary name through the
+`CLLPSE_ZOOM_{CONFIG_DIR,BINARY,LABEL}` env vars.
+
+**Brave Origin** (`brave-origin-bin`, AUR — another Chromium fork) is the easy
+case by contrast: `/usr/bin/brave-origin` *is* a flags-file launcher (a bash
+script — reads `~/.config/brave-origin-flags.conf` one flag per line, skips
+`#`/blank, execs `/opt/brave-origin-bin/brave`), so step 7f fences
+`--force-device-scale-factor=1` into that file exactly like 7d does for
+`chromium-flags.conf`, no `.desktop` edit. Two things to know: (1) the flags
+file must pre-exist — it also holds the `--ozone-platform=wayland` lines that
+put Brave on Wayland here (Brave does *not* fall back to the env var the way
+Helium does), so 7f fences into it but refuses to create it; (2) the zoom
+script's `BINARY=brave` is-it-running check also matches a running stock **Brave
+Browser** (`~/.config/BraveSoftware/Brave-Browser`), which at worst defers the
+write with a "quit it" message. Profile tree is
+`~/.config/BraveSoftware/Brave-Origin/` (siblings `Brave-Browser{,-Beta,-Nightly}`
+are the regular channels — leave them alone).
 
 **`revert.sh` only undoes.** It never picks a font or theme. `apply.sh` records
 the pre-existing font and theme once, into `~/.local/state/cllpse-macos/`,

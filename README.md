@@ -96,9 +96,16 @@ self-contained Omarchy theme:
 | `backgrounds/` | Wallpapers — macOS stock (Big Sur → Sequoia) plus macOS-styled community art; 17 dark / 15 light. Not redistributable, see [`THIRD-PARTY.md`](THIRD-PARTY.md). |
 | `preview*.png`, `unlock.png` | Theme-picker / lock-screen art — still Last Horizon's dark art in both. |
 
-`btop.theme`, `chromium.theme`, `hyprland.lua`, `vscode-theme.json`, `neovim.lua`
+`btop.theme`, `hyprland.lua`, `vscode-theme.json`, `neovim.lua`
 and the terminal color files are **generated** from `colors.toml` by Omarchy on
 `theme set` — intentionally not committed (BUILD.md: "don't hand-author").
+
+`chromium.theme` **is** committed, by exception: Omarchy's template is just
+`{{ background_rgb }}`, and pure white (`255,255,255`, the light `background`)
+is a degenerate `BrowserThemeColor` seed that makes Chromium paint context-menu
+separators in placeholder cyan. Each theme folder ships an explicit value —
+light `236,236,236` (`#ECECEC`, macOS `windowBackgroundColor`), dark `30,30,30`
+(`#1E1E1E`). Omarchy uses the shipped file and skips generation.
 
 ## Layout
 
@@ -135,15 +142,16 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   not a theme (v4 strips `.lua` from git-cloned themes; `rounding` has no
   `colors.toml` key). `overrides/apply.sh` syncs a fenced block into
   `~/.config/hypr/looknfeel.lua` (`overrides/hypr/looknfeel-decoration.lua`)
-  setting `decoration.rounding = 16` — above the BUILD.md §5 fallback of 12
-  (26 is faithful but dramatic on tiled windows), `decoration.rounding_power = 3`
-  (Apple's continuous-corner squircle; windows-only, so the shell surfaces that
-  mirror the radius stay a circular arc) with `decoration.border_part_of_window =
-  false` (draws the border as a standalone decoration so it doesn't fatten at the
-  squircle corner — the default `true` does), enables `decoration.blur` (size 7,
+  setting `decoration.rounding = 18` — above the BUILD.md §5 fallback of 12
+  (26 is faithful but dramatic on tiled windows); this radius drives the shell
+  surface corners too. `decoration.rounding_power = 2.2` (barely off a circular
+  arc — a stronger squircle pinches the border at the corner) with
+  `decoration.border_part_of_window = true` (border drawn inside each window's
+  tile), enables `decoration.blur` (size 7,
   passes 4, vibrancy 0.30, vibrancy_darkness 0.30, noise 0.02, brightness/contrast
   1.0), keeps `general.border_size = 2` (Omarchy's default) with `gaps_in = 8` / `gaps_out = 16` (§5's Apple 8pt grid),
-  overrides window opacity to `1.0 0.875`, and halves every `hl.animation` leaf's
+  overrides window opacity to `1.0 0.875` (re-matched onto browsers directly too,
+  since Omarchy pins those to their own `1.0 0.985` otherwise), and halves every `hl.animation` leaf's
   stock speed for 2× faster animations. A separate, hand-written block higher up
   the same file does the theme-adaptive inactive border, reading `muted` from the
   active palette; the Omaland plugin, if installed, manages its own animation
@@ -192,7 +200,13 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   sets `1.0 0.875`. Matching the tag rather than `.*` matters: Omarchy deliberately
   untags what must not go translucent — DaVinci Resolve, PiP and webcam overlays,
   Steam, QEMU, RetroArch, YouTube/Zoom web apps — and gives browsers their own
-  `1.0 0.985`.
+  `1.0 0.985`, which the tag match above therefore never touches. Left as-is,
+  Chromium/Firefox windows would stay effectively opaque when unfocused (98.5%)
+  with no blur reading through, so `looknfeel-decoration.lua` re-matches
+  `chromium-based-browser` / `firefox-based-browser` directly (after
+  `browser.lua` has run) and pins those to `1.0 0.875` too — same glass as
+  everywhere else. The YouTube/Zoom exclusion still holds: `browser.lua` strips
+  the browser tag from those windows before this runs.
   Because `blur.ignore_opacity` is true, a semi-transparent window has the full
   blur pass rendered behind it, so unfocused windows read as glass over whatever
   is beneath. That is the intended effect, which is why `dim_inactive` is
@@ -201,10 +215,10 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
 - **The Omarchy shell slaves its surface radius to `decoration:rounding`.**
   `Style.qml` runs `hyprctl getoption decoration:rounding` on startup and after
   `omarchy theme set`, so bar/menu/launcher/notification/OSD corners follow the
-  same 16 — but as a **plain circular arc**: `rounding_power` and `border_size`
+  same 18 — but as a **plain circular arc**: `rounding_power` and `border_size`
   don't reach the shell (its border widths come from generated `shell.toml`
-  tokens). So with `rounding_power = 3` the windows curve a touch tighter than
-  the bar and menu that mirror their radius — a slight, accepted mismatch. A live
+  tokens). At `rounding_power = 2.2` the windows curve only a hair tighter than
+  the bar and menu that mirror their radius. A live
   `hyprctl reload` alone won't update a running shell — `omarchy-restart-shell`
   or `omarchy theme set` does.
 - **`omarchy font set`** (Style ▸ Font) rewrites `~/.config/fontconfig/fonts.conf`

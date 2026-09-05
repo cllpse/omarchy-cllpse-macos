@@ -38,11 +38,13 @@ Both are idempotent, need **no sudo**, and are safe to re-run.
 | 4 | GTK/GNOME fonts → SF Pro / SF Mono | `gsettings org.gnome.desktop.interface` |
 | 5 | Font hinting → `none` — SF faces render unhinted; grid-snapped stems read as sharp under grayscale AA (Wayland fractional scaling) | `gsettings … font-hinting 'none'` (GTK/GNOME) + fenced `freetype-load-flags = no-hinting` in `~/.config/ghostty/config`, on top of Omarchy's stock config (fontconfig side is the step-2 drop-in) |
 | 5b | GTK window buttons → none. Hyprland draws no titlebars; a GTK/libadwaita app's min/max/close is its own CSD, laid out from this key. `':'` vs Omarchy's `'appmenu:close'`. Electron/Qt ignore it — Cursor's are step 7 | `gsettings org.gnome.desktop.wm.preferences button-layout ':'` |
-| 6 | `OMARCHY_MENU_FONT` + cursor theme + `no_warps` + keyboard layout (`hyprland.lua`), decoration/blur/opacity/animations (`looknfeel.lua`), window-switcher keybinds (`bindings.lua`), mouse tuning (`input.lua`) + `decoration` (`rounding = 16` / `rounding_power = 3` / `border_part_of_window = false` — squircle corner without the border fattening at it, see the snippet, `blur` on @ size 7 / passes 4 / vibrancy 0.30, `border_size = 2`, `gaps_in/out = 8/16`) + window `opacity = 1.0 0.875` + 2× animation speeds + `layer_rule` blur on the shell surfaces | fenced blocks synced into `~/.config/hypr/hyprland.lua` and `~/.config/hypr/looknfeel.lua` |
+| 6 | `OMARCHY_MENU_FONT` + cursor theme + `no_warps` + keyboard layout (`hyprland.lua`), decoration/blur/opacity/animations (`looknfeel.lua`), window-switcher keybinds (`bindings.lua`), mouse tuning (`input.lua`) + `decoration` (`rounding = 18` / `rounding_power = 2.2` / `border_part_of_window = true`, `blur` on @ size 7 / passes 4 / vibrancy 0.30, `border_size = 2`, `gaps_in/out = 8/16`) + window `opacity = 1.0 0.875` (re-matched onto `chromium-based-browser` / `firefox-based-browser` too, since Omarchy pins those to `1.0 0.985` otherwise) + 2× animation speeds + `layer_rule` blur on the shell surfaces | fenced blocks synced into `~/.config/hypr/hyprland.lua` and `~/.config/hypr/looknfeel.lua` |
 | 7 | `bat` / `lazygit` / `fzf` colours → terminal ANSI; Cursor editor prefs (whitespace/format-on-save, chrome trimmed — activity + status bars, menu bar, layout control, agents-window button and the `custom` title bar's min/max/close all hidden) merged into `settings.json` with `jq` — our keys win, `workbench.colorTheme` left to Omarchy, no extension-dependent keys | `~/.config/bat/config`, `~/.config/lazygit/config.yml`, `~/.config/Cursor/User/settings.json`, fenced block in `~/.bashrc` |
 | 7b | Restore saved display scaling + text size from `display.conf` (skipped if the file is absent; each empty key skipped) | `omarchy display text size`, the two scale variables in `~/.config/hypr/monitors.lua` |
 | 7c | Install session environment drop-ins (Figma → native Wayland) | `~/.config/environment.d/50-cllpse-macos-figma-wayland.conf` |
 | 7d | Chromium scale: `--force-device-scale-factor=1` (browser UI 20% under DP-2's 1.25) + `110%` default page zoom. Page size is the product of the two — 125% would be exactly 1:1 with native | fenced block in `~/.config/chromium-flags.conf` + `partition.default_zoom_level` in each `~/.config/chromium/*/Preferences` |
+| 7e | Helium (Chromium fork, extracted AppImage) — the same `--force-device-scale-factor=1` + `110%` zoom pairing as 7d. No flags-file launcher, so the flag is injected into the `Exec=` lines of the `.desktop` entry in place (once; guarded); no ozone flag (Helium already runs Wayland off the session env). Zoom reuses `chromium/default-zoom.py` via `CLLPSE_ZOOM_*` | `Exec=` lines of `~/.local/share/applications/helium.desktop` + `partition.default_zoom_level` in `~/.config/net.imput.helium/*/Preferences` |
+| 7f | Brave Origin (`brave-origin-bin`, AUR — Chromium fork) — the same pairing as 7d. Keeps the flags-file launcher convention (`/usr/bin/brave-origin`, a bash script, one flag per line), so the scale flag is a fenced block like 7d; the flags file must already exist (it also carries the ozone lines). Zoom reuses `chromium/default-zoom.py` (binary `brave`) | fenced block in `~/.config/brave-origin-flags.conf` + `partition.default_zoom_level` in each `~/.config/BraveSoftware/Brave-Origin/*/Preferences` |
 | 8 | Apply the theme — refreshes whichever cllpse-macos theme is already active, else sets dark | `omarchy theme set …` |
 
 The blur `layer_rule` only opts the shell surfaces *into* blur; the matching
@@ -135,7 +137,9 @@ differences above are the ones to check by hand.
 - **Restart Ghostty / Foot** windows for the new monospace font + `hintnone` (Kitty/Alacritty reload themselves).
 - **Relaunch running GTK/Qt apps + the bar** to pick up `hintnone`.
 - **Log out / back in** for the `environment.d` drop-ins — the systemd user session reads them at session start.
-- **Quit Chromium before step 7d's zoom half**, and relaunch after. Chromium rewrites `Preferences` from memory on exit, so a write made while it runs is discarded; the script detects this and skips rather than reporting a change that will not survive. The flag half needs only a relaunch. Sites already zoomed with ctrl+/- keep their own `per_host_zoom_levels` and ignore the default.
+- **Quit Chromium / Helium / Brave Origin before the step 7d / 7e / 7f zoom half**, and relaunch after. All rewrite `Preferences` from memory on exit, so a write made while running is discarded; the script detects this and skips rather than reporting a change that will not survive. The flag half needs only a relaunch. Sites already zoomed with ctrl+/- keep their own `per_host_zoom_levels` and ignore the default.
+- **Helium's scale flag rides on its `.desktop` entry**, not a flags file — Helium is an extracted AppImage with no `chromium-flags.conf` launcher. Re-extracting the AppImage can regenerate `~/.local/share/applications/helium.desktop` without the flag; re-run `apply.sh` to re-inject it. `revert.sh` strips just the flag and leaves the file (it is Helium's).
+- **Brave Origin's flags file must already exist** (`~/.config/brave-origin-flags.conf`) — step 7f fences into it but won't create it, because it also holds the `--ozone-platform` lines that keep Brave on Wayland here. If it's missing, install/launch Brave Origin once (or recreate it with the Omarchy `chromium-flags.conf` lines) and re-run.
 
 ## Contents
 
@@ -151,12 +155,19 @@ cursor/settings.json          Cursor editor prefs, jq-merged in; omits workbench
 hypr/hyprland-env.lua         OMARCHY_MENU_FONT + cursor theme/size + no_warps + kb layout
 hypr/window-switcher-bindings.lua  SUPER+TAB keybinds driving the switcher plugin
 hypr/input-tuning.lua         mouse sensitivity/accel/follow_mouse
-hypr/looknfeel-decoration.lua rounding 16 / rounding_power 3 / border_part_of_window false / blur / border_size 2 / gaps 8,16 / window opacity 1.0 0.875 / 2x animations / layer_rule blur on shell surfaces
+hypr/looknfeel-decoration.lua rounding 18 / rounding_power 2.2 / border_part_of_window true / blur / border_size 2 / gaps 8,16 / window opacity 1.0 0.875 / 2x animations / layer_rule blur on shell surfaces
 bash/shell.sh                 FZF_DEFAULT_OPTS derived from the live palette + lsd alias
 display-lib.sh                shared readers/writers for scale + text size (sourced, not run)
 display.conf                  saved text-size / monitor-scale / gdk-scale
 save-display.sh               capture the live values into display.conf
 environment.d/*.conf          systemd user-session env (Figma native Wayland, FreeType stem darkening on + stronger curve)
 chromium/chromium-flags.conf  --force-device-scale-factor=1 (fenced into Omarchy's flags file)
-chromium/default-zoom.py      default page zoom -> 110% (no flag exists; it is a profile preference)
+chromium/default-zoom.py      default page zoom -> 110% (no flag exists; it is a profile preference). Reused for Helium + Brave Origin via CLLPSE_ZOOM_{CONFIG_DIR,BINARY,LABEL}
+brave-origin/brave-origin-flags.conf  --force-device-scale-factor=1 (fenced into ~/.config/brave-origin-flags.conf)
 ```
+
+Helium has no flags file of its own: apply.sh step 7e injects the scale flag
+straight into `~/.local/share/applications/helium.desktop` and drives
+`chromium/default-zoom.py` against `~/.config/net.imput.helium`. Brave Origin
+(step 7f) keeps a flags file, so it gets a fenced snippet like Chromium, plus
+the same zoom pass against `~/.config/BraveSoftware/Brave-Origin`.
