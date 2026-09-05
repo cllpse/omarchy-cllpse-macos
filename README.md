@@ -1,1 +1,128 @@
 # omarchy-cllpse-macos
+
+[Omarchy](https://omarchy.org) themes reproducing the macOS system appearance,
+built against [`reference/BUILD.md`](reference/BUILD.md). Seeded from the stock
+**Last Horizon** theme.
+
+Two themes — Omarchy has no runtime light/dark toggle, each theme is one mode.
+Both live under `omarchy-cllpse-theme/`:
+
+| Folder | Omarchy name | `mode` | Palette |
+|---|---|---|---|
+| `omarchy-cllpse-theme/omarchy-cllpse-theme-dark/`  | **omarchy-cllpse-theme-dark**  | `dark`  | BUILD.md §1 (macOS 27 `NSColor` → sRGB) |
+| `omarchy-cllpse-theme/omarchy-cllpse-theme-light/` | **omarchy-cllpse-theme-light** | `light` | BUILD.md §2 |
+
+## Install
+
+```bash
+./overrides/apply.sh      # symlink both themes, install fonts + all system overrides, apply dark
+./overrides/revert.sh     # undo it
+```
+
+Idempotent, no sudo. See [`overrides/README.md`](overrides/README.md) for exactly
+what it touches and the manual follow-ups (relogin for the shell popup font, new
+shell for fzf).
+
+Switch themes with `omarchy theme set omarchy-cllpse-theme-dark` / `… -light`.
+`mode` drives `gsettings` on apply: light → `color-scheme prefer-light` +
+`gtk-theme Adwaita`; dark → `prefer-dark` + `Adwaita-dark` (flips GTK / libadwaita
+apps and `prefers-color-scheme` in Chromium/Electron).
+
+## Per-theme contents
+
+Each `omarchy-cllpse-theme/omarchy-cllpse-theme-{dark,light}/` folder is a
+self-contained Omarchy theme:
+
+| File | Role |
+|---|---|
+| `colors.toml` | The palette + `mode`. Drives every generated config, including the shell bar/menus/notifications. |
+| `shell.{bar,menu,launcher,notifications}.toml` | Per-section overrides spliced into the generated `shell.toml` — surface `background-alpha` (BUILD.md §6) for the blur set up in `overrides/`. |
+| `icons.theme` | dark → `Yaru-dark`, light → `Yaru-blue`. Fed to `gsettings icon-theme` by `omarchy-theme-set-gnome`. |
+| `backgrounds/` | Wallpapers — macOS stock (Big Sur → Sequoia) plus macOS-styled community art; 17 dark / 15 light. Not redistributable, see [`THIRD-PARTY.md`](THIRD-PARTY.md). |
+| `preview*.png`, `unlock.png` | Theme-picker / lock-screen art — still Last Horizon's dark art in both. |
+
+`btop.theme`, `chromium.theme`, `hyprland.lua`, `vscode-theme.json`, `neovim.lua`
+and the terminal color files are **generated** from `colors.toml` by Omarchy on
+`theme set` — intentionally not committed (BUILD.md: "don't hand-author").
+
+## Layout
+
+```
+omarchy-cllpse-theme/     the two themes (above), as omarchy-cllpse-theme-{dark,light}/
+overrides/                everything that lives outside a theme folder + apply.sh / revert.sh
+omarchy-cllpse-switcher/  macOS-style window-switcher HUD plugin (id io.eject.window-switcher);
+                          apply.sh symlinks it into ~/.config/omarchy/plugins/
+reference/                BUILD.md (the spec) + fonts.conf (BUILD's original, superseded)
+```
+
+`apply.sh` symlinks each theme folder into `~/.config/omarchy/themes/` under the
+same name (`omarchy-cllpse-theme-dark` / `-light`).
+
+## Notes / limitations found on Omarchy 4.0.2
+
+- **Fonts are machine-level, never in a theme.** `overrides/` handles: SF fonts →
+  `~/.local/share/fonts/SF/`; `monospace` → SF Mono via `omarchy font set`;
+  `sans-serif`/`system-ui` → SF Pro via `~/.config/fontconfig/conf.d/99-cllpse-macos-ui-font.conf`
+  (also remaps the *resolved* `Liberation Sans`, since `50-omarchy.conf` claims
+  the generics before user config loads); GTK apps via `gsettings font-name`;
+  shell popups via `OMARCHY_MENU_FONT` in `hyprland.lua`.
+- **The bar font can't be changed.** `Style.qml` hardcodes `fontFamily =
+  "monospace"` and exposes only sizes — so the bar stays SF Mono, and BUILD.md
+  §4's "bar in SF Pro Text" is unreachable without patching the shell package.
+- **`ui-monospace`** resolves to SF Pro Text (Omarchy alias ordering) — negligible.
+- **Shell font size** is not set by the theme — it's governed by
+  `~/.config/omarchy/shell.toml` (`omarchy display text size`), a machine
+  setting. Bar text and icons both scale from `base-size`; there is no bar-only
+  size knob. (An earlier `shell.font.toml` pinning the BUILD.md §4 scale was
+  removed — pinning text while icons scaled with `base-size` made the bar icons
+  look oversized.)
+- **Window rounding/gaps/borders/blur** (BUILD.md §5) belong in `~/.config/hypr/`,
+  not a theme (v4 strips `.lua` from git-cloned themes; `rounding` has no
+  `colors.toml` key). `overrides/apply.sh` syncs a fenced block into
+  `~/.config/hypr/looknfeel.lua` (`overrides/hypr/looknfeel-decoration.lua`)
+  setting `decoration.rounding = 14` — just above the BUILD.md §5 fallback of 12
+  (26 is faithful but dramatic on tiled windows), nudges
+  `decoration.rounding_power` to 2.2 (toward Apple's squircle corner — windows
+  only), enables `decoration.blur` at the §5 values (size 8, passes 3, vibrancy
+  0.20, brightness/contrast 1.0), pins `general.border_size = 2` (also the
+  Omarchy default) with `gaps_in = 8` / `gaps_out = 16` (§5's Apple 8pt grid),
+  overrides window opacity to `1.0 0.9`, and halves every `hl.animation` leaf's
+  stock speed for 2× faster animations. A separate, hand-written block higher up
+  the same file does the theme-adaptive inactive border, reading `muted` from the
+  active palette; the Omaland plugin, if installed, manages its own animation
+  block below ours and wins on load order.
+  `looknfeel-decoration.lua` also carries an `hl.layer_rule` opting the Omarchy
+  shell surfaces (`omarchy-bar|menu|notifications|osd|polkit|clipboard|emojis|`
+  `reminders|image-selector|network-qr|keyboard-panel|lock-preview`) plus our own
+  `omarchy-window-switcher-hud` into that blur — `blur_popups` on,
+  `ignore_alpha = 0.1` so the transparent margin around rounded cards doesn't
+  blur into a rectangle. Additive to Omarchy's own `no_anim` layer rules.
+- **Shell-surface translucency lives in the theme, per section.** A theme-shipped
+  `shell.<section>.toml` is spliced into the generated `shell.toml` by
+  `omarchy-theme-set-templates`, *replacing that whole `[section]`*. Each theme
+  folder ships `shell.bar.toml` (α 0.72), `shell.menu.toml` (0.92),
+  `shell.launcher.toml` (0.85, scrim 0.35) and `shell.notifications.toml` (0.92)
+  — BUILD.md §6 values. Colours are role-name tokens (`"background"`,
+  `"foreground"`, `"accent"`) that `Color.qml` resolves against the live palette,
+  so nothing hardcodes hex; `tooltip` (0.97) and `lock` (0.8) already match §6
+  and aren't shipped. Whole-section replace means any key omitted falls back to
+  the `Color.qml` default, not the generated value — that's why each file
+  restates its full section. The dark/light copies are currently identical
+  (same α over each mode's own `background` colour); tune light up if it reads
+  washed out.
+- **Window opacity is overridden to 1.0/0.9.** Omarchy's `windows.lua` tags every
+  window `+default-opacity` and applies `0.985 0.96`; `looknfeel-decoration.lua`
+  matches every window again, later in load order, so its own rule wins the same
+  field. Focused windows are fully opaque (BUILD.md §5: macOS windows are
+  opaque); unfocused dim to 0.9 — a deliberate deviation from §5's 1.0/1.0, for
+  at-a-glance focus tracking in a tiling WM.
+- **The Omarchy shell slaves its surface radius to `decoration:rounding`.**
+  `Style.qml` runs `hyprctl getoption decoration:rounding` on startup and after
+  `omarchy theme set`, so bar/menu/launcher/notification/OSD corners follow the
+  same 14 (plain circular — `rounding_power` and `border_size` don't reach the
+  shell; its border widths come from generated `shell.toml` tokens). A live
+  `hyprctl reload` alone won't update a running shell — `omarchy-restart-shell`
+  or `omarchy theme set` does.
+- **`omarchy font set`** (Style ▸ Font) rewrites `~/.config/fontconfig/fonts.conf`
+  wholesale — re-run `overrides/apply.sh` if you ever use it. It leaves
+  `conf.d/99-cllpse-macos-ui-font.conf` alone.
