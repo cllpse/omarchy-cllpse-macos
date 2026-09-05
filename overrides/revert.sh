@@ -1,8 +1,11 @@
 #!/bin/bash
 # Undo everything overrides/apply.sh did. Idempotent, no sudo.
-# Does NOT touch `omarchy display text size` (a pre-existing setting).
+# Only ever restores what this machine had before apply.sh first ran; it never
+# picks a font, theme, text size or scale of its own.
 
 set -uo pipefail
+
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 say() { printf '\033[34m▸\033[0m %s\n' "$*"; }
 
@@ -70,6 +73,31 @@ strip_fenced ~/.bashrc
 
 restore ~/.config/bat/config
 restore ~/.config/lazygit/config.yml
+
+# Display scaling + text size: put back only what was recorded at first apply.
+# Nothing recorded means the machine already matched display.conf, so there is
+# nothing of its own to restore.
+if [[ -f $HERE/display-lib.sh ]]; then
+  # shellcheck source=overrides/display-lib.sh
+  source "$HERE/display-lib.sh"
+
+  if [[ -s $STATE/previous-text-size ]]; then
+    prev="$(<"$STATE/previous-text-size")"
+    say "restoring text size: $prev"
+    omarchy display text size "$prev" >/dev/null 2>&1 || true
+    rm -f "$STATE/previous-text-size"
+  fi
+
+  for v in monitor-scale:omarchy_monitor_scale gdk-scale:omarchy_gdk_scale; do
+    f="$STATE/previous-${v%%:*}"; var="${v#*:}"
+    if [[ -s $f ]]; then
+      prev="$(<"$f")"
+      say "restoring $var: $prev"
+      write_scale "$var" "$prev" || say "  could not write $var — left alone"
+      rm -f "$f"
+    fi
+  done
+fi
 
 # Same rule for the theme: restore what was active before, or say so and stop.
 # Leaving a cllpse-macos theme "active" after its folder is unlinked is not

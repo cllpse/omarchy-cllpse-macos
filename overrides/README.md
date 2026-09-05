@@ -11,7 +11,7 @@ so it can't ship inside a theme folder.
 
 ```bash
 ./apply.sh     # install everything + apply the theme (keeps light if light is active)
-./revert.sh    # undo everything (leaves `omarchy display text size` alone)
+./revert.sh    # undo everything, restoring what the machine had before
 ```
 
 `revert.sh` only ever **undoes** — it never picks a font or theme for you. Omarchy
@@ -36,8 +36,9 @@ Both are idempotent, need **no sudo**, and are safe to re-run.
 | 3 | Monospace → SF Mono (Omarchy's own knob) | `omarchy font set` → terminal configs + `fonts.conf` |
 | 4 | GTK/GNOME fonts → SF Pro / SF Mono | `gsettings org.gnome.desktop.interface` |
 | 5 | Font hinting → `none` — SF faces render unhinted; grid-snapped stems read as sharp under grayscale AA (Wayland fractional scaling) | `gsettings … font-hinting 'none'` (GTK/GNOME) + fenced `freetype-load-flags = no-hinting` in `~/.config/ghostty/config` (fontconfig side is the step-2 drop-in) |
-| 6 | `OMARCHY_MENU_FONT` (shell popups) + `decoration` (`rounding = 14` / `rounding_power = 2.2`, `blur` on @ size 8 / passes 3 / vibrancy 0.20, `border_size = 2`, `gaps_in/out = 8/16`) + window `opacity = 1.0 0.9` + 2× animation speeds + `layer_rule` blur on the shell surfaces | fenced blocks synced into `~/.config/hypr/hyprland.lua` and `~/.config/hypr/looknfeel.lua` |
+| 6 | `OMARCHY_MENU_FONT` (shell popups) + `decoration` (`rounding = 14` / `rounding_power = 2.2`, `blur` on @ size 12 / passes 3 / vibrancy 0.20, `border_size = 2`, `gaps_in/out = 8/16`) + window `opacity = 1.0 0.88` + 2× animation speeds + `layer_rule` blur on the shell surfaces | fenced blocks synced into `~/.config/hypr/hyprland.lua` and `~/.config/hypr/looknfeel.lua` |
 | 7 | `bat` / `lazygit` / `fzf` colours → terminal ANSI | `~/.config/bat/config`, `~/.config/lazygit/config.yml`, fenced block in `~/.bashrc` |
+| 7b | Restore saved display scaling + text size from `display.conf` (skipped if the file is absent; each empty key skipped) | `omarchy display text size`, the two scale variables in `~/.config/hypr/monitors.lua` |
 | 8 | Apply the theme — refreshes whichever cllpse-macos theme is already active, else sets dark | `omarchy theme set …` |
 
 The blur `layer_rule` only opts the shell surfaces *into* blur; the matching
@@ -58,6 +59,29 @@ fenced region and leaves everything around it alone, so edits to
 `append_fenced` bailed whenever it saw the marker, which silently pinned a
 machine to whatever version it first installed.) If the block already matches the
 snippet the file is not rewritten at all.
+
+## Display scaling + text size
+
+```bash
+./save-display.sh    # capture the machine's current values into display.conf
+./apply.sh           # restore them (step 7b)
+```
+
+`display.conf` holds three keys — `text-size`, `monitor-scale`, `gdk-scale`.
+Only the two **scale variables** in `~/.config/hypr/monitors.lua` are written
+(`omarchy_monitor_scale` / `omarchy_gdk_scale`, both stock Omarchy variables the
+`hl.monitor()` lines reference). Monitor topology — outputs, modes, positions —
+is never touched, so the same `display.conf` is safe on different hardware even
+though the values themselves are a preference.
+
+`text-size` goes through `omarchy display text size`, which moves the shell's rem
+root, the GTK `text-scaling-factor` and the terminal point size together.
+
+These are **the author's values**, tuned for a 3840x1600 display, and they are
+not part of the macOS look — edit `display.conf` or re-run `save-display.sh` on
+your own machine. Since `apply.sh` reasserts them on every run, retuning by hand
+and *not* re-saving means the next apply pulls you back; `save-display.sh` is how
+you make a change stick. Scale changes land on the next Hyprland reload.
 
 Step 8 matters more than it looks: `omarchy theme set` **copies** the theme
 folder into `~/.local/state/omarchy/current/theme/` rather than symlinking it, so
@@ -87,6 +111,9 @@ ghostty/hinting.conf          freetype-load-flags = no-hinting  (fenced into ~/.
 bat/config                    --theme="ansi"
 lazygit/config.yml            gui.theme with ANSI colour names
 hypr/omarchy-menu-font.lua    hl.env("OMARCHY_MENU_FONT", ...)
-hypr/looknfeel-decoration.lua rounding 14 / rounding_power 2.2 / blur / border_size 2 / gaps 8,16 / window opacity 1.0 0.9 / 2x animations / layer_rule blur on shell surfaces
+hypr/looknfeel-decoration.lua rounding 14 / rounding_power 2.2 / blur / border_size 2 / gaps 8,16 / window opacity 1.0 0.88 / 2x animations / layer_rule blur on shell surfaces
 bash/fzf.sh                   export FZF_DEFAULT_OPTS='--color=...'
+display-lib.sh                shared readers/writers for scale + text size (sourced, not run)
+display.conf                  saved text-size / monitor-scale / gdk-scale
+save-display.sh               capture the live values into display.conf
 ```
