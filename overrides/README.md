@@ -14,6 +14,17 @@ so it can't ship inside a theme folder.
 ./revert.sh    # undo everything (leaves `omarchy display text size` alone)
 ```
 
+`revert.sh` only ever **undoes** — it never picks a font or theme for you. Omarchy
+has no `font reset` / `theme reset`, so `apply.sh` records the font and theme the
+machine had *before* it first ran (in `~/.local/state/cllpse-macos/`) and
+`revert.sh` puts those back. Values that are already ours are refused at record
+time, so re-running `apply.sh` can't turn revert into a no-op.
+
+With nothing recorded, revert deletes the `fonts.conf` that `omarchy-font-set`
+generates — `monospace` then falls back to the packaged default on its own — and
+tells you the terminal configs may still name SF Mono rather than guessing a
+replacement.
+
 Both are idempotent, need **no sudo**, and are safe to re-run.
 
 ## What `apply.sh` does

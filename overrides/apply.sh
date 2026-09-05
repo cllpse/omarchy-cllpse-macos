@@ -69,6 +69,32 @@ sync_fenced() { # $1 target  $2 snippet-file
   say "updated overrides block in $1"
 }
 
+# ── 0. record pre-existing state ─────────────────────────────────────────────
+# revert.sh restores what this machine had before apply.sh first ran, rather
+# than hardcoding Omarchy's stock font/theme — those are only right on a machine
+# that was already stock. Written once and never overwritten, so re-running
+# apply.sh can't clobber the original with our own values.
+#
+# Values that are already ours are refused outright: on a machine where apply.sh
+# has run before, `omarchy font current` reports SF Mono, and recording that
+# would quietly turn revert into a no-op.
+STATE="$HOME/.local/state/cllpse-macos"
+mkdir -p "$STATE"
+
+record_prior() { # $1 state-file  $2 value  $3 value-to-refuse
+  [[ -e $1 ]] && return 0                      # first apply wins, never overwrite
+  [[ -z $2 || $2 == "$3" ]] && return 0         # nothing to record, or it's ours
+  printf '%s\n' "$2" >"$1"
+  skip "recorded pre-existing $(basename "$1"): $2"
+}
+
+record_prior "$STATE/previous-font" \
+  "$(omarchy font current 2>/dev/null || true)" "SFMono Nerd Font Mono"
+
+prior_theme="$(cat "$HOME/.local/state/omarchy/current/theme.name" 2>/dev/null || true)"
+case "$prior_theme" in omarchy-cllpse-theme-*) prior_theme="" ;; esac
+record_prior "$STATE/previous-theme" "$prior_theme" ""
+
 # ── 1. symlinks ──────────────────────────────────────────────────────────────
 say "Linking themes into ~/.config/omarchy/themes/"
 mkdir -p ~/.config/omarchy/themes
