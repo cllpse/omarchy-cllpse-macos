@@ -110,11 +110,11 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   restates its full section. The dark/light copies are currently identical
   (same α over each mode's own `background` colour); tune light up if it reads
   washed out.
-- **Focused windows opaque, unfocused at 0.9 so the blur renders through them.**
+- **Focused windows opaque, unfocused at 0.875 so the blur renders through them.**
   Omarchy's `windows.lua` tags every window `+default-opacity`, lets the per-app
   files strip that tag, then applies `0.985 0.96` to whatever still carries it.
   `looknfeel-decoration.lua` repeats that *same tag match* later in load order and
-  sets `1.0 0.9`. Matching the tag rather than `.*` matters: Omarchy deliberately
+  sets `1.0 0.875`. Matching the tag rather than `.*` matters: Omarchy deliberately
   untags what must not go translucent — DaVinci Resolve, PiP and webcam overlays,
   Steam, QEMU, RetroArch, YouTube/Zoom web apps — and gives browsers their own
   `1.0 0.985`.

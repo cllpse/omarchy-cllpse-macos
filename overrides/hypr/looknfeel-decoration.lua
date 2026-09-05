@@ -42,7 +42,7 @@
 -- inherits them all for free.
 --
 -- Focused windows stay fully opaque, per BUILD.md section 5 ("macOS windows are
--- opaque"). Unfocused drop to 0.9 -- a deliberate deviation from section 5's
+-- opaque"). Unfocused drop to 0.875 -- a deliberate deviation from section 5's
 -- 1.0/1.0, and not only as a focus cue.
 --
 -- blur.ignore_opacity is true, so a window made semi-transparent gets the full
@@ -51,8 +51,8 @@
 -- dim_inactive block below stays off -- stacking a darkening pass on top of it
 -- muddied the result and worked against the effect.
 --
--- 0.9 is the value that reads right. 0.88 was tried and was slightly too far.
-o.window({ tag = "default-opacity" }, { opacity = "1.0 0.9" })
+-- 0.875 currently. 0.9 and 0.88 were both tried on the way here.
+o.window({ tag = "default-opacity" }, { opacity = "1.0 0.875" })
 
 -- ── Blur (global) ─────────────────────────────────────────────────────────
 -- BUILD.md section 5 ("NSVisualEffectView is a heavy blur"): vibrancy 0.20
@@ -73,6 +73,7 @@ o.window({ tag = "default-opacity" }, { opacity = "1.0 0.9" })
 --
 -- This is only the global engine. On its own it does nothing to the Omarchy
 -- shell surfaces -- the per-namespace layer rules below opt each one in.
+
 -- ── Unfocused window dim: OFF, deliberately ────────────────────────────────
 -- dim_inactive darkens unfocused windows as a focus cue. It was tried at 0.10
 -- and removed: stacked on top of the unfocused opacity below it muddied the
