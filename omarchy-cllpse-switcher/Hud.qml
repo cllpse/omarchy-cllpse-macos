@@ -294,9 +294,22 @@ Item {
 
       readonly property int cellW: Style.space(212)
       readonly property int gap: Style.spacing.xs
-      readonly property int rowH: Style.space(104)
-      // The window icon runs 1.5x the Omarchy menu's row icon.
+      // Same shape as Menu.qml's baseRowHeight/detailRowHeight: a floor, raised
+      // if the stacked contents need more. Keeps the cell honest when
+      // `omarchy display text size` grows the font tokens.
+      readonly property int rowH: Math.max(
+        Style.space(104),
+        card.iconSize + Style.font.heading + Style.font.bodySmall
+          + Style.space(3) * 2 + Style.spacing.rowPaddingX * 2)
+      // The window icon runs 1.5x the Omarchy menu's row icon: in the menu the
+      // icon sits inline beside a label, here it's the primary element of a
+      // card, so it carries the cell the way a macOS Cmd-Tab tile does.
       readonly property int iconSize: Math.round(Style.font.iconLarge * 1.5)
+      // Matches the menu's cursor-row border (Menu.qml selectedBorderSpec), so
+      // the theme's [menu] selected-border / selected-border-alpha reach the
+      // HUD instead of being silently dropped.
+      readonly property var selectedBorderSpec:
+        Border.surfaceSpec("menu", "selected-border", Color.menu.selectedBorder, 0)
       readonly property int stripW: root.wins.length > 0
         ? root.wins.length * cellW + (root.wins.length - 1) * gap
         : 0
@@ -324,21 +337,23 @@ Item {
         currentIndex: root.index
         onCurrentIndexChanged: positionViewAtIndex(currentIndex, ListView.Contain)
 
-        // Styled after an Omarchy menu row: selected gets
-        // Color.menu.selectedBackground + selectedText, radius = cornerRadius,
-        // label in heading/Medium. The icon (card.iconSize) and the workspace
-        // line (subtitle, dimmed) both run a step larger than the menu's.
-        delegate: Rectangle {
+        // Styled after an Omarchy menu row (Menu.qml's row delegate): a
+        // BorderSurface whose selected state gets Color.menu.selectedBackground
+        // + selectedText + the selected-border spec, radius = cornerRadius,
+        // label in heading/Medium and the secondary line in bodySmall at 0.52.
+        // Only the icon deliberately departs -- see card.iconSize.
+        delegate: BorderSurface {
           id: cell
           width: card.cellW
           height: list.height
           radius: Style.cornerRadius
           readonly property bool sel: index === root.index
           color: sel ? Color.menu.selectedBackground : "transparent"
+          borderSpec: sel ? card.selectedBorderSpec : Border.none()
 
           Column {
             anchors.centerIn: parent
-            width: parent.width - Style.space(16)
+            width: parent.width - Style.spacing.rowPaddingX * 2
             spacing: Style.space(3)
 
             Text {
@@ -369,7 +384,8 @@ Item {
               elide: Text.ElideRight
               maximumLineCount: 1
               font.family: Style.font.menuFamily
-              font.pixelSize: Style.font.subtitle
+              // bodySmall + 0.52, exactly the menu's secondary/detail line.
+              font.pixelSize: Style.font.bodySmall
               color: Color.menu.text
               opacity: 0.52
             }

@@ -26,6 +26,16 @@ plugin-side theming. Under **omarchy-cllpse-theme** that means:
 - corner radius follows `decoration:rounding` (14) like every shell surface;
 - translucency comes from `[menu] background-alpha` (0.92) in
   `omarchy-cllpse-theme/*/shell.menu.toml`;
+- the card and cells track the SUPER+SPACE menu (`shell/plugins/menu/Menu.qml`)
+  token for token: `Style.spacing.panelPadding`, `Style.spacing.xs` between
+  items, `Style.cornerRadius`, the same `Border.surfaceSpec("menu", …)` card
+  border and `selected-border` spec on the cursor cell, labels in
+  `Style.font.heading`/Medium and the secondary line in `Style.font.bodySmall`
+  at 0.52. Cell height derives from those tokens with a floor, the way the
+  menu's `baseRowHeight` does, so it survives `omarchy display text size`.
+  **The one deliberate departure is the icon** at `Style.font.iconLarge × 1.5`:
+  in the menu the icon sits inline beside a label, here it is the primary
+  element of a card, like a macOS Cmd-Tab tile;
 - blur comes from the `hl.layer_rule` in
   `overrides/hypr/looknfeel-decoration.lua`, whose namespace match includes
   `window-switcher-hud` so the HUD blurs exactly like the Omarchy menu.
