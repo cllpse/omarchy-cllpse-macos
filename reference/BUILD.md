@@ -266,8 +266,8 @@ Three facts drive the mapping:
 
 | Setting | Value | Basis |
 |---|---|---|
-| rounding | `26` | macOS Tahoe toolbar-window radius, 26pt [reported] |
-| border_size | `1` | macOS hairline edge [chosen] |
+| rounding | `14` | macOS window corner radius [chosen] — 26 is the reported Tahoe toolbar-window figure, but it is third-party and dramatic on tiled windows; 14 sits just above the 12 fallback below and is treated as satisfying this row |
+| border_size | `2` | macOS hairline edge is 1, but that is a weak focus cue in a tiling WM [chosen] — 2 is also the Omarchy default |
 | gaps_in | `8` | Apple 8pt layout grid [chosen] |
 | gaps_out | `16` | 2× inner step [chosen] |
 | shadow range | `40` | large and soft [chosen] |
@@ -278,14 +278,18 @@ Three facts drive the mapping:
 | blur brightness / contrast | `1.0` / `1.0` | macOS does not darken [chosen] |
 | active / inactive opacity | `1.0` / `0.9` | macOS windows are opaque, but unfocused windows dim to 0.9 for at-a-glance focus tracking in a tiled layout [chosen] — overrides Omarchy's 0.985/0.96 |
 
-`rounding = 26` comes from third-party reporting on Tahoe, not from a
+The 26pt figure comes from third-party reporting on Tahoe, not from a
 measurement of this machine — treat it as approximate. Tahoe radii are not
 uniform: windows without a toolbar are less rounded, and pre-Tahoe macOS used
-~10–12pt. 26 is also dramatic on tiled windows; 12 is a defensible fallback.
-Say which was used.
+~10–12pt. 26 is also dramatic on tiled windows.
 
-`border_size = 1` is faithful but a weak focus cue in a tiling WM. Go to 2 if
-focus is hard to read.
+**Shipped: 14**, just above the 12 fallback and inside the pre-Tahoe range. This
+is the settled value, not a deferred approximation — it satisfies this row, and
+the 26 above is kept only as the provenance of where the number came from.
+`border_size = 2` likewise settles the row below.
+
+`border_size = 1` is the faithful hairline, but a weak focus cue in a tiling WM —
+hence the 2 above.
 
 Window decoration belongs in the user Hyprland config, not the theme: v4 strips
 `.lua` files from git-cloned themes, so a theme-shipped decoration file would
