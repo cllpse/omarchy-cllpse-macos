@@ -120,5 +120,5 @@ bash/fzf.sh                   export FZF_DEFAULT_OPTS='--color=...'
 display-lib.sh                shared readers/writers for scale + text size (sourced, not run)
 display.conf                  saved text-size / monitor-scale / gdk-scale
 save-display.sh               capture the live values into display.conf
-environment.d/*.conf          systemd user-session env (Figma native Wayland, FreeType stem darkening off)
+environment.d/*.conf          systemd user-session env (Figma native Wayland, FreeType stem darkening on + stronger curve)
 ```
