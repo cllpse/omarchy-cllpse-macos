@@ -26,6 +26,14 @@ plugin-side theming. Under **omarchy-cllpse-theme** that means:
 - corner radius follows `decoration:rounding` (14) like every shell surface;
 - translucency comes from `[menu] background-alpha` (0.92) in
   `omarchy-cllpse-theme/*/shell.menu.toml`;
+- the scrim is composed in `Hud.qml` at 0.35 rather than bound to
+  `Color.menu.scrim` (0.25) — a switcher wants a little more separation from the
+  desktop than a menu. It is built from the live palette background so it still
+  follows theme switches. 0.35 is the value `[launcher]` intends, which Omarchy
+  4.0.2 never reads: there is no launcher surface in `Color.qml` and no launcher
+  plugin, so that section is inert and the value is applied here directly. The
+  scrim sits below the layer rule's `ignore_alpha` (0.6), so it stays unblurred
+  and the windows being switched between remain readable;
 - the card and cells track the SUPER+SPACE menu (`shell/plugins/menu/Menu.qml`)
   token for token: `Style.spacing.panelPadding`, `Style.spacing.xs` between
   items, `Style.cornerRadius`, the same `Border.surfaceSpec("menu", …)` card

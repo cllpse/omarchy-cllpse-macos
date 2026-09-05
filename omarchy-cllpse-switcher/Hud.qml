@@ -279,13 +279,25 @@ Item {
     // Visual only: empty input region, so the strip never intercepts a click.
     mask: Region {}
 
-    // Same dim as the Omarchy menu (Color.menu.scrim = theme bg at 0.25). The
-    // layer rule in overrides/hypr/looknfeel-decoration.lua sets ignore_alpha
-    // above this, so the scrim is NOT blurred -- the windows being switched
-    // between stay readable through it, while the card above keeps its blur.
+    // Scrim at the launcher's 0.35 rather than binding Color.menu.scrim (0.25):
+    // a switcher wants a touch more separation from the desktop than a menu.
+    //
+    // Composed here rather than read from the theme because Omarchy 4 has no
+    // launcher surface to read. Color.qml exposes bar, popups, tooltip,
+    // notifications, menu, polkit, lock and imagePicker -- no launcher -- and
+    // nothing in the shell reads `launcher.*` keys at all. What Omarchy calls
+    // the launcher is the menu plugin, on Color.menu.*, so the [launcher]
+    // section a theme ships is spliced into shell.toml and then ignored. 0.35 is
+    // that section's intended value, applied here directly.
+    //
+    // Built from the live palette background so it still follows theme switches,
+    // and kept below the layer rule's ignore_alpha (0.6) in
+    // overrides/hypr/looknfeel-decoration.lua so the scrim stays unblurred --
+    // the windows being switched between remain readable, while the card above
+    // keeps its frost.
     Rectangle {
       anchors.fill: parent
-      color: Color.menu.scrim
+      color: Qt.rgba(Color.background.r, Color.background.g, Color.background.b, 0.35)
     }
 
     // Card: same chrome as an Omarchy menu — theme menu background, the

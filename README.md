@@ -103,8 +103,13 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   `shell.<section>.toml` is spliced into the generated `shell.toml` by
   `omarchy-theme-set-templates`, *replacing that whole `[section]`*. Each theme
   folder ships `shell.bar.toml` (α 0.72), `shell.menu.toml` (0.92),
-  `shell.launcher.toml` (0.85, scrim 0.35) and `shell.notifications.toml` (0.92)
-  — menu scrim is 0.25, kept low and unblurred so the window switcher stays usable
+  `shell.launcher.toml` (0.85, scrim 0.35 — **inert on 4.0.2**, see below) and
+  `shell.notifications.toml` (0.92)
+  — menu scrim is 0.25, kept low and unblurred so the window switcher stays usable.
+  Nothing reads `launcher.*`: `Color.qml` has no launcher surface, there is no
+  launcher plugin, and what Omarchy calls the launcher is the menu plugin drawing
+  on `Color.menu.*`. The `[launcher]` section is spliced into the generated
+  `shell.toml` and then ignored — edit `[menu]` to change it.
   — BUILD.md §6 values. Colours are role-name tokens (`"background"`,
   `"foreground"`, `"accent"`) that `Color.qml` resolves against the live palette,
   so nothing hardcodes hex; `tooltip` (0.97) and `lock` (0.8) already match §6

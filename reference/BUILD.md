@@ -312,8 +312,8 @@ The Omarchy column is [measured] from `shell.toml`; the macOS column is
 | Surface | Omarchy | macOS |
 |---|---|---|
 | bar | 1.0 | **0.72** — menu bar is translucent over the wallpaper |
-| launcher | 0.95 | **0.85** — Spotlight is more translucent |
-| launcher scrim | 0.5 | **0.35** — macOS dims the desktop only lightly |
+| launcher | 0.95 | **0.85** — Spotlight is more translucent. *Inert on 4.0.2: nothing reads `launcher.*`; the launcher is the menu plugin on `Color.menu.*`* |
+| launcher scrim | 0.5 | **0.35** — macOS dims the desktop only lightly. *Also inert; the value is applied directly by the window-switcher plugin, which wants a slightly heavier scrim than the menu's 0.25* |
 | menu scrim | 1.0 | **0.25** — the menu and the window switcher share this layer; it has to stay readable enough to pick the window you are switching to |
 | menu | 1.0 | **0.92** — near-opaque glass |
 | tooltip | 0.97 | 0.97 — already correct |
