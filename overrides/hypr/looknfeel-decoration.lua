@@ -42,9 +42,21 @@
 o.window(".*", { opacity = "1.0 0.9" })
 
 -- ── Blur (global) ─────────────────────────────────────────────────────────
--- BUILD.md section 5: size 8 / passes 3 ("NSVisualEffectView is a heavy blur"),
--- vibrancy 0.20 ("macOS boosts saturation behind glass"), brightness/contrast
--- 1.0 ("macOS does not darken"). Omarchy ships blur disabled.
+-- BUILD.md section 5 ("NSVisualEffectView is a heavy blur"): vibrancy 0.20
+-- ("macOS boosts saturation behind glass"), brightness/contrast 1.0 ("macOS
+-- does not darken"). Omarchy ships blur disabled.
+--
+-- size is 12 rather than the 8 section 5 started from. size is the radius per
+-- pass and passes is the number of downsample rounds, each roughly doubling the
+-- reach, so effective spread is about size * 2^(passes-1): 8/3 ~= 32, 12/3 ~= 48.
+-- Widening via size keeps the character of the blur and costs almost nothing;
+-- passes = 4 would double the spread again but is markedly more expensive and
+-- can band on gradients.
+--
+-- Note this is only visible through whatever a surface leaves translucent. At
+-- shell.menu/notifications alpha 0.92 just 8% of the backdrop shows, so radius
+-- barely registers there -- the bar (0.72) is where it reads. Lowering
+-- background-alpha is the stronger lever than widening blur.
 --
 -- This is only the global engine. On its own it does nothing to the Omarchy
 -- shell surfaces -- the per-namespace layer rules below opt each one in.
@@ -54,7 +66,7 @@ hl.config({
     rounding_power = 2.2,
     blur = {
       enabled = true,
-      size = 8,
+      size = 12,
       passes = 3,
       vibrancy = 0.20,
       brightness = 1.0,
