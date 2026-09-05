@@ -139,11 +139,24 @@ gsettings set org.gnome.desktop.interface monospace-font-name 'SFMono Nerd Font 
 # GTK/GNOME and Ghostty each read their own knob:
 say "gsettings: GTK/GNOME font-hinting -> none"
 gsettings set org.gnome.desktop.interface font-hinting 'none'
-sync_fenced ~/.config/ghostty/config "$HERE/ghostty/hinting.conf"
+sync_fenced ~/.config/ghostty/config "$HERE/ghostty/macos.conf"
 
 # ── 6. hypr overrides ────────────────────────────────────────────────────────
-sync_fenced ~/.config/hypr/hyprland.lua  "$HERE/hypr/omarchy-menu-font.lua"
+# Each block is appended at the END of its file, which is what makes it win on
+# load order — see the notes in the snippets themselves.
+sync_fenced ~/.config/hypr/hyprland.lua  "$HERE/hypr/hyprland-env.lua"
 sync_fenced ~/.config/hypr/looknfeel.lua "$HERE/hypr/looknfeel-decoration.lua"
+sync_fenced ~/.config/hypr/bindings.lua  "$HERE/hypr/window-switcher-bindings.lua"
+sync_fenced ~/.config/hypr/input.lua     "$HERE/hypr/input-tuning.lua"
+
+# Bibata is referenced by hyprland-env.lua and the gsettings below. No sudo
+# here, so warn rather than install.
+if [[ ! -d /usr/share/icons/Bibata-Modern-Ice && ! -d ~/.local/share/icons/Bibata-Modern-Ice ]]; then
+  skip "cursor theme Bibata-Modern-Ice not found — install it with: sudo pacman -S bibata-cursor-theme"
+fi
+say "gsettings: cursor theme -> Bibata-Modern-Ice @ 22"
+gsettings set org.gnome.desktop.interface cursor-theme 'Bibata-Modern-Ice'
+gsettings set org.gnome.desktop.interface cursor-size 22
 
 # ── 7. apps Omarchy doesn't theme ───────────────────────────────────────────
 say "bat -> ~/.config/bat/config (--theme=ansi)"

@@ -62,7 +62,7 @@ else
 fi
 
 say "gsettings: reset GTK/GNOME fonts + hinting"
-for k in font-name document-font-name monospace-font-name font-hinting; do
+for k in font-name document-font-name monospace-font-name font-hinting cursor-theme cursor-size; do
   gsettings reset org.gnome.desktop.interface "$k" 2>/dev/null || true
 done
 
@@ -78,6 +78,8 @@ fi
 strip_fenced ~/.config/ghostty/config
 strip_fenced ~/.config/hypr/hyprland.lua
 strip_fenced ~/.config/hypr/looknfeel.lua
+strip_fenced ~/.config/hypr/bindings.lua
+strip_fenced ~/.config/hypr/input.lua
 strip_fenced ~/.bashrc
 
 restore ~/.config/bat/config

@@ -130,3 +130,23 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
 - **`omarchy font set`** (Style ▸ Font) rewrites `~/.config/fontconfig/fonts.conf`
   wholesale — re-run `overrides/apply.sh` if you ever use it. It leaves
   `conf.d/99-cllpse-macos-ui-font.conf` alone.
+
+## Also on the author's machine (not installed by `apply.sh`)
+
+Settings this machine carries that the repo deliberately leaves alone, recorded
+so a rebuild isn't guesswork:
+
+| Setting | Where | Why it isn't installed |
+|---|---|---|
+| `gtk-enable-primary-paste = true` | `gsettings org.gnome.desktop.interface` | Middle-click paste — a personal habit, unrelated to the macOS look |
+| `SSH_AUTH_SOCK` → `${XDG_RUNTIME_DIR}/gcr/ssh` | `~/.config/environment.d/ssh-agent.conf` | Points ssh at the GNOME keyring; would break ssh on a machine without it running |
+| Plugins: `bobbynicholas.omaland`, `dizziee.system-updates`, `nomarkoo.keyboard-layout` | `~/.config/omarchy/plugins/` | Third-party, installed through Omarchy's own plugin flow — `apply.sh` has no source URLs to fetch them from |
+| Nautilus / GTK file-chooser window state | `dconf` | Incidental UI state, not configuration |
+
+Two of the installed blocks overlap with plugins that own the same settings.
+`input-tuning.lua` is appended after Omaland's `OMARCHY_MOUSE_SETTINGS` block and
+wins on file position, but Omaland rewrites its own block whenever its Settings
+panel is opened. The keyboard layout in `hyprland-env.lua` sits after
+`require("default.hypr.toggles")`, so it applies on a machine with no layout
+plugin — where `nomarkoo.keyboard-layout` is installed, its toggle state wins.
+Both exist for self-sufficiency, not to fight the plugins.
