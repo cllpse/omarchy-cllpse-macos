@@ -83,7 +83,7 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   setting `decoration.rounding = 14` — just above the BUILD.md §5 fallback of 12
   (26 is faithful but dramatic on tiled windows), nudges
   `decoration.rounding_power` to 2.2 (toward Apple's squircle corner — windows
-  only), enables `decoration.blur` (size 12, passes 4, vibrancy 0.30,
+  only), enables `decoration.blur` (size 10, passes 4, vibrancy 0.30,
   vibrancy_darkness 0.30, noise 0.02, brightness/contrast 1.0), pins
   `general.border_size = 2` (also the
   Omarchy default) with `gaps_in = 8` / `gaps_out = 16` (§5's Apple 8pt grid),
