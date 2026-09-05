@@ -301,10 +301,16 @@ Item {
         Style.space(104),
         card.iconSize + Style.font.heading + Style.font.bodySmall
           + Style.space(3) * 2 + Style.spacing.rowPaddingX * 2)
-      // The window icon runs 1.4x the Omarchy menu's row icon: in the menu the
-      // icon sits inline beside a label, here it's the primary element of a
-      // card, so it carries the cell the way a macOS Cmd-Tab tile does.
-      readonly property int iconSize: Math.round(Style.font.iconLarge * 1.4)
+      // In the menu the icon sits inline beside a label (Style.font.iconLarge);
+      // here it's the primary element of a card, so it steps up the type scale
+      // to `display` -- the way a macOS Cmd-Tab tile leads with its icon.
+      //
+      // A token rather than a multiple of iconLarge on purpose. iconLarge is
+      // already rounded (fontPx = round(baseSize * mult)), so scaling it rounds
+      // a second time and lands on arbitrary sizes that drift with base-size.
+      // display is a clean 2.0 rem: exact at every base-size, and ~1.33x
+      // iconLarge, which is where the hand-tuned multiplier was heading anyway.
+      readonly property int iconSize: Style.font.display
       // Matches the menu's cursor-row border (Menu.qml selectedBorderSpec), so
       // the theme's [menu] selected-border / selected-border-alpha reach the
       // HUD instead of being silently dropped.
