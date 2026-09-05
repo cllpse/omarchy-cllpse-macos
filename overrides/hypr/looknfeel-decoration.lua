@@ -17,14 +17,14 @@
 -- drives both window and shell rounding.
 --
 -- rounding_power shapes the corner curve (higher = squircle, closer to Apple's
--- continuous corners). 3.2 -- a clear squircle, kept a little under the point
+-- continuous corners). 3 -- a clear squircle, kept a little under the point
 -- where Hyprland's border renderer stops keeping up (~3.5-4). The knob is
 -- windows-only: the shell's Rectangle.radius ignores it, so the bar and menu
 -- stay a circular arc while windows curve tighter. Accepted -- the mismatch is
--- slight at 3.2 and the squircle is the more macOS-faithful window corner. (2.0,
+-- slight at 3 and the squircle is the more macOS-faithful window corner. (2.0,
 -- the plain arc, is the fallback; 2.2 was an earlier half-measure.)
 --
--- border_part_of_window = false is what makes 3.2 usable. With the default true,
+-- border_part_of_window = false is what makes 3 usable. With the default true,
 -- the border is drawn in the window pass and its outer edge is rendered
 -- under-curved against the squircle, so the 2px stroke fattens visibly at the
 -- 45 degree corner from rounding_power ~3 up. As a standalone decoration (false)
@@ -113,7 +113,7 @@ hl.config({
   decoration = {
     dim_inactive = false,
     rounding = 16,
-    rounding_power = 3.2,
+    rounding_power = 3,
     border_part_of_window = false,
     blur = {
       enabled = true,
