@@ -139,7 +139,7 @@ gsettings set org.gnome.desktop.interface monospace-font-name 'SFMono Nerd Font 
 # GTK/GNOME and Ghostty each read their own knob:
 say "gsettings: GTK/GNOME font-hinting -> none"
 gsettings set org.gnome.desktop.interface font-hinting 'none'
-sync_fenced ~/.config/ghostty/config "$HERE/ghostty/macos.conf"
+sync_fenced ~/.config/ghostty/config "$HERE/ghostty/ghostty.conf"
 
 # ── 6. hypr overrides ────────────────────────────────────────────────────────
 # Each block is appended at the END of its file, which is what makes it win on
