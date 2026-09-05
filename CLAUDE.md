@@ -111,10 +111,11 @@ the theme's `unlock.png` as the logo on *both* Plymouth and
 bullet/entry/lock/progress-bar glyphs to `foreground` via ImageMagick
 `+level-colors` — only `unlock.png` itself needs authoring per theme.
 `unlock.png` is the ~800×188 alpha-transparent "OMARCHY" wordmark every stock
-theme ships (tinted to that theme's own colours); ours is generated with
-`magick unlock.png -channel RGB -fill '#hex' -colorize 100 unlock.png`, which
-recolours every pixel to `#hex` while leaving each pixel's original alpha (so
-the antialiased edges) untouched. `preview-unlock.png` (1920×1080) is a
+theme ships. Stock themes tint the whole wordmark to one flat colour; ours is
+instead a fixed multi-colour (one hue per letter) mark, hand-tuned per theme
+rather than auto-generated from a single hex -- the two `unlock.png`s are
+close but not pixel-identical (the light theme nudges a couple of letters for
+contrast against a white background). `preview-unlock.png` (1920×1080) is a
 rendered mockup of that boot/login screen, shown by `omarchy plymouth switcher`'s
 picker — generate it with `omarchy plymouth preview <bg-hex> <text-hex>
 <unlock.png> <output-path>`, no sudo needed. `preview.png` is unrelated: the
@@ -123,11 +124,14 @@ desktop-screenshot thumbnail for Omarchy's *main* theme picker.
 **`unlock.svg` is a companion, not an input.** Omarchy's Plymouth/SDDM pipeline
 only ever reads the PNG, so the SVG is purely a checked-in editable source.
 Built with a small local script (not committed -- one-off) that reads
-`magick unlock.png txt:-`, run-length-encodes each row's alpha into segments,
-and merges vertically identical rows into one `<rect>` -- an exact pixel trace
-(rsvg-convert round-trip back to PNG differs from the source by ~6 of 150,400
-pixels, all sub-1% opacity rounding), not a smoothed potrace-style
-vectorisation, which would round the deliberately blocky pixel-art corners.
+`magick unlock.png txt:-`, run-length-encodes each row into segments by exact
+`(r,g,b,a)`, and merges vertically identical rows into one `<rect>` -- an exact
+pixel trace (rsvg-convert round-trip back to PNG differs from the source by
+~2 of 150,400 pixels, all sub-1% opacity rounding), not a smoothed
+potrace-style vectorisation, which would round the deliberately blocky
+pixel-art corners and collapse the per-letter colour boundaries. Regenerate it
+whenever `unlock.png` changes -- it does not stay in sync on its own, same as
+`colors.svg` below.
 
 **`colors.svg` is likewise a generated companion, not an input** -- nothing in
 Omarchy or this repo reads it. A one-off script parses `colors.toml`'s
@@ -348,9 +352,5 @@ clean install ended up identical.
 
 ## Still open
 
-- Light-specific `preview.png` — the desktop-screenshot thumbnail Omarchy's own
-  theme picker shows; both themes still ship an identical screenshot. (`unlock.png`
-  / `preview-unlock.png` — the boot-splash/SDDM login logo and its picker
-  thumbnail — are now per-theme; see the Plymouth section below.)
 - `revert.sh`'s restore paths have unit-tested helpers but have never been run
   end-to-end; that needs a spare machine or VM, not this one.
