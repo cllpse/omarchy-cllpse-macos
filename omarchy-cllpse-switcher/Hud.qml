@@ -132,6 +132,92 @@ Item {
     return String.fromCharCode(g)
   }
 
+  // Friendly app name for the class, shown ahead of the window title as
+  // "App Name (title)". Same class-matching idiom as glyphFor, so the two
+  // stay in step. Falls back to title-casing the raw class (last segment of
+  // a reverse-DNS style class, e.g. "org.gnome.Nautilus") for anything not
+  // listed here, rather than leaving the tile unlabelled.
+  function nameFor(cls) {
+    var c = String(cls || "").toLowerCase()
+    function has() {
+      for (var i = 0; i < arguments.length; i++)
+        if (c.indexOf(arguments[i]) !== -1) return true
+      return false
+    }
+    if (has("ghostty")) return "Ghostty"
+    else if (has("alacritty")) return "Alacritty"
+    else if (has("kitty")) return "Kitty"
+    else if (has("foot")) return "Foot"
+    else if (has("wezterm")) return "WezTerm"
+    else if (has("xterm")) return "XTerm"
+    else if (has("konsole")) return "Konsole"
+    else if (has("firefox")) return "Firefox"
+    else if (has("librewolf")) return "LibreWolf"
+    else if (has("floorp")) return "Floorp"
+    else if (has("zen-browser", "zen_browser")) return "Zen"
+    else if (has("waterfox")) return "Waterfox"
+    else if (has("chromium")) return "Chromium"
+    else if (has("chrome")) return "Chrome"
+    else if (has("vivaldi")) return "Vivaldi"
+    else if (has("brave")) return "Brave"
+    else if (has("edge")) return "Edge"
+    else if (has("opera")) return "Opera"
+    else if (has("cursor")) return "Cursor"
+    else if (has("code")) return "VS Code"
+    else if (has("sublime")) return "Sublime Text"
+    else if (has("jetbrains", "idea")) return "IntelliJ IDEA"
+    else if (has("pycharm")) return "PyCharm"
+    else if (has("webstorm")) return "WebStorm"
+    else if (has("zed")) return "Zed"
+    else if (has("vim")) return "Vim"
+    else if (has("emacs")) return "Emacs"
+    else if (has("steam")) return "Steam"
+    else if (has("spotify")) return "Spotify"
+    else if (has("vlc")) return "VLC"
+    else if (has("mpv")) return "mpv"
+    else if (has("celluloid")) return "Celluloid"
+    else if (has("gimp")) return "GIMP"
+    else if (has("inkscape")) return "Inkscape"
+    else if (has("krita")) return "Krita"
+    else if (has("thunderbird")) return "Thunderbird"
+    else if (has("discord")) return "Discord"
+    else if (has("slack")) return "Slack"
+    else if (has("telegram")) return "Telegram"
+    else if (has("signal")) return "Signal"
+    else if (has("beeper")) return "Beeper"
+    else if (has("nautilus", "files")) return "Files"
+    else if (has("thunar")) return "Thunar"
+    else if (has("pcmanfm")) return "PCManFM"
+    else if (has("dolphin")) return "Dolphin"
+    else if (has("nemo")) return "Nemo"
+
+    var seg = String(cls || "").split(".").pop().replace(/[-_]+/g, " ").trim()
+    if (!seg) return ""
+    return seg.replace(/\w\S*/g, function (w) {
+      return w.charAt(0).toUpperCase() + w.slice(1)
+    })
+  }
+
+  // Window titles come from arbitrary apps and sometimes carry icon glyphs,
+  // emoji or other symbols that don't exist in the menu font and render as
+  // tofu boxes. Rather than a Unicode-range regex (whose \p{} property
+  // escapes aren't reliably supported by every JS engine build), this is a
+  // plain character whitelist checked by String.indexOf -- easy to read and
+  // to extend with one more character.
+  readonly property string titleWhitelist:
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789æøåÆØÅ" +
+    " ,.-:()&'!?"
+
+  function sanitizeTitle(s) {
+    var str = String(s || "")
+    var out = ""
+    for (var i = 0; i < str.length; i++) {
+      var ch = str.charAt(i)
+      if (root.titleWhitelist.indexOf(ch) !== -1) out += ch
+    }
+    return out.trim()
+  }
+
   Process {
     id: clientsProc
     command: ["hyprctl", "clients", "-j"]
@@ -183,7 +269,7 @@ Item {
         address: m.address,
         title: t,
         cls: m.class || m.initialClass || "",
-        ws: (m.workspace && m.workspace.name) || ""
+        ws: String((m.workspace && m.workspace.name) || "").trim()
       })
     }
 
@@ -241,7 +327,7 @@ Item {
   function _hover(cx, cy) {
     if (!root.opened || root.wins.length < 2) return
     if (root.hoverBase === null) { root.hoverBase = { x: cx, y: cy }; return }
-    if (Math.abs(cx - root.hoverBase.x) + Math.abs(cy - root.hoverBase.y) < 8) return
+    if (Math.abs(cx - root.hoverBase.x) + Math.abs(cy - root.hoverBase.y) < Style.space(8)) return
 
     // ListView rect in global (monitor) coordinates. The surface fills the
     // monitor, so surface-local == monitor-local; add the monitor origin.
@@ -314,7 +400,7 @@ Item {
       // `omarchy display text size` grows the font tokens.
       readonly property int rowH: Math.max(
         Style.space(104),
-        card.iconSize + Style.font.heading + Style.font.bodySmall
+        card.iconSize + Style.font.heading + Style.font.title
           + Style.space(3) * 2 + Style.spacing.rowPaddingX * 2)
       // In the menu the icon sits inline beside a label (Style.font.iconLarge);
       // here it's the primary element of a card, so it steps up the type scale
@@ -334,6 +420,13 @@ Item {
       readonly property int stripW: root.wins.length > 0
         ? root.wins.length * cellW + (root.wins.length - 1) * gap
         : 0
+      // Overflow scrim width: the card's own left/right padding (so the
+      // fade starts right at the card edge, not inset from it) plus
+      // two-thirds of a cell -- enough that a cell sitting right at the edge
+      // is fully inside the scrim's opaque run, not just brushed by its
+      // fade tail.
+      readonly property int scrimW: Math.min(
+        card.contentLeftInset + card.cellW * 2 / 3, list.width / 2)
 
       color: Color.menu.background
       radius: Style.cornerRadius
@@ -361,7 +454,8 @@ Item {
         // Styled after an Omarchy menu row (Menu.qml's row delegate): a
         // BorderSurface whose selected state gets Color.menu.selectedBackground
         // + selectedText + the selected-border spec, radius = cornerRadius,
-        // label in heading/Medium and the secondary line in bodySmall at 0.52.
+        // label in heading/Medium and the secondary line in title at 0.52
+        // (bumped two token steps up from the menu's own bodySmall).
         // Only the icon deliberately departs -- see card.iconSize.
         delegate: BorderSurface {
           id: cell
@@ -388,7 +482,7 @@ Item {
             Text {
               width: parent.width
               horizontalAlignment: Text.AlignHCenter
-              text: modelData.title
+              text: root.nameFor(modelData.cls) || root.sanitizeTitle(modelData.title)
               textFormat: Text.PlainText
               elide: Text.ElideRight
               maximumLineCount: 1
@@ -400,17 +494,56 @@ Item {
             Text {
               width: parent.width
               horizontalAlignment: Text.AlignHCenter
-              text: "Workspace " + modelData.ws
+              text: modelData.ws + " – " + root.sanitizeTitle(modelData.title)
               textFormat: Text.PlainText
               elide: Text.ElideRight
               maximumLineCount: 1
               font.family: Style.font.menuFamily
-              // bodySmall + 0.52, exactly the menu's secondary/detail line.
-              font.pixelSize: Style.font.bodySmall
+              // Two token steps up from the menu's secondary/detail line
+              // (bodySmall) -- still opacity 0.52, just title instead.
+              font.pixelSize: Style.font.title
               color: Color.menu.text
               opacity: 0.52
             }
           }
+        }
+      }
+
+      // Overflow scrims, same idiom as the SUPER+SPACE menu's scroll scrims
+      // (Menu.qml) -- just rotated to this strip's horizontal axis instead of
+      // the menu's vertical one. Strength tracks how much content is still
+      // hidden past each edge rather than a fixed on/off, so it reads
+      // correctly the instant the strip opens already scrolled (e.g.
+      // currentIdx landed mid-list) with no animation to catch up.
+      Rectangle {
+        x: list.x
+        y: list.y
+        height: list.height
+        width: card.scrimW
+        visible: opacity > 0
+        opacity: list.contentWidth > list.width
+          ? Math.max(0, Math.min(1, (list.contentX - list.originX) / width))
+          : 0
+        gradient: Gradient {
+          orientation: Gradient.Horizontal
+          GradientStop { position: 0; color: Color.menu.background }
+          GradientStop { position: 1; color: Util.alpha(Color.menu.background, 0) }
+        }
+      }
+
+      Rectangle {
+        x: list.x + list.width - width
+        y: list.y
+        height: list.height
+        width: card.scrimW
+        visible: opacity > 0
+        opacity: list.contentWidth > list.width
+          ? Math.max(0, Math.min(1, (list.originX + list.contentWidth - list.width - list.contentX) / width))
+          : 0
+        gradient: Gradient {
+          orientation: Gradient.Horizontal
+          GradientStop { position: 0; color: Util.alpha(Color.menu.background, 0) }
+          GradientStop { position: 1; color: Color.menu.background }
         }
       }
     }

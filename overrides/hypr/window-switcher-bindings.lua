@@ -1,4 +1,4 @@
--- Window Switcher HUD plugin (io.eject.window-switcher): a macOS-style
+-- Window Switcher HUD plugin (cllpse.window-switcher): a macOS-style
 -- horizontal strip. Hold SUPER, tap TAB / SHIFT+TAB to move the highlight; the
 -- instant SUPER is no longer held the highlighted window is focused and the
 -- strip disappears. No timers, no delay.
@@ -7,7 +7,7 @@
 -- compositor "is SUPER still physically down?" every 30ms while the strip is up
 -- (hl.is_key_down is a cheap in-process check). The strip is on screen for
 -- exactly as long as that stays true.
-local ws_summon = "omarchy-shell shell summon io.eject.window-switcher "
+local ws_summon = "omarchy-shell shell summon cllpse.window-switcher "
 
 local function ws_exec(action)
   hl.dispatch(hl.dsp.exec_cmd(ws_summon .. "'{\"action\":\"" .. action .. "\"}'"))

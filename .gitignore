@@ -7,6 +7,9 @@
 *.bak
 *.bak.*
 
+# Generated from keybind-allowlist.conf on every apply -- never hand-edited.
+overrides/hypr/keybind-unbinds.lua
+
 # Editor / OS scratch
 *.swp
 *~

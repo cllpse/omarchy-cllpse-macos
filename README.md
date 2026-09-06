@@ -116,7 +116,7 @@ light `236,236,236` (`#ECECEC`, macOS `windowBackgroundColor`), dark `30,30,30`
 ```
 omarchy-cllpse-theme/     the two themes (above), as omarchy-cllpse-theme-{dark,light}/
 overrides/                everything that lives outside a theme folder + apply.sh / revert.sh
-omarchy-cllpse-switcher/  macOS-style window-switcher HUD plugin (id io.eject.window-switcher);
+omarchy-cllpse-switcher/  macOS-style window-switcher HUD plugin (id cllpse.window-switcher);
                           apply.sh symlinks it into ~/.config/omarchy/plugins/
 reference/                BUILD.md (the spec) + fonts.conf (BUILD's original, superseded)
 ```

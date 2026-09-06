@@ -16,16 +16,24 @@ hl.env("OMARCHY_MENU_FONT", "SFProText Nerd Font Propo")
 -- rather than installing it (no sudo).
 hl.env("XCURSOR_THEME", "Bibata-Modern-Ice")
 hl.env("HYPRCURSOR_THEME", "Bibata-Modern-Ice")
-hl.env("XCURSOR_SIZE", "22")
-hl.env("HYPRCURSOR_SIZE", "22")
+hl.env("XCURSOR_SIZE", "24")
+hl.env("HYPRCURSOR_SIZE", "24")
 
 -- Never warp the pointer to a window on focus changes -- the window switcher,
 -- workspace switches, focuswindow dispatches. Keeps the cursor where it was,
 -- matching follow_mouse = 0 / mouse_refocus = false in the input block.
 hl.config({ cursor = { no_warps = true } })
 
--- No forced keyboard layout here anymore: the Preonic now emits plain US
--- keycodes in firmware (key overrides on the board itself, not an xkb
--- translation), so the host should just run Omarchy's own us default instead
--- of overriding it to dk(mac). nomarkoo.keyboard-layout's own toggle state
--- still lists dk(mac) as a secondary layout, reachable via alt+shift.
+-- The Preonic emits plain US keycodes in firmware (key overrides on the
+-- board itself, not an xkb translation), so this stays a single us-based
+-- group -- no secondary layout, no alt+shift toggle, nothing Omarchy's own
+-- default keyboard behaviour has to fight with. The one addition is
+-- us-danish-letters (installed by apply.sh to ~/.config/xkb/symbols/), a
+-- static layer adding ae/oe/aa + uppercase on six otherwise-unused function
+-- keys, which the Preonic's M0 layer reaches via shift-qualified taps -- see
+-- that file for why. No dk(mac), no toggle, no compose, no host-side macro.
+hl.config({
+  input = {
+    kb_layout = "us-danish-letters",
+  },
+})

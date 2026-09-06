@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "id": "io.eject.window-switcher",
-  "name": "Window Switcher HUD",
+  "id": "cllpse.window-switcher",
+  "name": "Window Switcher",
   "version": "1.0.0",
   "author": "thomas@eject.io",
   "license": "MIT",

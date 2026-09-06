@@ -1,0 +1,23 @@
+// Plain US layout plus six otherwise-unused function keys, used two at a
+// time (one per letter) to reach ae/oe/aa and their uppercase forms.
+//
+// The "evdev" ruleset's own formula always appends inet(evdev) AFTER
+// whatever layout is selected (pc+<layout>+inet(evdev)), so it permanently
+// reclaims level 1 (unshifted) on every FK13-24 key regardless of what this
+// file does - but it only overwrites the level it explicitly specifies,
+// so level 2 (shifted) survives untouched. The firmware always asserts
+// Shift when tapping these, picking which of the two per-letter keys based
+// on whether Shift was actually held - so level 1 here is dead weight,
+// never actually tapped, and what it resolves to doesn't matter.
+default partial alphanumeric_keys
+xkb_symbols "basic" {
+    include "us(basic)"
+    name[Group1] = "English (US) + Danish letters";
+
+    key <FK13> { [ VoidSymbol, ae       ] };
+    key <FK14> { [ VoidSymbol, AE       ] };
+    key <FK15> { [ VoidSymbol, oslash   ] };
+    key <FK16> { [ VoidSymbol, Ooblique ] };
+    key <FK17> { [ VoidSymbol, aring    ] };
+    key <FK18> { [ VoidSymbol, Aring    ] };
+};

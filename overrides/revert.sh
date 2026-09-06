@@ -30,7 +30,7 @@ say "Removing theme symlinks"
 rm -f ~/.config/omarchy/themes/omarchy-cllpse-theme-dark ~/.config/omarchy/themes/omarchy-cllpse-theme-light
 
 say "Removing window-switcher plugin symlink"
-[[ -L ~/.config/omarchy/plugins/io.eject.window-switcher ]] && rm -f ~/.config/omarchy/plugins/io.eject.window-switcher
+[[ -L ~/.config/omarchy/plugins/cllpse.window-switcher ]] && rm -f ~/.config/omarchy/plugins/cllpse.window-switcher
 
 say "Removing SF fonts + fontconfig drop-ins"
 rm -rf ~/.local/share/fonts/SF

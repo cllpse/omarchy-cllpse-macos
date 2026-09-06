@@ -4,10 +4,10 @@ A macOS-style window switcher HUD for the Omarchy 4 (Quickshell) shell — hold
 `SUPER`, tap `TAB` / `SHIFT+TAB` to cycle a horizontal strip of open windows,
 release `SUPER` to focus the highlighted one.
 
-Plugin id **`io.eject.window-switcher`** (kept for the `shell.json` `plugins[]`
+Plugin id **`cllpse.window-switcher`** (kept for the `shell.json` `plugins[]`
 entry and the `omarchy-shell shell summon` keybinds in `~/.config/hypr/bindings.lua`).
 `overrides/apply.sh` symlinks this folder to
-`~/.config/omarchy/plugins/io.eject.window-switcher`; `revert.sh` removes the
+`~/.config/omarchy/plugins/cllpse.window-switcher`; `revert.sh` removes the
 symlink.
 
 ## Files
