@@ -154,9 +154,10 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   tile), enables `decoration.blur` (size 7,
   passes 4, vibrancy 0.30, vibrancy_darkness 0.30, noise 0.02, brightness/contrast
   1.0), keeps `general.border_size = 2` (Omarchy's default) with `gaps_in = 12` / `gaps_out = 24` (§5's Apple 8pt grid, `md`/`xxl` steps),
-  overrides window opacity to `0.98 0.875` (re-matched onto browsers directly too,
-  since Omarchy pins those to their own `1.0 0.985` otherwise), and halves every `hl.animation` leaf's
-  stock speed for 2× faster animations. A separate, hand-written block higher up
+  overrides window opacity to `0.99 0.875` (re-matched onto browsers directly too,
+  since Omarchy pins those to their own `1.0 0.985` otherwise), and divides every `hl.animation` leaf's
+  stock speed by 3 for 3× faster animations, floored at 1 so the fastest leaves
+  don't read as a hard cut. A separate, hand-written block higher up
   the same file does the theme-adaptive inactive border, reading `muted` from the
   active palette; the Omaland plugin, if installed, manages its own animation
   block below ours and wins on load order.
@@ -197,11 +198,11 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   restates its full section. The dark/light copies are currently identical
   (same α over each mode's own `background` colour); tune light up if it reads
   washed out.
-- **Focused windows at 0.98, unfocused at 0.875, so the blur renders through both.**
+- **Focused windows at 0.99, unfocused at 0.875, so the blur renders through both.**
   Omarchy's `windows.lua` tags every window `+default-opacity`, lets the per-app
   files strip that tag, then applies `0.985 0.96` to whatever still carries it.
   `looknfeel-decoration.lua` repeats that *same tag match* later in load order and
-  sets `0.98 0.875` — focused isn't fully opaque either, so it reads as the same
+  sets `0.99 0.875` — focused isn't fully opaque either, so it reads as the same
   glass material rather than a flat cutout next to the more translucent unfocused
   windows. Matching the tag rather than `.*` matters: Omarchy deliberately
   untags what must not go translucent — DaVinci Resolve, PiP and webcam overlays,
@@ -210,7 +211,7 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   Chromium/Firefox windows would stay effectively opaque when unfocused (98.5%)
   with no blur reading through, so `looknfeel-decoration.lua` re-matches
   `chromium-based-browser` / `firefox-based-browser` directly (after
-  `browser.lua` has run) and pins those to `0.98 0.875` too — same glass as
+  `browser.lua` has run) and pins those to `0.99 0.875` too — same glass as
   everywhere else. The YouTube/Zoom exclusion still holds: `browser.lua` strips
   the browser tag from those windows before this runs.
   Figma Desktop isn't one of Omarchy's stock colour-critical exclusions, so

@@ -9,12 +9,16 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 say() { printf '\033[34m▸\033[0m %s\n' "$*"; }
 
-# Delete the fenced overrides block from a file, if present. Matches both
-# comment leaders ("#" for shell, "--" for Lua).
+# Delete every fenced overrides block from a file, if present. Matches both
+# comment leaders ("#" for shell, "--" for Lua) and an optional ": <suffix>"
+# marker (apply.sh's sync_fenced $3) -- bindings.lua carries four separate
+# blocks (the plain one plus ": keybinds" / ": macos-shortcuts" /
+# ": window-management-mod"), and GNU sed's range address re-arms after each
+# closing match, so one pass here removes all of them, not just the first.
 strip_fenced() { # $1 target
   [[ -f $1 ]] || return 0
   grep -q 'cllpse-macos overrides' "$1" || return 0
-  sed -i '/^\(#\|--\) >>> cllpse-macos overrides >>>/,/^\(#\|--\) <<< cllpse-macos overrides <<</d' "$1"
+  sed -i '/^\(#\|--\) >>> cllpse-macos overrides.* >>>$/,/^\(#\|--\) <<< cllpse-macos overrides.* <<<$/d' "$1"
   # drop a trailing blank line left behind
   sed -i -e :a -e '/^\n*$/{$d;N;ba}' "$1" 2>/dev/null || true
   say "cleaned overrides block from $1"
@@ -31,6 +35,9 @@ rm -f ~/.config/omarchy/themes/omarchy-cllpse-theme-dark ~/.config/omarchy/theme
 
 say "Removing window-switcher plugin symlink"
 [[ -L ~/.config/omarchy/plugins/cllpse.window-switcher ]] && rm -f ~/.config/omarchy/plugins/cllpse.window-switcher
+
+say "Removing xkb us-danish-letters symbols file"
+rm -f ~/.config/xkb/symbols/us-danish-letters
 
 say "Removing SF fonts + fontconfig drop-ins"
 rm -rf ~/.local/share/fonts/SF
@@ -85,7 +92,13 @@ strip_fenced ~/.bashrc
 
 restore ~/.config/bat/config
 restore ~/.config/lazygit/config.yml
+restore ~/.config/lsd/config.yaml
+restore ~/.config/lsd/colors.yaml
 restore ~/.config/Cursor/User/settings.json
+
+say "Removing starship theme-set hook"
+[[ -L ~/.config/omarchy/hooks/theme-set.d/starship-colors.sh ]] && rm -f ~/.config/omarchy/hooks/theme-set.d/starship-colors.sh
+restore ~/.config/starship.toml
 
 # Display scaling + text size: put back only what was recorded at first apply.
 # Nothing recorded means the machine already matched display.conf, so there is

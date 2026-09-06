@@ -1,0 +1,47 @@
+# lsd's built-in default theme (see `lsd`'s own README) already uses basic
+# ANSI names/numbers for some fields -- e.g. `dark_green`, or a bare number
+# 0-15 -- and those already track the active Omarchy theme, because the
+# terminal's own palette (which every theme's alacritty.toml.tpl/ghostty.conf
+# .tpl etc. repaint) is what basic ANSI resolves through. The remaining
+# fields pin a fixed 256-colour index instead (16-255), which stays the same
+# regardless of the active theme. This file is lsd's default table with every
+# fixed index replaced by its nearest basic-ANSI equivalent; anything already
+# basic is carried over unchanged. Requires color.theme: custom in config.yaml.
+user: white           # was 230 (pale cream)
+group: dark_yellow    # was 187 (pale khaki)
+permission:
+  read: dark_green
+  write: dark_yellow
+  exec: dark_red
+  exec-sticky: 5
+  no-access: dark_grey   # was 245
+  octal: 6
+  acl: dark_cyan
+  context: cyan
+date:
+  hour-old: green        # was 40
+  day-old: dark_green    # was 42
+  older: dark_cyan       # was 36
+size:
+  none: dark_grey     # was 245
+  small: dark_yellow  # was 229
+  medium: yellow      # was 216
+  large: dark_red     # was 172
+inode:
+  valid: 13
+  invalid: dark_grey    # was 245
+links:
+  valid: 13
+  invalid: dark_grey    # was 245
+tree-edge: dark_grey     # was 245
+git-status:
+  default: dark_grey        # was 245
+  unmodified: dark_grey     # was 245
+  ignored: dark_grey        # was 245
+  new-in-index: dark_green
+  new-in-workdir: dark_green
+  typechange: dark_yellow
+  deleted: dark_red
+  renamed: dark_green
+  modified: dark_yellow
+  conflicted: dark_red

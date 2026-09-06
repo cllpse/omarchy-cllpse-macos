@@ -1,0 +1,10 @@
+# lsd's own default theme pins several colours (user/group/size/date/etc.) to
+# fixed 256-colour indices, which don't move with `omarchy theme set` --
+# unlike the basic 16-colour ANSI palette, which every Omarchy theme repaints
+# via the terminal's own generated config. Switching to a custom theme lets
+# colors.yaml remap those fixed indices onto basic ANSI instead, the same
+# trick as bat/lazygit/fzf (see ../bash/shell.sh for the matching LS_COLORS
+# piece, which covers directory/executable/symlink/etc. -- colors lsd reads
+# from LS_COLORS rather than this file).
+color:
+  theme: custom

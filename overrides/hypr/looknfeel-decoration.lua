@@ -218,7 +218,7 @@ hl.layer_rule({
   ignore_alpha = 0.6,
 })
 
--- ── Animation speed (2x) ───────────────────────────────────────────────────
+-- ── Animation speed (3x) ───────────────────────────────────────────────────
 -- Can't live in the theme: colors.toml/shell.toml carry no animation keys at
 -- all (checked shell.toml.tpl), and the shell's own per-component durations
 -- (e.g. Hud.qml's 420ms selection fade) are hardcoded per QML file, not
@@ -229,8 +229,12 @@ hl.layer_rule({
 -- proportional to duration -- SMALLER speed = FASTER animation. Verified
 -- empirically (burst-screenshotted a window spawn at speed=0.3 vs speed=20;
 -- 0.3 finished before the first capture, 20 was still mid pop-in several
--- frames in). Every leaf below is Omarchy's stock speed HALVED (2x faster),
--- not doubled -- doubling the raw number would have made it 2x *slower*.
+-- frames in). Every leaf below is Omarchy's stock speed divided by 3 (3x
+-- faster) -- not multiplied by 3, which would have made it 3x *slower* --
+-- with a floor of 1: six leaves (windowsOut, fadeIn, fadeOut, layersOut,
+-- fadeLayersIn, fadeLayersOut) would have landed at 0.46-0.6 on a straight
+-- 1/3 scale and are clamped to 1 instead, rather than let the fastest
+-- animations get fast enough to look like a hard cut.
 --
 -- Some machines this theme is applied to also run the Omaland settings plugin
 -- (bobbynicholas.omaland, not part of this repo), which owns its own "Speed"
@@ -241,22 +245,22 @@ hl.layer_rule({
 -- That's an accepted tradeoff here -- this block is meant to make cllpse-macos
 -- self-sufficient on a machine with no Omaland installed at all, not to
 -- coordinate with Omaland where both are present.
-hl.animation({ leaf = "global", enabled = true, speed = 5, bezier = "default" })
-hl.animation({ leaf = "border", enabled = true, speed = 2.7, bezier = "easeOutQuint" })
-hl.animation({ leaf = "windows", enabled = true, speed = 1.9, bezier = "easeOutQuint" })
-hl.animation({ leaf = "windowsIn", enabled = true, speed = 2.05, bezier = "easeOutQuint", style = "popin 87%" })
-hl.animation({ leaf = "windowsOut", enabled = true, speed = 0.75, bezier = "linear", style = "popin 87%" })
-hl.animation({ leaf = "fadeIn", enabled = true, speed = 0.87, bezier = "almostLinear" })
-hl.animation({ leaf = "fadeOut", enabled = true, speed = 0.73, bezier = "almostLinear" })
-hl.animation({ leaf = "fade", enabled = true, speed = 1.52, bezier = "quick" })
+hl.animation({ leaf = "global", enabled = true, speed = 3.33, bezier = "default" })
+hl.animation({ leaf = "border", enabled = true, speed = 1.8, bezier = "easeOutQuint" })
+hl.animation({ leaf = "windows", enabled = true, speed = 1.26, bezier = "easeOutQuint" })
+hl.animation({ leaf = "windowsIn", enabled = true, speed = 1.37, bezier = "easeOutQuint", style = "popin 87%" })
+hl.animation({ leaf = "windowsOut", enabled = true, speed = 1, bezier = "linear", style = "popin 87%" })
+hl.animation({ leaf = "fadeIn", enabled = true, speed = 1, bezier = "almostLinear" })
+hl.animation({ leaf = "fadeOut", enabled = true, speed = 1, bezier = "almostLinear" })
+hl.animation({ leaf = "fade", enabled = true, speed = 1.01, bezier = "quick" })
 hl.animation({ leaf = "fadeSwitch", enabled = false })
-hl.animation({ leaf = "layers", enabled = true, speed = 1.91, bezier = "easeOutQuint" })
-hl.animation({ leaf = "layersIn", enabled = true, speed = 2, bezier = "easeOutQuint", style = "fade" })
-hl.animation({ leaf = "layersOut", enabled = true, speed = 0.75, bezier = "linear", style = "fade" })
-hl.animation({ leaf = "fadeLayersIn", enabled = true, speed = 0.9, bezier = "almostLinear" })
-hl.animation({ leaf = "fadeLayersOut", enabled = true, speed = 0.7, bezier = "almostLinear" })
+hl.animation({ leaf = "layers", enabled = true, speed = 1.27, bezier = "easeOutQuint" })
+hl.animation({ leaf = "layersIn", enabled = true, speed = 1.33, bezier = "easeOutQuint", style = "fade" })
+hl.animation({ leaf = "layersOut", enabled = true, speed = 1, bezier = "linear", style = "fade" })
+hl.animation({ leaf = "fadeLayersIn", enabled = true, speed = 1, bezier = "almostLinear" })
+hl.animation({ leaf = "fadeLayersOut", enabled = true, speed = 1, bezier = "almostLinear" })
 hl.animation({ leaf = "workspaces", enabled = false })
-hl.animation({ leaf = "specialWorkspace", enabled = true, speed = 1.5, bezier = "easeOutQuint", style = "slidevert" })
+hl.animation({ leaf = "specialWorkspace", enabled = true, speed = 1.0, bezier = "easeOutQuint", style = "slidevert" })
 
 -- ── Presentation-popup width ───────────────────────────────────────────────
 -- The floating terminal Omarchy shows for `omarchy pkg remove` / install /

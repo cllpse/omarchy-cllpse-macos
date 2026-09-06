@@ -63,3 +63,14 @@ unset _cllpse_fzf_fallback
 # lsd for ls (icons + colour, inherits the same ANSI palette). Guarded so a
 # machine without lsd installed keeps a working `ls` instead of a broken alias.
 command -v lsd >/dev/null 2>&1 && alias ls="lsd -a"
+
+# lsd's built-in filetype palette is a fixed 256-colour table, so none of it
+# follows `omarchy theme set` the way the terminal's own text does. Pointing
+# every filetype at a basic ANSI slot (0-15) instead makes it track whatever
+# each theme's terminal template (alacritty.toml.tpl etc.) currently paints
+# that slot -- same trick the fzf ANSI fallback above uses, and the
+# ../lsd/colors.yaml override (metadata columns: user/group/size/date/etc.,
+# which lsd reads from its own config rather than LS_COLORS) does the rest.
+# Bold/underline styling and the colour groupings (pipe+socket, block+char
+# device) match lsd's own defaults; only the indices moved off 256-colour.
+export LS_COLORS="${LS_COLORS:+$LS_COLORS:}di=01;34:ln=04;34:ex=01;32:pi=01;36:so=01;36:bd=01;33:cd=01;33:or=01;31:mi=01;31"

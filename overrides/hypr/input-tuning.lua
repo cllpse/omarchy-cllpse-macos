@@ -15,6 +15,10 @@
 -- follow_mouse = 0 means focus only changes on click, and mouse_refocus = false
 -- stops the pointer re-taking focus when a window closes under it -- together
 -- they pair with `cursor { no_warps = true }` in hyprland-env.lua.
+--
+-- scroll_factor is the top-level (mouse-wheel) multiplier -- a separate knob
+-- from touchpad.scroll_factor, which only affects the trackpad and isn't set
+-- here (so it stays on Omarchy's stock 0.4). 1.25 = 125% of the base speed.
 hl.config({
   input = {
     sensitivity = -1.00,
@@ -25,7 +29,7 @@ hl.config({
       natural_scroll = false,
     },
     left_handed = false,
-    scroll_factor = 1.00,
+    scroll_factor = 1.25,
     mouse_refocus = false,
   },
 })
