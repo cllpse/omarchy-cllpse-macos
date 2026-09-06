@@ -103,8 +103,11 @@ composited window as `#FFFFFF`, which is the degenerate case), dark `30,30,30`
 when the file already exists in the staged theme.
 
 **The boot splash (Plymouth) and the real login screen (SDDM) are a separate
-step from `omarchy theme set`**, and not run by `apply.sh` (which stays
-sudo-free): `omarchy plymouth set by theme <name>` (needs sudo). It reads
+step from `omarchy theme set`**, and not run by `apply.sh`'s main flow:
+`omarchy plymouth set by theme <name>` (needs sudo). (`apply.sh` does have one
+sudo step of its own now — installing the Chromium managed-policy file, see
+below — but it stays a single, narrowly-scoped `install`, not a reason to run
+the whole script as root.) It reads
 `background`/`foreground` straight from that theme's `colors.toml` and installs
 the theme's `unlock.png` as the logo on *both* Plymouth and
 `/usr/share/sddm/themes/omarchy`, auto-recolouring the shared
@@ -217,6 +220,41 @@ Browser** (`~/.config/BraveSoftware/Brave-Browser`), which at worst defers the
 write with a "quit it" message. Profile tree is
 `~/.config/BraveSoftware/Brave-Origin/` (siblings `Brave-Browser{,-Beta,-Nightly}`
 are the regular channels — leave them alone).
+
+**Chromium's context menu has no per-item removal mechanism, and a bare
+Preferences edit doesn't reach it either** — only `/etc/chromium/policies/
+managed/*.json` does. Spellcheck, translate, password-save prompt, address/card
+autofill, DevTools/Inspect, Print, Cast, "Create QR Code" and "Add to reading
+list" are all off via `overrides/chromium/policies-managed.json`, installed by
+`apply.sh` step 7g with `sudo install`, the one sudo step in the whole script.
+That step only writes if `/etc/chromium/policies/managed/` already exists,
+matching `omarchy-theme-set-browser-policy`'s own guard verbatim (never hand a
+browser a managed-policy root it doesn't otherwise have), and leaves the file
+root:root — required, since a one-time Omarchy migration purges anything in
+that directory *not* owned by root. No relaunch needed: on every `omarchy theme
+set`, `omarchy-theme-set-browser` calls `chromium --refresh-platform-policy
+--no-startup-window` whenever Chromium is running — the same live reload it
+uses to push its own `color.json` (`BrowserThemeColor`) — which reloads the
+whole managed directory, ours included.
+
+An earlier version put the first five (spellcheck/translate/password/autofill)
+in `Preferences` instead, alongside `default-zoom.py`'s zoom key, on the theory
+that they were plain Settings-page toggles. Two problems killed that: a bare
+pref only changes the *default* a user starts from, so Settings still showed
+each toggle as editable — the enterprise policy is what actually greys it out
+— and, for translate specifically, Chrome's own docs say the manual
+"Translate to…" context-menu entry is suppressed by the `TranslateEnabled`
+*policy*, not by the `translate.enabled` *pref* (which only stops the
+automatic offer). Confirmed live: the pref round-tripped correctly and the
+menu item was still there. See the **traps already hit** entry below for the
+second, independent bug that version also had.
+
+Neither mechanism can touch Back/Forward/Reload or any other item baked into
+Chromium's C++ menu-building code — those have no config surface at all, flag
+or policy, short of patching and building Chromium yourself. Chromium also has
+no `chrome://flags` equivalent for the nine items above: flags exist for
+features still being rolled out, and all nine graduated to stable years ago, so
+any flag that once gated them was removed on graduation.
 
 **`revert.sh` only undoes.** It never picks a font or theme. `apply.sh` records
 the pre-existing font and theme once, into `~/.local/state/cllpse-macos/`,
@@ -334,6 +372,17 @@ and the original is kept in prose as provenance. Don't leave the two out of sync
   working lever is CSS (`-webkit-text-stroke: .2px` ≈ +21% ink, against
   FreeType's +24%), which needs a content-script extension since Chromium
   dropped user stylesheets.
+- **Chromium's `Preferences` JSON nests dotted pref names — a flat key with a
+  literal dot in it is never read.** `translate.enabled` is stored on disk as
+  `{"translate": {"enabled": ...}}`, not as a top-level key literally named
+  `"translate.enabled"`. A script that does `data["translate.enabled"] = False`
+  and `json.dump`s the result writes a real key, just one Chromium's
+  `JsonPrefStore` never looks at — the actual nested value is untouched and
+  stays at whatever it already was. Caught by reading a live profile's
+  `Preferences` and finding both the bogus flat key and the real nested dict
+  sitting side by side. Any dotted Chromium pref name being hand-written into a
+  JSON file needs the nested form, or needs Chromium itself (via Settings) to
+  do the write.
 - **`pgrep -f` matches whole command lines, including the caller's.** A guard
   written as `pgrep -f /usr/lib/chromium/chromium` matched the shell running the
   script that contained the string, so `default-zoom.py` refused every write

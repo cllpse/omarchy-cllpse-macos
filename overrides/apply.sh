@@ -1,6 +1,7 @@
 #!/bin/bash
 # Apply the cllpse-macos theme + every system-level override it needs.
-# Idempotent, no sudo. Re-run any time. See revert.sh to undo.
+# Idempotent. Re-run any time. See revert.sh to undo.
+# No sudo except step 7g (Chromium managed policy) — everything else is user-level.
 #
 #   1. symlink both themes + the window-switcher plugin into ~/.config/omarchy/
 #   2. install the SF fonts + fontconfig drop-ins (UI font + hintnone)
@@ -10,6 +11,8 @@
 #   5b. strip GTK window buttons (gsettings button-layout)
 #   6. hypr overrides: OMARCHY_MENU_FONT (shell popups) + decoration (rounding, blur)
 #   7. install bat / lazygit / lsd theme configs, merge Cursor settings, add fzf + lsd colours to .bashrc
+#   7g. Chromium context-menu declutter: spellcheck/translate/password/autofill/DevTools/
+#       Print/Cast/QR/Reading-list off (managed policy, sudo)
 #   8. apply the theme (refreshes whichever cllpse-macos theme is active; dark otherwise)
 
 set -euo pipefail
@@ -409,6 +412,57 @@ if [[ -x "$HERE/chromium/default-zoom.py" ]]; then
   "$HERE/chromium/default-zoom.py" "${CLLPSE_CHROMIUM_ZOOM:-110}" || true
 fi
 
+# ── 7g. Chromium context-menu declutter: managed policy (needs sudo) ────────
+# Spellcheck / Translate / password-save-prompt / Autofill / DevTools / Print /
+# Cast / QR-code / Reading-list all end up here, not in a Preferences file.
+# An earlier version of this step wrote the first five as plain Preferences
+# keys instead — a plain pref only changes the *default*, so Settings still
+# showed the toggle as changeable, and per Chrome's own docs a bare
+# `translate.enabled` pref (unlike the `TranslateEnabled` policy) never
+# suppresses the manual "Translate to…" context-menu entry, only the
+# automatic offer. Confirmed live on this machine: the pref round-tripped
+# correctly and the menu item was still there. (It also silently failed for
+# four of the five keys regardless — `browser.enable_spellchecking`,
+# `translate.enabled` and both `autofill.*` keys have dots in their real pref
+# name, and Chromium's JsonPrefStore nests dotted names into nested objects
+# on write/read; writing them as flat top-level keys with a literal dot in
+# the JSON key name — as that version did — creates a key Chromium never
+# reads. Only `credentials_enable_service`, with no dot, actually landed.)
+# The enterprise-policy names for all five (`TranslateEnabled`,
+# `SpellcheckEnabled`, `PasswordManagerEnabled`, `AutofillAddressEnabled`,
+# `AutofillCreditCardEnabled`) are confirmed present in this machine's
+# installed Chromium binary. Policy also has no "must be closed to write"
+# trap: Omarchy's own omarchy-theme-set-browser already calls `chromium
+# --refresh-platform-policy --no-startup-window` on every theme-set (step 8,
+# right after this) if Chromium is running, which reloads the whole managed
+# directory — so a running Chromium picks this up for free, no relaunch
+# needed, same mechanism Omarchy uses for its own color.json. This is the
+# one step in this script that needs sudo — everything else here stays
+# user-level.
+#
+# Mirrors Omarchy's own /etc/chromium/policies/managed/ guard verbatim (see
+# omarchy-theme-set-browser-policy): only write into a policy directory that
+# already exists, since Chromium (or another Chromium-family browser sharing
+# this path) being absent means the directory won't exist either, and
+# creating one would hand a browser a managed-policy root it doesn't
+# otherwise have. `install` (no -D) leaves ownership at root:root under sudo,
+# which also matters here: a one-time Omarchy migration purges anything in
+# this directory NOT owned by root.
+#
+# NB: DeveloperToolsAvailability=2 also blocks Inspect on your own local dev
+# servers, not just random pages; drop that key from
+# chromium/policies-managed.json and re-run if that turns out to be too broad.
+if [[ -f "$HERE/chromium/policies-managed.json" &&
+      -d /etc/chromium/policies/managed && ! -L /etc/chromium/policies/managed ]]; then
+  dest=/etc/chromium/policies/managed/cllpse-macos.json
+  if [[ -f $dest ]] && cmp -s "$HERE/chromium/policies-managed.json" "$dest"; then
+    skip "Chromium managed policy already current"
+  else
+    say "Chromium managed policy -> $dest (sudo)"
+    sudo install -m644 "$HERE/chromium/policies-managed.json" "$dest"
+  fi
+fi
+
 # ── 8. apply theme ───────────────────────────────────────────────────────────
 # `omarchy theme set` COPIES the theme folder into
 # ~/.local/state/omarchy/current/theme/ — it does not symlink it. So this step
@@ -451,5 +505,7 @@ echo "    • open a new shell for the fzf colours"
 echo "    • restart Ghostty / Foot windows for SF Mono + hintnone"
 echo "    • relaunch running GTK/Qt apps + the bar for hintnone"
 echo "    • light theme:  omarchy theme set omarchy-cllpse-theme-light"
+echo "    • the spellcheck/translate/password/autofill/DevTools/Print/Cast/QR/reading-list policy (7g)"
+echo "      already refreshed live if Chromium was running — no relaunch needed"
 echo "    • boot splash / login screen (needs sudo, not run by this script):"
 echo "        omarchy plymouth set by theme omarchy-cllpse-theme-dark   # or -light"

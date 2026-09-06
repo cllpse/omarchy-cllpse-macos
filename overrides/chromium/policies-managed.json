@@ -1,0 +1,12 @@
+{
+  "DeveloperToolsAvailability": 2,
+  "PrintingEnabled": false,
+  "EnableMediaRouter": false,
+  "QRCodeGeneratorEnabled": false,
+  "ReadingListEnabled": false,
+  "TranslateEnabled": false,
+  "SpellcheckEnabled": false,
+  "PasswordManagerEnabled": false,
+  "AutofillAddressEnabled": false,
+  "AutofillCreditCardEnabled": false
+}

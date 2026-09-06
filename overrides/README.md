@@ -25,7 +25,9 @@ generates — `monospace` then falls back to the packaged default on its own —
 tells you the terminal configs may still name SF Mono rather than guessing a
 replacement.
 
-Both are idempotent, need **no sudo**, and are safe to re-run.
+Both are idempotent and safe to re-run. Neither needs sudo except one step in
+each — installing/removing the Chromium managed-policy file (`apply.sh` 7g) —
+everything else in both scripts is user-level.
 
 ## What `apply.sh` does
 
@@ -47,6 +49,7 @@ Both are idempotent, need **no sudo**, and are safe to re-run.
 | 7d | Chromium scale: `--force-device-scale-factor=1` (browser UI 20% under DP-2's 1.25) + `110%` default page zoom. Page size is the product of the two — 125% would be exactly 1:1 with native | fenced block in `~/.config/chromium-flags.conf` + `partition.default_zoom_level` in each `~/.config/chromium/*/Preferences` |
 | 7e | Helium (Chromium fork, extracted AppImage) — the same `--force-device-scale-factor=1` + `110%` zoom pairing as 7d. No flags-file launcher, so the flag is injected into the `Exec=` lines of the `.desktop` entry in place (once; guarded); no ozone flag (Helium already runs Wayland off the session env). Zoom reuses `chromium/default-zoom.py` via `CLLPSE_ZOOM_*` | `Exec=` lines of `~/.local/share/applications/helium.desktop` + `partition.default_zoom_level` in `~/.config/net.imput.helium/*/Preferences` |
 | 7f | Brave Origin (`brave-origin-bin`, AUR — Chromium fork) — the same pairing as 7d. Keeps the flags-file launcher convention (`/usr/bin/brave-origin`, a bash script, one flag per line), so the scale flag is a fenced block like 7d; the flags file must already exist (it also carries the ozone lines). Zoom reuses `chromium/default-zoom.py` (binary `brave`) | fenced block in `~/.config/brave-origin-flags.conf` + `partition.default_zoom_level` in each `~/.config/BraveSoftware/Brave-Origin/*/Preferences` |
+| 7g | Chromium context-menu declutter: spellcheck, translate, password-save prompt, address/card autofill, DevTools/Inspect, Print, Cast, "Create QR Code", and "Add to reading list" off — all nine as enterprise policy, none as a Preferences key. (An earlier version wrote the first five as plain `Preferences` booleans; a bare pref only changes the default, so Settings still showed the toggle as user-changeable, and per Chrome's own docs the bare `translate.enabled` pref doesn't suppress the manual "Translate to…" context-menu entry the way the `TranslateEnabled` policy does — confirmed live, plus four of those five keys have a dot in their real pref name and Chromium nests dotted pref names into nested JSON on write, so a flat key with a literal dot in it is never read back at all.) Needs **sudo** (the only step in this script that does), and only writes into `/etc/chromium/policies/managed/` if that directory already exists — mirroring Omarchy's own guard, so a machine without Chromium doesn't get handed a policy root it didn't have. No relaunch needed if Chromium is running: step 8's `omarchy-theme-set-browser` already calls Chromium's `--refresh-platform-policy` on every theme-set, which reloads this file too, same as Omarchy's own `color.json` | `/etc/chromium/policies/managed/cllpse-macos.json` |
 | 8 | Apply the theme — refreshes whichever cllpse-macos theme is already active, else sets dark | `omarchy theme set …` |
 
 The blur `layer_rule` only opts the shell surfaces *into* blur; the matching
@@ -122,7 +125,7 @@ It is **not** a complete machine build. On a clean install these are the gaps:
 
 | Gap | Effect |
 |---|---|
-| **No sudo, so no packages.** `bibata-cursor-theme-bin` (AUR — `pacman -S` will not find it) is warned about but not installed — yet the cursor theme is still set in `gsettings` and `hl.env`, so a missing package leaves the cursor falling back. `lsd` missing just skips the alias and its theme files (both guarded). Ghostty, Foot, `lazygit`, `bat`, `jq` are assumed present | Cursor visibly wrong; other items silently absent |
+| **Only one step uses sudo (7g), and only for one file.** No package installation happens anywhere: `bibata-cursor-theme-bin` (AUR — `pacman -S` will not find it) is warned about but not installed — yet the cursor theme is still set in `gsettings` and `hl.env`, so a missing package leaves the cursor falling back. `lsd` missing just skips the alias and its theme files (both guarded). Ghostty, Foot, `lazygit`, `bat`, `jq` are assumed present | Cursor visibly wrong; other items silently absent |
 | **Cursor editor not installed.** The `settings.json` merge is skipped when both `/usr/bin/cursor` and `~/.config/Cursor/User/` are absent. The override carries no marketplace-extension keys, so nothing in it needs a network step | Merge skipped on a machine without Cursor |
 | **Third-party plugins are not installed** — `bobbynicholas.omaland`, `dizziee.system-updates`, `nomarkoo.keyboard-layout` | Absent, and the blocks that coordinate with them behave differently (see below) |
 | **`display.conf` values are hardware-specific** — text size 14, monitor scale 1.25, GDK scale 1 are tuned for one ~110 PPI 3840x1600 display. `gdk-scale` in particular is wrong on a HiDPI panel, where Omarchy's default of 2 is right | Wrong sizing on different hardware, applied confidently |
@@ -145,7 +148,9 @@ differences above are the ones to check by hand.
 - **Quit Chromium / Helium / Brave Origin before the step 7d / 7e / 7f zoom half**, and relaunch after. All rewrite `Preferences` from memory on exit, so a write made while running is discarded; the script detects this and skips rather than reporting a change that will not survive. The flag half needs only a relaunch. Sites already zoomed with ctrl+/- keep their own `per_host_zoom_levels` and ignore the default.
 - **Helium's scale flag rides on its `.desktop` entry**, not a flags file — Helium is an extracted AppImage with no `chromium-flags.conf` launcher. Re-extracting the AppImage can regenerate `~/.local/share/applications/helium.desktop` without the flag; re-run `apply.sh` to re-inject it. `revert.sh` strips just the flag and leaves the file (it is Helium's).
 - **Brave Origin's flags file must already exist** (`~/.config/brave-origin-flags.conf`) — step 7f fences into it but won't create it, because it also holds the `--ozone-platform` lines that keep Brave on Wayland here. If it's missing, install/launch Brave Origin once (or recreate it with the Omarchy `chromium-flags.conf` lines) and re-run.
-- **The boot splash / login screen needs its own command, deliberately not run by this sudo-free script**: `omarchy plymouth set by theme omarchy-cllpse-theme-dark` (or `-light`), which needs sudo. Step 8 prints this as a reminder.
+- **7g (the whole context-menu policy — spellcheck/translate/password/autofill/DevTools/Print/Cast/QR/reading-list) needs no relaunch** if Chromium is already running: `omarchy-theme-set-browser`, which step 8 always runs, calls `chromium --refresh-platform-policy --no-startup-window` whenever Chromium is running — the same live reload Omarchy uses for its own `color.json` — and that reloads the whole managed-policy directory.
+- **`DeveloperToolsAvailability: 2` in the managed policy (7g) blocks Inspect everywhere**, including your own local dev servers, not just random sites. If that is too broad, drop that one key from `chromium/policies-managed.json` and re-run — no rebuild, just a relaunch.
+- **The boot splash / login screen needs its own command, deliberately not run by `apply.sh`'s main flow**: `omarchy plymouth set by theme omarchy-cllpse-theme-dark` (or `-light`), which needs sudo. Step 8 prints this as a reminder.
 
 ## Contents
 
@@ -179,6 +184,7 @@ save-display.sh               capture the live values into display.conf
 environment.d/*.conf          systemd user-session env (Figma native Wayland, FreeType stem darkening on + stronger curve)
 chromium/chromium-flags.conf  --force-device-scale-factor=1 (fenced into Omarchy's flags file)
 chromium/default-zoom.py      default page zoom -> 110% (no flag exists; it is a profile preference). Reused for Helium + Brave Origin via CLLPSE_ZOOM_{CONFIG_DIR,BINARY,LABEL}
+chromium/policies-managed.json  spellcheck/translate/password/autofill/DevTools/Print/Cast/QR-code/Reading-list off (managed policy, installed to /etc with sudo)
 brave-origin/brave-origin-flags.conf  --force-device-scale-factor=1 (fenced into ~/.config/brave-origin-flags.conf)
 ```
 

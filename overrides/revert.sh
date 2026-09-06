@@ -1,5 +1,7 @@
 #!/bin/bash
-# Undo everything overrides/apply.sh did. Idempotent, no sudo.
+# Undo everything overrides/apply.sh did. Idempotent.
+# No sudo except removing the Chromium managed-policy file apply.sh installed
+# (step 7g) — everything else here is user-level.
 # Only ever restores what this machine had before apply.sh first ran; it never
 # picks a font, theme, text size or scale of its own.
 
@@ -140,6 +142,13 @@ else
 fi
 rmdir "$STATE" 2>/dev/null || true
 
+dest=/etc/chromium/policies/managed/cllpse-macos.json
+if [[ -f $dest ]]; then
+  say "Removing Chromium managed policy (needs sudo): $dest"
+  sudo rm -f "$dest" || say "  could not remove $dest — remove it yourself: sudo rm -f $dest"
+fi
+
 echo
 say "Done."
 say "Relogin to clear OMARCHY_MENU_FONT and the font-cache changes."
+say "Relaunch Chromium to clear the context-menu policy (or it self-refreshes on the next theme set)."
