@@ -1,8 +1,7 @@
 #!/bin/bash
 # Capture the machine's current display scaling + text size into display.conf,
 # which apply.sh restores. Run this after tuning either by hand (or through
-# `omarchy display text size` / the Omaland settings panel) to make the change
-# the new saved state.
+# `omarchy display text size`) to make the change the new saved state.
 #
 # Only the two scale VARIABLES are captured, never monitor topology: output
 # names, modes and positions stay whatever each machine's monitors.lua says.

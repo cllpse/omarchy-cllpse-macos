@@ -17,25 +17,35 @@ Both live under `omarchy-cllpse-theme/`:
 Built against **Omarchy 4.0.2** (`quattro`). The `master` branch is stale at
 3.8.5 and uses an incompatible theme format — this will not work there.
 
-`apply.sh` is idempotent and needs no sudo — which also means it installs no
-packages and makes no decisions about your hardware. Six things to settle first;
-everything after them can be handed to an agent.
+`apply.sh` is idempotent and installs no packages, and it makes no decisions
+about your hardware. One step needs sudo — 7g, the Chromium managed policy —
+and everything else is user-level. Six things to settle first; everything after
+them can be handed to an agent.
 
 **1. Clone it where it will live.** `apply.sh` symlinks the two theme folders
-into `~/.config/omarchy/themes/`, pointing at this checkout. Moving or deleting
-the clone later breaks both themes.
+into `~/.config/omarchy/themes/` and the window-switcher plugin into
+`~/.config/omarchy/plugins/`, all pointing at this checkout. Moving or deleting
+the clone later breaks the themes and the switcher.
 
-**2. Install what `apply.sh` can't.** None of these are installed for you:
+**2. Install what `apply.sh` can't.** Two packages, neither of them in Omarchy's
+own package lists:
 
 ```bash
 yay -S bibata-cursor-theme-bin      # AUR — pacman -S will NOT find it
-sudo pacman -S lsd bat lazygit fzf
+sudo pacman -S lsd
 ```
 
 `bibata-cursor-theme-bin` is the one that matters: the cursor theme is set in
 `gsettings` and `hl.env` **whether or not the package is present**, so without it
-you get a fallback cursor and only a warning in the output. The rest degrade
-quietly — `lsd` missing just skips the `ls` alias.
+you get a fallback cursor and only a warning in the output. `lsd` degrades
+quietly — missing, it just skips the `ls` alias and its theme files.
+
+Everything else `apply.sh` touches is already there on an Omarchy box: `bat`,
+`lazygit`, `fzf` and `starship` are in `omarchy-base.packages`; `lua` (the
+keybind scan, step 6b) and `jq` (the Cursor merge, step 7) arrive as `hyprland`
+and `omarchy` dependencies; `python3` (the Chromium zoom, step 7d) as a
+dependency of much of the rest of the system. `lua` is the only one called
+unguarded — without it `apply.sh` aborts mid-run rather than skipping the step.
 
 **3. Set the display values for *your* hardware.** `overrides/display.conf` ships
 values tuned for one ~110 PPI 3840x1600 display and applies them confidently:
@@ -48,21 +58,28 @@ Or edit the file. `gdk-scale` is the one to get right — `1` for standard DPI,
 `2` for a HiDPI panel (Omarchy's own default). A wrong value here is actively
 wrong, not merely unfamiliar.
 
-**4. Keyboard layout is untouched.** `overrides/hypr/hyprland-env.lua` no longer
-forces a `kb_layout`/`kb_variant` — it leaves Omarchy's own default in place.
-If you need a non-default layout, set it in `hypr/input.lua` or your own
-toggle plugin, not here.
+**4. The keyboard layout is replaced — edit it out if it isn't yours.** Step 5c
+installs `overrides/xkb/symbols/us-danish-letters` into `~/.config/xkb/symbols/`,
+and `overrides/hypr/hyprland-env.lua` pins `kb_layout` to it: a plain US layout
+plus ae/oe/aa on six otherwise-unused function keys, for one specific keyboard's
+firmware. No second group, no toggle, no `kb_variant`. That block is appended at
+the *end* of `~/.config/hypr/hyprland.lua`, after it has required
+`hypr/input.lua`, so it also wins over a layout set there — setting your own in
+the user files is not enough. Change the `kb_layout` line in `hyprland-env.lua`
+before you apply.
 
 **5. Check `~/.config/ghostty/config` exists** and contains Omarchy's
 `config-file = ?"…/current/theme/ghostty.conf"` line. If the file is absent,
 `apply.sh` creates one holding only its own block, and the terminal loses theme
 colours with no error.
 
-**6. Decide about third-party plugins.** `bobbynicholas.omaland`,
-`dizziee.system-updates` and `nomarkoo.keyboard-layout` are not installed by
-`apply.sh`. If you do install them, Omaland's settings panel will rewrite the
-mouse block and `nomarkoo` owns the keyboard layout — both take back settings
-this repo also sets. See *Also on the author's machine* below.
+**6. Decide about third-party plugins.** `apply.sh` installs none — it has no
+source URLs to fetch them from. Worth knowing before you add one: a settings
+plugin that writes its own region into `looknfeel.lua` or `input.lua` (Omaland
+did) beats this repo's blocks whenever its region lands later in the file, and a
+layout plugin (`nomarkoo.keyboard-layout`) takes over the keyboard layout from
+step 5c. A plugin's block also outlives the plugin — uninstalling leaves it
+behind, still overriding. See *Also on the author's machine* below.
 
 ## Install
 
@@ -157,10 +174,8 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   overrides window opacity to `0.99 0.875` (re-matched onto browsers directly too,
   since Omarchy pins those to their own `1.0 0.985` otherwise), and divides every `hl.animation` leaf's
   stock speed by 3 for 3× faster animations, floored at 1 so the fastest leaves
-  don't read as a hard cut. A separate, hand-written block higher up
-  the same file does the theme-adaptive inactive border, reading `muted` from the
-  active palette; the Omaland plugin, if installed, manages its own animation
-  block below ours and wins on load order.
+  don't read as a hard cut. It sets no border *colour*: both borders come from
+  the active theme's `colors.toml` via the generated `hyprland.lua`.
   `looknfeel-decoration.lua` also carries an `hl.layer_rule` opting the Omarchy
   shell surfaces (`omarchy-bar|menu|notifications|osd|polkit|clipboard|emojis|`
   `reminders|image-selector|network-qr|keyboard-panel|lock-preview`) plus our own
@@ -247,13 +262,13 @@ so a rebuild isn't guesswork:
 |---|---|---|
 | `gtk-enable-primary-paste = true` | `gsettings org.gnome.desktop.interface` | Middle-click paste — a personal habit, unrelated to the macOS look |
 | `SSH_AUTH_SOCK` → `${XDG_RUNTIME_DIR}/gcr/ssh` | `~/.config/environment.d/ssh-agent.conf` | Points ssh at the GNOME keyring; would break ssh on a machine without it running |
-| Plugins: `bobbynicholas.omaland`, `dizziee.system-updates`, `nomarkoo.keyboard-layout` | `~/.config/omarchy/plugins/` | Third-party, installed through Omarchy's own plugin flow — `apply.sh` has no source URLs to fetch them from |
+| Plugin: `dizziee.system-updates` | `~/.config/omarchy/plugins/` + its `shell.json` bar widget | Third-party, installed through Omarchy's own plugin flow — `apply.sh` has no source URL to fetch it from |
 | Nautilus / GTK file-chooser window state | `dconf` | Incidental UI state, not configuration |
 
-Two of the installed blocks overlap with plugins that own the same settings.
-`input-tuning.lua` is appended after Omaland's `OMARCHY_MOUSE_SETTINGS` block and
-wins on file position, but Omaland rewrites its own block whenever its Settings
-panel is opened. The keyboard layout in `hyprland-env.lua` sits after
+A settings plugin that writes its own region into `looknfeel.lua` or `input.lua`
+wins over ours if its block lands later in the file — and a plugin's block
+outlives the plugin, since uninstalling it leaves the block behind. The keyboard
+layout in `hyprland-env.lua` is the same story from the other side: it sits after
 `require("default.hypr.toggles")`, so it applies on a machine with no layout
-plugin — where `nomarkoo.keyboard-layout` is installed, its toggle state wins.
-Both exist for self-sufficiency, not to fight the plugins.
+plugin, and a plugin that owns the layout (`nomarkoo.keyboard-layout`) would take
+it back. These blocks exist for self-sufficiency, not to fight a plugin.

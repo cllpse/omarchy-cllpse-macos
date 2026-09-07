@@ -156,6 +156,16 @@ each file restates its full section. In those files `background` / `border` /
 that never unwraps a role name — those **must be literal hex** or they render
 black.
 
+**A plugin in `~/.config/omarchy/plugins/` is installed, not enabled.** Omarchy
+enables one from the `plugins[]` array in `~/.config/omarchy/shell.json`, keyed
+by the `manifest.json` `id` — the folder name is cosmetic. Dropping a plugin
+folder in place and getting nothing is the expected outcome, with no error to
+say so; `apply.sh` step 7h writes the `cllpse.window-switcher` entry for exactly
+this reason. That same file is machine-level and personal — bar widget order,
+tray pinned/hidden lists, other plugins' widgets — so touch it with targeted
+`jq` key writes, never a whole-file copy or a deep merge (`plugins[]` is an
+array, and a merge replaces arrays rather than appending).
+
 A live `hyprctl reload` does not update a running shell; `omarchy-restart-shell`
 or `omarchy theme set` does.
 
@@ -170,9 +180,14 @@ Lua syntax error. `sync_fenced` **replaces** an existing block, so editing a
 snippet reaches an already-applied machine; it refuses to write an empty result,
 so a failed rewrite cannot truncate a real config.
 
-`~/.config/hypr/looknfeel.lua` holds three independent regions: a hand-written
-inactive-border block, our fenced block, and an Omaland-managed block. Only ours
-is safe to rewrite, and edits must preserve the other two.
+`~/.config/hypr/looknfeel.lua` carries only our one fenced block. The inactive
+border's **colour is not set there** — it comes from each theme's `colors.toml`
+`hyprland_inactive_border`, baked into the generated `hyprland.lua` (both
+`general.col.inactive_border` and `group.col.border_inactive`). A hand-written
+Lua block re-deriving it from `muted` at a different alpha lived in this file for
+a while and was deleted as redundant; the alpha it existed for now sits in
+`colors.toml` directly, where `muted` already is. Don't re-add it — but do
+re-sync the two by hand if `muted` changes, since nothing links them.
 
 **Per-app environment belongs in `environment.d`, not a wrapper.** The session is
 started by uwsm through systemd, which imports `~/.config/environment.d/*.conf`
@@ -187,39 +202,6 @@ passes `--ozone-platform=x11` explicitly, overriding Omarchy's global
 `ELECTRON_OZONE_PLATFORM_HINT=wayland`, and under XWayland with
 `force_zero_scaling` it renders at 1/monitor-scale (80% at 1.25).
 `FIGMA_USE_WAYLAND=1` is the launcher's own opt-in.
-
-**Helium** (Chromium fork, extracted AppImage at `~/Applications/helium/AppRun`)
-is the counter-case where `environment.d` has nothing to offer. `apply.sh` step
-7e wants it on the same `--force-device-scale-factor=1` + 110% zoom pairing as
-system Chromium (7d), but: there is *no env var* for the device scale factor,
-and Helium's `AppRun` is not the `chromium-flags.conf`-reading C stub that Arch's
-`/usr/bin/chromium` is — it just `exec`s the binary. So the flag is injected
-into the three `Exec=` lines of `~/.local/share/applications/helium.desktop` in
-place, guarded by an `is the flag already there` grep; `revert.sh` strips exactly
-that substring and keeps the file (it is Helium's, only edited). Re-extracting
-the AppImage can rewrite that `.desktop` without the flag — a re-run of
-`apply.sh` re-injects it. No ozone flag is needed: Helium picks up
-`OZONE_PLATFORM=wayland` from the session env and already runs Wayland (verified
-in its process list), which is the part Omarchy's stock `chromium-flags.conf`
-does for system Chromium. The zoom half is the *same* profile preference
-(`partition.default_zoom_level`), so `overrides/chromium/default-zoom.py` is
-reused unchanged, pointed at Helium's profile tree / binary name through the
-`CLLPSE_ZOOM_{CONFIG_DIR,BINARY,LABEL}` env vars.
-
-**Brave Origin** (`brave-origin-bin`, AUR — another Chromium fork) is the easy
-case by contrast: `/usr/bin/brave-origin` *is* a flags-file launcher (a bash
-script — reads `~/.config/brave-origin-flags.conf` one flag per line, skips
-`#`/blank, execs `/opt/brave-origin-bin/brave`), so step 7f fences
-`--force-device-scale-factor=1` into that file exactly like 7d does for
-`chromium-flags.conf`, no `.desktop` edit. Two things to know: (1) the flags
-file must pre-exist — it also holds the `--ozone-platform=wayland` lines that
-put Brave on Wayland here (Brave does *not* fall back to the env var the way
-Helium does), so 7f fences into it but refuses to create it; (2) the zoom
-script's `BINARY=brave` is-it-running check also matches a running stock **Brave
-Browser** (`~/.config/BraveSoftware/Brave-Browser`), which at worst defers the
-write with a "quit it" message. Profile tree is
-`~/.config/BraveSoftware/Brave-Origin/` (siblings `Brave-Browser{,-Beta,-Nightly}`
-are the regular channels — leave them alone).
 
 **Chromium's context menu has no per-item removal mechanism, and a bare
 Preferences edit doesn't reach it either** — only `/etc/chromium/policies/
@@ -333,9 +315,12 @@ and the original is kept in prose as provenance. Don't leave the two out of sync
 - **`hl.animation` `speed` is inverse**: *smaller is faster*. Every leaf in our
   block is Omarchy's stock speed halved to run 2× faster. Doubling the number
   would have made it 2× slower.
-- **Omaland**, if installed, writes its own `hl.animation` block into the same
-  `looknfeel.lua` and wins by file position. Accepted — our block exists to be
-  self-sufficient on a machine without it.
+- **A settings plugin that writes its own `looknfeel.lua`/`input.lua` block wins
+  by file position** if it lands after ours. Omaland did exactly that (an
+  `hl.animation` block plus global `active_opacity`/`inactive_opacity`) and left
+  its block behind after being uninstalled — it was still overriding the theme
+  months later. If a value here doesn't land, look for a later block before
+  suspecting the value.
 - **Blur only shows through what a surface leaves translucent.** At
   `background-alpha` 0.92 barely 8% of the backdrop shows, so widening the blur
   radius there is close to invisible; `background-alpha` is the stronger lever.

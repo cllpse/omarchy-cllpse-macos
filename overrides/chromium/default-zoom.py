@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
-"""Set a Chromium-family browser's default page zoom for every site.
-
-Chromium by default; apply.sh also runs it against Helium via the CLLPSE_ZOOM_*
-env vars (see below the imports).
+"""Set Chromium's default page zoom for every site.
 
 There is no command-line flag for this. Checked against the shipped binary on
 4.0.2 / Chromium 151: the only zoom-related switches are pinch-zoom, camera
@@ -40,19 +37,11 @@ import os
 import sys
 import tempfile
 
-# Chromium by default; apply.sh runs this a second time with these pointed at
-# Helium (a Chromium fork shipped as an extracted AppImage). Helium has no
-# chromium-flags.conf launcher, so its device-scale flag rides on the .desktop
-# Exec= line instead — but the default-zoom preference sits in exactly the same
-# place in the profile, so this script is reused verbatim with the paths swapped.
-#   CLLPSE_ZOOM_CONFIG_DIR  profile tree      (default ~/.config/chromium)
-#   CLLPSE_ZOOM_BINARY      exe basename for the is-it-running check (default chromium)
-#   CLLPSE_ZOOM_LABEL       name used in messages (default Chromium)
-CONFIG = os.path.expanduser(os.environ.get("CLLPSE_ZOOM_CONFIG_DIR", "~/.config/chromium"))
-BINARY = os.environ.get("CLLPSE_ZOOM_BINARY", "chromium")
-LABEL = os.environ.get("CLLPSE_ZOOM_LABEL", "Chromium")
+CONFIG = os.path.expanduser("~/.config/chromium")
+BINARY = "chromium"
+LABEL = "Chromium"
 # Chromium's default storage partition id. Confirmed against the live profile,
-# whose per_host_zoom_levels sit under the same key — same value in Helium.
+# whose per_host_zoom_levels sit under the same key.
 PARTITION = "x"
 
 
@@ -130,9 +119,8 @@ def apply(path, level, percent):
 
 
 def main():
-    # apply.sh pipes the zoom env var (CLLPSE_CHROMIUM_ZOOM / CLLPSE_HELIUM_ZOOM)
-    # straight through, so a typo arrives here as an argument. Fail with a
-    # sentence, not a traceback.
+    # apply.sh pipes CLLPSE_CHROMIUM_ZOOM straight through, so a typo arrives
+    # here as an argument. Fail with a sentence, not a traceback.
     raw = sys.argv[1].strip() if len(sys.argv) > 1 and sys.argv[1].strip() else "110"
     try:
         percent = float(raw.rstrip("%"))

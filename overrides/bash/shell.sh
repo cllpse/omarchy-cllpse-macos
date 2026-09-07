@@ -74,3 +74,15 @@ command -v lsd >/dev/null 2>&1 && alias ls="lsd -a"
 # Bold/underline styling and the colour groupings (pipe+socket, block+char
 # device) match lsd's own defaults; only the indices moved off 256-colour.
 export LS_COLORS="${LS_COLORS:+$LS_COLORS:}di=01;34:ln=04;34:ex=01;32:pi=01;36:so=01;36:bd=01;33:cd=01;33:or=01;31:mi=01;31"
+
+# Claude Code requests terminal mouse reporting for its own click/hover/scroll
+# support. Tried CLAUDE_CODE_DISABLE_MOUSE_CLICKS=1 to let a plain click-drag
+# fall through to Ghostty's native selection while keeping wheel-scroll --
+# confirmed NOT to work: xterm-style mouse reporting is all-or-nothing at the
+# protocol level (no "wheel events only" mode), so Claude still enables full
+# reporting to get scroll, Ghostty still sees it as active, and a plain drag
+# still doesn't select -- it only cost Claude's own click handling too. Real
+# fix is Shift+drag (see mouse-shift-capture above): it's the standard
+# terminal-wide escape hatch for exactly this conflict (same mechanism tmux/
+# vim mouse-mode users rely on), guaranteed to make a native selection no
+# matter what the app wants, without touching scroll or Claude's own mouse UI.

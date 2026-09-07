@@ -81,16 +81,18 @@ o.bind("SUPER + Z", "Undo (Cmd+Z)", unless_terminal("CTRL", "Z"))
 o.bind("SUPER + SHIFT + Z", "Redo (Cmd+Shift+Z)", unless_terminal("CTRL SHIFT", "Z"))
 o.bind("SUPER + S", "Save (Cmd+S)", unless_terminal("CTRL", "S"))
 
--- App shortcuts for Chrome (new tab/reload/new window/print or Quick Open/
--- command palette) -- safe everywhere, no terminal guard needed: none of
--- Ctrl+T (transpose-chars), Ctrl+R (reverse-isearch), Ctrl+N (next-history),
--- Ctrl+P (previous-history) or Ctrl+Shift+P are destructive readline
--- bindings the way Ctrl+Z/W/S are, so there's nothing to protect against.
+-- App shortcuts for Chrome (new tab/reopen closed tab/reload/new window/
+-- print or Quick Open/command palette) -- safe everywhere, no terminal guard
+-- needed: none of Ctrl+T (transpose-chars), Ctrl+Shift+T (unbound), Ctrl+R
+-- (reverse-isearch), Ctrl+N (next-history), Ctrl+P (previous-history) or
+-- Ctrl+Shift+P are destructive readline bindings the way Ctrl+Z/W/S are, so
+-- there's nothing to protect against.
 -- These started as keyboard firmware key overrides, then moved here to
 -- match how Z/W/S/Q already work: Hyprland can see the focused app and
 -- could add per-app handling later (e.g. the Ctrl+P print-vs-Quick-Open
 -- mismatch between a browser and Cursor/VSCode) -- firmware never can.
 o.bind("SUPER + T", "New tab (Cmd+T)", send_shortcut_once("CTRL", "T"))
+o.bind("SUPER + SHIFT + T", "Reopen closed tab (Cmd+Shift+T)", send_shortcut_once("CTRL SHIFT", "T"))
 o.bind("SUPER + R", "Reload (Cmd+R)", send_shortcut_once("CTRL", "R"))
 o.bind("SUPER + N", "New window (Cmd+N)", send_shortcut_once("CTRL", "N"))
 o.bind("SUPER + P", "Print / Quick Open (Cmd+P)", send_shortcut_once("CTRL", "P"))

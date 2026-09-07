@@ -32,12 +32,6 @@
 -- border_size is 2 (Omarchy's default). BUILD.md section 5's hairline (1) is
 -- macOS-faithful but a weak focus cue in a tiling WM.
 --
--- On a machine with the Omaland plugin some of these keys may also be in its
--- managed block lower in looknfeel.lua, which wins by file position -- so
--- check there (or Omaland's UI) if a value here doesn't seem to be landing;
--- this block is the no-Omaland fallback. Its managed block currently carries
--- gaps_in/gaps_out too -- kept in sync below so the two agree either way.
---
 -- gaps_in/gaps_out follow BUILD.md section 5's Apple 8pt layout grid: 12
 -- between windows (the grid's `md` step), 24 (2x, the `xxl` step) at the
 -- screen edge -- widened from the grid's sm/lg steps (8/16). Omarchy defaults
@@ -235,16 +229,6 @@ hl.layer_rule({
 -- fadeLayersIn, fadeLayersOut) would have landed at 0.46-0.6 on a straight
 -- 1/3 scale and are clamped to 1 instead, rather than let the fastest
 -- animations get fast enough to look like a hard cut.
---
--- Some machines this theme is applied to also run the Omaland settings plugin
--- (bobbynicholas.omaland, not part of this repo), which owns its own "Speed"
--- slider and writes a separate `hl.animation` block further down this same
--- looknfeel.lua. Hyprland resolves duplicate per-leaf calls last-write-wins by
--- file position, so if Omaland's block sits after this one (or gets
--- regenerated later by opening its Settings panel), its value wins instead.
--- That's an accepted tradeoff here -- this block is meant to make cllpse-macos
--- self-sufficient on a machine with no Omaland installed at all, not to
--- coordinate with Omaland where both are present.
 hl.animation({ leaf = "global", enabled = true, speed = 3.33, bezier = "default" })
 hl.animation({ leaf = "border", enabled = true, speed = 1.8, bezier = "easeOutQuint" })
 hl.animation({ leaf = "windows", enabled = true, speed = 1.26, bezier = "easeOutQuint" })

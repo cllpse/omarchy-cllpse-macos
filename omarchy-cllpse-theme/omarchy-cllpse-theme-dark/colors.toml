@@ -42,10 +42,11 @@ bright_magenta = "#DB34F2"   # systemPurple   darkAqua
 
 # Window borders. macOS signals focus with shadow depth, not a coloured edge
 # (BUILD.md §5); in a tiling WM a visible active border still helps, so the
-# active border carries the system accent. Inactive border colour is driven
-# separately by ~/.config/hypr/looknfeel.lua, which reads `muted` from here.
+# active border carries the system accent. The inactive border is `muted` above
+# at full opacity -- the two are not linked, so re-sync this by hand if `muted`
+# changes.
 hyprland_active_border   = "rgba(007affee) rgba(0091ffee) 45deg"
-hyprland_inactive_border = "rgba(565656aa)"
+hyprland_inactive_border = "rgba(565656ff)"
 
 # Reserve hues (BUILD.md §3) — macOS system colours with no schema slot.
 # Kept here for reference / hand-authored use. light / dark:

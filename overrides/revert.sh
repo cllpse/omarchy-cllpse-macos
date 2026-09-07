@@ -102,6 +102,30 @@ say "Removing starship theme-set hook"
 [[ -L ~/.config/omarchy/hooks/theme-set.d/starship-colors.sh ]] && rm -f ~/.config/omarchy/hooks/theme-set.d/starship-colors.sh
 restore ~/.config/starship.toml
 
+# shell.json: undo exactly the two keys apply.sh step 7h wrote, rather than
+# restoring the .pre-cllpse backup wholesale — the same file carries the bar's
+# widget order and the tray's pinned list, which move around long after an apply
+# and are not ours to roll back. bar.transparent goes back only if a pre-apply
+# value was recorded; with nothing recorded, leave it alone — same rule as the
+# font above.
+shell_json=~/.config/omarchy/shell.json
+if [[ -f $shell_json ]]; then
+  prev_bar=""
+  [[ -s $STATE/previous-bar-transparent ]] && prev_bar="$(<"$STATE/previous-bar-transparent")"
+  _shell=$(mktemp)
+  if jq --arg id cllpse.window-switcher --arg prev "$prev_bar" '
+        .plugins = ((.plugins // []) | map(select(.id != $id)))
+        | if $prev == "" then . else .bar.transparent = ($prev == "true") end
+      ' "$shell_json" >"$_shell" 2>/dev/null && [[ -s $_shell ]]; then
+    cat "$_shell" >"$shell_json"
+    say "shell.json: dropped the window-switcher plugin entry${prev_bar:+, bar.transparent -> $prev_bar}"
+    rm -f "$STATE/previous-bar-transparent"
+  else
+    say "  could not rewrite $shell_json — left untouched"
+  fi
+  rm -f "$_shell"
+fi
+
 # Display scaling + text size: put back only what was recorded at first apply.
 # Nothing recorded means the machine already matched display.conf, so there is
 # nothing of its own to restore.

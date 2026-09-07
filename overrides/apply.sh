@@ -13,6 +13,7 @@
 #   7. install bat / lazygit / lsd theme configs, merge Cursor settings, add fzf + lsd colours to .bashrc
 #   7g. Chromium context-menu declutter: spellcheck/translate/password/autofill/DevTools/
 #       Print/Cast/QR/Reading-list off (managed policy, sudo)
+#   7h. Omarchy shell.json: enable the window-switcher plugin + transparent bar
 #   8. apply the theme (refreshes whichever cllpse-macos theme is active; dark otherwise)
 
 set -euo pipefail
@@ -461,6 +462,58 @@ if [[ -f "$HERE/chromium/policies-managed.json" &&
     say "Chromium managed policy -> $dest (sudo)"
     sudo install -m644 "$HERE/chromium/policies-managed.json" "$dest"
   fi
+fi
+
+# ── 7h. Omarchy shell: enable the switcher + transparent bar ────────────────
+# Two targeted keys in ~/.config/omarchy/shell.json, Omarchy's own machine-level
+# shell config. Deliberately not a whole-file copy or a deep merge: the same
+# file carries the bar's widget order, the tray's pinned/hidden lists and any
+# other plugin's widget, all of which are personal and none of which this repo
+# has an opinion about. jq rewrites only these two paths and leaves the rest as
+# it found it.
+#
+#   plugins[]        step 1 symlinks the switcher into ~/.config/omarchy/
+#                    plugins/, but that only INSTALLS it — Omarchy enables a
+#                    plugin from this array, keyed by the manifest id (the
+#                    folder name is cosmetic). Without the entry the plugin sits
+#                    there and the HUD never loads, with nothing to say so.
+#   bar.transparent  Omarchy ships false; the macOS look wants the bar reading
+#                    the wallpaper through the shell's background-alpha.
+#
+# The pre-existing bar.transparent is recorded once for revert.sh, on the same
+# terms as the font and theme above: a value that is already ours is refused, so
+# a re-run can't turn revert into a no-op.
+#
+# Picked up by step 8's theme-set, which restarts the shell — a hyprctl reload
+# does not.
+shell_json=~/.config/omarchy/shell.json
+switcher_id=cllpse.window-switcher
+if [[ -f $shell_json ]]; then
+  record_prior "$STATE/previous-bar-transparent" \
+    "$(jq -r '.bar.transparent // empty' "$shell_json" 2>/dev/null || true)" "true"
+
+  if jq -e --arg id "$switcher_id" \
+       '((.plugins // []) | any(.id == $id)) and (.bar.transparent == true)' \
+       "$shell_json" >/dev/null 2>&1; then
+    skip "shell.json already enables $switcher_id + a transparent bar"
+  else
+    backup "$shell_json"
+    _shell=$(mktemp)
+    if jq --arg id "$switcher_id" '
+          .plugins = ((.plugins // []) | if any(.id == $id) then . else . + [{ id: $id }] end)
+          | .bar.transparent = true
+        ' "$shell_json" >"$_shell" 2>/dev/null && [[ -s $_shell ]]; then
+      # cat, not mv: keeps shell.json's own inode and 0600 mode.
+      cat "$_shell" >"$shell_json"
+      rm -f "$_shell"
+      say "shell.json -> $switcher_id enabled, bar.transparent = true"
+    else
+      rm -f "$_shell"
+      skip "shell.json isn't parseable JSON — left untouched, enable the switcher by hand"
+    fi
+  fi
+else
+  skip "no $shell_json — skipped the switcher enable + bar transparency"
 fi
 
 # ── 8. apply theme ───────────────────────────────────────────────────────────

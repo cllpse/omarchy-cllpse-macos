@@ -41,9 +41,10 @@ bright_blue    = "#0088FF"
 bright_magenta = "#CB30E0"
 
 # Active border carries the system accent (see dark/colors.toml for rationale).
-# Inactive border colour is driven by ~/.config/hypr/looknfeel.lua reading `muted`.
+# Inactive border is `muted` above at full opacity -- the two are not linked, so
+# re-sync this by hand if `muted` changes.
 hyprland_active_border   = "rgba(007affee) rgba(0091ffee) 45deg"
-hyprland_inactive_border = "rgba(bdbdbdaa)"
+hyprland_inactive_border = "rgba(bdbdbdff)"
 
 # Reserve hues (BUILD.md §3), light / dark:
 #   systemMint   #00C8B3 / #00DAC3
