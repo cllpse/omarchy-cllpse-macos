@@ -1,7 +1,7 @@
 #!/bin/bash
 # Undo everything overrides/apply.sh did. Idempotent.
 # No sudo except removing the Chromium managed-policy file apply.sh installed
-# (step 7g) — everything else here is user-level.
+# (the last step) — everything else here is user-level.
 # Only ever restores what this machine had before apply.sh first ran; it never
 # picks a font, theme, text size or scale of its own.
 

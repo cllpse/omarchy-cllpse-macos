@@ -424,7 +424,9 @@ Preferences edit doesn't reach it either** — only `/etc/chromium/policies/
 managed/*.json` does. Spellcheck, translate, password-save prompt, address/card
 autofill, DevTools/Inspect, Print, Cast, "Create QR Code" and "Add to reading
 list" are all off via `overrides/chromium/policies-managed.json`, installed by
-`apply.sh` step 7g with `sudo install`, the one sudo step in the whole script.
+`apply.sh`'s last step (9) with `sudo install`, the one sudo step in the whole
+script — deliberately last, so the single password prompt comes after every
+other change has landed.
 That step only writes if `/etc/chromium/policies/managed/` already exists,
 matching `omarchy-theme-set-browser-policy`'s own guard verbatim (never hand a
 browser a managed-policy root it doesn't otherwise have), and leaves the file

@@ -18,7 +18,7 @@ Built against **Omarchy 4.0.2** (`quattro`). The `master` branch is stale at
 3.8.5 and uses an incompatible theme format — this will not work there.
 
 `apply.sh` is idempotent and installs no packages, and it makes no decisions
-about your hardware. One step needs sudo — 7g, the Chromium managed policy —
+about your hardware. One step needs sudo — the last one, the Chromium managed policy —
 and everything else is user-level. Six things to settle first; everything after
 them can be handed to an agent.
 
