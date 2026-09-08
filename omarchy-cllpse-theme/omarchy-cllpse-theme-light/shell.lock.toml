@@ -1,0 +1,28 @@
+[lock]
+# omarchy-cllpse-theme — BUILD.md §6: opaque (1.0). Omarchy ships no lock file
+# of its own here; this exists purely to take the generated 0.8 to full opacity.
+#
+# Whole-section replace: every key the generated [lock] section had is restated,
+# because an omitted key falls back to the Color.qml default rather than the
+# generated value — and for this section those differ (lock.background defaults
+# to 0.8, which is exactly what we are overriding).
+#
+# background/border/border-active/border-error/selection go through composed(),
+# so role-name tokens resolve. `text` and `text-error` are plain pick() calls
+# that never unwrap a role name and must be literal hex. `placeholder` is
+# foreground at 0.66 composited over background, matching what the template
+# generates.
+#
+# selection-alpha stays at 0.45: it is a text-selection tint inside the input
+# field, not a surface, and at 1.0 it would swallow the text under it.
+background       = "background"
+background-alpha = 1.0
+text             = "#272727"   # foreground
+placeholder      = "#707070"   # foreground at 0.66 over background
+text-error       = "#FF383C"   # urgent
+border           = "hyprland.active-border"
+border-active    = "hyprland.active-border"
+border-error     = "#FF383C"   # urgent
+border-alpha     = 1.0
+selection        = "#007AFF"   # accent
+selection-alpha  = 0.45

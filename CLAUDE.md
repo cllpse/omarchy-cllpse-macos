@@ -53,6 +53,27 @@ adds it: `.*[Ff]igma.*` against the class (the live class is lowercase
 **`.heic` is invisible** — not listed, not selectable, not displayable. They use
 `find -L`, so symlinked images *are* followed and matched on the target's type.
 
+**A theme's default background is whichever file sorts first — there is no key
+for it.** `choose_theme_background` (`omarchy-theme-set:72`) enumerates
+`~/.config/omarchy/backgrounds/<theme>/` and the theme's own `backgrounds/`
+into one `sort -z`'d list, then: if the *current* background is in that list it
+takes the **next** one (wrapping), otherwise it takes `backgrounds[0]`. So
+switching into a theme lands on the sort-first file, while re-running
+`omarchy theme set` on the theme that is already active **advances the
+wallpaper** — which is why `apply.sh` step 8 records the current background by
+name and puts it back. `OMARCHY_THEME_SKIP_BACKGROUND=1` is the supported way
+to re-publish a theme without touching the wallpaper at all (line 306/310), and
+is what to use after editing a theme folder. Ours pin a default by filename:
+`00-umeda_wallpaper_desktop*.png`, `00-` chosen because digits sort ahead of
+letters in both C and the live `en_US.UTF-8` collation (checked, not assumed —
+`sort` is locale-sensitive, and the existing `11-`/`12-`/`14-`/`15-` macOS
+version prefixes would otherwise win). The user-level directory is the other
+lever — `/home/…/.config/…` sorts before `/home/…/.local/state/…`, so anything
+dropped in `~/.config/omarchy/backgrounds/<theme>/` outranks every file in the
+theme — but a copy there shows up in the picker *alongside* the theme's own,
+listing the same image twice. Renaming in the theme folder has no such
+duplicate.
+
 **Fonts.** `omarchy-font-set` generates `~/.config/fontconfig/fonts.conf`
 wholesale (deleting it is the clean undo) *and* sed-edits the Alacritty, Kitty,
 Ghostty and Foot configs in place. There is no `omarchy font reset` and no
@@ -237,6 +258,130 @@ tray pinned/hidden lists, other plugins' widgets — so touch it with targeted
 `jq` key writes, never a whole-file copy or a deep merge (`plugins[]` is an
 array, and a merge replaces arrays rather than appending).
 
+**Omarchy opts its shell surfaces out of the layer fade by name, and a later
+rule can opt them back in.** Hyprland animates a layer surface on map —
+`layersIn` is `style=fade` (~130ms at our 3x speeds) — and
+`default/hypr/apps/omarchy-shell.lua` turns that off with `no_anim = true,
+animation = "none"`: line 5 for `omarchy-bar`, line 10 for a literal
+`^(omarchy-menu|omarchy-image-selector|omarchy-emojis|omarchy-clipboard|omarchy-keyboard-panel)$`.
+A third-party namespace cannot join that alternation, so **any new shell surface
+fades unless it ships its own rule** — which cuts both ways, and left the panels
+snapping while notifications/OSD/polkit/reminders (never opted out) faded.
+
+**Layer rules accumulate and the last match wins**, and user hypr files load
+after the defaults, so `no_anim = false, animation = "fade"` in
+`overrides/hypr/looknfeel-decoration.lua` re-enables it without touching
+Omarchy's file. Verified by burst-screenshotting the menu's scrim as it opens:
+one hard step before, a ~130ms ramp after. Two limits worth knowing: the
+compositor **cannot fade a scrim separately from its card** (they are one layer
+surface — fade-or-not is the whole per-surface control), and **duration is
+`layersIn`'s speed**, shared by every animated layer, with no per-rule override.
+Anything finer has to be a QML `opacity` animation inside the surface itself --
+which is what the switcher does (scrim `Rectangle`, 120ms `Easing.OutCubic`,
+with `no_anim` kept on its namespace so the two do not stack). Omarchy's own
+panels cannot: their scrim is in `Menu.qml`, and that is a `/usr/share/omarchy`
+patch the next update overwrites.
+
+**The layer fade's duration did not respond to any animation leaf tried.**
+`layersIn` at 1.33 vs 4.0 (through the file, with a real `hyprctl reload`, not
+just a runtime dispatch) both measured ~90-110ms, as did `fade` at 1.01 vs 3.0.
+The rule toggles the fade on and off cleanly -- with it, a smooth ramp
+`321 -> 278 -> 225 -> 184 -> 152 -> 143`; with `no_anim`, `321 -> 143` in one
+step -- but the ~100ms duration behaved as fixed. Don't promise a tuned layer
+fade duration without re-measuring.
+
+**Measure a fade against a STATIC patch of screen.** Several trajectories here
+were first taken over a playing video, which produced convincing "ramps" that
+were the video, not the animation -- and a patch whose backdrop happens to match
+the scrim colour shows no signal at all. Verify the region is static (two
+identical samples seconds apart) and far from the surface's own colour before
+trusting any number from it.
+
+Blur and animation are separate rules: matching the namespace for blur says
+nothing about the fade.
+
+**`Quickshell.Hyprland`'s toplevel list is half live, half snapshot, and the
+seams are silent.** `Hyprland.toplevels` is what a window switcher wants instead
+of spawning `hyprctl clients -j`, but four of its properties behave differently
+and none of them error when misused:
+
+- `Hyprland.rawEvent` and `toplevel.activated` are **live** — events arrive as
+  they happen, and `activated` tracks focus with no refresh.
+- `toplevel.lastIpcObject` is a **snapshot**. It carries the whole `hyprctl
+  clients` object, but only as of the last `refreshToplevels()` — measured, its
+  `focusHistoryID` stayed `2/1/0` across two focus changes. Use `activated` for
+  "what is focused", never `focusHistoryID`.
+- `refreshToplevels()` rewrites each `lastIpcObject` **in place**, leaving the
+  values array untouched, so **`valuesChanged` never fires for a refresh**. Any
+  rebuild that depends on refreshed fields has to be scheduled by hand.
+- The list is populated **lazily**: empty in a bare `qs` instance until
+  something refreshes it, yet already populated by the time a plugin's
+  `Component.onCompleted` runs inside the Omarchy shell (Omarchy itself only
+  uses `ToplevelManager` from `Quickshell.Wayland`, never this). Prime with a
+  refresh *and* a direct rebuild — waiting on `valuesChanged` alone deadlocks
+  the already-populated case, and the list stays empty forever with no error.
+
+Nor does it offer a usable **focus history**: `activated` says only what is
+focused now, and `focusHistoryID` is part of the stale snapshot. A switcher that
+wants Alt+Tab's back-and-forth has to keep its own previous-focus address, fed
+from `Hyprland.activeToplevel` and shifted only when the address actually
+changes — otherwise committing to the window you are already on erases the one
+you meant to return to.
+
+Addresses also differ by source: `lastIpcObject.address` carries an `0x` prefix,
+the toplevel handle's `address` does not. Compared raw they never match.
+
+**Assigning a QML `ListView` model that is equal to the one it already has is
+not free.** It resets the view and churns delegates, and a rebuilt delegate's
+`Image` starts at `Loading` — so anything that falls back while an image loads
+(our switcher falls back to a Nerd Font glyph) flashes on every open. Diff before
+assigning. That is necessary but **not sufficient**: a cell sitting a fraction of
+a pixel outside the viewport is culled and rebuilt independently of the model, so
+a short list also wants `cacheBuffer` covering its whole content. Both were live
+here, and each hid the other.
+
+**A Hyprland mouse bind beats a layer surface's input region.** Hyprland
+resolves `mouse:272`/`mouse:273` binds before delivering the button to whatever
+surface is under the cursor, so a Quickshell overlay cannot receive a click that
+carries a bound modifier no matter how it is masked -- measured: `SUPER +
+left-click` on the window switcher's card started a window drag (Omarchy binds
+it to "Move window", `default/hypr/bindings/tiling.lua:70`) and the plugin's
+`MouseArea` never fired. `mask: Region { item: ... }` is still the right way to
+make a full-screen overlay clickable at all (an empty `Region {}` is
+click-through by design, an absent one eats the whole desktop), but for a
+modifier-bearing click the *bind* has to be taught about the surface -- ours
+dispatches `commit` while the strip is up and the stock drag otherwise.
+
+**`qs ipc` costs a Quickshell startup, so it is not a keypress-rate channel.**
+`omarchy-shell shell summon ...` is bash -> `timeout` -> `qs ipc`, and `qs ipc`
+launches a whole Quickshell binary to deliver one message: measured 31-35ms per
+call here, spiking to 130-166ms. The bash wrapper is free; `qs` is the cost.
+Anything bound to a key that fires repeatedly should not go through it.
+
+The spawn-free channel is **Hyprland's global-shortcuts protocol**. A Quickshell
+plugin registers `GlobalShortcut { appid; name }` (Quickshell.Hyprland), and the
+config binds it with `hl.dsp.global("<appid>:<name>")` -- Hyprland parses that
+single string, so keep the appid free of dots and colons. `hyprctl
+globalshortcuts` lists what is registered. Measured on the window switcher,
+summon-to-mapped went 39-40ms -> 9-10ms (and ~half of what remains is `hyprctl`
+in the harness, which a real keypress never pays). Crucially `hl.dsp.global` is
+an ordinary *dispatcher*, so Lua config code can fire it too -- which is how the
+switcher's key-release poll commits without shelling out.
+
+`hl.dsp` is worth enumerating rather than guessing at; it holds `global`,
+`send_shortcut`, `send_key_state`, `cursor`, `submap`, `exec_raw` and more.
+Nothing on disk documents it, but a Lua expression dispatched through `hyprctl`
+can write the list to a file (the dispatch then errors, harmlessly, after the
+side effect has run).
+
+**A click-through layer surface gets no Qt pointer events, so hover has to be
+faked -- and faking it is expensive.** With `mask: Region {}` the switcher polled
+`hyprctl cursorpos -j` every 40ms: 25 process spawns a second while the strip was
+up, measured at 1.0% shell CPU against 0.0% once it was gone. Masking to the card
+(`mask: Region { item: card }`) gives a real input region, and `hoverEnabled`
+then costs nothing. `onPositionChanged` also fires only on real movement, which
+is a better version of a "has the pointer moved far enough yet" threshold.
+
 A live `hyprctl reload` does not update a running shell; `omarchy-restart-shell`
 or `omarchy theme set` does.
 
@@ -386,6 +531,33 @@ and the original is kept in prose as provenance. Don't leave the two out of sync
 - **`hl.animation` `speed` is inverse**: *smaller is faster*. Every leaf in our
   block is Omarchy's stock speed halved to run 2× faster. Doubling the number
   would have made it 2× slower.
+- **`hyprctl keyword` and `hyprctl dispatch` are both Lua-only now, and the
+  failure looks like the setting simply didn't take.** `keyword` prints
+  `keyword can't work with non-legacy parsers. Use eval.` on stderr and changes
+  nothing, so a script that sets a value and reads it back gets the *old* one
+  and reads as "this option has no effect". `dispatch` takes Lua too —
+  `hyprctl dispatch focuswindow address:0x…` is a syntax error, not a
+  dispatch. Live equivalents are `hyprctl eval 'hl.config({ input = {
+  follow_mouse = 2 } })'` and `hyprctl eval 'hl.dispatch(hl.dsp…)'`, which
+  return `ok`. Cost one wrong conclusion here: a follow_mouse test "passed"
+  while the option was still at its old value. `eval` also **does not echo a
+  return value** — it always prints `ok` — so a probe has to write its findings
+  to a file with `io.open`.
+- **`hl.dsp.window.close()` takes its target as the `window` KEY, and every
+  other shape fails silently.** `close({ window = w })` (or `{ window =
+  "address:0x…" }`) closes that window; `close(w)`, `close(w.address)` and
+  `close("address:0x…")` all build a perfectly valid `HL.Dispatcher` and then
+  close **nothing**, with no error anywhere — measured against a live unfocused
+  window. A positional form appears to work if you test it on the *focused*
+  window, because a bare `close()` closes that one anyway; the bug only shows
+  up on a window that isn't focused. An unresolvable selector is inert rather
+  than falling back to the active window (checked with `address:0xdeadbeef`
+  against a focused canary), which is what makes the SUPER+Q sweep in
+  `overrides/hypr/macos-shortcuts.lua` safe to run as a loop. Its companion
+  `hl.get_windows({ class = … })` matches the class **exactly**, not as a
+  regex — `"ghost"`, `".*ghostty.*"` and `"^chromium$"` all return 0 against
+  live windows — the opposite of Hyprland's window *rules*, and the safe
+  direction for a bulk close.
 - **A settings plugin that writes its own `looknfeel.lua`/`input.lua` block wins
   by file position** if it lands after ours. Omaland did exactly that (an
   `hl.animation` block plus global `active_opacity`/`inactive_opacity`) and left
@@ -416,6 +588,33 @@ and the original is kept in prose as provenance. Don't leave the two out of sync
   `overrides/ghostty/ghostty.conf` were silently inert this way. Put the note on
   its own line above the key, and check the result with `ghostty
   +validate-config` (exit 1 and one message per bad line; silent on success).
+- **Omarchy turns off close confirmation in every terminal that has one, and it
+  looks like a keybind regression.** `config/ghostty/config:13`
+  `confirm-close-surface=false`, `config/kitty/kitty.conf:11`
+  `confirm_os_window_close 0`, `config/herdr/config.toml:81` `confirm_close =
+  false` — all stock, all inherited verbatim by the live user configs (the
+  ghostty diff against stock is only `font-family`/`font-size`). So a terminal
+  with a job still running closes silently no matter how the close is triggered,
+  and remapping SUPER+Q to `hl.dsp.window.close()` gets blamed for it — wrongly:
+  that is the *same* dispatcher Omarchy binds SUPER+W to (`tiling.lua:1`), the
+  graceful xdg request an app needs in order to prompt at all. Before suspecting
+  a bind, check whether the app was ever going to ask. Ghostty's is restored in
+  our fenced block; a repeated key is **last-wins** (verified against a
+  throwaway `XDG_CONFIG_HOME`), and the block is spliced in below line 13, so
+  re-stating it there beats the stock line without editing stock. Note that
+  `+show-config` prints only non-defaults, so a key restored *to* its default
+  disappears from that output — absence is the success signal, not a failure.
+- **A Starship `custom` module with empty output is still rendered.** Neither an
+  empty string nor a non-zero exit hides it — both were measured, and both leave
+  the format's literal text behind, which for a `format = "[$output]($style) "`
+  is a stray space in front of the prompt character in every directory that
+  isn't a repo. Starship also strips trailing whitespace from command output, so
+  the space cannot be moved into the command to dodge this. The fix is the
+  conditional group: `format = "([$output]($style) )"` renders only when the
+  variables inside are non-empty. `overrides/starship/starship.toml.tpl`'s
+  `custom.git_branch` (middle-truncation, which the built-in can't do — it
+  truncates from the head) depends on this to match the built-in's own
+  disappear-outside-a-repo behaviour.
 - **Chromium ignores `FREETYPE_PROPERTIES`.** The stem darkening in
   `overrides/environment.d/10-cllpse-macos-font-rendering.conf` reaches every
   app on the desktop *except* Chromium, so page text there renders at the thin

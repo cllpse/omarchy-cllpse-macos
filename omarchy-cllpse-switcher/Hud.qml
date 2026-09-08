@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Effects
 import Quickshell
+import Quickshell.Hyprland
 import Quickshell.Io
 import Quickshell.Wayland
 import qs.Commons
@@ -35,16 +36,71 @@ Item {
   // Set when "commit" arrives while the first window list is still loading (a
   // very fast tap-and-release). Applied the moment the list is in.
   property bool pendingCommit: false
-  // Cursor position when the strip opened. Hover only starts steering the
-  // highlight once the pointer has actually moved from here, so opening the
-  // strip under a resting cursor doesn't yank the selection off index 1.
-  property var hoverBase: null
+  // A first refresh is in flight and nothing is cached yet. Only ever true
+  // before the first list lands -- after that the list is kept warm.
+  property bool listPending: false
+
+  // ── Most-recently-used, for back-and-forth ──────────────────────────────────
+  //
+  // A single tap must return to the window you came from, and a second tap must
+  // bring you back -- the alternation every Alt+Tab has. That needs the PREVIOUS
+  // focus, which nothing on the compositor side keeps in a usable form here:
+  // `activated` only ever says what is focused now, and `lastIpcObject`'s
+  // focusHistoryID is a stale snapshot (measured: it sat at 2/1/0 across two
+  // focus changes). So the history is kept here, updated from the live
+  // `Hyprland.activeToplevel`.
+  //
+  // Deliberately NOT used for ordering. The tiles stay sorted by workspace and
+  // on-screen position; this only moves where the highlight STARTS.
+  property string activeAddr: ""
+  property string prevAddr: ""
 
   // "commit" (sent the instant SUPER is released) is the only thing that
   // switches focus. This timer is a last-resort safety net: if that never
   // arrives (e.g. the Lua key poll died), dismiss the strip WITHOUT switching
   // after this long with no next/prev activity, so a stuck HUD can't linger.
   readonly property int idleTimeoutMs: 30000
+
+  // ── Input path ──────────────────────────────────────────────────────────────
+  //
+  // The keybinds reach this plugin through Hyprland's global-shortcuts protocol
+  // rather than by summoning it over IPC, because the IPC path costs a process
+  // spawn per keypress. `omarchy-shell shell summon` is bash -> timeout -> `qs
+  // ipc`, and `qs ipc` starts a whole Quickshell binary to deliver one message:
+  // measured at 31-35ms per press on this machine, with spikes to 130-166ms.
+  // That is the sluggishness -- it was paid on every single TAB.
+  //
+  // A GlobalShortcut is registered here and bound in
+  // overrides/hypr/window-switcher-bindings.lua with hl.dsp.global(), so the
+  // compositor delivers the key straight to this process over the Wayland
+  // protocol. No fork, no exec, no Qt startup.
+  //
+  // `commit` is a shortcut too, for the same reason: hl.dsp.global is a
+  // *dispatcher*, so the Lua key-release poll can dispatch it directly instead
+  // of shelling out. The appid carries no dots or colons -- Hyprland parses the
+  // binding as "<appid>:<name>".
+  readonly property string shortcutAppid: "cllpse-switcher"
+
+  GlobalShortcut {
+    appid: root.shortcutAppid
+    name: "next"
+    description: "Window switcher: next"
+    onPressed: root.open('{"action":"next"}')
+  }
+
+  GlobalShortcut {
+    appid: root.shortcutAppid
+    name: "prev"
+    description: "Window switcher: previous"
+    onPressed: root.open('{"action":"prev"}')
+  }
+
+  GlobalShortcut {
+    appid: root.shortcutAppid
+    name: "commit"
+    description: "Window switcher: focus the highlighted window"
+    onPressed: root.open('{"action":"commit"}')
+  }
 
   readonly property string pluginId: (manifest && manifest.id) || "io.eject.window-switcher"
 
@@ -56,8 +112,8 @@ Item {
     } catch (e) {}
 
     if (action === "commit") {
-      // If the opening list is still loading, remember to commit once it's in.
-      if (!root.opened && clientsProc.running) { root.pendingCommit = true; return }
+      // Only possible before the list is warm -- see the cold path below.
+      if (!root.opened && root.listPending) { root.pendingCommit = true; return }
       root.commit()
       return
     }
@@ -66,10 +122,20 @@ Item {
     var step = (action === "prev") ? -1 : 1
 
     if (!root.opened) {
+      // Warm path: the list is already in memory, so opening is synchronous --
+      // no process to spawn and nothing to wait for. The rebuild below only
+      // does real work on the very first summon; after that _rebuild() finds
+      // the list unchanged and leaves the model alone.
+      if (root.wins.length < 2) root._rebuild()
+      if (root.wins.length >= 2) { root._openStepped(step); return }
+      // Cold: nothing cached yet (first summon after a shell restart, or a
+      // refresh still in flight). Remember the presses and let _rebuild()
+      // apply them the moment the list lands, exactly as before.
       root.pendingSteps += step
-      if (!clientsProc.running) {
+      if (!root.listPending) {
+        root.listPending = true
         root.pendingCommit = false
-        clientsProc.running = true
+        Hyprland.refreshToplevels()
       }
       return
     }
@@ -84,16 +150,17 @@ Item {
   function close() {
     root.opened = false
     idleTimer.stop()
+    root._rebuild() // unfreeze: catch anything that changed while it was up
   }
 
   function dismiss() {
     root.opened = false
     root.pendingSteps = 0
     root.pendingCommit = false
-    root.hoverBase = null
     idleTimer.stop()
     if (root.shell && typeof root.shell.hide === "function")
       root.shell.hide(root.pluginId)
+    root._rebuild() // unfreeze: catch anything that changed while it was up
   }
 
   function commit() {
@@ -311,35 +378,128 @@ Item {
     return out.trim()
   }
 
-  Process {
-    id: clientsProc
-    command: ["hyprctl", "clients", "-j"]
-    stdout: StdioCollector {
-      id: clientsOut
-      waitForEnd: true
-      onStreamFinished: root._loadClients(String(text || "[]"))
+  Process { id: focusProc }
+
+  // ── Window list ─────────────────────────────────────────────────────────────
+  //
+  // Kept warm from Hyprland's event socket rather than rebuilt by shelling out
+  // to `hyprctl clients -j` on every summon. Two things made that worth doing:
+  //
+  //  - The old path spawned a process and parsed its JSON on every open. That
+  //    turned out NOT to be the visible cost: end-to-end open latency measured
+  //    the same (~40ms) before and after, because it is dominated by the
+  //    `omarchy-shell shell summon` spawn in the keybind itself. One less
+  //    process per keypress is still worth having, but it is not why this
+  //    changed.
+  //  - It then assigned `root.wins` unconditionally. Measured with a delegate
+  //    lifecycle probe, a repeat open rebuilt a list that was byte-identical
+  //    (`same=true`) and still reset the ListView, destroying and recreating
+  //    cells. A recreated cell's icon Image starts out `Loading`, so the
+  //    delegate falls back to its Nerd Font glyph for a frame or two before the
+  //    icon pops in -- the flicker.
+  //
+  // What is live and what is not, measured against this Quickshell build:
+  //
+  //  - `Hyprland.rawEvent` is live -- openwindow/closewindow/movewindow/... all
+  //    arrive on the event socket as they happen.
+  //  - `toplevel.activated` is live, and tracks focus with no refresh at all.
+  //  - `toplevel.lastIpcObject` is a SNAPSHOT, not live. Its `focusHistoryID`
+  //    sat at 2/1/0 across two focus changes. So the ordering fields (`at`,
+  //    `class`, `workspace`) need an explicit refreshToplevels(), and the
+  //    focused window has to come from `activated`, never focusHistoryID.
+  //  - `Hyprland.toplevels` is populated lazily. In a bare Quickshell instance
+  //    it is EMPTY until something calls refreshToplevels(); inside the Omarchy
+  //    shell it already held 3 entries by the time this plugin's onCompleted
+  //    ran. Both are true, which is why the prime below does BOTH: refresh (for
+  //    the empty case) and rebuild (for the already-populated case). Relying on
+  //    a valuesChanged signal instead deadlocks the already-populated case --
+  //    the signal has already been and gone, and the list stays empty forever.
+  //    That was a real bug here, not a hypothetical.
+  Component.onCompleted: { Hyprland.refreshToplevels(); root._rebuild() }
+
+  // Events that can change the set of windows or their on-screen order. Focus
+  // changes are deliberately absent: `activated` already tracks those live, and
+  // refreshing on them would rebuild the list on every commit.
+  readonly property var refreshEvents: [
+    "openwindow", "closewindow", "movewindow", "movewindowv2",
+    "windowtitle", "windowtitlev2", "changefloatingmode", "fullscreen",
+    "monitoradded", "monitorremoved"
+  ]
+
+  Connections {
+    target: Hyprland
+    function onRawEvent(event) {
+      if (root.refreshEvents.indexOf(String(event.name)) === -1) return
+      refreshDebounce.restart()
     }
   }
 
-  Process { id: focusProc }
+  // A single window move emits several events in a burst; coalesce them into
+  // one refresh rather than one IPC round-trip each.
+  Timer {
+    id: refreshDebounce
+    interval: 24
+    repeat: false
+    onTriggered: { Hyprland.refreshToplevels(); rebuildAfterRefresh.restart() }
+  }
 
-  function _loadClients(jsonText) {
-    var list = []
-    try { list = JSON.parse(jsonText) } catch (e) { list = [] }
-    if (!Array.isArray(list)) list = []
+  // refreshToplevels() rewrites each toplevel's lastIpcObject in place. The
+  // values array itself is untouched, so valuesChanged does NOT fire and the
+  // rebuild has to be scheduled by hand once the IPC round-trip has landed.
+  Timer {
+    id: rebuildAfterRefresh
+    interval: 40
+    repeat: false
+    onTriggered: root._rebuild()
+  }
 
-    var mapped = []
-    for (var i = 0; i < list.length; i++) {
-      var w = list[i]
-      if (!w || w.mapped !== true) continue
-      if (!w.workspace || (w.workspace.id | 0) <= 0) continue // skip special / scratchpad
-      if (String(w.class || "").toLowerCase() === "org.omarchy.agent") continue // the Omarchy agent terminal (this plugin's own dev window)
-      mapped.push(w)
+  Connections {
+    target: Hyprland.toplevels
+    function onValuesChanged() { root._rebuild() }
+  }
+
+  // Focus history. Only shifts when the focused window actually changes, so
+  // re-focusing the same window does not lose the window before it -- otherwise
+  // committing to where you already are would erase the thing you wanted to go
+  // back to.
+  Connections {
+    target: Hyprland
+    function onActiveToplevelChanged() {
+      var t = Hyprland.activeToplevel
+      var a = t ? root._addr(t.address) : ""
+      if (a === "" || a === root.activeAddr) return
+      root.prevAddr = root.activeAddr
+      root.activeAddr = a
     }
+  }
+
+  // Hyprland's own addresses carry an 0x prefix in the IPC object but not on
+  // the toplevel handle. Compared raw, nothing ever matches and every open
+  // starts from index 0.
+  function _addr(a) {
+    var t = String(a || "")
+    return t.indexOf("0x") === 0 ? t.substring(2) : t
+  }
+
+  function _rebuild() {
+    // Frozen while the strip is on screen: a macOS Cmd-Tab list does not
+    // reshuffle under the hand holding it, and re-assigning the model mid-open
+    // is exactly what made the icons flicker.
+    if (root.opened) return
+
+    var vs = Hyprland.toplevels.values
+    var mapped = []
+    for (var i = 0; i < vs.length; i++) {
+      var o = vs[i].lastIpcObject
+      if (!o || o.mapped !== true) continue
+      if (!o.workspace || (o.workspace.id | 0) <= 0) continue // special / scratchpad
+      if (String(o["class"] || "").toLowerCase() === "org.omarchy.agent") continue // this plugin's own dev window
+      mapped.push(o)
+    }
+
     // Order of appearance: workspace first (ascending id, matching the bar),
     // then left-to-right / top-to-bottom position within that workspace --
-    // not MRU. focusHistoryID is only consulted below, to find where the
-    // currently focused window landed in this new order.
+    // not MRU. The focused window is found separately, via `activated`.
     mapped.sort(function (a, b) {
       var wa = (a.workspace && a.workspace.id) | 0
       var wb = (b.workspace && b.workspace.id) | 0
@@ -351,92 +511,142 @@ Item {
     })
 
     var out = []
-    var currentIdx = 0
     for (var j = 0; j < mapped.length; j++) {
       var m = mapped[j]
-      if ((m.focusHistoryID | 0) === 0) currentIdx = j
       var t = (m.title && m.title !== "") ? m.title
         : (m.initialTitle && m.initialTitle !== "") ? m.initialTitle
         : "(untitled)"
       out.push({
         address: m.address,
         title: t,
-        cls: m.class || m.initialClass || "",
+        cls: m["class"] || m.initialClass || "",
         ws: String((m.workspace && m.workspace.name) || "").trim()
       })
     }
 
-    root.wins = out
+    // The whole point: only touch the model when something actually changed.
+    // An unchanged assignment resets the ListView and churns delegates.
+    if (!root._sameWins(out, root.wins)) root.wins = out
+
+    if (!root.listPending) return
+    root.listPending = false
+
+    // Cold-start presses that landed before the list did.
     if (out.length < 2) { // nothing to switch to
-      root.opened = false
       root.pendingSteps = 0
       root.pendingCommit = false
       return
     }
+    root._openStepped(root.pendingSteps)
+    if (root.pendingCommit) { root.pendingCommit = false; root.commit() }
+  }
 
-    var n = out.length
-    // Start from wherever the currently focused window landed in workspace/
-    // position order (not necessarily 0 anymore); the presses so far step
-    // off it.
-    root.index = ((currentIdx + root.pendingSteps) % n + n) % n
+  function _sameWins(a, b) {
+    if (!a || !b || a.length !== b.length) return false
+    for (var i = 0; i < a.length; i++) {
+      if (a[i].address !== b[i].address) return false
+      if (a[i].title !== b[i].title) return false
+      if (a[i].cls !== b[i].cls) return false
+      if (a[i].ws !== b[i].ws) return false
+    }
+    return true
+  }
+
+  // Index of the window Hyprland currently has focused. `activated` is live, so
+  // this is read at open time rather than baked into the cached list.
+  function _activeIndex() {
+    var vs = Hyprland.toplevels.values
+    var addr = ""
+    for (var i = 0; i < vs.length; i++) {
+      if (vs[i].activated) { addr = root._addr(vs[i].address); break }
+    }
+    // Cold fallback. `activated` is only set once Quickshell has seen an
+    // activewindow event, so on the very first summon after a shell restart
+    // nothing reports it and every window looks unfocused -- which silently
+    // opened the strip one step from index 0 instead of from the focused
+    // window, and a tap then committed straight back to where it started.
+    // focusHistoryID is a stale field in general, but it is accurate in the
+    // snapshot we just refreshed, which is exactly this case.
+    if (addr === "") {
+      for (var k = 0; k < vs.length; k++) {
+        var o = vs[k].lastIpcObject
+        if (o && (o.focusHistoryID | 0) === 0) { addr = root._addr(o.address); break }
+      }
+    }
+    if (addr === "") return 0
+    for (var j = 0; j < root.wins.length; j++) {
+      if (root._addr(root.wins[j].address) === addr) return j
+    }
+    return 0
+  }
+
+  // Where the previously focused window sits in the CURRENT positional order,
+  // or -1 if it is gone (closed, or on a workspace being filtered out).
+  function _mruIndex() {
+    if (root.prevAddr === "") return -1
+    for (var i = 0; i < root.wins.length; i++) {
+      if (root._addr(root.wins[i].address) === root.prevAddr) return i
+    }
+    return -1
+  }
+
+  // Open the strip `step` places from whatever is focused right now.
+  function _openStepped(step) {
+    var n = root.wins.length
+    if (n < 2) return
+    var cur = root._activeIndex()
+    var k = step | 0
+    var idx
+
+    if (k > 0) {
+      // The first forward tap goes to the window you came from, which is what
+      // makes SUPER+TAB alternate. Any further taps in the same gesture then
+      // walk the positional order from there, so the highlight moves along the
+      // strip the way it looks like it should rather than hopping around a
+      // history the tiles do not show.
+      var m = root._mruIndex()
+      idx = (m >= 0 && m !== cur) ? m : (cur + 1) % n
+      idx = (idx + (k - 1)) % n
+    } else {
+      // SHIFT+TAB stays purely positional: stepping backwards through a history
+      // the strip does not display has no visible meaning.
+      idx = ((cur + k) % n + n) % n
+    }
+
+    root.index = ((idx % n) + n) % n
     root.pendingSteps = 0
-    root.hoverBase = null
     root.opened = true
     idleTimer.restart()
-
-    // A commit that raced ahead of this load: apply it now.
-    if (root.pendingCommit) { root.pendingCommit = false; root.commit() }
   }
 
   // --- Pointer hover ----------------------------------------------------------
   //
-  // The strip is a click-through layer surface, so it gets no Qt hover events.
-  // Instead, while it's open, poll the global cursor position and hit-test it
-  // against the cells. Moving the pointer over a cell makes it the highlight;
-  // releasing SUPER then focuses it, same as with the keyboard.
-  Timer {
-    id: pollTimer
-    running: root.opened
-    interval: 40
-    repeat: true
-    onTriggered: cursorProc.running = true
-  }
+  // Real Qt hover events, via the MouseArea over the tile row.
+  //
+  // This used to poll: `hyprctl cursorpos -j` on a 40ms timer, because the
+  // surface was click-through (an empty input region) and so received no Qt
+  // pointer events at all. That is 25 process spawns a second, ~3-4ms each,
+  // for the entire time the strip is on screen -- burning CPU and adding JSON
+  // parsing exactly when the thing needs to feel smooth.
+  //
+  // Masking the surface to the card (mask: Region { item: card }) gave it a
+  // real input region, so hover now arrives for free and the poll is gone.
+  // onPositionChanged only fires when the pointer actually moves, which also
+  // replaces the old `hoverBase` distance threshold: that existed purely so a
+  // cursor resting on a tile at open time would not yank the selection off the
+  // keyboard's choice, and a movement-only signal gives that for nothing.
 
-  Process {
-    id: cursorProc
-    command: ["hyprctl", "cursorpos", "-j"]
-    stdout: StdioCollector {
-      id: cursorOut
-      waitForEnd: true
-      onStreamFinished: {
-        try {
-          var p = JSON.parse(String(cursorOut.text || "{}"))
-          if (typeof p.x === "number" && typeof p.y === "number") root._hover(p.x, p.y)
-        } catch (e) {}
-      }
-    }
-  }
-
-  function _hover(cx, cy) {
-    if (!root.opened || root.wins.length < 2) return
-    if (root.hoverBase === null) { root.hoverBase = { x: cx, y: cy }; return }
-    if (Math.abs(cx - root.hoverBase.x) + Math.abs(cy - root.hoverBase.y) < Style.space(8)) return
-
-    // ListView rect in global (monitor) coordinates. The surface fills the
-    // monitor, so surface-local == monitor-local; add the monitor origin.
-    var ox = panel.screen ? panel.screen.x : 0
-    var oy = panel.screen ? panel.screen.y : 0
-    var gx = ox + card.x + list.x
-    var gy = oy + card.y + list.y
-    if (cy < gy || cy > gy + list.height) return
-
-    var lx = cx - gx + list.contentX
-    if (lx < 0) return
+  // Which tile is at `lx`, measured in the ListView's content coordinates.
+  // -1 for "none" -- past the end, or in the gap between two cells. Shared by
+  // the pointer poll and the click handler so the two can never disagree about
+  // what is under the cursor.
+  function _cellAt(lx) {
+    if (lx < 0) return -1
     var stride = card.cellW + card.gap
     var idx = Math.floor(lx / stride)
-    if (idx < 0 || idx >= root.wins.length) return
-    if (lx - idx * stride > card.cellW) return // pointer is in the gap
-    root.index = idx
+    if (idx < 0 || idx >= root.wins.length) return -1
+    if (lx - idx * stride > card.cellW) return -1
+    return idx
   }
 
   Timer {
@@ -455,28 +665,59 @@ Item {
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
     exclusionMode: ExclusionMode.Ignore
-    // Visual only: empty input region, so the strip never intercepts a click.
-    mask: Region {}
+    // Click-through everywhere EXCEPT the card: the strip is a full-screen
+    // surface, so an unmasked window would eat every click on the desktop
+    // behind it. Same idiom Omarchy uses for notification toasts
+    // (notifications/Service.qml -- Overlay layer, keyboardFocus None,
+    // `mask: Region { item: popupColumn }`), which is the proof that a click
+    // does reach a surface set up this way.
+    mask: Region { item: card }
 
-    // Scrim at the launcher's 0.35 rather than binding Color.menu.scrim (0.25):
-    // a switcher wants a touch more separation from the desktop than a menu.
+    // The SUPER+SPACE menu's own scrim, bound rather than reproduced.
     //
-    // Composed here rather than read from the theme because Omarchy 4 has no
-    // launcher surface to read. Color.qml exposes bar, popups, tooltip,
-    // notifications, menu, polkit, lock and imagePicker -- no launcher -- and
-    // nothing in the shell reads `launcher.*` keys at all. What Omarchy calls
-    // the launcher is the menu plugin, on Color.menu.*, so the [launcher]
-    // section a theme ships is spliced into shell.toml and then ignored. 0.35 is
-    // that section's intended value, applied here directly.
+    // This used to compose its own colour at 0.35 -- the value the theme's
+    // inert [launcher] section intends -- on the theory that a switcher wants a
+    // touch more separation from the desktop than a menu does. Measured against
+    // the menu side by side (solving composited = a*background + (1-a)*backdrop)
+    // that read 0.37 against the menu's 0.22, and the two surfaces visibly did
+    // not match. Aligned deliberately: they are the same kind of overlay and
+    // should dim the desktop identically.
     //
-    // Built from the live palette background so it still follows theme switches,
-    // and kept below the layer rule's ignore_alpha (0.6) in
-    // overrides/hypr/looknfeel-decoration.lua so the scrim stays unblurred --
-    // the windows being switched between remain readable, while the card above
-    // keeps its frost.
+    // Binding the role instead of composing a literal is what makes light and
+    // dark both correct without a second value here. Color.menu.scrim resolves
+    // `scrim` / `scrim-alpha` from each theme's own shell.menu.toml against that
+    // theme's palette -- "background" over #1E1E1E in dark, over #FFFFFF in
+    // light -- so a theme switch, or a retune of the menu's scrim, carries the
+    // switcher with it. Change it in shell.menu.toml, not here.
+    //
+    // Still below the layer rule's ignore_alpha (0.6) in
+    // overrides/hypr/looknfeel-decoration.lua -- 0.25 is further below it than
+    // 0.35 was -- so the scrim stays unblurred and the windows being switched
+    // between remain readable.
     Rectangle {
       anchors.fill: parent
-      color: Qt.rgba(Color.background.r, Color.background.g, Color.background.b, 0.35)
+      color: Color.menu.scrim
+
+      // Fade the scrim, and only the scrim.
+      //
+      // The compositor cannot do this: a card and its scrim are one layer
+      // surface, so `animation = "fade"` on the layer rule fades both together
+      // and the card stops landing under the keypress. Animating here instead
+      // keeps the card instant -- it maps at full opacity like the menu's --
+      // while the full-screen dim eases in behind it.
+      //
+      // 120ms / OutCubic: a standard short-transition pairing (the compositor's
+      // own whole-surface fade on the Omarchy panels measures ~100ms, so this
+      // sits alongside it rather than reading as a different kind of motion).
+      // The layer rule in overrides/hypr/looknfeel-decoration.lua keeps
+      // no_anim on this namespace so the two do not stack.
+      //
+      // Fade-in only: `opened` going false unmaps the window in the same frame,
+      // so there is nothing left on screen for a fade-out to play across.
+      opacity: root.opened ? 1 : 0
+      Behavior on opacity {
+        NumberAnimation { duration: 120; easing.type: Easing.OutCubic }
+      }
     }
 
     // Card: same chrome as an Omarchy menu — theme menu background, the
@@ -549,6 +790,13 @@ Item {
         spacing: card.gap
         interactive: false
         clip: true
+        // Retain every cell, even one sitting a fraction of a pixel outside the
+        // viewport. Without this the rightmost delegate is culled and rebuilt on
+        // each open (measured: destroy 2 / create 2, every time), and a rebuilt
+        // cell's icon Image starts out `Loading` -- so it shows its fallback
+        // glyph for a frame before the icon appears. Cheap: the strip is a
+        // handful of cells, never a long list.
+        cacheBuffer: Math.max(card.stripW, 1)
         model: root.wins
         currentIndex: root.index
         onCurrentIndexChanged: positionViewAtIndex(currentIndex, ListView.Contain)
@@ -697,6 +945,39 @@ Item {
               opacity: 0.52
             }
           }
+        }
+      }
+
+      // Click a tile to focus that window. Placed after the ListView so it sits
+      // above it; the list is `interactive: false`, so nothing below competes
+      // for the press. Geometry is copied from the list rather than anchored to
+      // it, so `mouse.x` arrives already in list coordinates and the same
+      // _cellAt() hit-test serves both this and the pointer poll.
+      MouseArea {
+        x: list.x
+        y: list.y
+        width: list.width
+        height: list.height
+        acceptedButtons: Qt.LeftButton
+        // A hand over the tiles, the way any other clickable row reads. Pointer
+        // MOTION reaches the surface normally -- it is only the button press
+        // that the SUPER + mouse:272 bind takes first -- so the shape applies
+        // even though the click itself is delivered by the keybind.
+        cursorShape: Qt.PointingHandCursor
+        // Moving the pointer over a cell makes it the highlight; releasing
+        // SUPER then focuses it, same as with the keyboard.
+        hoverEnabled: true
+        onPositionChanged: function (mouse) {
+          if (!root.opened || root.wins.length < 2) return
+          var idx = root._cellAt(mouse.x + list.contentX)
+          if (idx < 0) return
+          root.index = idx
+        }
+        onClicked: function (mouse) {
+          var idx = root._cellAt(mouse.x + list.contentX)
+          if (idx < 0) return
+          root.index = idx
+          root.commit()
         }
       }
 

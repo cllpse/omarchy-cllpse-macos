@@ -212,6 +212,53 @@ hl.layer_rule({
   ignore_alpha = 0.6,
 })
 
+-- A short fade-in on the keyboard-driven panels, and on our switcher.
+--
+-- Hyprland fades a layer surface as it maps (`layersIn`, style = fade, ~130ms
+-- at our speeds), but Omarchy opts its own panels out of it:
+-- `default/hypr/apps/omarchy-shell.lua:5` for the bar and :10 for
+-- ^(omarchy-menu|omarchy-image-selector|omarchy-emojis|omarchy-clipboard|
+-- omarchy-keyboard-panel)$. That left the panels snapping in while
+-- notifications, the OSD, polkit and reminders -- which are NOT in that list --
+-- faded, so the shell was inconsistent with itself.
+--
+-- A later rule wins, so this is re-enabled here rather than by editing
+-- Omarchy's file: layer rules accumulate, and ours load after the defaults
+-- (user hypr files are read last). Verified by burst-screenshotting the menu's
+-- scrim as it opens -- one hard step before this rule, a ~130ms ramp after it.
+--
+-- What this cannot do is fade the scrim alone. A card and its scrim are one
+-- layer surface, so the compositor fades them together; per-surface, fade-or-
+-- not is the whole of the control. Duration is `layersIn`'s speed in the
+-- animation block below, which is shared with every other animated layer --
+-- there is no per-rule duration.
+--
+-- The bar is deliberately NOT included: it is persistent chrome, so its fade
+-- would only ever be seen on a shell restart, and Omarchy keeps it instant for
+-- that reason.
+hl.layer_rule({
+  match = { namespace = "^(omarchy-menu|omarchy-image-selector|omarchy-emojis|omarchy-clipboard|omarchy-keyboard-panel)$" },
+  no_anim = false,
+  animation = "fade",
+})
+
+-- The switcher is deliberately NOT in the list above.
+--
+-- The compositor fades a card and its scrim together -- they are one layer
+-- surface -- and the wanted behaviour here is the scrim alone, with the card
+-- landing instantly. That is only expressible inside the surface, so the
+-- switcher keeps the compositor animation off and fades its own scrim
+-- Rectangle in Hud.qml instead (120ms, Easing.OutCubic).
+--
+-- The Omarchy panels above cannot do the same: their scrim lives in Omarchy's
+-- own Menu.qml, and editing that is a patch to /usr/share/omarchy that the next
+-- update overwrites. They keep the whole-surface fade, which measures ~100ms.
+hl.layer_rule({
+  match = { namespace = "omarchy-window-switcher-hud" },
+  no_anim = true,
+  animation = "none",
+})
+
 -- ── Animation speed (3x) ───────────────────────────────────────────────────
 -- Can't live in the theme: colors.toml/shell.toml carry no animation keys at
 -- all (checked shell.toml.tpl), and the shell's own per-component durations

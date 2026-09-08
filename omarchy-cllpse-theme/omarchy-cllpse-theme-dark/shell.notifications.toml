@@ -1,11 +1,14 @@
 [notifications]
-# omarchy-cllpse-theme — BUILD.md §6: near-opaque glass (0.92). Whole-section replace.
-# Needs the omarchy-notifications layer blur rule in
-# overrides/hypr/looknfeel-decoration.lua. text/countdown are read via a plain
+# omarchy-cllpse-theme — BUILD.md §6: opaque (1.0). Whole-section replace.
+# Opaque by choice, matching the menu: a toast is read at a glance and whatever
+# sits behind it should not come through the text. That makes the
+# omarchy-notifications layer blur rule in overrides/hypr/looknfeel-decoration.lua
+# inert for this surface — an opaque pixel has nothing to blur through.
+# text/countdown are read via a plain
 # pick() that never unwraps role names (unlike background/border, which go
 # through composed()->flatColor()) — they must be literal hex or render black.
 background       = "background"
-background-alpha = 0.92
+background-alpha = 1.0
 text             = "#DDDDDD"   # foreground
 border           = "hyprland.active-border"
 border-alpha     = 1.0

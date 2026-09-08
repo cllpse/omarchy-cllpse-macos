@@ -1,11 +1,17 @@
 [menu]
-# omarchy-cllpse-theme — BUILD.md §6: near-opaque glass (0.92). Whole-section replace,
+# omarchy-cllpse-theme — BUILD.md §6: opaque (1.0). Whole-section replace,
 # so all [menu] keys are restated; role-name tokens resolve to the palette,
 # hyprland.* refs to the active-border gradient. Clipboard + emojis inherit
-# these. Needs the omarchy-menu layer blur rule in
-# overrides/hypr/looknfeel-decoration.lua.
+# these. The card is opaque by choice: SUPER+SPACE and the window switcher are
+# read-at-a-glance surfaces, and a translucent card puts whatever is behind it
+# into the middle of the text. The blur layer_rule in
+# overrides/hypr/looknfeel-decoration.lua is therefore inert for THIS surface --
+# an opaque pixel has nothing to blur through -- but still applies to the bar
+# and notifications, which stay translucent. The scrim below is untouched: it is
+# the dimmed backdrop, not the card, and at 0.25 it stays under the rule's
+# ignore_alpha (0.6) so it renders sharp.
 background                = "background"
-background-alpha          = 0.92
+background-alpha          = 1.0
 text                     = "#272727"   # foreground — text is a plain pick(), never unwrapped through flatColor()
 border                   = "hyprland.active-border-foreground"
 border-alpha              = 1.0

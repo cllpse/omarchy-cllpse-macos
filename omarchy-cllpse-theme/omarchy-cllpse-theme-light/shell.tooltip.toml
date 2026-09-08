@@ -1,0 +1,17 @@
+[tooltip]
+# omarchy-cllpse-theme — BUILD.md §6: opaque (1.0). Omarchy ships no tooltip
+# file of its own here; this exists purely to take the generated 0.97 to full
+# opacity.
+#
+# Whole-section replace: omarchy-theme-set-templates swaps out the entire
+# generated [tooltip] section, so every key it had is restated. An omitted key
+# falls back to the Color.qml default, NOT to the generated value.
+#
+# background/border are role-name tokens Color.qml resolves through
+# composed()->flatColor(); `text` is a plain pick() that never unwraps a role
+# name, so it must be literal hex or it renders black.
+background       = "background"
+background-alpha = 1.0
+text             = "#272727"   # foreground
+border           = "hyprland.active-border-foreground"
+border-alpha     = 1.0

@@ -111,7 +111,7 @@ self-contained Omarchy theme:
 | `colors.toml` | The palette + `mode`. Drives every generated config, including the shell bar/menus/notifications. |
 | `shell.{bar,menu,launcher,notifications}.toml` | Per-section overrides spliced into the generated `shell.toml` — surface `background-alpha` (BUILD.md §6) for the blur set up in `overrides/`. |
 | `icons.theme` | dark → `Yaru-dark`, light → `Yaru-blue`. Fed to `gsettings icon-theme` by `omarchy-theme-set-gnome`. |
-| `backgrounds/` | Wallpapers — macOS stock (Big Sur → Sequoia) plus macOS-styled community art; 17 dark / 15 light. Not redistributable, see [`THIRD-PARTY.md`](THIRD-PARTY.md). |
+| `backgrounds/` | Wallpapers — macOS stock (Big Sur → Sequoia) plus macOS-styled community art; 17 dark / 15 light. The `00-` prefix on `00-umeda_wallpaper_desktop*.png` is what makes it each theme's default: Omarchy has no default-background key and simply takes the sort-first file when switching into a theme. Not redistributable, see [`THIRD-PARTY.md`](THIRD-PARTY.md). |
 | `unlock.png`, `preview-unlock.png` | Boot-splash (Plymouth) / SDDM login-screen logo, and its `omarchy plymouth switcher` picker thumbnail — a fixed multi-colour "OMARCHY" wordmark, hand-tuned per theme (close but not pixel-identical between dark/light). Applied separately from `omarchy theme set`: `omarchy plymouth set by theme <name>` (needs sudo). |
 | `unlock.svg` | Vector source for `unlock.png` — not read by Omarchy itself (Plymouth/SDDM only take the PNG), kept for editing/rescaling. Exact rect-per-pixel trace, not a smoothed vectorisation — see below. Regenerate after editing `unlock.png`; it does not stay in sync on its own. |
 | `preview.png` | Desktop-screenshot thumbnail for Omarchy's *main* theme picker — now distinct per theme. |
@@ -180,9 +180,10 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   shell surfaces (`omarchy-bar|menu|notifications|osd|polkit|clipboard|emojis|`
   `reminders|image-selector|network-qr|keyboard-panel|lock-preview`) plus our own
   `omarchy-window-switcher-hud` into that blur — `blur_popups` on,
-  `ignore_alpha = 0.6`, which sits between the scrims (0.25/0.35) and the cards
-  (0.72–0.92) so cards stay frosted while the dimmed backdrop stays sharp — the
-  windows being switched between remain readable. Additive to Omarchy's own `no_anim` layer rules.
+  `ignore_alpha = 0.6`, which sits between the scrims (0.25) and the cards
+  (all 1.0) so the dimmed backdrop stays sharp — the windows being switched
+  between remain readable. With every card opaque the blur is currently inert;
+  the rule is kept so it returns if an alpha is lowered again. Additive to Omarchy's own `no_anim` layer rules.
 - **Chromium scale is two settings that multiply, not one.**
   `overrides/chromium/chromium-flags.conf` is fenced into
   `~/.config/chromium-flags.conf` (the launcher skips `#` lines, so the markers
@@ -207,20 +208,28 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
 - **Shell-surface translucency lives in the theme, per section.** A theme-shipped
   `shell.<section>.toml` is spliced into the generated `shell.toml` by
   `omarchy-theme-set-templates`, *replacing that whole `[section]`*. Each theme
-  folder ships `shell.bar.toml` (α 0.72), `shell.menu.toml` (0.92),
-  `shell.launcher.toml` (0.85, scrim 0.35 — **inert on 4.0.2**, see below) and
-  `shell.notifications.toml` (0.92)
-  — menu scrim is 0.25, kept low and unblurred so the window switcher stays usable.
+  folder ships `shell.bar.toml`, `shell.menu.toml`, `shell.notifications.toml`,
+  `shell.tooltip.toml`, `shell.lock.toml` and `shell.launcher.toml` (**inert on
+  4.0.2**, see below). **Every card is α 1.0 — opaque.** The scrims are the
+  exception and stay translucent at 0.25, kept low and unblurred so the window
+  switcher stays usable. The switcher binds `Color.menu.scrim` rather than
+  composing its own, so its dim is the menu's dim in both light and dark.
   Nothing reads `launcher.*`: `Color.qml` has no launcher surface, there is no
   launcher plugin, and what Omarchy calls the launcher is the menu plugin drawing
   on `Color.menu.*`. The `[launcher]` section is spliced into the generated
   `shell.toml` and then ignored — edit `[menu]` to change it.
   — BUILD.md §6 values. Colours are role-name tokens (`"background"`,
   `"foreground"`, `"accent"`) that `Color.qml` resolves against the live palette,
-  so nothing hardcodes hex; `tooltip` (0.97) and `lock` (0.8) already match §6
-  and aren't shipped. Whole-section replace means any key omitted falls back to
-  the `Color.qml` default, not the generated value — that's why each file
-  restates its full section. The dark/light copies are currently identical
+  so nothing hardcodes hex, except where `Color.qml` reads a key with a plain
+  `pick()` (`text`, `active`, `selected-text`, `countdown`, `text-error`), which
+  never unwraps a role name and so must be literal hex or it renders black.
+  `tooltip` and `lock` are shipped only to take Omarchy's generated 0.97 and 0.8
+  to 1.0. Whole-section replace means any key omitted falls back to the
+  `Color.qml` default, not the generated value — that's why each file restates
+  its full section, and it matters most for `lock`, whose `background-alpha`
+  default (0.8) is exactly what we are overriding.
+  Because every card is opaque, the layer blur rule is currently inert for all of
+  them; it is kept so the effect returns if any alpha is lowered again. The dark/light copies are currently identical
   (same α over each mode's own `background` colour); tune light up if it reads
   washed out.
 - **Focused windows at 0.99, unfocused at 0.875, so the blur renders through both.**

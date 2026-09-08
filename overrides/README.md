@@ -40,10 +40,10 @@ everything else in both scripts is user-level.
 | 4 | GTK/GNOME fonts → SF Pro / SF Mono | `gsettings org.gnome.desktop.interface` |
 | 5 | Font hinting → `none` — SF faces render unhinted; grid-snapped stems read as sharp under grayscale AA (Wayland fractional scaling) | `gsettings … font-hinting 'none'` (GTK/GNOME) + fenced `freetype-load-flags = no-hinting` in `~/.config/ghostty/config`, on top of Omarchy's stock config (fontconfig side is the step-2 drop-in) |
 | 5b | GTK window buttons → none. Hyprland draws no titlebars; a GTK/libadwaita app's min/max/close is its own CSD, laid out from this key. `':'` vs Omarchy's `'appmenu:close'`. Electron/Qt ignore it — Cursor's are step 7 | `gsettings org.gnome.desktop.wm.preferences button-layout ':'` |
-| 6 | `OMARCHY_MENU_FONT` + cursor theme + `no_warps` + keyboard layout (`hyprland.lua`), decoration/blur/opacity/animations (`looknfeel.lua`), window-switcher keybinds (`bindings.lua`), mouse tuning (`input.lua`) + `decoration` (`rounding = 18` / `rounding_power = 2.2` / `border_part_of_window = true`, `blur` on @ size 7 / passes 4 / vibrancy 0.30, `border_size = 2`, `gaps_in/out = 12/24`) + window `opacity = 0.99 0.875` (re-matched onto `chromium-based-browser` / `firefox-based-browser` too, since Omarchy pins those to `1.0 0.985` otherwise) + 3× animation speeds (floor 1) + `layer_rule` blur on the shell surfaces | fenced blocks synced into `~/.config/hypr/hyprland.lua` and `~/.config/hypr/looknfeel.lua` |
+| 6 | `OMARCHY_MENU_FONT` + cursor theme + `no_warps` + keyboard layout (`hyprland.lua`), decoration/blur/opacity/animations (`looknfeel.lua`), window-switcher keybinds (`bindings.lua`), mouse tuning (`input.lua`) + `decoration` (`rounding = 18` / `rounding_power = 2.2` / `border_part_of_window = true`, `blur` on @ size 7 / passes 4 / vibrancy 0.30, `border_size = 2`, `gaps_in/out = 12/24`) + window `opacity = 0.99 0.875` (re-matched onto `chromium-based-browser` / `firefox-based-browser` too, since Omarchy pins those to `1.0 0.985` otherwise) + 3× animation speeds (floor 1) + `layer_rule` blur on the shell surfaces + `layer_rule` re-enabling the layer fade on the keyboard-driven panels, and `no_anim` on the window switcher (which fades its own scrim in QML) | fenced blocks synced into `~/.config/hypr/hyprland.lua` and `~/.config/hypr/looknfeel.lua` |
 | 6a | Keybind allowlist + macOS-parity shortcuts. `keybind-scan.lua` sandboxes the live `hyprland.lua` (fake `hl`/`o`, no live Hyprland IPC) to enumerate every bind in effect; `keybind-allowlist.conf` seeds from that scan once and is yours from then on — delete a line to have the next apply unbind it; `keybind-unbinds.lua` is regenerated from the current allowlist on every apply, so an Omarchy update that adds new default binds gets pruned too, without reseeding. `macos-shortcuts.lua` (word/line navigation, close/undo/redo/save, quit — synthesized via `send_key_state`, guarded off inside terminals where forwarding Ctrl+Z/W/S would be destructive) and `window-management-mod.lua` (window nav/arrangement moved `SUPER` → `CTRL+ALT`, working around the Preonic firmware's key overrides suppressing `SUPER` on the keys they trigger on) are synced in *after* the unbinds, so their own binds land fresh every run | `overrides/hypr/keybind-allowlist.conf` (seeded once, user-owned, committed); `overrides/hypr/keybind-current.conf` + `overrides/hypr/keybind-unbinds.lua` (both regenerated every run in the repo itself, gitignored); three more fenced blocks (`: keybinds`, `: macos-shortcuts`, `: window-management-mod`) in `~/.config/hypr/bindings.lua` |
 | 7 | `bat` / `lazygit` / `fzf` / `lsd` colours → terminal ANSI (`lsd` additionally needs `color.theme: custom` in its own config to read the ANSI remap, since it otherwise pins several colours to fixed 256-colour indices); Cursor editor prefs (whitespace/format-on-save, chrome trimmed — activity + status bars, menu bar, layout control, agents-window button and the `custom` title bar's min/max/close all hidden) merged into `settings.json` with `jq` — our keys win, `workbench.colorTheme` left to Omarchy, no extension-dependent keys | `~/.config/bat/config`, `~/.config/lazygit/config.yml`, `~/.config/lsd/{config,colors}.yaml`, `~/.config/Cursor/User/settings.json`, fenced block in `~/.bashrc` |
-| 7a | Starship prompt colours track the active theme's `accent` (the same hue driving Hyprland's active border) — Starship has no Omarchy-aware theming and no config-import mechanism like Ghostty/Alacritty/foot, so this hooks into `omarchy-hook theme-set` instead of a `themed/*.tpl`; regenerates `~/.config/starship.toml` on every theme switch, and once now so it doesn't wait for the next one | `~/.config/omarchy/hooks/theme-set.d/starship-colors.sh` (symlinked), `~/.config/starship.toml` |
+| 7a | Starship prompt colours track the active theme's `accent` (the same hue driving Hyprland's active border) — Starship has no Omarchy-aware theming and no config-import mechanism like Ghostty/Alacritty/foot, so this hooks into `omarchy-hook theme-set` instead of a `themed/*.tpl`; regenerates `~/.config/starship.toml` on every theme switch, and once now so it doesn't wait for the next one. The template also swaps the built-in `git_branch` for a `custom.git_branch` that truncates in the middle (`chromium-scale-and-ghostty-fixes` → `chromium-sc…hostty-fixes`, 24 chars incl. the ellipsis) — Starship only truncates from the head | `~/.config/omarchy/hooks/theme-set.d/starship-colors.sh` (symlinked), `~/.config/starship.toml` |
 | 7b | Restore saved display scaling + text size from `display.conf` (skipped if the file is absent; each empty key skipped) | `omarchy display text size`, the two scale variables in `~/.config/hypr/monitors.lua` |
 | 7c | Install session environment drop-ins (Figma → native Wayland) | `~/.config/environment.d/50-cllpse-macos-figma-wayland.conf` |
 | 7d | Chromium scale: `--force-device-scale-factor=1` (browser UI 20% under DP-2's 1.25) + `110%` default page zoom. Page size is the product of the two — 125% would be exactly 1:1 with native | fenced block in `~/.config/chromium-flags.conf` + `partition.default_zoom_level` in each `~/.config/chromium/*/Preferences` |
@@ -58,6 +58,19 @@ translucency (`background-alpha`) is the theme's half —
 `omarchy-cllpse-theme/*/shell.*.toml`. Blur shows nothing until both are in place. The rule's
 namespace match also covers `omarchy-window-switcher-hud`, so the
 `omarchy-cllpse-switcher/` plugin (symlinked in step 1) blurs like the menu.
+
+A second `layer_rule` re-enables Hyprland's layer fade (measured ~100ms) for the
+keyboard-driven panels — menu, clipboard, emojis, image-selector,
+keyboard-panel. The window switcher is deliberately excluded and gets a third
+rule keeping `no_anim`: it fades its scrim alone from inside `Hud.qml` (120ms,
+`Easing.OutCubic`), which the compositor cannot express because a card and its
+scrim are a single layer surface. The Omarchy panels cannot do the same without
+patching their own `Menu.qml`. Omarchy opts those
+out in `default/hypr/apps/omarchy-shell.lua` while leaving notifications, OSD,
+polkit and reminders fading, so the shell was inconsistent with itself; layer
+rules accumulate and ours load later, so this needs no edit to Omarchy's file.
+The bar is deliberately excluded: it is persistent chrome, so the fade would
+only ever show on a shell restart.
 
 Injected blocks are wrapped in `>>> cllpse-macos overrides >>>` fences (comment
 leader `--` in Lua, `#` in shell — Ghostty config takes `#`), optionally suffixed
@@ -156,12 +169,12 @@ differences above are the ones to check by hand.
 
 ```
 apply.sh  revert.sh
-starship/starship.toml.tpl    stock starship.toml with {{ accent }} in place of every literal "cyan"
+starship/starship.toml.tpl    stock starship.toml with {{ accent }} in place of every literal "cyan", plus a custom.git_branch module that middle-truncates long branch names to 24 chars
 hooks/theme-set.d/starship-colors.sh  renders the template above into ~/.config/starship.toml on every theme switch
 fonts/                        20 SF .otf (SF Mono, SF Pro Text, SF Pro Display)
 fontconfig/conf.d/99-cllpse-macos-ui-font.conf   SF Pro for sans-serif/system-ui + optical-size crossover
 fontconfig/conf.d/11-cllpse-macos-hinting.conf   hintstyle -> hintnone (overrides system 10-hinting-slight)
-ghostty/ghostty.conf          freetype-load-flags = no-hinting + a few non-default prefs
+ghostty/ghostty.conf          freetype-load-flags = no-hinting, a few non-default prefs, and confirm-close-surface back on (Omarchy ships it off)
 bat/config                    --theme="ansi"
 lazygit/config.yml            gui.theme with ANSI colour names
 lsd/config.yaml               color.theme: custom (opts into colors.yaml below)
@@ -175,7 +188,7 @@ hypr/keybind-unbinds.lua      generated every apply from the allowlist (gitignor
 hypr/keybind-current.conf     generated every apply, the raw scan before allowlist diffing (gitignored)
 hypr/macos-shortcuts.lua      word/line nav, close/undo/redo/save/quit synthesized as Cmd-style chords
 hypr/window-management-mod.lua  window nav/arrangement moved SUPER -> CTRL+ALT (Preonic firmware workaround)
-hypr/input-tuning.lua         mouse sensitivity/accel/follow_mouse
+hypr/input-tuning.lua         mouse sensitivity/accel/scroll speed + follow_mouse = 2 (scroll-under-cursor, click-to-focus)
 hypr/looknfeel-decoration.lua rounding 18 / rounding_power 2.2 / border_part_of_window true / blur / border_size 2 / gaps 12,24 / window opacity 0.99 0.875 (Figma fully opaque) / 3x animations, floor 1 / layer_rule blur on shell surfaces
 bash/shell.sh                 FZF_DEFAULT_OPTS derived from the live palette + lsd alias/LS_COLORS
 display-lib.sh                shared readers/writers for scale + text size (sourced, not run)
