@@ -9,16 +9,31 @@ _cllpse_fzf_colors() {
   [[ -r $toml ]] || return 1
 
   local -A c=()
-  local k v
-  # One pass: pull the palette keys we need, taking the first quoted value on
-  # each line so trailing `# comments` are ignored.
-  while read -r k v; do c[$k]=$v; done < <(
-    awk '
-      /^[[:space:]]*(mode|foreground|dark_foreground|accent|background|dark_background|darker_background|lighter_background)[[:space:]]*=/ {
-        key = $1
-        if (match($0, /"[^"]*"/)) print key, substr($0, RSTART + 1, RLENGTH - 2)
-      }' "$toml"
-  )
+  local line k v
+  # One pass, in the shell itself. This runs on EVERY interactive shell, and the
+  # awk it replaces cost a fork+exec plus a subshell for the process
+  # substitution: measured 2.4ms against 1.4ms here, for byte-identical output
+  # on both themes' colors.toml and on the no-theme fallback path. Takes the
+  # first quoted value on each line, so a trailing `# comment` is ignored; a
+  # line with no quoted value is skipped, the way awk's match() guard did.
+  #
+  # It also fixes an edge case the awk got wrong: awk took the key as $1, the
+  # first WHITESPACE-separated field, so an unspaced `background="#222222"`
+  # made the key the entire `background="#222222"` token. The real key then
+  # looked unset, and the guard below dropped the whole palette to the ANSI
+  # fallback. Omarchy writes the spaced form, so no shipped file hit this.
+  while IFS= read -r line || [[ -n $line ]]; do
+    [[ $line == *=* ]] || continue
+    k=${line%%=*}; k=${k//[[:space:]]/}
+    case $k in
+      mode|foreground|dark_foreground|accent|background|dark_background|darker_background|lighter_background) ;;
+      *) continue ;;
+    esac
+    v=${line#*=}
+    [[ $v == *\"*\"* ]] || continue
+    v=${v#*\"}; v=${v%%\"*}
+    c[$k]=$v
+  done < "$toml"
 
   # Without these three there is no palette worth using; fall back to ANSI.
   [[ -n ${c[foreground]:-} && -n ${c[background]:-} && -n ${c[accent]:-} ]] || return 1

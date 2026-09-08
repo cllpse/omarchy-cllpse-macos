@@ -183,14 +183,14 @@ Item {
   // Propo on this machine, via OMARCHY_MENU_FONT -- so every codepoint here is
   // verified against THAT face, not against the monospace one the terminal uses.
   //
-  // Keyed on the window class, which is all a switcher has. overrides/icons/
-  // icon-map.conf is keyed on a desktop entry's `Icon=` instead, and the two
-  // keyspaces genuinely differ: measured on this machine, 6 of the 23 entries
-  // declaring StartupWMClass use a class that is not their icon name, and
-  // Chromium's is the literal unsubstituted "@@startup_wm_class". So they stay
-  // two maps -- but where both cover an app they MUST agree on the codepoint,
-  // or the same program wears one mark in the menu and a different one under
-  // SUPER+TAB. Every shared entry below matches icon-map.conf.
+  // Keyed on the window class, which is all a switcher has. The drop-ins in
+  // overrides/icons/fallbacks/ are named for a desktop entry's `Icon=` instead,
+  // and the two keyspaces genuinely differ: measured on this machine, 6 of the
+  // 23 entries declaring StartupWMClass use a class that is not their icon
+  // name, and Chromium's is the literal unsubstituted "@@startup_wm_class". So
+  // they stay two keyspaces -- but where both cover an app they MUST agree on
+  // the mark, or the same program wears one in the menu and a different one
+  // under SUPER+TAB.
   //
   // Order is load-bearing in two places: "obsidian" must be tested before
   // "obs" (OBS Studio) because the former contains the latter, and the
@@ -206,8 +206,9 @@ Item {
     if (has("ghostty", "alacritty", "kitty", "foot", "wezterm", "xterm", "konsole", "terminal")) g = 0xe795
     else if (has("firefox", "librewolf", "floorp", "zen-browser", "zen_browser", "waterfox")) g = 0xf269
     // Helium is a Chromium fork and belongs in the family bucket. The menu
-    // shows its own asterisk instead (icon-map.conf @flatten) because an image
-    // can carry a mark that no glyph in the font does; a text cell cannot.
+    // shows its own asterisk instead (a hand-placed drop-in, icons/fallbacks/
+    // helium.png) because an image can carry a mark that no glyph in the font
+    // does; a text cell cannot.
     else if (has("chromium", "chrome", "helium", "vivaldi", "brave", "edge", "opera")) g = 0xf268
     else if (has("code", "cursor", "sublime", "jetbrains", "idea", "pycharm", "webstorm", "zed", "vim", "emacs")) g = 0xf121
     else if (has("steam")) g = 0xf1b6
@@ -370,10 +371,13 @@ Item {
 
   function sanitizeTitle(s) {
     var str = String(s || "")
+    // Hoisted: this is a QML property read, and it sat inside the loop -- one
+    // lookup per character of every title on every rebuild.
+    var allowed = root.titleWhitelist
     var out = ""
     for (var i = 0; i < str.length; i++) {
       var ch = str.charAt(i)
-      if (root.titleWhitelist.indexOf(ch) !== -1) out += ch
+      if (allowed.indexOf(ch) !== -1) out += ch
     }
     return out.trim()
   }
@@ -420,16 +424,22 @@ Item {
   // Events that can change the set of windows or their on-screen order. Focus
   // changes are deliberately absent: `activated` already tracks those live, and
   // refreshing on them would rebuild the list on every commit.
-  readonly property var refreshEvents: [
-    "openwindow", "closewindow", "movewindow", "movewindowv2",
-    "windowtitle", "windowtitlev2", "changefloatingmode", "fullscreen",
-    "monitoradded", "monitorremoved"
-  ]
+  //
+  // A lookup object rather than an array: onRawEvent runs for EVERY event on
+  // the compositor socket, and this stays one hash probe however many event
+  // names get added below. The `=== 1` test (not a truthiness test) is what
+  // keeps an event named after something on Object.prototype -- "constructor",
+  // "toString" -- from matching the inherited member.
+  readonly property var refreshEvents: ({
+    openwindow: 1, closewindow: 1, movewindow: 1, movewindowv2: 1,
+    windowtitle: 1, windowtitlev2: 1, changefloatingmode: 1, fullscreen: 1,
+    monitoradded: 1, monitorremoved: 1
+  })
 
   Connections {
     target: Hyprland
     function onRawEvent(event) {
-      if (root.refreshEvents.indexOf(String(event.name)) === -1) return
+      if (root.refreshEvents[event.name] !== 1) return
       refreshDebounce.restart()
     }
   }
@@ -636,9 +646,11 @@ Item {
   // cursor resting on a tile at open time would not yank the selection off the
   // keyboard's choice, and a movement-only signal gives that for nothing.
 
-  // Which tile is at `lx`, measured in the ListView's content coordinates.
+  // Which tile is at `lx`, measured from the START of the ListView's content
+  // (contentX - originX, not contentX alone -- cell 0 begins at originX, which
+  // is what the overflow scrims below also measure against).
   // -1 for "none" -- past the end, or in the gap between two cells. Shared by
-  // the pointer poll and the click handler so the two can never disagree about
+  // the hover handler and the click handler so the two can never disagree about
   // what is under the cursor.
   function _cellAt(lx) {
     if (lx < 0) return -1
@@ -845,6 +857,34 @@ Item {
               height: glyphText.implicitHeight
               readonly property string flatBase: root.flatIconBase(modelData.cls)
 
+              // Match the INK, not the canvas. app-icons.sh centres each mark in
+              // 200 of 256 px, but a text glyph at pixelSize N fills close to N
+              // -- so drawing the icon into a plain iconSize box renders it
+              // visibly smaller than the glyph beside it. Measured on screen:
+              // 27px of ink against the Chromium glyph's 33. Scaling the box by
+              // 256/200 lines the two up, and as a side effect downscales the
+              // 256px master less, which is where most of the softness came from.
+              readonly property int iconBox: Math.round(card.iconSize * 256 / 200)
+
+              // ONE decode size, shared by both Images below.
+              //
+              // Qt's pixmap cache is keyed on (url, requestSize), so the probe
+              // and the Image that actually draws share an entry only when they
+              // ask for the SAME size. These used to differ -- the probe asked
+              // for iconSize, the drawn one for iconBox -- which rasterised the
+              // same SVG twice per tile and threw one result away. Keep them
+              // equal or that comes straight back.
+              // Screen.devicePixelRatio, deliberately -- it is what Qt actually
+              // rasterises this surface at. Measured on this machine:
+              // Screen.devicePixelRatio and Window.window.devicePixelRatio both
+              // report 2 while Hyprland's output scale is 1.25, i.e. Qt takes
+              // the next integer buffer scale and the COMPOSITOR scales the
+              // finished 2x surface down to 1.25x. That last step is not
+              // something a per-Image sourceSize can or should pre-compensate
+              // for: decoding at 1.25 would draw a 45px image into a region Qt
+              // renders at 72px, which is upscaling. See CLAUDE.md.
+              readonly property int decodePx: Math.ceil(mark.iconBox * Screen.devicePixelRatio)
+
               // Two probes rather than one: the sync writes .svg or .png
               // depending on what was dropped in, and Image cannot try a list.
               // The svg is preferred for the same reason the sync prefers it --
@@ -853,24 +893,16 @@ Item {
               Image {
                 id: flatSvg
                 source: mark.flatBase.length > 0 ? "file://" + mark.flatBase + ".svg" : ""
-                sourceSize.width: Math.ceil(mark.width * Screen.devicePixelRatio)
-                sourceSize.height: Math.ceil(mark.height * Screen.devicePixelRatio)
+                sourceSize.width: mark.decodePx
+                sourceSize.height: mark.decodePx
                 visible: false
                 asynchronous: true
               }
 
               Image {
                 id: flatMark
-                // Match the INK, not the canvas. app-icons.sh centres each mark
-                // in 200 of 256 px, but a text glyph at pixelSize N fills close
-                // to N -- so drawing the PNG into a plain iconSize box renders
-                // it visibly smaller than the glyph beside it. Measured on
-                // screen: 27px of ink against the Chromium glyph's 33. Scaling
-                // the box by 256/200 lines the two up, and as a side effect
-                // downscales the 256px master less, which is where most of the
-                // softness came from.
                 anchors.centerIn: parent
-                width: Math.round(card.iconSize * 256 / 200)
+                width: mark.iconBox
                 height: width
                 source: flatSvg.status === Image.Ready
                   ? flatSvg.source
@@ -884,13 +916,22 @@ Item {
                 // 16x16 (freedesktop symbolic). Those then get scaled UP to the
                 // drawn size, which is exactly as blurry as it sounds. Omarchy's
                 // own Menu.qml sets it for the same reason.
-                sourceSize.width: Math.ceil(width * Screen.devicePixelRatio)
-                sourceSize.height: Math.ceil(height * Screen.devicePixelRatio)
+                sourceSize.width: mark.decodePx
+                sourceSize.height: mark.decodePx
                 fillMode: Image.PreserveAspectFit
                 asynchronous: true
-                // Kept as a hidden layer so the effect can sample it as a texture.
+                // Kept as a hidden layer so the effect can sample it as a
+                // texture -- but only while there IS a texture to sample. Most
+                // windows have no drop-in and fall back to the glyph below, and
+                // an unconditional layer allocates an FBO and an extra render
+                // pass per tile for an Image that never draws anything.
+                //
+                // Bound to the same condition as the MultiEffect that consumes
+                // it, which is the idiom Omarchy's own Tray.qml uses
+                // (`visible: !symbolic` / `layer.enabled: symbolic`, Tray.qml
+                // :786): the layer exists exactly when the effect samples it.
                 visible: false
-                layer.enabled: true
+                layer.enabled: flatMark.status === Image.Ready
               }
 
               MultiEffect {
@@ -952,7 +993,7 @@ Item {
       // above it; the list is `interactive: false`, so nothing below competes
       // for the press. Geometry is copied from the list rather than anchored to
       // it, so `mouse.x` arrives already in list coordinates and the same
-      // _cellAt() hit-test serves both this and the pointer poll.
+      // _cellAt() hit-test serves both the click and the hover below.
       MouseArea {
         x: list.x
         y: list.y
@@ -969,12 +1010,12 @@ Item {
         hoverEnabled: true
         onPositionChanged: function (mouse) {
           if (!root.opened || root.wins.length < 2) return
-          var idx = root._cellAt(mouse.x + list.contentX)
+          var idx = root._cellAt(mouse.x + list.contentX - list.originX)
           if (idx < 0) return
           root.index = idx
         }
         onClicked: function (mouse) {
-          var idx = root._cellAt(mouse.x + list.contentX)
+          var idx = root._cellAt(mouse.x + list.contentX - list.originX)
           if (idx < 0) return
           root.index = idx
           root.commit()

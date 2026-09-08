@@ -109,7 +109,10 @@ def apply(path, level, percent):
         os.chmod(tmp, 0o600)
         os.replace(tmp, prefs)
     except BaseException:
-        os.path.exists(tmp) and os.unlink(tmp)
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
         raise
 
     per_host = partition.get("per_host_zoom_levels", {}).get(PARTITION, {})
@@ -135,6 +138,8 @@ def main():
               "— quit it and re-run")
         return 0
 
+    # A list, NOT a generator: any() short-circuits on the first True, which
+    # over a genexp would leave every profile after the first one unwritten.
     changed = any([apply(p, level, percent) for p in profiles()])
     if changed:
         print(f"    (applies to {LABEL} windows opened from now on)")

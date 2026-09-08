@@ -52,7 +52,7 @@ idiom Omarchy uses for notification toasts (`notifications/Service.qml`: Overlay
 layer, `keyboardFocus: None`, `mask: Region { item: popupColumn }`).
 
 Clicking a tile focuses that window and dismisses the strip. The click handler
-and the pointer poll share one hit-test (`_cellAt`), so they cannot disagree
+and the hover handler share one hit-test (`_cellAt`), so they cannot disagree
 about which tile is under the cursor.
 
 **The click is delivered by a keybind, not by this surface.** Hyprland resolves
@@ -64,9 +64,9 @@ win that race; the bind is resolved first.
 
 So `overrides/hypr/window-switcher-bindings.lua` rebinds `SUPER + mouse:272`:
 while the strip is up (the same `ws_watching` flag the key-release poll uses) it
-summons `commit`, and otherwise it drags exactly as stock. The pointer poll has
-already moved the highlight to the tile under the cursor, so committing focuses
-the tile that was clicked. Resize (`mouse:273`) is left alone.
+summons `commit`, and otherwise it drags exactly as stock. Hover has already
+moved the highlight to the tile under the cursor, so committing focuses the
+tile that was clicked. Resize (`mouse:273`) is left alone.
 
 The `MouseArea` also supplies **hover**, which used to be a poll. Because the
 surface was click-through it received no Qt pointer events at all, so hover was

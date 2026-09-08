@@ -42,7 +42,9 @@ fg="$(omarchy-theme-color --file "$COLORS" foreground 2>/dev/null || true)"
 mkdir -p "$OUT"
 declare -A wanted=()
 
+# Both loops below iterate globs that legitimately match nothing.
 shopt -s nullglob
+
 for f in "$FALLBACKS"/*.svg "$FALLBACKS"/*.png; do
   base=$(basename "$f"); name=${base%.*}; ext=${base##*.}
   # One file per app, or both would land in $OUT and the index's svg pass would
@@ -54,27 +56,24 @@ for f in "$FALLBACKS"/*.svg "$FALLBACKS"/*.png; do
   wanted[$name]="$name.$ext"
 
   if [[ $ext == svg ]]; then
-    # Repaint every paint, but never fill="none" -- that is how an outline-only
-    # shape says it has no fill, and flooding it turns the outline into a solid
-    # blob. The parking token must NOT itself read fill="..." or the generic
-    # rule below matches it too and the protection silently does nothing.
+    # Repaint every paint, with three failure modes all found in practice here:
+    #
+    # fill="none" is parked first because it is load-bearing -- it is how an
+    # outline-only shape says it has no fill, and flooding it turns the outline
+    # into a solid blob. The parking token must NOT itself read fill="..." or
+    # the generic rule below matches it too and the protection silently does
+    # nothing.
+    #
     # The style-property character classes must stop at } and < as well as at
     # the quotes: a CSS <style> block writes `.a{fill:#0acf83}.b{fill:#a259ff}`,
     # and a class that only excludes quotes runs from the first `fill:` through
-    # every rule after it and into the following tag, destroying the document.
+    # every rule after it and into the following tag, destroying the document --
+    # that corrupted org.gnome.DiskUtility's symbolic icon into unparseable XML,
+    # which rsvg reported as "Couldn't find end of Start Tag".
     #
     # Both quote styles: Inkscape-authored SVGs use single quotes throughout,
     # and a rule written only for double quotes silently leaves those
-    # unrecoloured. The style-property rules must exclude BOTH quote characters
-    # from their character class or they run past the end of the attribute and
-    # swallow the rest of the tag -- that corrupted org.gnome.DiskUtility's
-    # symbolic icon into unparseable XML, which rsvg reported as
-    # "Couldn't find end of Start Tag".
-    #
-    # fill="none" is parked first because it is load-bearing: it is how an
-    # outline-only shape says it has no fill, and flooding it turns the outline
-    # into a solid blob. The token must NOT itself read fill="..." or the
-    # generic rule matches it too and the protection does nothing.
+    # unrecoloured, which on a matching theme looks like the icon vanished.
     sed -e 's/fill="none"/__KEEPF__/g;      s/fill='"'"'none'"'"'/__KEEPF__/g' \
         -e 's/stroke="none"/__KEEPS__/g;    s/stroke='"'"'none'"'"'/__KEEPS__/g' \
         -e "s/fill=\"[^\"]*\"/fill=\"$fg\"/g" \
@@ -93,8 +92,9 @@ for f in "$FALLBACKS"/*.svg "$FALLBACKS"/*.png; do
     # Give the root a fill; children that set their own still win, so this is
     # safe on files that did get recoloured. Only when the root has none, or the
     # duplicate attribute makes the document unparseable. The tag can wrap
-    # lines, hence flattening newlines for the test.
-    if ! tr '\n' ' ' <"$OUT/$name.svg" | grep -qE '<svg[^>]*fill='; then
+    # lines, hence grep -z: one NUL-delimited record, so [^>]* spans newlines
+    # without a `tr` to flatten them first.
+    if ! grep -zqE '<svg[^>]*fill=' "$OUT/$name.svg"; then
       sed -i "0,/<svg/s//<svg fill=\"$fg\"/" "$OUT/$name.svg"
     fi
   elif command -v magick >/dev/null; then
@@ -108,13 +108,11 @@ for f in "$FALLBACKS"/*.svg "$FALLBACKS"/*.png; do
     cp -f "$f" "$OUT/$name.png"
   fi
 done
-shopt -u nullglob
 
 # Remove anything no longer backed by a file in fallbacks/, so deleting a
 # drop-in really does hand that app back to its vendor icon. Both extensions:
 # an app that switches from .png to .svg would otherwise leave the old file
 # behind, and the svg pass outranks the png one.
-shopt -s nullglob
 for f in "$OUT"/*.svg "$OUT"/*.png; do
   b=$(basename "$f")
   [[ ${wanted[${b%.*}]:-} == "$b" ]] || rm -f "$f"

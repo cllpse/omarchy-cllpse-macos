@@ -68,7 +68,7 @@ o.bind("SUPER + SHIFT + TAB", "Window switcher: previous", ws_step("prev"))
 --
 -- So the bind itself has to know about the strip. While it is up, SUPER +
 -- left-click commits instead of dragging; otherwise it drags exactly as stock.
--- The pointer poll in Hud.qml has already moved the highlight to whatever tile
+-- The HUD's own hover handler has already moved the highlight to whatever tile
 -- the cursor is over, so committing focuses the tile that was clicked.
 --
 -- ws_watching is the same flag the key-release poll uses, so this is true for

@@ -664,12 +664,56 @@ and the original is kept in prose as provenance. Don't leave the two out of sync
     there is nothing to rewrite and SVG's default fill is black, so the icon is
     invisible on a dark theme. The root needs a fill injected — but only when it
     has none, or the duplicate attribute breaks the XML.
-- **`Screen.devicePixelRatio` is the screen's, not the window's.** On this
-  display it reports `2` while a Qt window actually renders at `1.25`
-  (Wayland fractional scaling). Deriving an `Image`'s `sourceSize` from it
-  over-decodes and leaves Qt bilinear-downscaling to the real size, which is
-  visibly softer than just letting Qt size the decode from the drawn geometry.
-  Verified with `grabToImage`, which renders at the true window ratio.
+- **`Screen.devicePixelRatio` (2) is NOT the same number as the output scale
+  (1.25), and the 2 is the one an `Image` decode wants.** An earlier version of
+  this entry said the opposite — that the screen's ratio over-decodes and a
+  decode should be sized from the window's real ratio instead. Measured from
+  inside a live Quickshell `PanelWindow`, that is wrong:
+
+  | | value |
+  |---|---|
+  | `hyprctl monitors` scale (DP-2) | 1.25 |
+  | `Screen.devicePixelRatio` | 2 |
+  | `Window.window.devicePixelRatio` | 2 |
+
+  The two Qt numbers agree, so there is no "window ratio" that exposes the
+  1.25. What happens is that Qt takes the next **integer** buffer scale (2),
+  renders the whole surface at 2×, and the **compositor** scales that finished
+  buffer down to 1.25×. So 2 is the resolution Qt genuinely rasterises into,
+  and `sourceSize = drawn × Screen.devicePixelRatio` is right — which is also
+  what Omarchy's own `Menu.qml`, `Tray.qml` and `NotificationCard.qml` do.
+  Sizing a decode from 1.25 would hand Qt a 45px image for a region it draws at
+  72px, i.e. upscaling. The compositor's final downscale is whole-surface and
+  applies to text and every other primitive equally; no per-`Image` `sourceSize`
+  can pre-compensate for it, and trying is a pessimisation.
+
+  `Window.window.devicePixelRatio` does exist and is worth knowing about — Qt
+  **6.11+** only (`qquickwindow.h` `REVISION(6, 11)`; 4.0.2 ships 6.11.2), reads
+  `effectiveDevicePixelRatio`, carries a NOTIFY so bindings track a monitor
+  change, and needs no import beyond `QtQuick`. It simply reports the same 2
+  here. Re-measure with a `PanelWindow` probe before trusting either number on
+  different hardware; don't re-derive this one from the output scale.
+
+  **`grabToImage` cannot be used to observe the 1.25.** An earlier note cited it
+  as proof of the "true window ratio". It renders at the window's
+  `devicePixelRatio`, full stop — measured by grabbing a 40×40 item under a
+  forced `QT_SCALE_FACTOR`:
+
+  | dpr | grabbed PNG |
+  |---|---|
+  | 1 | 40×40 |
+  | 2 | 80×80 |
+  | 3 | 120×120 |
+
+  So on this machine a grab comes back at 2×, the same number `Screen` reports.
+  The compositor's downscale to 1.25 happens *after* the buffer leaves Qt, so
+  nothing inside the process — `grabToImage` included — can see it. To measure
+  what actually lands on the glass, screenshot the compositor's output
+  (`grim`), not the item.
+
+  Note also that `Window` is an attached property of an **Item**: reading
+  `Window.window` from a `Timer` or other non-Item throws, and in a
+  `console.log` argument that means the whole line silently prints nothing.
 - **An icon drawn from a file will not match a glyph beside it at the same
   nominal size.** A text glyph at `pixelSize` N fills close to N; a PNG whose
   mark sits in 200 of 256 px fills 78% of whatever box it is given. Matching the

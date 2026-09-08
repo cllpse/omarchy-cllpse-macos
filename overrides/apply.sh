@@ -586,7 +586,12 @@ fi
 # advances to the NEXT one in the folder every call (next_index = index + 1), so
 # without this a re-run walks the background forward each time. Remember it by
 # name and put it back afterwards if the new theme still has a file by that name.
-prev_bg="$(basename "$(readlink -f ~/.local/state/omarchy/current/background 2>/dev/null || true)" 2>/dev/null || true)"
+# Filename of whatever wallpaper is live right now, or empty if there is none.
+current_bg_name() {
+  basename "$(readlink -f ~/.local/state/omarchy/current/background 2>/dev/null || true)" 2>/dev/null || true
+}
+
+prev_bg="$(current_bg_name)"
 
 current_theme="$(cat ~/.local/state/omarchy/current/theme.name 2>/dev/null || true)"
 case "$current_theme" in
@@ -602,7 +607,7 @@ esac
 
 restored_bg="$HOME/.local/state/omarchy/current/theme/backgrounds/$prev_bg"
 if [[ -n $prev_bg && -f $restored_bg ]]; then
-  if [[ "$(basename "$(readlink -f ~/.local/state/omarchy/current/background 2>/dev/null || true)" 2>/dev/null || true)" != "$prev_bg" ]]; then
+  if [[ "$(current_bg_name)" != "$prev_bg" ]]; then
     omarchy theme bg set "$restored_bg" >/dev/null 2>&1 || true
     skip "kept the current background ($prev_bg)"
   fi
