@@ -64,6 +64,19 @@ local function unless_terminal(mods, key)
   end
 end
 
+-- Same shape as unless_terminal, but instead of doing nothing in a terminal it
+-- sends a different chord there. Used for Cmd+W, where the terminal has a real
+-- equivalent -- it just isn't Ctrl+W.
+local function terminal_aware(mods, key, terminal_mods, terminal_key)
+  return function()
+    if active_window_is_terminal() then
+      send_shortcut_once(terminal_mods, terminal_key)()
+    else
+      send_shortcut_once(mods, key)()
+    end
+  end
+end
+
 -- Word / line navigation -- safe everywhere, terminals included.
 o.bind("ALT + LEFT", "Word jump left (Option+Left)", send_shortcut_once("CTRL", "Left"))
 o.bind("ALT + RIGHT", "Word jump right (Option+Right)", send_shortcut_once("CTRL", "Right"))
@@ -76,7 +89,23 @@ o.bind("SUPER + SHIFT + LEFT", "Select to line start (Cmd+Shift+Left)", send_sho
 o.bind("SUPER + SHIFT + RIGHT", "Select to line end (Cmd+Shift+Right)", send_shortcut_once("SHIFT", "End"))
 
 -- Close/undo/redo/save -- terminal-guarded, see the note above.
-o.bind("SUPER + W", "Universal close (Cmd+W)", unless_terminal("CTRL", "W"))
+
+-- Cmd+W. Ctrl+W is "close this tab, or the window if it's the last one" in
+-- essentially every GUI app -- Chromium, Nautilus, Cursor -- but in a shell it
+-- is the readline word-erase, which is why this used to do nothing at all in a
+-- terminal. Doing nothing was never right: terminals do have a close-tab
+-- chord, it just isn't Ctrl+W. Ghostty binds Ctrl+Shift+W to
+-- `close_tab:this` and kitty binds it to `close_window` (its word for a
+-- split), both of which fall through to closing the OS window when it is the
+-- last tab -- which is exactly Cmd+W's behaviour. Alacritty and foot bind it
+-- to nothing, so those two are no worse off than before.
+--
+-- Ghostty's `close_surface` (close one split, then the tab, then the window)
+-- is the closer match to macOS Ghostty's own Cmd+W, but it ships with no
+-- keybind on Linux, so reaching it would mean inventing a chord in
+-- overrides/ghostty/ghostty.conf purely to synthesize it back. Not worth a
+-- second moving part unless closing individual splits turns out to matter.
+o.bind("SUPER + W", "Close tab/window (Cmd+W)", terminal_aware("CTRL", "W", "CTRL SHIFT", "W"))
 o.bind("SUPER + Z", "Undo (Cmd+Z)", unless_terminal("CTRL", "Z"))
 o.bind("SUPER + SHIFT + Z", "Redo (Cmd+Shift+Z)", unless_terminal("CTRL SHIFT", "Z"))
 o.bind("SUPER + S", "Save (Cmd+S)", unless_terminal("CTRL", "S"))
@@ -109,6 +138,50 @@ o.bind("SUPER + SHIFT + P", "Command palette (Cmd+Shift+P)", send_shortcut_once(
 -- show that prompt. No terminal guard needed: this is the same graceful
 -- request already used elsewhere, not one of the harmful control
 -- characters send_shortcut_once forwards for the others above.
--- Tradeoff: only closes the current window, not every window of the app --
--- there's no WM-level "quit this whole application" for a multi-window app.
-o.bind("SUPER + Q", "Quit (Cmd+Q, graceful close)", hl.dsp.window.close())
+--
+-- Cmd+Q quits the *app*, not the window -- that is the whole distinction
+-- from Cmd+W above -- so this closes every window sharing the focused
+-- window's class, on every workspace, not just the focused one. Hyprland has
+-- no "quit application" dispatcher, but hl.get_windows() plus a close per
+-- address is the same thing: each window still receives its own polite
+-- request, so an app with unsaved work still gets to prompt, per window,
+-- exactly as if you had clicked each close button.
+--
+-- Grouping is by class rather than pid, which is what macOS means by "the
+-- app": two separately launched instances of the same program quit together.
+-- get_windows()'s class filter is an **exact string match**, not a regex --
+-- measured: "ghost", ".*ghostty.*" and "^chromium$" all return 0 against a
+-- live com.mitchellh.ghostty/chromium window, while the full class returns
+-- them. That is the opposite of Hyprland's window *rules*, where class: is a
+-- regex, and it is the safe direction: no substring can drag an unrelated
+-- app into the sweep.
+--
+-- The selector has to be passed as the `window` KEY -- close({ window = w }).
+-- Every other shape builds a valid HL.Dispatcher without complaint and then
+-- closes nothing: close(w), close(w.address) and close("address:0x...") were
+-- all measured against a live unfocused window and left it open, with no
+-- error anywhere. A bogus selector is inert rather than falling back to the
+-- active window (checked with address:0xdeadbeef against a focused canary),
+-- which is what makes it safe to run this as a loop.
+--
+-- The empty-list branch cannot normally fire (the active window is always in
+-- its own class's list), but a window that unmaps between the two calls would
+-- leave nothing to close; falling back to the plain dispatcher keeps the
+-- keybind from silently doing nothing in that race.
+o.bind("SUPER + Q", "Quit app (Cmd+Q, all its windows)", function()
+  local active = hl.get_active_window()
+  if not active then
+    return
+  end
+
+  local windows = hl.get_windows({ class = active.class })
+
+  if #windows == 0 then
+    hl.dispatch(hl.dsp.window.close())
+    return
+  end
+
+  for _, window in ipairs(windows) do
+    hl.dispatch(hl.dsp.window.close({ window = window }))
+  end
+end)
