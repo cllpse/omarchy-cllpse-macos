@@ -11,6 +11,8 @@
 #   5b. strip GTK window buttons (gsettings button-layout)
 #   6. hypr overrides: OMARCHY_MENU_FONT (shell popups) + decoration (rounding, blur)
 #   7. install bat / lazygit / lsd theme configs, merge Cursor settings, add fzf + lsd colours to .bashrc
+#   7f. flat app icons for the menu (hand-placed SVGs in icons/fallbacks/)
+#   7f2. post-update repair hook: re-link what an Omarchy update could take out
 #   7g. Chromium context-menu declutter: spellcheck/translate/password/autofill/DevTools/
 #       Print/Cast/QR/Reading-list off (managed policy, sudo)
 #   7h. Omarchy shell.json: enable the window-switcher plugin + transparent bar
@@ -412,6 +414,61 @@ if [[ -x "$HERE/chromium/default-zoom.py" ]]; then
   say "Chromium default page zoom -> ${CLLPSE_CHROMIUM_ZOOM:-110}%"
   "$HERE/chromium/default-zoom.py" "${CLLPSE_CHROMIUM_ZOOM:-110}" || true
 fi
+
+# ── 7f. Flat app icons for the menu ──────────────────────────────────────────
+# The Omarchy menu draws icons two ways. Non-app rows render `row.icon` as TEXT
+# in a Nerd Font, tinted `foreground` — that is the flat, theme-tracking look.
+# App rows instead render a plain Image of whatever the desktop entry's `Icon=`
+# resolves to (Menu.qml:1253), with no recolouring at all, so every app shows
+# its vendor's full-colour logo. Measured on this machine: 48 of 52 visible
+# entries resolve to a colour icon.
+#
+# There is no setting for this. The only lever short of forking the first-party
+# menu plugin is to make `Icon=` resolve to a file we control — and
+# AppLibrary.qml makes that easy, because it consults its OWN index (a find over
+# every XDG icon dir, svg pass then png, first hit per name) BEFORE Qt's themed
+# lookup, and `$HOME/.icons` is the first directory in both passes. A file
+# dropped there outranks every installed theme. It carries no index.theme, so
+# GTK and Qt never see it: the override reaches the Omarchy shell and nothing
+# else.
+#
+# Nothing is generated. icons/fallbacks/ holds hand-placed SVGs (or PNGs), one
+# per desktop-entry `Icon=` value; see that directory's README for the naming
+# and silhouette contract. An app with no file there simply keeps its vendor
+# icon. The sync is a theme-set hook rather than a step here because app icons
+# are never recoloured by the shell — a synced file has a fixed colour and must
+# be rewritten per theme. Run once now so the icons exist before step 8; step
+# 8's `omarchy theme set` then re-runs it and restarts the shell, which is what
+# drops Qt's URL-keyed image cache and makes a colour change actually land.
+if [[ -d "$HERE/icons/fallbacks" ]]; then
+  _n=$(find "$HERE/icons/fallbacks" -maxdepth 1 \( -name '*.svg' -o -name '*.png' \) | wc -l)
+  say "app icons -> ~/.icons/cllpse-flat/apps/ ($_n hand-placed)"
+  mkdir -p ~/.config/omarchy/hooks/theme-set.d
+  ln -sfn "$HERE/hooks/theme-set.d/app-icons.sh" ~/.config/omarchy/hooks/theme-set.d/app-icons.sh
+  "$HERE/hooks/theme-set.d/app-icons.sh" || skip "app-icons.sh produced nothing this run"
+  (( _n == 0 )) && skip "icons/fallbacks/ is empty — every app keeps its vendor icon"
+else
+  skip "no icons/fallbacks/ — skipped the app icons"
+fi
+
+# ── 7f2. Post-update repair hook ─────────────────────────────────────────────
+# Everything this script installs lives either in directories that are ours
+# alone (~/.icons/, ~/.local/, ~/.config/hypr/) or as symlinks inside
+# directories Omarchy ships and manages (~/.config/omarchy/{hooks,themes,
+# plugins}/). The first group no Omarchy command touches. The second is exposed:
+# Omarchy ships its own content into those paths — config/omarchy/hooks/
+# theme-set.d/ carries .sample files — so a refresh, a migration, or a future
+# install step that repopulates one of them takes our symlink with it, silently.
+# The icons would simply revert to vendor logos at the next theme change with
+# nothing to say why.
+#
+# omarchy-update calls `omarchy-hook post-update` (omarchy-update:49), so a hook
+# dropped here re-links everything once per update at no scheduling cost. It is
+# idempotent, so it runs unconditionally rather than trying to detect damage.
+say "post-update repair -> ~/.config/omarchy/hooks/post-update.d/cllpse-macos-repair.sh"
+mkdir -p ~/.config/omarchy/hooks/post-update.d
+ln -sfn "$HERE/hooks/post-update.d/cllpse-macos-repair.sh" \
+  ~/.config/omarchy/hooks/post-update.d/cllpse-macos-repair.sh
 
 # ── 7g. Chromium context-menu declutter: managed policy (needs sudo) ────────
 # Spellcheck / Translate / password-save-prompt / Autofill / DevTools / Print /

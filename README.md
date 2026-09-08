@@ -194,6 +194,16 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   preference `partition.default_zoom_level`, stored as `ln(factor)/ln(1.2)` —
   and Chromium must be closed when it is written, since it rewrites
   `Preferences` from memory on exit.
+- **App icons in the menu come from `overrides/icons/fallbacks/` (step 7f).** The
+  menu already renders every non-app row as a Nerd Font glyph tinted
+  `foreground`; app rows are the exception, drawn as a plain image of the
+  vendor's logo with no recolouring, so 48 of the 52 visible entries here were
+  full colour. Drop an SVG named for the desktop entry's `Icon=` value into
+  `overrides/icons/fallbacks/` and a `theme-set` hook syncs it into
+  `~/.icons/cllpse-flat/apps/`, repainted in the active theme's `foreground` —
+  `$HOME/.icons` is the first directory Omarchy's icon index scans, and carries
+  no `index.theme`, so the override reaches the shell without touching GTK or
+  Qt. Nothing is generated: an app with no file there keeps its vendor icon.
 - **Shell-surface translucency lives in the theme, per section.** A theme-shipped
   `shell.<section>.toml` is spliced into the generated `shell.toml` by
   `omarchy-theme-set-templates`, *replacing that whole `[section]`*. Each theme

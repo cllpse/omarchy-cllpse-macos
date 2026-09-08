@@ -102,6 +102,59 @@ composited window as `#FFFFFF`, which is the degenerate case), dark `30,30,30`
 (`#1E1E1E`, matches BUILD.md §1). `omarchy-theme-set-templates` skips generation
 when the file already exists in the staged theme.
 
+**The menu draws icons two different ways, and only one of them is flat.** Rows
+that are not apps render `row.icon` as *text* in a Nerd Font, tinted
+`foreground` (`Menu.qml:1240`) — that is the flat, theme-tracking look, and it
+is what every bar widget, OSD and our own switcher HUD uses. App rows instead
+render a plain `Image` of whatever the entry's `Icon=` resolves to
+(`Menu.qml:1253`), with **no recolouring whatsoever**. Measured on this machine,
+48 of 52 visible desktop entries land on a full-colour vendor logo. The tray is
+a third case: `Tray.qml:789` applies `MultiEffect { colorization: 1.0 }`, but
+only when `iconIsSymbolic()` is true — i.e. the name ends in `-symbolic`
+(`Tray.qml:146`). App icons are never tested against that.
+
+**`AppLibrary.iconSource()` consults its own index before the themed lookup, so
+`icon-theme` barely matters for apps.** The order is absolute path → `iconIndex`
+→ `Quickshell.iconPath()` → `application-x-executable`. That index is built by
+shelling out to `find` across every XDG icon dir (`*/apps/*` and `*/devices/*`),
+**svg pass then png, first hit per name**, and it is completely theme-blind — it
+will happily return a 16×16 `HighContrast` bitmap if that is what `find` reaches
+first (three Avahi entries and `firefox` do exactly that here; `uuctl` gets a
+Yaru 16×16 upscaled to 21px). Two consequences worth remembering: setting
+`gsettings icon-theme` does *not* reliably change what the menu shows, and
+`$HOME/.icons` is the **first directory scanned in both passes**, so a file
+dropped there outranks every installed theme. Because such a directory carries
+no `index.theme`, GTK and Qt ignore it entirely — the override reaches the
+Omarchy shell and nothing else. That is the whole mechanism behind `apply.sh`
+step 7f and `overrides/icons/fallbacks/`. Nothing there is generated: each icon
+is a hand-placed SVG named for a desktop entry's `Icon=` value, and an app
+without one keeps its vendor icon. An earlier version generated the whole set
+from Nerd Font outlines; it was removed in favour of sourcing marks by hand,
+because automatic derivation cannot produce a usable mark for a logo defined by
+colour boundaries rather than shape (measured: Chromium, OBS and Moonlight all
+flatten to featureless discs, and no fill-ratio threshold separates those from
+legitimately solid marks — a filled circle scores 0.785, the same range as real
+ones).
+
+**Two keyspaces, one rule.** `overrides/icons/fallbacks/` is named for a desktop
+entry's `Icon=`; `omarchy-cllpse-switcher/Hud.qml`'s `glyphFor` is keyed on the
+window class, because a switcher has nothing else. A single shared key does not
+exist — measured here, 6 of the 23 entries declaring `StartupWMClass` use a
+class that is not their icon name, and Chromium's is the literal unsubstituted
+`@@startup_wm_class`. So the switcher probes `~/.icons/cllpse-flat/apps/<class>`
+(`.svg` first, then `.png`) and falls back to its own glyph on anything that is
+not `Image.Ready` — which covers a missing file, an empty `fallbacks/`, a
+machine where step 7f never ran, and a name mismatch, with no stat() per tile.
+A drop-in whose filename differs from the window class reaches the menu but not
+the switcher; a second copy named for the class covers both.
+
+Since app icons are never recoloured, a file dropped there has a **fixed**
+colour and would not survive a light/dark switch — which is why the rendering is
+a `theme-set` hook (`hooks/theme-set.d/app-icons.sh`), not a one-off in
+`apply.sh`. `omarchy theme set` restarts the shell, which is what drops Qt's
+URL-keyed image cache and lets a re-rendered file actually appear; rewriting the
+same path without that restart shows the stale image.
+
 **The boot splash (Plymouth) and the real login screen (SDDM) are a separate
 step from `omarchy theme set`**, and not run by `apply.sh`'s main flow:
 `omarchy plymouth set by theme <name>` (needs sudo). (`apply.sh` does have one
@@ -155,6 +208,24 @@ each file restates its full section. In those files `background` / `border` /
 `text`, `active`, `selected-text` and `countdown` are read with a plain `pick()`
 that never unwraps a role name — those **must be literal hex** or they render
 black.
+
+**Hooks are run with `bash "$hook"`, and Omarchy owns the directories they live
+in.** `omarchy-hook <name>` runs `~/.config/omarchy/hooks/<name>` then every file
+in `<name>.d/`, skipping `*.sample`, each as `bash "$hook"` — so a hook is
+executed as a **bash script regardless of its shebang or execute bit**, and a
+Python or other-language hook silently fails. Symlinks are fine (`-f` follows
+them), which is what lets a hook's content live in this repo. A failing hook
+prints `Hook failed:` and does not abort the theme-set.
+
+The directories themselves are Omarchy's: it ships `config/omarchy/hooks/*.d/`
+with `.sample` files, so `~/.config/omarchy/{hooks,themes,plugins}/` is
+territory it manages and repopulates. Everything else this repo installs
+(`~/.icons/`, `~/.local/`, `~/.config/hypr/`) is ours alone and nothing in
+Omarchy touches it. That asymmetry is why `apply.sh` step 7f2 exists: a hook in
+`post-update.d/` re-links the exposed symlinks once per update, since
+`omarchy-update` calls `omarchy-hook post-update` at line 49. `omarchy-refresh-config`
+is not a threat — it copies a single *named* file and backs the old one up, so
+it cannot wipe a directory.
 
 **A plugin in `~/.config/omarchy/plugins/` is installed, not enabled.** Omarchy
 enables one from the `plugins[]` array in `~/.config/omarchy/shell.json`, keyed
@@ -368,6 +439,72 @@ and the original is kept in prose as provenance. Don't leave the two out of sync
   sitting side by side. Any dotted Chromium pref name being hand-written into a
   JSON file needs the nested form, or needs Chromium itself (via Settings) to
   do the write.
+- **`sourceSize` means two different things, by format.** On a raster `Image`
+  it picks the *decode* resolution, so leaving it unset just uses the file's own
+  and costs nothing. On a **vector** it picks the *rasterisation* resolution,
+  and leaving it unset makes Qt rasterise at the SVG's intrinsic size — 24x24
+  for simple-icons, 16x16 for freedesktop symbolic — which is then scaled up to
+  the drawn size and looks exactly as bad as it sounds. Omarchy's own
+  `Menu.qml` sets it; our switcher did not, which is why the menu looked right
+  while the same files were soft under SUPER+TAB. A conclusion measured on a
+  PNG does not carry over to an SVG.
+- **Recolouring arbitrary SVGs with regex has three failure modes, all found in
+  practice.** `app-icons.sh` repaints drop-ins to the theme colour, and every
+  one of these produced a silently wrong or corrupt file before it was fixed:
+  - *Single-quoted attributes.* Inkscape writes `fill='#808080'` throughout.
+    A rule written only for double quotes leaves the file untouched and it
+    renders in its original colour, which on a matching theme looks like the
+    icon simply vanished. Three of the fifteen symbolic icons on this machine
+    are single-quoted.
+  - *Character classes that do not stop at `}` or `<`.* A CSS block reads
+    `.st0{fill:#0acf83}.st1{fill:#a259ff}`, and `fill:[^;"']*` runs from the
+    first `fill:` through every rule after it and on into the next tag,
+    producing `fill:#DDDDDD"path0_fill"` and an unparseable document. Exclude
+    `}` and `<` as well as the quotes.
+  - *Files with no paint at all.* simple-icons ships a bare `<path d="…"/>`;
+    there is nothing to rewrite and SVG's default fill is black, so the icon is
+    invisible on a dark theme. The root needs a fill injected — but only when it
+    has none, or the duplicate attribute breaks the XML.
+- **`Screen.devicePixelRatio` is the screen's, not the window's.** On this
+  display it reports `2` while a Qt window actually renders at `1.25`
+  (Wayland fractional scaling). Deriving an `Image`'s `sourceSize` from it
+  over-decodes and leaves Qt bilinear-downscaling to the real size, which is
+  visibly softer than just letting Qt size the decode from the drawn geometry.
+  Verified with `grabToImage`, which renders at the true window ratio.
+- **An icon drawn from a file will not match a glyph beside it at the same
+  nominal size.** A text glyph at `pixelSize` N fills close to N; a PNG whose
+  mark sits in 200 of 256 px fills 78% of whatever box it is given. Matching the
+  *canvas* leaves the image looking small and softer than its neighbours —
+  match the **ink** instead (scale the box by the padding ratio). Measured in
+  the switcher: 27px of ink versus a glyph's 33, fixed by an `iconSize * 256/200`
+  box.
+- **`String.fromCharCode` is 16-bit and silently truncates.** The switcher's
+  `glyphFor` builds its glyph from a hex codepoint, which was fine while every
+  entry sat in the Font Awesome PUA (≤ U+FFFF), but the Material Design range
+  breaks it: `fromCharCode(0xf0219)` yields U+219 and `fromCharCode(0xf082e)`
+  yields U+82E — real characters, so they render as unrelated glyphs with no
+  error anywhere. Use `String.fromCodePoint`.
+- **Verify Nerd Font codepoints against the face that will actually render
+  them.** The shell's menu surfaces use `Style.font.menuFamily`
+  (`OMARCHY_MENU_FONT`, `SFProText Nerd Font Propo` here), not the monospace
+  face. `fc-list ":charset=<hex>" family` is the check; a glyph present in SF
+  Mono is not necessarily present in SF Pro Text.
+- **ImageMagick's `-extent` pads with the *background* colour, which defaults to
+  white.** A pipeline that correctly produces a transparent-background icon and
+  then centres it on a fixed canvas silently gains an opaque white box unless
+  `-background none` is repeated before `-extent` — setting it once at the head
+  of the command is not enough, because `-trim`/`-resize` reset nothing but the
+  geometry. Cost an hour of chasing a "broken" alpha channel that was fine.
+- **Bash `printf` parses `\u` out of the *format string* before `%x`
+  substitution.** `printf "\\u%04x" 0xf268` is not "render codepoint F268", it is
+  the error `missing unicode digit for \u`. Build the escape as data and expand
+  it with `%b`: `printf '%b' "\\u$hex"`. The failure is quiet in a loop — every
+  glyph renders as an empty label, so you get 42 blank PNGs and no error unless
+  stderr is being read.
+- **ImageMagick stamps PNG `date:create`/`date:modify` chunks**, so two runs of
+  an otherwise deterministic pipeline produce different bytes for pixel-identical
+  output (`compare -metric AE` reports 0). `-strip` before the output filename is
+  what makes a generator idempotent.
 - **`pgrep -f` matches whole command lines, including the caller's.** A guard
   written as `pgrep -f /usr/lib/chromium/chromium` matched the shell running the
   script that contained the string, so `default-zoom.py` refused every write

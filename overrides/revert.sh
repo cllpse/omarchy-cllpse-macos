@@ -102,6 +102,20 @@ say "Removing starship theme-set hook"
 [[ -L ~/.config/omarchy/hooks/theme-set.d/starship-colors.sh ]] && rm -f ~/.config/omarchy/hooks/theme-set.d/starship-colors.sh
 restore ~/.config/starship.toml
 
+# Flat app icons (apply.sh step 7f). The whole override is one directory we
+# created, so removing it hands every app back to its vendor icon; there is no
+# backup to restore because nothing pre-existing was replaced.
+say "Removing the post-update repair hook"
+[[ -L ~/.config/omarchy/hooks/post-update.d/cllpse-macos-repair.sh ]] && rm -f ~/.config/omarchy/hooks/post-update.d/cllpse-macos-repair.sh
+
+say "Removing flat app icons + their theme-set hook"
+[[ -L ~/.config/omarchy/hooks/theme-set.d/app-icons.sh ]] && rm -f ~/.config/omarchy/hooks/theme-set.d/app-icons.sh
+if [[ -d ~/.icons/cllpse-flat ]]; then
+  rm -rf ~/.icons/cllpse-flat
+  say "removed ~/.icons/cllpse-flat"
+fi
+rmdir ~/.icons 2>/dev/null || true
+
 # shell.json: undo exactly the two keys apply.sh step 7h wrote, rather than
 # restoring the .pre-cllpse backup wholesale — the same file carries the bar's
 # widget order and the tray's pinned list, which move around long after an apply
