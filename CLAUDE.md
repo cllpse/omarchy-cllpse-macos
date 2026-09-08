@@ -253,10 +253,32 @@ enables one from the `plugins[]` array in `~/.config/omarchy/shell.json`, keyed
 by the `manifest.json` `id` — the folder name is cosmetic. Dropping a plugin
 folder in place and getting nothing is the expected outcome, with no error to
 say so; `apply.sh` step 7h writes the `cllpse.window-switcher` entry for exactly
-this reason. That same file is machine-level and personal — bar widget order,
-tray pinned/hidden lists, other plugins' widgets — so touch it with targeted
-`jq` key writes, never a whole-file copy or a deep merge (`plugins[]` is an
-array, and a merge replaces arrays rather than appending).
+this reason.
+
+`plugins[]` is only half the story, and the two halves are keyed the other way
+round. A **bar widget** has no entry there at all — it is enabled by appearing
+in `bar.layout`, and disabled by being removed from it, which is why a
+widget-kind plugin can run with `plugins[]` holding nothing but the switcher.
+**First-party non-widget** plugins (clipboard, emojis, reminders, the
+speedtests, wifiqr — panels and services) are the inverse again: they load by
+default and are turned off by being *listed* in `disabledPlugins[]`
+(`PluginRegistry.qml:148-165`, and the key is deleted rather than left empty at
+length 0). A third-party plugin, of any kind, is enabled iff its id appears
+somewhere in the file — so dropping its widget from `bar.layout` is the whole
+uninstall as far as the shell is concerned, and only the directory is left.
+
+The file is still machine-level, so touch it with targeted `jq` key writes,
+never a whole-file copy or a deep merge (`plugins[]` is an array, and a merge
+replaces arrays rather than appending). `apply.sh` step 7h now owns five keys —
+`plugins[]`, `bar.transparent`, `bar.layout`, `bar.centerAnchor`,
+`disabledPlugins` — and still leaves `idle`, `version` and other plugins' widget
+config alone. The tray's `pinned`/`hidden` arrays are the one thing inside
+`bar.layout` that stays the machine's: they name tray items that exist on this
+box, so the write carries the live ones over onto our tray entry instead of
+replacing them. `bar.centerAnchor` names the one center widget pinned to the
+true screen centre; when it names a widget the layout doesn't contain,
+`Bar.qml`'s `hasAnchor` is false and the center section simply centres as a
+block (`Bar.qml:1538`) — inert, not broken.
 
 **Omarchy opts its shell surfaces out of the layer fade by name, and a later
 rule can opt them back in.** Hyprland animates a layer surface on map —
@@ -566,6 +588,19 @@ and the original is kept in prose as provenance. Don't leave the two out of sync
   its block behind after being uninstalled — it was still overriding the theme
   months later. If a value here doesn't land, look for a later block before
   suspecting the value.
+- **OmaSettings is the same trap one level up: a whole file, `require`d last.**
+  It does not write into `looknfeel.lua`/`input.lua` at all. It generates
+  `~/.config/hypr/omasettings.lua` (headed `omasettings:managed`) and appends
+  `require("hypr.omasettings")` to the **end** of `~/.config/hypr/hyprland.lua`
+  — after `default.hypr.omarchy` has already pulled in every user file — so it
+  outranks all of our fenced blocks on every key it sets, and grepping the
+  fenced files for the value finds nothing. It keeps the pre-change values in
+  `~/.config/omarchy/omasettings.json` under `hyprOriginal`, and backs up what
+  it edits as `*.omasettings.bak`, which is the cheapest way to see what it
+  actually changed (`diff -u shell.json.omasettings.bak shell.json`). Its own
+  header says a line deleted from the generated file hands that setting back —
+  so folding one of its values into this repo is two moves, not one: add it to
+  the override *and* delete the line there, or the repo's copy is decorative.
 - **Blur only shows through what a surface leaves translucent.** At
   `background-alpha` 0.92 barely 8% of the backdrop shows, so widening the blur
   radius there is close to invisible; `background-alpha` is the stronger lever.

@@ -1,0 +1,30 @@
+{
+  "bar": {
+    "centerAnchor": "omarchy.clock",
+    "layout": {
+      "left": [
+        { "id": "omarchy.workspaces" }
+      ],
+      "center": [
+        { "id": "omarchy.keyboard-layout" },
+        { "id": "omarchy.power" },
+        { "id": "omarchy.tray" }
+      ],
+      "right": [
+        { "id": "omarchy.system-update" },
+        { "id": "omarchy.agents" },
+        { "id": "omarchy.spacer", "size": 8 },
+        { "id": "omarchy.audio" },
+        { "id": "omarchy.monitor" }
+      ]
+    }
+  },
+  "disabledPlugins": [
+    "omarchy.clipboard",
+    "omarchy.disk-speedtest",
+    "omarchy.emojis",
+    "omarchy.reminders",
+    "omarchy.speedtest",
+    "omarchy.wifiqr"
+  ]
+}

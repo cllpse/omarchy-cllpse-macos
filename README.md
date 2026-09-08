@@ -281,13 +281,24 @@ so a rebuild isn't guesswork:
 |---|---|---|
 | `gtk-enable-primary-paste = true` | `gsettings org.gnome.desktop.interface` | Middle-click paste — a personal habit, unrelated to the macOS look |
 | `SSH_AUTH_SOCK` → `${XDG_RUNTIME_DIR}/gcr/ssh` | `~/.config/environment.d/ssh-agent.conf` | Points ssh at the GNOME keyring; would break ssh on a machine without it running |
-| Plugin: `dizziee.system-updates` | `~/.config/omarchy/plugins/` + its `shell.json` bar widget | Third-party, installed through Omarchy's own plugin flow — `apply.sh` has no source URL to fetch it from |
 | Nautilus / GTK file-chooser window state | `dconf` | Incidental UI state, not configuration |
+
+Third-party shell plugins are not installed either — `apply.sh` has no source
+URL for any of them, and the bar layout it writes names none. That is enough to
+disable one: a third-party plugin is enabled iff its id appears somewhere in
+`shell.json`, so a layout without its widget is the uninstall as far as the shell
+is concerned, though the directory under `~/.config/omarchy/plugins/` still has
+to be deleted by hand.
 
 A settings plugin that writes its own region into `looknfeel.lua` or `input.lua`
 wins over ours if its block lands later in the file — and a plugin's block
-outlives the plugin, since uninstalling it leaves the block behind. The keyboard
-layout in `hyprland-env.lua` is the same story from the other side: it sits after
+outlives the plugin, since uninstalling it leaves the block behind. OmaSettings
+is the version of this worth watching: rather than a fenced block it writes a
+separate `~/.config/hypr/omasettings.lua` and appends `require("hypr.omasettings")`
+to the *end* of `hyprland.lua`, after every user file, so it wins every key it
+sets for as long as that file exists. Anything of its it makes sense to keep
+belongs in the overrides here, with the line deleted there. The keyboard layout
+in `hyprland-env.lua` is the same story from the other side: it sits after
 `require("default.hypr.toggles")`, so it applies on a machine with no layout
 plugin, and a plugin that owns the layout (`nomarkoo.keyboard-layout`) would take
 it back. These blocks exist for self-sufficiency, not to fight a plugin.

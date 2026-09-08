@@ -13,7 +13,8 @@
 #   7. install bat / lazygit / lsd theme configs, merge Cursor settings, add fzf + lsd colours to .bashrc
 #   7f. flat app icons for the menu (hand-placed SVGs in icons/fallbacks/)
 #   7f2. post-update repair hook: re-link what an Omarchy update could take out
-#   7h. Omarchy shell.json: enable the window-switcher plugin + transparent bar
+#   7h. Omarchy shell.json: window-switcher plugin, transparent bar, bar layout,
+#       disabled first-party plugins
 #   8. apply the theme (refreshes whichever cllpse-macos theme is active; dark otherwise)
 #   9. Chromium context-menu declutter: spellcheck/translate/password/autofill/DevTools/
 #      Print/Cast/QR/Reading-list off (managed policy, sudo) — last, so the one
@@ -471,56 +472,101 @@ mkdir -p ~/.config/omarchy/hooks/post-update.d
 ln -sfn "$HERE/hooks/post-update.d/cllpse-macos-repair.sh" \
   ~/.config/omarchy/hooks/post-update.d/cllpse-macos-repair.sh
 
-# ── 7h. Omarchy shell: enable the switcher + transparent bar ────────────────
-# Two targeted keys in ~/.config/omarchy/shell.json, Omarchy's own machine-level
-# shell config. Deliberately not a whole-file copy or a deep merge: the same
-# file carries the bar's widget order, the tray's pinned/hidden lists and any
-# other plugin's widget, all of which are personal and none of which this repo
-# has an opinion about. jq rewrites only these two paths and leaves the rest as
-# it found it.
+# ── 7h. Omarchy shell: switcher, transparent bar, bar layout, disabled plugins ─
+# Targeted key writes into ~/.config/omarchy/shell.json, Omarchy's own
+# machine-level shell config. Deliberately still not a whole-file copy or a deep
+# merge: the file also carries `idle`, `version` and any other plugin's own
+# widget config, none of which this repo has an opinion about, and `plugins[]`
+# is an array a deep merge would replace rather than append to.
 #
-#   plugins[]        step 1 symlinks the switcher into ~/.config/omarchy/
-#                    plugins/, but that only INSTALLS it — Omarchy enables a
-#                    plugin from this array, keyed by the manifest id (the
-#                    folder name is cosmetic). Without the entry the plugin sits
-#                    there and the HUD never loads, with nothing to say so.
-#   bar.transparent  Omarchy ships false; the macOS look wants the bar reading
-#                    the wallpaper through the shell's background-alpha.
+#   plugins[]         step 1 symlinks the switcher into ~/.config/omarchy/
+#                     plugins/, but that only INSTALLS it — Omarchy enables a
+#                     plugin from this array, keyed by the manifest id (the
+#                     folder name is cosmetic). Without the entry the plugin
+#                     sits there and the HUD never loads, with nothing to say so.
+#   bar.transparent   Omarchy ships false; the macOS look wants the bar reading
+#                     the wallpaper through the shell's background-alpha.
+#   bar.layout        the widget set and its order, from omarchy/shell-bar.json.
+#   bar.centerAnchor  which center widget is pinned to the true screen centre.
+#   disabledPlugins   first-party non-widget plugins to turn off.
 #
-# The pre-existing bar.transparent is recorded once for revert.sh, on the same
-# terms as the font and theme above: a value that is already ours is refused, so
-# a re-run can't turn revert into a no-op.
+# The last three used to be left alone as personal. They are owned now because
+# they are the same kind of decision as everything else here — which chrome the
+# desktop shows — and because two of them are already half-made elsewhere in
+# this repo: the keybind sweep unbinds SUPER+CTRL+V, SUPER+CTRL+E and the three
+# reminder binds, so clipboard / emojis / reminders were already unreachable
+# while still loading. Note the consequence: a bar rearranged in a settings GUI
+# after an apply is reset by the next one. Edit shell-bar.json, don't re-drag.
+#
+# disabledPlugins[] only reaches FIRST-PARTY NON-WIDGET plugins — panels and
+# services (PluginRegistry.qml:148-165). A bar widget has no off state there;
+# it is disabled by not being in bar.layout, which is how the OmaSettings widget
+# is switched off. A third-party plugin is enabled iff its id appears anywhere
+# in shell.json, so dropping it from the layout is the whole uninstall.
+#
+# Two things the layout is NOT allowed to clobber. The tray's `pinned` /
+# `hidden` arrays are genuinely per-machine — they name tray items that exist on
+# this box — so whatever the live file has is carried over onto our tray entry
+# rather than replaced; shell-bar.json keeps the entry bare on purpose. And
+# bar.centerAnchor names omarchy.clock, which is not in the layout: with the
+# anchor absent Bar.qml's `hasAnchor` is false and the whole center section just
+# centres as a block (Bar.qml:1538), so the key is inert — kept at Omarchy's
+# stock value so that re-adding a clock restores the anchoring for free.
+#
+# The pre-existing values are recorded once for revert.sh, on the same terms as
+# the font and theme above: a value that already matches what we would write is
+# refused, so a re-run can't turn revert into a no-op.
 #
 # Picked up by step 8's theme-set, which restarts the shell — a hyprctl reload
 # does not.
 shell_json=~/.config/omarchy/shell.json
 switcher_id=cllpse.window-switcher
-if [[ -f $shell_json ]]; then
-  record_prior "$STATE/previous-bar-transparent" \
-    "$(jq -r '.bar.transparent // empty' "$shell_json" 2>/dev/null || true)" "true"
-
-  if jq -e --arg id "$switcher_id" \
-       '((.plugins // []) | any(.id == $id)) and (.bar.transparent == true)' \
-       "$shell_json" >/dev/null 2>&1; then
-    skip "shell.json already enables $switcher_id + a transparent bar"
-  else
-    backup "$shell_json"
-    _shell=$(mktemp)
-    if jq --arg id "$switcher_id" '
-          .plugins = ((.plugins // []) | if any(.id == $id) then . else . + [{ id: $id }] end)
-          | .bar.transparent = true
-        ' "$shell_json" >"$_shell" 2>/dev/null && [[ -s $_shell ]]; then
-      # cat, not mv: keeps shell.json's own inode and 0600 mode.
-      cat "$_shell" >"$shell_json"
-      rm -f "$_shell"
-      say "shell.json -> $switcher_id enabled, bar.transparent = true"
-    else
-      rm -f "$_shell"
-      skip "shell.json isn't parseable JSON — left untouched, enable the switcher by hand"
-    fi
-  fi
+bar_json="$HERE/omarchy/shell-bar.json"
+if [[ ! -f $shell_json ]]; then
+  skip "no $shell_json — skipped the switcher enable, bar transparency and layout"
+elif [[ ! -f $bar_json ]]; then
+  skip "no $bar_json — skipped the shell.json writes"
 else
-  skip "no $shell_json — skipped the switcher enable + bar transparency"
+  _want=$(mktemp)
+  if jq --arg id "$switcher_id" --slurpfile bar "$bar_json" '
+        $bar[0] as $b
+        # The live tray entry, wherever it currently sits, for its pinned/hidden.
+        | ([ (.bar.layout // {}) | .[]? | .[]? ]
+           | map(select(.id == "omarchy.tray")) | first) as $tray
+        | .plugins = ((.plugins // [])
+            | if any(.id == $id) then . else . + [{ id: $id }] end)
+        | .bar.transparent = true
+        | .bar.centerAnchor = $b.bar.centerAnchor
+        | .bar.layout = ($b.bar.layout | with_entries(.value |= map(
+            if .id == "omarchy.tray" and $tray != null
+            then . + ($tray | { pinned, hidden } | with_entries(select(.value != null)))
+            else . end)))
+        | .disabledPlugins = $b.disabledPlugins
+      ' "$shell_json" >"$_want" 2>/dev/null && [[ -s $_want ]]; then
+
+    # Everything the block above would change, as one compact blob, so revert
+    # has a single thing to put back. Compared against what we are about to
+    # write rather than against shell-bar.json, so the tray carry-over doesn't
+    # read as a difference and get recorded on an already-applied machine.
+    _subset='{ layout: .bar.layout, centerAnchor: .bar.centerAnchor, disabled: .disabledPlugins }'
+    record_prior "$STATE/previous-bar-layout" \
+      "$(jq -cS "$_subset" "$shell_json" 2>/dev/null || true)" \
+      "$(jq -cS "$_subset" "$_want" 2>/dev/null || true)"
+    record_prior "$STATE/previous-bar-transparent" \
+      "$(jq -r '.bar.transparent // empty' "$shell_json" 2>/dev/null || true)" "true"
+
+    if jq -e --slurpfile want "$_want" '. == $want[0]' "$shell_json" >/dev/null 2>&1; then
+      skip "shell.json already has the switcher, transparent bar, layout and disabled plugins"
+    else
+      backup "$shell_json"
+      # cat, not mv: keeps shell.json's own inode and 0600 mode.
+      cat "$_want" >"$shell_json"
+      say "shell.json -> $switcher_id enabled, bar.transparent = true, bar layout + disabledPlugins applied"
+    fi
+  else
+    skip "shell.json isn't parseable JSON — left untouched, enable the switcher by hand"
+  fi
+  rm -f "$_want"
 fi
 
 # ── 8. apply theme ───────────────────────────────────────────────────────────

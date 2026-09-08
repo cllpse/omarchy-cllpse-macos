@@ -116,24 +116,46 @@ if [[ -d ~/.icons/cllpse-flat ]]; then
 fi
 rmdir ~/.icons 2>/dev/null || true
 
-# shell.json: undo exactly the two keys apply.sh step 7h wrote, rather than
-# restoring the .pre-cllpse backup wholesale — the same file carries the bar's
-# widget order and the tray's pinned list, which move around long after an apply
-# and are not ours to roll back. bar.transparent goes back only if a pre-apply
-# value was recorded; with nothing recorded, leave it alone — same rule as the
-# font above.
+# shell.json: undo exactly the keys apply.sh step 7h wrote, rather than restoring
+# the .pre-cllpse backup wholesale — the same file carries `idle`, `version` and
+# any other plugin's widget config, which move around long after an apply and are
+# not ours to roll back.
+#
+# The switcher's plugins[] entry is always dropped: apply.sh is the only thing
+# that puts it there. Everything else goes back only if a pre-apply value was
+# recorded — bar.transparent from previous-bar-transparent, and the bar layout /
+# centerAnchor / disabledPlugins from previous-bar-layout, which apply.sh writes
+# as one blob. Nothing recorded means the machine already matched what we would
+# have written, so there is nothing of its own to restore and it is left alone —
+# same rule as the font above.
+#
+# A recorded layout is restored verbatim, tray pins included. That is the state
+# the machine was in before the first apply; any pin added since is a casualty,
+# and the .pre-cllpse backup is the fallback for recovering one.
 shell_json=~/.config/omarchy/shell.json
 if [[ -f $shell_json ]]; then
   prev_bar=""
   [[ -s $STATE/previous-bar-transparent ]] && prev_bar="$(<"$STATE/previous-bar-transparent")"
+  prev_layout=""
+  [[ -s $STATE/previous-bar-layout ]] && prev_layout="$(<"$STATE/previous-bar-layout")"
   _shell=$(mktemp)
-  if jq --arg id cllpse.window-switcher --arg prev "$prev_bar" '
+  if jq --arg id cllpse.window-switcher --arg prev "$prev_bar" --arg layout "$prev_layout" '
         .plugins = ((.plugins // []) | map(select(.id != $id)))
         | if $prev == "" then . else .bar.transparent = ($prev == "true") end
+        | if $layout == "" then . else
+            ($layout | fromjson) as $l
+            | .bar.layout = $l.layout
+            | if $l.centerAnchor == null then del(.bar.centerAnchor)
+              else .bar.centerAnchor = $l.centerAnchor end
+            # disabledPlugins is absent, not empty, when nothing is disabled —
+            # PluginRegistry.qml deletes the key at length 0.
+            | if $l.disabled == null then del(.disabledPlugins)
+              else .disabledPlugins = $l.disabled end
+          end
       ' "$shell_json" >"$_shell" 2>/dev/null && [[ -s $_shell ]]; then
     cat "$_shell" >"$shell_json"
-    say "shell.json: dropped the window-switcher plugin entry${prev_bar:+, bar.transparent -> $prev_bar}"
-    rm -f "$STATE/previous-bar-transparent"
+    say "shell.json: dropped the window-switcher plugin entry${prev_bar:+, bar.transparent -> $prev_bar}${prev_layout:+, bar layout + disabledPlugins restored}"
+    rm -f "$STATE/previous-bar-transparent" "$STATE/previous-bar-layout"
   else
     say "  could not rewrite $shell_json — left untouched"
   fi

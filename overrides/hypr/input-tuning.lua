@@ -26,9 +26,20 @@
 -- here, but harmless and kept for the day this changes. Both pair with
 -- `cursor { no_warps = true }` in hyprland-env.lua.
 --
--- scroll_factor is the top-level (mouse-wheel) multiplier -- a separate knob
--- from touchpad.scroll_factor, which only affects the trackpad and isn't set
--- here (so it stays on Omarchy's stock 0.4). 1.5 = 150% of the base speed.
+-- scroll_factor is the top-level (mouse-wheel) multiplier; touchpad.scroll_factor
+-- is a separate knob that only affects the trackpad. They move in opposite
+-- directions here on purpose: 1.5 (150%) on the wheel, because a notched wheel
+-- moves in coarse discrete steps and Omarchy's base felt short of a line's worth
+-- per notch; 0.35 on the trackpad, below Omarchy's stock 0.4, because a
+-- continuous two-finger surface wants the opposite -- macOS trackpad scrolling
+-- is slow and precise per unit of finger travel, and it is the momentum fling,
+-- not the gain, that covers distance.
+--
+-- Set here rather than left at stock: it was 0.4 for a while, and this value
+-- arrived via the OmaSettings GUI, which writes ~/.config/hypr/omasettings.lua
+-- and requires it from the *end* of hyprland.lua -- i.e. after this file. See
+-- the settings-plugin trap in CLAUDE.md: while that file exists it wins over
+-- anything here, so folding a value in means deleting its line there too.
 hl.config({
   input = {
     sensitivity = -1.00,
@@ -37,6 +48,7 @@ hl.config({
     natural_scroll = false,
     touchpad = {
       natural_scroll = false,
+      scroll_factor = 0.35,
     },
     left_handed = false,
     scroll_factor = 1.5,

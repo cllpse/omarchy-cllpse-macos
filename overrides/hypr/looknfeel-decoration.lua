@@ -166,6 +166,30 @@ hl.config({
     },
   },
   general = { border_size = 2, gaps_in = 12, gaps_out = 24 },
+  -- ── Group bar: OFF ───────────────────────────────────────────────────────
+  -- Hyprland draws a row of tabs across the top of a grouped window. macOS has
+  -- no equivalent -- window tabbing there is per-app (NSWindow tabs, inside the
+  -- app's own titlebar), never a compositor decoration -- and the strip is a
+  -- 22px monospace bar that ignores the theme's typography entirely, so it
+  -- reads as foreign chrome on every group.
+  --
+  -- Omarchy's default/hypr/looknfeel.lua styles the bar at length (font_size 12,
+  -- monospace, indicator_height/gap, height 22, its own text and fill colours)
+  -- but never sets `enabled`, so Hyprland's default of true stands.
+  --
+  -- Turning it off is the visible half of a choice this repo already made: the
+  -- keybind sweep unbinds *every* group bind Omarchy ships -- SUPER+G,
+  -- SUPER+ALT+G, the four SUPER+ALT arrows, SUPER+ALT+TAB, SUPER+CTRL+
+  -- LEFT/RIGHT, the mouse wheel pair and the ten SUPER+ALT+code:NN slots (see
+  -- keybind-unbinds.lua:80-96). With no way to form or navigate a group from
+  -- the keyboard, the bar could only ever appear on a group made by a window
+  -- rule, and then only as an unstyleable strip.
+  --
+  -- Grouping itself is untouched -- this hides the bar, it does not disable the
+  -- feature. group.col.border_active / border_inactive stay theme-bound (the
+  -- generated hyprland.lua sets both from colors.toml), so a group formed some
+  -- other way still shows its border cue.
+  group = { groupbar = { enabled = false } },
 })
 
 -- ── Blur on shell layer surfaces ──────────────────────────────────────────
