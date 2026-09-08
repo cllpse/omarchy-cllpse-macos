@@ -67,6 +67,18 @@ end
 -- Same shape as unless_terminal, but instead of doing nothing in a terminal it
 -- sends a different chord there. Used for Cmd+W, where the terminal has a real
 -- equivalent -- it just isn't Ctrl+W.
+-- The mirror of unless_terminal: fires ONLY in a terminal. Cmd+K has no
+-- non-terminal equivalent worth synthesizing -- macOS gives it to whatever
+-- search or quick-switcher the focused app happens to have -- so everywhere
+-- else this stays deliberately inert.
+local function only_in_terminal(mods, key)
+  return function()
+    if active_window_is_terminal() then
+      send_shortcut_once(mods, key)()
+    end
+  end
+end
+
 local function terminal_aware(mods, key, terminal_mods, terminal_key)
   return function()
     if active_window_is_terminal() then
@@ -109,6 +121,18 @@ o.bind("SUPER + W", "Close tab/window (Cmd+W)", terminal_aware("CTRL", "W", "CTR
 o.bind("SUPER + Z", "Undo (Cmd+Z)", unless_terminal("CTRL", "Z"))
 o.bind("SUPER + SHIFT + Z", "Redo (Cmd+Shift+Z)", unless_terminal("CTRL SHIFT", "Z"))
 o.bind("SUPER + S", "Save (Cmd+S)", unless_terminal("CTRL", "S"))
+
+-- Cmd+K clears the terminal (screen and scrollback), via Ghostty's clear_screen
+-- action -- see overrides/ghostty/ghostty.conf, which binds CTRL+SHIFT+K to it.
+--
+-- Routed through a synthesized chord rather than letting Ghostty bind super+k
+-- directly: that was tried and did not fire even at a plain shell prompt, while
+-- CTRL+SHIFT+K is proven to reach Ghostty here (with no binding for it, Ghostty
+-- encoded it to the shell as ESC[107;6u -- seen with `cat -v`).
+--
+-- Terminal-guarded: Ctrl+Shift+K outside a terminal opens the web console in
+-- Firefox, which is emphatically not what Cmd+K should do.
+o.bind("SUPER + K", "Clear terminal (Cmd+K)", only_in_terminal("CTRL SHIFT", "K"))
 
 -- App shortcuts for Chrome (new tab/reopen closed tab/reload/new window/
 -- print or Quick Open/command palette) -- safe everywhere, no terminal guard
