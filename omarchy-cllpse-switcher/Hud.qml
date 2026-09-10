@@ -921,17 +921,25 @@ Item {
                 fillMode: Image.PreserveAspectFit
                 asynchronous: true
                 // Kept as a hidden layer so the effect can sample it as a
-                // texture -- but only while there IS a texture to sample. Most
-                // windows have no drop-in and fall back to the glyph below, and
-                // an unconditional layer allocates an FBO and an extra render
-                // pass per tile for an Image that never draws anything.
+                // texture. UNCONDITIONAL, deliberately: do NOT bind this to
+                // flatMark.status.
                 //
-                // Bound to the same condition as the MultiEffect that consumes
-                // it, which is the idiom Omarchy's own Tray.qml uses
-                // (`visible: !symbolic` / `layer.enabled: symbolic`, Tray.qml
-                // :786): the layer exists exactly when the effect samples it.
+                // A conditional layer saves an FBO and a render pass on every
+                // glyph-only tile, which is why this was briefly
+                // `flatMark.status === Image.Ready` (d41db12), mirroring
+                // Omarchy's Tray.qml:786. It also crashed the shell. decodePx
+                // above binds to Screen.devicePixelRatio, so Qt's own DPR
+                // propagation (QQuickWindow::physicalDpiChanged ->
+                // updatePixelRatioHelper) re-evaluates sourceSize WHILE it is
+                // recursing this very subtree: the Images reload, status
+                // leaves Ready, and the layer plus the MultiEffect's internal
+                // items are destroyed underneath the walk -- which then calls
+                // a virtual on a freed QQuickItem. "pure virtual method
+                // called", SIGABRT. It fired on every HUD close on the
+                // 1.25-scaled DP-2 (three crashes, 2026-09-08). A permanent
+                // layer destroys nothing mid-walk.
                 visible: false
-                layer.enabled: flatMark.status === Image.Ready
+                layer.enabled: true
               }
 
               MultiEffect {
