@@ -710,26 +710,24 @@ Item {
       anchors.fill: parent
       color: Color.menu.scrim
 
-      // Fade the scrim, and only the scrim.
+      // No fade here: the compositor owns it now.
       //
-      // The compositor cannot do this: a card and its scrim are one layer
-      // surface, so `animation = "fade"` on the layer rule fades both together
-      // and the card stops landing under the keypress. Animating here instead
-      // keeps the card instant -- it maps at full opacity like the menu's --
-      // while the full-screen dim eases in behind it.
+      // This ran a 120ms / OutCubic Behavior so the scrim eased in while the
+      // card landed instantly under the keypress -- the compositor cannot fade
+      // a card and its scrim separately, they are one layer surface. The side
+      // effect was that the switcher was the only surface in the shell whose
+      // CONTENT did not ramp, which read as noticeably faster than the Omarchy
+      // panels beside it.
       //
-      // 120ms / OutCubic: a standard short-transition pairing (the compositor's
-      // own whole-surface fade on the Omarchy panels measures ~100ms, so this
-      // sits alongside it rather than reading as a different kind of motion).
-      // The layer rule in overrides/hypr/looknfeel-decoration.lua keeps
-      // no_anim on this namespace so the two do not stack.
+      // overrides/hypr/looknfeel-decoration.lua now puts this namespace in the
+      // same `animation = "fade"` layer rule as the menu and the other
+      // keyboard-driven panels, so the whole surface ramps over layersIn's
+      // 133ms on easeOutQuint. A Behavior here would stack on top of that.
       //
-      // Fade-in only: `opened` going false unmaps the window in the same frame,
-      // so there is nothing left on screen for a fade-out to play across.
+      // The binding stays. `opened` going false unmaps the window in the same
+      // frame, so on screen this only ever evaluates to 1, but it keeps the
+      // scrim tied to the same state the rest of this file reads.
       opacity: root.opened ? 1 : 0
-      Behavior on opacity {
-        NumberAnimation { duration: 120; easing.type: Easing.OutCubic }
-      }
     }
 
     // Card: same chrome as an Omarchy menu — theme menu background, the

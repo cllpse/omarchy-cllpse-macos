@@ -261,27 +261,30 @@ hl.layer_rule({
 -- would only ever be seen on a shell restart, and Omarchy keeps it instant for
 -- that reason.
 hl.layer_rule({
-  match = { namespace = "^(omarchy-menu|omarchy-image-selector|omarchy-emojis|omarchy-clipboard|omarchy-keyboard-panel)$" },
+  match = { namespace = "^(omarchy-menu|omarchy-image-selector|omarchy-emojis|omarchy-clipboard|omarchy-keyboard-panel|omarchy-window-switcher-hud)$" },
   no_anim = false,
   animation = "fade",
 })
 
--- The switcher is deliberately NOT in the list above.
+-- The switcher is in the list above, and used not to be.
 --
--- The compositor fades a card and its scrim together -- they are one layer
--- surface -- and the wanted behaviour here is the scrim alone, with the card
--- landing instantly. That is only expressible inside the surface, so the
--- switcher keeps the compositor animation off and fades its own scrim
--- Rectangle in Hud.qml instead (120ms, Easing.OutCubic).
+-- It carried its own no_anim rule and faded only its scrim, from Hud.qml
+-- (120ms, Easing.OutCubic), so the card could land instantly under the keypress
+-- while the dim eased in behind it. The compositor cannot express that -- a
+-- card and its scrim are one layer surface -- which was the whole reason for
+-- the split.
 --
--- The Omarchy panels above cannot do the same: their scrim lives in Omarchy's
--- own Menu.qml, and editing that is a patch to /usr/share/omarchy that the next
--- update overwrites. They keep the whole-surface fade, which measures ~100ms.
-hl.layer_rule({
-  match = { namespace = "omarchy-window-switcher-hud" },
-  no_anim = true,
-  animation = "none",
-})
+-- The cost was that the switcher became the one surface in the shell moving
+-- differently from the rest. Measured against the live config the panels ramp
+-- over 133ms on easeOutQuint (layersIn speed 1.33 ds; a note in Hud.qml put it
+-- at ~100ms and was wrong, and the 120ms was chosen to sit alongside that
+-- figure). More to the point, the switcher's CARD did not ramp at all, and
+-- content-there-immediately reads as faster than any curve difference -- which
+-- is exactly how it read.
+--
+-- So it takes the whole-surface fade like everything else, and the Hud.qml
+-- Behavior is removed rather than left alone: with no_anim off, a QML fade
+-- inside the surface would stack on top of the compositor's.
 
 -- ── Animation speed (3x) ───────────────────────────────────────────────────
 -- Can't live in the theme: colors.toml/shell.toml carry no animation keys at
