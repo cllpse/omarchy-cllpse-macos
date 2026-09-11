@@ -564,39 +564,41 @@ back by choice. A machine without the extensions falls back to Cursor's default
 theme and icons — no error, just not what the repo describes.
 
 The file is otherwise kept to stock-Cursor keys — GitLens/Copilot keys and the
-Biome / ESLint per-language formatters were all stripped — and `editor.fontWeight` is unset —
-naming the SemiBold *face* in `editor.fontFamily` is how the weight is selected,
-the same way `~/Sites/dotfiles/.config/ghostty/config` does it, so a separate
-weight key would double up.
+Biome / ESLint per-language formatters were all stripped — and `editor.fontWeight` is **600**, which is
+load-bearing rather than cosmetic.
 
-`editor.fontFamily` **is** set, to
-`'ComicCode Nerd Font SemiBold', 'ComicCode Nerd Font', monospace`, copied from
-that Ghostty config. Two things about it. The trailing generic is load-bearing:
-Cursor's own default stack ends in `monospace`, which fontconfig resolves to SF
-Mono (from `omarchy font set`), so a machine **without** Comic Code lands exactly
-where it did before this key existed rather than on some arbitrary fallback —
-which is the state of this machine, where `fc-list` finds no Comic Code at all.
-The two `.otf`s **are** vendored, in `overrides/fonts/comic-code/`, and
-installed by `apply.sh` to `~/.local/share/fonts/ComicCode/` - a subdirectory
-because the SF step globs `fonts/*.otf` into `~/.local/share/fonts/SF/` and
-these are not SF. Comic Code is commercial and this repo has a public remote, so
-it is listed in THIRD-PARTY.md alongside the Apple faces.
-Omarchy never writes a font key into Cursor — `omarchy-theme-set-vscode` only
-touches `colorTheme` — so nothing competes for it.
+`editor.fontFamily` is `'ComicCode Nerd Font', monospace`, copied from
+`~/Sites/dotfiles/.config/ghostty/config` (that repo has no Cursor settings of
+its own; the font lives in its Ghostty config).
 
-**`fc-match` is not a usable probe on this machine - it reports SF for
-everything.** Checked: `fc-match "JetBrainsMono Nerd Font"` returns *SF Mono*,
-for a font that is installed and working. The strong-binding prepends in
-`99-cllpse-macos-ui-font.conf` and Omarchy's `50-omarchy.conf` put an SF face in
-front of every pattern, so first place is SF whatever you ask for. Use
-`fc-list :family="..."` to answer "is it installed", or `fc-match -s` and look
-at rank 2, which is where the family you actually asked for shows up.
+**Comic Code ships no Regular face, and Chromium abandons a family whose weight
+it cannot match rather than falling back to a heavier face in it.** The two
+`.otf`s are SemiBold (fontconfig weight 180) and Bold (200) — nothing at 400. At
+the default weight Cursor therefore rendered the *fallback*, indistinguishable
+from naming a font that does not exist. Measured in headless Chromium, canvas
+text width at 40px:
+
+| request | width | |
+|---|---|---|
+| `'NoSuchFontXYZ'` | 366.7 | the fallback |
+| `'ComicCode Nerd Font'` at 400 | 366.7 | same as nonexistent — not used |
+| `'ComicCode Nerd Font'` at 600 | 383.8 | SemiBold |
+| `'ComicCode Nerd Font'` at 700 | 393.7 | Bold |
+
+Hence `fontWeight: "600"`. The *base* family is named rather than
+`ComicCode Nerd Font SemiBold`, because only the base carries both faces — the
+SemiBold-specific family has one face and bold tokens would fall out of it.
+Ghostty needs none of this: it resolves through fontconfig and takes the named
+face, which is why copying its `font-family = ComicCode Nerd Font SemiBold`
+across verbatim silently did nothing.
 
 Ghostty's `font-thicken` / `font-thicken-strength` have **no** Cursor
 counterpart, and neither does the `environment.d` stem darkening: Cursor is
 Electron, so it inherits Chromium's ignoring of `FREETYPE_PROPERTIES` (see the
-Chromium entry under *traps*). Comic Code will render thinner in Cursor than in
-Ghostty for exactly that reason, and no setting closes the gap.
+Chromium entry under *traps*). Comic Code renders thinner in Cursor than in
+Ghostty for that reason, and no setting closes the gap.
+
+Ghostty's `font-size = 14` is a terminal size and was not copied.
 `editor.fontSize` (15) stays: it is a user preference with no Omarchy equivalent.
 Only Cursor is handled; VS Code / VSCodium would each need their own merge.
 
