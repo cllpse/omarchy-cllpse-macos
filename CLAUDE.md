@@ -599,7 +599,7 @@ Chromium entry under *traps*). Comic Code renders thinner in Cursor than in
 Ghostty for that reason, and no setting closes the gap.
 
 Ghostty's `font-size = 14` is a terminal size and was not copied.
-`editor.fontSize` (14) stays: it is a user preference with no Omarchy equivalent.
+`editor.fontSize` (13) stays: it is a user preference with no Omarchy equivalent.
 Only Cursor is handled; VS Code / VSCodium would each need their own merge.
 
 **Merge into a running Cursor doesn't reliably stick.** Cursor rewrites the whole
