@@ -194,6 +194,7 @@ take it:
 | `gh-dash` | ANSI indices | lipgloss/termenv reads a bare number as a palette index and a `#`-prefixed string as literal RGB, so `"4"` tracks the theme |
 | `starship` | generated | no ANSI surface worth using; `accent` is substituted into a template by a `theme-set` hook |
 | `yazi` previewer | generated | see the `yazi` row above |
+| Cursor chrome | generated | The colour theme is Bearded, but its window chrome steps through greys while every other window on the desktop sits on the theme's flat background, so the editor reads as a foreign window. `cursor-chrome.sh` copies the 115 chrome keys (title bar, activity bar, sidebar, status bar, tabs, panel, menus, command centre, breadcrumbs) out of Omarchy's *own* generated `vscode-theme.json` into `workbench.colorCustomizations`, which sits above the active theme. Values come from Omarchy's file rather than a second derivation of `colors.toml`, so there is nothing to drift. Editor pane, widgets, lists and terminal stay Bearded |
 | `hunk` | generated | **cannot** use ANSI — its validator takes hex only (`must be a hex color like #112233`) and every built-in theme is a bundled Shiki theme. A `theme-set` hook bakes `colors.toml` into `~/.config/hunk/config.toml`, including tinted diff backgrounds blended over the theme background |
 | `msedit` | nothing to do | it queries the terminal for its palette (emits OSC `4`/`10`/`11`, parses the `rgb:` replies) and has no colour config at all — its `settings.json` holds only `files.associations`. It already follows the theme |
 
@@ -268,6 +269,7 @@ yazi/theme.toml               ANSI theme; accent pinned to blue, chrome flattene
 yazi/generate-icons.py        rewrites yazi's ~725 icon rules onto ANSI names, read out of the installed binary — re-run after a yazi upgrade
 yazi/cllpse-macos.tmTheme.tpl  previewer syntax theme with {{ placeholders }} — Xcode's scope assignment in the macOS palette; hex-only, so generated per theme
 hooks/theme-set.d/yazi-syntax.sh  renders the template above into ~/.config/yazi/cllpse-macos.tmTheme on every theme switch, raising hues to 4.5:1 against the background
+hooks/theme-set.d/cursor-chrome.sh  copies Omarchy's window-chrome colours into Cursor's workbench.colorCustomizations, scoped to the Bearded themes named in cursor/settings.json
 gh-dash/theme.yml             theme.colors as ANSI palette INDICES, merged into gh-dash's own config.yml
 hunk/config.toml.tpl          hunk's custom theme with {{ placeholders }} — hex only, so it is generated per theme
 hooks/theme-set.d/hunk-colors.sh  renders the template above into ~/.config/hunk/config.toml on every theme switch

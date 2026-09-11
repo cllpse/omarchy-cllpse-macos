@@ -373,6 +373,17 @@ backup ~/.config/starship.toml
 # colours are BAKED from the active colors.toml on every theme-set, the same
 # hook mechanism starship uses above. The hook writes config.toml whole, so
 # back it up once before the first run.
+# Cursor's window chrome, repainted from Omarchy's own generated VS Code theme
+# so the editor frame matches every other window instead of wearing Bearded's
+# greys. Chrome only — the editor pane and syntax stay Bearded. Hook, because
+# the palette changes per theme; see the hook for the scoping.
+if [[ -d ~/.config/Cursor/User ]]; then
+  say "Cursor chrome -> ~/.config/omarchy/hooks/theme-set.d/cursor-chrome.sh"
+  mkdir -p ~/.config/omarchy/hooks/theme-set.d
+  ln -sfn "$HERE/hooks/theme-set.d/cursor-chrome.sh" ~/.config/omarchy/hooks/theme-set.d/cursor-chrome.sh
+  "$HERE/hooks/theme-set.d/cursor-chrome.sh" || skip "cursor-chrome.sh produced nothing this run"
+fi
+
 # yazi's previewer — syntect reads a .tmTheme, which is hex-only, so the
 # previewer's syntax colours are baked per theme like hunk's. Unlike the rest of
 # yazi/theme.toml (ANSI, no regeneration), this one needs the hook. See the

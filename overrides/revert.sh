@@ -106,6 +106,10 @@ say "Removing starship theme-set hook"
 [[ -L ~/.config/omarchy/hooks/theme-set.d/starship-colors.sh ]] && rm -f ~/.config/omarchy/hooks/theme-set.d/starship-colors.sh
 restore ~/.config/starship.toml
 
+say "Removing Cursor chrome theme-set hook"
+[[ -L ~/.config/omarchy/hooks/theme-set.d/cursor-chrome.sh ]] && rm -f ~/.config/omarchy/hooks/theme-set.d/cursor-chrome.sh
+# The chrome lives in settings.json, which `restore` below puts back wholesale.
+
 say "Removing yazi previewer theme-set hook"
 [[ -L ~/.config/omarchy/hooks/theme-set.d/yazi-syntax.sh ]] && rm -f ~/.config/omarchy/hooks/theme-set.d/yazi-syntax.sh
 rm -f ~/.config/yazi/cllpse-macos.tmTheme

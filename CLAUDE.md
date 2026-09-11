@@ -516,6 +516,26 @@ own backgrounds — Black & Gold Soft's `#221F1D` is ΔE 2.2 from `#1E1E1E` and 
 only near-neutral dark in the set (chroma 2.1 against the palette's 0), the rest
 carrying a visible blue cast.
 
+**Bearded's window chrome is overridden back to Omarchy's.** Bearded steps the
+frame through greys (light variant: titleBar `#d2d2d2`, activityBar/sideBar
+`#ebebeb`, statusBar `#f4f4f4`) while every other window on this desktop sits on
+the theme's flat window background, so the editor reads as a foreign window.
+`hooks/theme-set.d/cursor-chrome.sh` copies the 115 chrome keys out of Omarchy's
+own generated `~/.local/state/omarchy/current/theme/vscode-theme.json` (664 keys,
+rebuilt from `colors.toml` on every theme-set) into
+`workbench.colorCustomizations`, which sits **above** the active theme and is the
+only lever that reaches this short of forking Bearded. Taking the values from
+Omarchy's generated file rather than re-deriving them from `colors.toml` means
+there is no second derivation to drift. Chrome only — editor pane, widgets, lists
+and terminal stay Bearded; widening it is a matter of adding prefixes to
+`$CHROME` in the hook, since the whole `colors` object is there. The two scopes
+are read from `preferredLight/DarkColorTheme` rather than hardcoded, so the
+variant names live in one place. Both scopes get the current palette, which is
+always correct: only one is ever active, and it matches the mode that selected
+it. One wart — changing a preferred theme leaves the previous scope orphaned in
+`colorCustomizations`; it is inert unless that theme is picked again, and the
+hook does not prune it because it cannot tell its own scopes from a user's.
+
 This is the one place the override **does** depend on marketplace extensions
 (`beardedbear.beardedtheme`, `beardedbear.beardedicons`). `workbench.iconTheme`
 had been deliberately stripped once before to keep that from being true; it is
