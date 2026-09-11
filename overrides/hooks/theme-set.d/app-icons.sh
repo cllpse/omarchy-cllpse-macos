@@ -40,6 +40,44 @@ COLOR_OUT="$HOME/.icons/cllpse-color/apps"
 COLORS="$HOME/.local/state/omarchy/current/theme/colors.toml"
 OUT="$HOME/.icons/cllpse-flat/apps"
 
+# Every loop here iterates a glob that legitimately matches nothing.
+shopt -s nullglob
+
+# ── Colour pass ─────────────────────────────────────────────────────────────
+# Copied verbatim, no recolouring, no ImageMagick -- so it needs neither the
+# palette nor the flat directory, and it runs FIRST, before any of the flat
+# pass's guards. It used to sit below them, which quietly coupled two
+# independent icon sets: emptying icons/fallbacks/ also stopped syncing
+# icons/color/, and a theme with no readable colors.toml stopped both.
+#
+# $HOME/.icons is first in the XDG sweep the switcher runs (and in Omarchy's own
+# AppLibrary), and this lands under */apps/*, so a file here is found by name
+# exactly like a vendor icon -- which is the point: it IS one, just ours.
+#
+# The sweep is OUTSIDE the `-d $COLOR_IN` test on purpose. Inside it, removing
+# icons/color/ from the repo altogether left ~/.icons/cllpse-color/apps/ serving
+# files nothing backed any more -- the one case where a stale icon is certain
+# rather than merely possible. With COLOR_IN gone, wantedColor is empty and the
+# sweep clears the directory, which is what "delete a drop-in to hand that app
+# back" has to mean.
+declare -A wantedColor=()
+if [[ -d $COLOR_IN ]]; then
+  mkdir -p "$COLOR_OUT"
+  for f in "$COLOR_IN"/*.svg; do
+    b=$(basename "$f")
+    wantedColor[${b%.*}]="$b"
+    cp -f "$f" "$COLOR_OUT/$b"
+  done
+fi
+for f in "$COLOR_OUT"/*.svg; do
+  b=$(basename "$f")
+  [[ ${wantedColor[${b%.*}]:-} == "$b" ]] || rm -f "$f"
+done
+rmdir "$COLOR_OUT" "$(dirname "$COLOR_OUT")" 2>/dev/null || true
+
+# ── Flat pass ───────────────────────────────────────────────────────────────
+# Repainting needs the active palette, so this half -- and only this half --
+# stops here when either is missing.
 [[ -d $FALLBACKS ]] || exit 0
 [[ -f $COLORS ]] || exit 0
 
@@ -48,9 +86,6 @@ fg="$(omarchy-theme-color --file "$COLORS" foreground 2>/dev/null || true)"
 
 mkdir -p "$OUT"
 declare -A wanted=()
-
-# Both loops below iterate globs that legitimately match nothing.
-shopt -s nullglob
 
 # SVG only. Rasters used to be accepted here and normalised by ImageMagick --
 # trimmed to the ink, resized to 200x200, then re-padded onto a 256x256 canvas.
@@ -115,26 +150,6 @@ for f in "$FALLBACKS"/*.svg; do
     sed -i "0,/<svg/s//<svg fill=\"$fg\"/" "$OUT/$name.svg"
   fi
 done
-
-# Colour pass: copied verbatim, no recolouring, no ImageMagick.
-#
-# $HOME/.icons is first in the XDG sweep the switcher runs (and in Omarchy's own
-# AppLibrary), and this lands under */apps/*, so a file here is found by name
-# exactly like a vendor icon -- which is the point: it IS one, just ours.
-declare -A wantedColor=()
-if [[ -d $COLOR_IN ]]; then
-  mkdir -p "$COLOR_OUT"
-  for f in "$COLOR_IN"/*.svg; do
-    b=$(basename "$f")
-    wantedColor[${b%.*}]="$b"
-    cp -f "$f" "$COLOR_OUT/$b"
-  done
-  for f in "$COLOR_OUT"/*.svg; do
-    b=$(basename "$f")
-    [[ ${wantedColor[${b%.*}]:-} == "$b" ]] || rm -f "$f"
-  done
-  rmdir "$COLOR_OUT" "$(dirname "$COLOR_OUT")" 2>/dev/null || true
-fi
 
 # Remove anything no longer backed by a file in fallbacks/, so deleting a
 # drop-in really does hand that app back to its vendor icon. Still sweeps .png
