@@ -28,7 +28,11 @@ Two things worth knowing before running this:
     own level. Those are deliberate user choices, so this leaves them alone and
     just reports how many exist.
 
-Usage:  default-zoom.py [PERCENT]     (default 110; 100 restores Chromium's own)
+Usage:  default-zoom.py [PERCENT]   set the default zoom (default 110)
+        default-zoom.py --print     print the current default as a percent, or
+                                    nothing if none is set (apply.sh records it)
+        default-zoom.py --reset     delete the key, so Chromium's own default
+                                    applies again (revert.sh's fallback)
 """
 
 import json
@@ -94,11 +98,22 @@ def apply(path, level, percent):
 
     partition = data.setdefault("partition", {})
     current = partition.get("default_zoom_level", {}).get(PARTITION)
-    if current is not None and abs(current - level) < 1e-6:
-        print(f"  - {name}: already {percent}%")
-        return False
 
-    partition.setdefault("default_zoom_level", {})[PARTITION] = level
+    if level is None:
+        # Reset: DELETE the key rather than writing 0.0. The two are equivalent
+        # to Chromium today, but only the deletion hands the setting back to
+        # whatever Chromium's own default happens to be, instead of this script
+        # asserting a number it has no opinion about -- the same reasoning
+        # revert.sh applies to the generated fonts.conf.
+        if current is None:
+            print(f"  - {name}: no default zoom set")
+            return False
+        partition.get("default_zoom_level", {}).pop(PARTITION, None)
+    else:
+        if current is not None and abs(current - level) < 1e-6:
+            print(f"  - {name}: already {percent}%")
+            return False
+        partition.setdefault("default_zoom_level", {})[PARTITION] = level
 
     # Atomic replace, so an interrupted run cannot leave a truncated profile.
     os.makedirs(path, exist_ok=True)
@@ -117,21 +132,60 @@ def apply(path, level, percent):
 
     per_host = partition.get("per_host_zoom_levels", {}).get(PARTITION, {})
     note = f"  ({len(per_host)} per-site zoom(s) still override it)" if per_host else ""
-    print(f"  • {name}: default zoom -> {percent}%{note}")
+    if level is None:
+        print(f"  • {name}: default zoom cleared ({LABEL}'s own default applies)")
+    else:
+        print(f"  • {name}: default zoom -> {percent}%{note}")
     return True
+
+
+def read_percent():
+    """The first profile's current default zoom as a percent string, or ''.
+
+    Nothing is printed but the number: apply.sh captures this in a command
+    substitution to record what the machine had before its first apply, the
+    same way it records the pre-existing font and theme. An unset default, an
+    unreadable profile or a missing config directory all come back empty, and
+    record_prior treats empty as "nothing to record".
+    """
+    for path in profiles():
+        prefs = os.path.join(path, "Preferences")
+        try:
+            with open(prefs) as fh:
+                data = json.load(fh)
+        except (OSError, ValueError):
+            continue
+        level = data.get("partition", {}).get("default_zoom_level", {}).get(PARTITION)
+        if level is None:
+            continue
+        return "%g" % round(100.0 * (1.2 ** level), 4)
+    return ""
 
 
 def main():
     # apply.sh pipes CLLPSE_CHROMIUM_ZOOM straight through, so a typo arrives
     # here as an argument. Fail with a sentence, not a traceback.
     raw = sys.argv[1].strip() if len(sys.argv) > 1 and sys.argv[1].strip() else "110"
-    try:
-        percent = float(raw.rstrip("%"))
-    except ValueError:
-        sys.exit(f"zoom {raw!r} is not a number")
-    if not 25 <= percent <= 500:
-        sys.exit(f"zoom {percent}% is outside {LABEL}'s 25-500% range")
-    level = math.log(percent / 100.0) / math.log(1.2)
+
+    # `--print` reports, `--reset` un-sets. Both exist so revert.sh can undo
+    # this step without inventing a zoom of its own: record the prior value at
+    # first apply, put it back on revert, and with nothing recorded just clear
+    # the key so Chromium's own default applies.
+    if raw == "--print":
+        out = read_percent()
+        if out:
+            print(out)
+        return 0
+
+    percent, level = None, None
+    if raw != "--reset":
+        try:
+            percent = float(raw.rstrip("%"))
+        except ValueError:
+            sys.exit(f"zoom {raw!r} is not a number")
+        if not 25 <= percent <= 500:
+            sys.exit(f"zoom {percent}% is outside {LABEL}'s 25-500% range")
+        level = math.log(percent / 100.0) / math.log(1.2)
 
     if running():
         print(f"  - {LABEL} is running; it would overwrite Preferences on exit "

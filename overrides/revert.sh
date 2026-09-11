@@ -36,7 +36,10 @@ say "Removing theme symlinks"
 rm -f ~/.config/omarchy/themes/omarchy-cllpse-theme-dark ~/.config/omarchy/themes/omarchy-cllpse-theme-light
 
 say "Removing window-switcher plugin symlink"
+# Both names: io.eject.window-switcher is what apply.sh linked before the
+# manifest id changed, and a machine applied at that time still has it.
 [[ -L ~/.config/omarchy/plugins/cllpse.window-switcher ]] && rm -f ~/.config/omarchy/plugins/cllpse.window-switcher
+[[ -L ~/.config/omarchy/plugins/io.eject.window-switcher ]] && rm -f ~/.config/omarchy/plugins/io.eject.window-switcher
 
 say "Removing xkb us-danish-letters symbols file"
 rm -f ~/.config/xkb/symbols/us-danish-letters
@@ -85,6 +88,14 @@ if [[ -d $HERE/environment.d ]]; then
     [[ -e $t ]] && { rm -f "$t"; say "removed $(basename "$f")"; }
   done
 fi
+# Drop-ins this repo shipped once and no longer does. The loop above walks the
+# REPO directory, so a file deleted from the repo is invisible to it and the
+# installed copy would survive a revert. Keep this list in step with the
+# matching one in apply.sh step 7c.
+for f in 10-cllpse-macos-font-rendering.conf; do
+  t=~/.config/environment.d/$f
+  [[ -e $t ]] && { rm -f "$t"; say "removed retired drop-in $f"; }
+done
 
 strip_fenced ~/.config/ghostty/config
 strip_fenced ~/.config/hypr/hyprland.lua
@@ -93,6 +104,27 @@ strip_fenced ~/.config/hypr/bindings.lua
 strip_fenced ~/.config/hypr/input.lua
 strip_fenced ~/.bashrc
 strip_fenced ~/.config/git/config
+# Chromium's device-pixel-ratio flag (apply.sh step 7d). Omitting this left
+# --force-device-scale-factor=1 in place after a full revert, so the browser UI
+# stayed at 0.8x forever with nothing in the repo still pointing at the cause.
+strip_fenced ~/.config/chromium-flags.conf
+
+# The other half of that pair: page zoom. Same rule as the font — put back what
+# was recorded at first apply, and with nothing recorded clear the key rather
+# than inventing a zoom, which hands the setting back to Chromium's own default.
+# Skipped entirely if Chromium is running; the script says so and changes
+# nothing, since Chromium rewrites Preferences from memory when it exits.
+if [[ -x $HERE/chromium/default-zoom.py ]]; then
+  if [[ -s $STATE/previous-chromium-zoom ]]; then
+    prev_zoom="$(<"$STATE/previous-chromium-zoom")"
+    say "restoring Chromium default page zoom: ${prev_zoom}%"
+    "$HERE/chromium/default-zoom.py" "$prev_zoom" || true
+    rm -f "$STATE/previous-chromium-zoom"
+  else
+    say "clearing Chromium default page zoom (its own default applies)"
+    "$HERE/chromium/default-zoom.py" --reset || true
+  fi
+fi
 
 restore ~/.config/bat/config
 restore ~/.config/lazygit/config.yml
@@ -156,8 +188,11 @@ if [[ -f $shell_json ]]; then
   prev_layout=""
   [[ -s $STATE/previous-bar-layout ]] && prev_layout="$(<"$STATE/previous-bar-layout")"
   _shell=$(mktemp)
-  if jq --arg id cllpse.window-switcher --arg prev "$prev_bar" --arg layout "$prev_layout" '
-        .plugins = ((.plugins // []) | map(select(.id != $id)))
+  if jq --arg id cllpse.window-switcher --arg old io.eject.window-switcher \
+        --arg prev "$prev_bar" --arg layout "$prev_layout" '
+        # Both ids: the plugin declared io.eject.window-switcher before the
+        # rename, and apply.sh is the only thing that ever put either there.
+        .plugins = ((.plugins // []) | map(select(.id != $id and .id != $old)))
         | if $prev == "" then . else .bar.transparent = ($prev == "true") end
         | if $layout == "" then . else
             ($layout | fromjson) as $l

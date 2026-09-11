@@ -118,6 +118,16 @@ ln -sfn "$REPO/omarchy-cllpse-theme/omarchy-cllpse-theme-light" ~/.config/omarch
 
 say "Linking the window-switcher plugin into ~/.config/omarchy/plugins/"
 mkdir -p ~/.config/omarchy/plugins
+# Legacy folder name, from before the manifest id became cllpse.window-switcher.
+# Must go, not merely be superseded: both links point at the SAME repo folder,
+# so leaving it behind registers one manifest id under two plugin directories --
+# two HUD instances, each registering the same "cllpse-switcher" global shortcut
+# appid and each answering next/prev/commit. Removed only if it is a symlink, so
+# an unrelated real directory of that name is never touched.
+if [[ -L ~/.config/omarchy/plugins/io.eject.window-switcher ]]; then
+  rm -f ~/.config/omarchy/plugins/io.eject.window-switcher
+  skip "removed the legacy io.eject.window-switcher plugin link"
+fi
 ln -sfn "$REPO/omarchy-cllpse-switcher" ~/.config/omarchy/plugins/cllpse.window-switcher
 
 # ── 2. fonts ─────────────────────────────────────────────────────────────────
@@ -202,7 +212,13 @@ sync_fenced ~/.config/hypr/input.lua     "$HERE/hypr/input-tuning.lua"
 #                            added/changed
 #   keybind-allowlist.conf  seeded from -current once, then yours -- delete
 #                            a line to have the next apply unbind it;
-#                            apply.sh never rewrites it again once it exists
+#                            apply.sh never rewrites it again once it exists.
+#                            It is TRACKED IN GIT and therefore already exists
+#                            in a fresh clone, so the seeding never runs there
+#                            and a second machine is diffed against the
+#                            author's bind set rather than its own. Delete it
+#                            and re-apply to seed from this machine instead;
+#                            the file's own header covers the consequences.
 CURRENT="$HERE/hypr/keybind-current.conf"
 ALLOWLIST="$HERE/hypr/keybind-allowlist.conf"
 
@@ -225,7 +241,12 @@ else
   rm -f "$tmp"
 
   if [[ -e $ALLOWLIST ]]; then
-    skip "keybind-allowlist.conf already exists — not reseeding (edit it directly to prune)"
+    # Note this ALWAYS fires on a fresh clone: the allowlist is tracked in git,
+    # so it exists before the first apply and the seeding branch below is
+    # unreachable until someone deletes it. That means a second machine is
+    # diffed against the author's bind set, not its own — see the file's header.
+    skip "keybind-allowlist.conf already exists — not reseeding (edit it directly to prune,"
+    skip "  or delete it and re-apply to reseed from this machine's own scan)"
   else
     say "seeding keybind-allowlist.conf from keybind-current.conf"
     {
@@ -376,11 +397,6 @@ ln -sfn "$HERE/hooks/theme-set.d/starship-colors.sh" ~/.config/omarchy/hooks/the
 backup ~/.config/starship.toml
 "$HERE/hooks/theme-set.d/starship-colors.sh" || skip "starship-colors.sh produced nothing this run — left ~/.config/starship.toml untouched"
 
-# hunk — the one tool here that cannot use the terminal palette (its validator
-# takes hex only, and every built-in theme is a bundled Shiki theme), so its
-# colours are BAKED from the active colors.toml on every theme-set, the same
-# hook mechanism starship uses above. The hook writes config.toml whole, so
-# back it up once before the first run.
 # Cursor's window chrome, repainted from Omarchy's own generated VS Code theme
 # so the editor frame matches every other window instead of wearing Bearded's
 # greys. Chrome only — the editor pane and syntax stay Bearded. Hook, because
@@ -403,6 +419,11 @@ if command -v yazi >/dev/null 2>&1; then
   "$HERE/hooks/theme-set.d/yazi-syntax.sh" || skip "yazi-syntax.sh produced nothing this run — left the .tmTheme untouched"
 fi
 
+# hunk — the one tool here that cannot use the terminal palette (its validator
+# takes hex only, and every built-in theme is a bundled Shiki theme), so its
+# colours are BAKED from the active colors.toml on every theme-set, the same
+# hook mechanism starship uses above. The hook writes config.toml whole, which
+# is why it is backed up once before the first run.
 if command -v hunk >/dev/null 2>&1; then
   say "hunk -> ~/.config/omarchy/hooks/theme-set.d/hunk-colors.sh"
   mkdir -p ~/.config/omarchy/hooks/theme-set.d ~/.config/hunk
@@ -524,6 +545,21 @@ fi
 # Read by the systemd user session (uwsm starts Hyprland through it), so these
 # survive application updates in a way a wrapper script inside an app directory
 # does not. Applies from the next login.
+#
+# Drop-ins this repo no longer ships, by name. Both the install loop below and
+# revert.sh iterate the REPO directory, so a file deleted from the repo becomes
+# invisible to both and the installed copy lives on forever -- which is exactly
+# what happened to the FreeType stem-darkening drop-in: removing it from the
+# repo changed nothing on any machine that had already applied, and the session
+# kept exporting FREETYPE_PROPERTIES with no line in the repo to explain it.
+# Same idiom as the legacy fontconfig names in step 2.
+for _stale in 10-cllpse-macos-font-rendering.conf; do
+  if [[ -e ~/.config/environment.d/$_stale ]]; then
+    rm -f ~/.config/environment.d/"$_stale"
+    skip "removed retired drop-in $_stale  (takes effect on next login)"
+  fi
+done
+
 if [[ -d "$HERE/environment.d" ]]; then
   say "environment.d drop-ins -> ~/.config/environment.d/"
   mkdir -p ~/.config/environment.d
@@ -561,9 +597,17 @@ fi
 
 # There is no command-line flag for default page zoom — see the script header
 # for what was checked and for the log-scale the preference is stored in.
+#
+# Recorded before it is changed, on the same terms as the font and the theme
+# above: revert.sh restores what this machine had rather than picking a zoom of
+# its own, and a value that already matches what we are about to write is
+# refused so a re-run can't turn revert into a no-op.
 if [[ -x "$HERE/chromium/default-zoom.py" ]]; then
-  say "Chromium default page zoom -> ${CLLPSE_CHROMIUM_ZOOM:-110}%"
-  "$HERE/chromium/default-zoom.py" "${CLLPSE_CHROMIUM_ZOOM:-110}" || true
+  _zoom="${CLLPSE_CHROMIUM_ZOOM:-110}"
+  record_prior "$STATE/previous-chromium-zoom" \
+    "$("$HERE/chromium/default-zoom.py" --print 2>/dev/null || true)" "$_zoom"
+  say "Chromium default page zoom -> ${_zoom}%"
+  "$HERE/chromium/default-zoom.py" "$_zoom" || true
 fi
 
 # ── 7f. Flat app icons for the menu ──────────────────────────────────────────
@@ -633,8 +677,11 @@ ln -sfn "$HERE/hooks/post-update.d/cllpse-macos-repair.sh" \
 #                     plugin from this array, keyed by the manifest id (the
 #                     folder name is cosmetic). Without the entry the plugin
 #                     sits there and the HUD never loads, with nothing to say so.
-#   bar.transparent   Omarchy ships false; the macOS look wants the bar reading
-#                     the wallpaper through the shell's background-alpha.
+#   bar.transparent   Omarchy ships false. This hands the bar's background to
+#                     the theme's [bar] background-alpha instead of the shell
+#                     painting its own — which currently changes nothing on
+#                     screen, since shell.bar.toml ships alpha 1.0, but is what
+#                     any future translucent bar needs in place first.
 #   bar.layout        the widget set and its order, from omarchy/shell-bar.json.
 #   bar.centerAnchor  which center widget is pinned to the true screen centre.
 #   disabledPlugins   first-party non-widget plugins to turn off.
@@ -670,6 +717,11 @@ ln -sfn "$HERE/hooks/post-update.d/cllpse-macos-repair.sh" \
 # does not.
 shell_json=~/.config/omarchy/shell.json
 switcher_id=cllpse.window-switcher
+# The id this plugin's manifest used to declare. Omarchy enables a third-party
+# plugin iff its id appears anywhere in shell.json, so an entry left over from
+# an earlier apply keeps a plugin "enabled" that no longer exists under that
+# name. Dropped alongside the legacy symlink removed in step 1.
+switcher_id_legacy=io.eject.window-switcher
 bar_json="$HERE/omarchy/shell-bar.json"
 if [[ ! -f $shell_json ]]; then
   skip "no $shell_json — skipped the switcher enable, bar transparency and layout"
@@ -677,12 +729,13 @@ elif [[ ! -f $bar_json ]]; then
   skip "no $bar_json — skipped the shell.json writes"
 else
   _want=$(mktemp)
-  if jq --arg id "$switcher_id" --slurpfile bar "$bar_json" '
+  if jq --arg id "$switcher_id" --arg old "$switcher_id_legacy" --slurpfile bar "$bar_json" '
         $bar[0] as $b
         # The live tray entry, wherever it currently sits, for its pinned/hidden.
         | ([ (.bar.layout // {}) | .[]? | .[]? ]
            | map(select(.id == "omarchy.tray")) | first) as $tray
         | .plugins = ((.plugins // [])
+            | map(select(.id != $old))
             | if any(.id == $id) then . else . + [{ id: $id }] end)
         | .bar.transparent = true
         | .bar.centerAnchor = $b.bar.centerAnchor
@@ -701,8 +754,14 @@ else
     record_prior "$STATE/previous-bar-layout" \
       "$(jq -cS "$_subset" "$shell_json" 2>/dev/null || true)" \
       "$(jq -cS "$_subset" "$_want" 2>/dev/null || true)"
+    # NOT `.bar.transparent // empty`. jq's `//` treats FALSE as absent, so that
+    # form emits nothing for the one value that actually needs recording --
+    # Omarchy ships transparent = false, so on a stock machine record_prior got
+    # an empty string, refused it, and revert.sh was left with nothing to put
+    # back and no way to tell the bar was ever opaque. Test against null
+    # explicitly and stringify, so false records as "false".
     record_prior "$STATE/previous-bar-transparent" \
-      "$(jq -r '.bar.transparent // empty' "$shell_json" 2>/dev/null || true)" "true"
+      "$(jq -r '.bar.transparent | if . == null then empty else tostring end' "$shell_json" 2>/dev/null || true)" "true"
 
     if jq -e --slurpfile want "$_want" '. == $want[0]' "$shell_json" >/dev/null 2>&1; then
       skip "shell.json already has the switcher, transparent bar, layout and disabled plugins"
@@ -750,8 +809,31 @@ case "$current_theme" in
     ;;
 esac
 
-restored_bg="$HOME/.local/state/omarchy/current/theme/backgrounds/$prev_bg"
-if [[ -n $prev_bg && -f $restored_bg ]]; then
+# Look in BOTH directories choose_theme_background enumerates, not just the
+# theme's own. omarchy-theme-set builds its list from
+# ~/.config/omarchy/backgrounds/<theme>/ as well as the staged theme's
+# backgrounds/, and the user-level one sorts FIRST, so it is where a wallpaper
+# dropped in by hand actually lives. Checking only the staged copy meant such a
+# wallpaper never matched, the restore was skipped in silence, and every apply
+# walked the background forward by one -- the exact behaviour this block exists
+# to prevent. User-level first, mirroring that sort order.
+now_theme="$(cat ~/.local/state/omarchy/current/theme.name 2>/dev/null || true)"
+_cands=()
+# Only reachable with a theme name; the staged copy below needs none.
+if [[ -n $now_theme ]]; then
+  _cands+=("$HOME/.config/omarchy/backgrounds/$now_theme/$prev_bg")
+fi
+_cands+=("$HOME/.local/state/omarchy/current/theme/backgrounds/$prev_bg")
+
+restored_bg=""
+if [[ -n $prev_bg ]]; then
+  for _cand in "${_cands[@]}"; do
+    [[ -f $_cand ]] || continue
+    restored_bg="$_cand"; break
+  done
+fi
+
+if [[ -n $restored_bg ]]; then
   if [[ "$(current_bg_name)" != "$prev_bg" ]]; then
     omarchy theme bg set "$restored_bg" >/dev/null 2>&1 || true
     skip "kept the current background ($prev_bg)"
