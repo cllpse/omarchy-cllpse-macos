@@ -49,22 +49,30 @@ the TUI/theme/package installers) run
 `setsid uwsm-app -- xdg-terminal-exec --app-id=org.omarchy.terminal` -- so the
 window is whatever `~/.config/xdg-terminals.list` names first, **ghostty here,
 not foot**, despite the floating-terminal window rules living in
-`default/hypr/apps/terminals.lua`. Measured: those windows steal focus at map
-time, and setting `focus_on_activate = false` changed nothing for them -- which
-is the cleanest available proof that the two mechanisms really are separate.
-`overrides/hypr/looknfeel-decoration.lua` therefore carries
-`o.window("org.omarchy.terminal", { no_initial_focus = true })`.
+`default/hypr/apps/terminals.lua`. Those windows also took focus on **hover**, which is a
+third thing again and the one that actually bit here.
 
-**`no_focus` and `no_initial_focus` are different rules and picking the wrong one
-bricks the window.** Hyprland has both (confirmed in the binary's rule-name
-table). `no_focus` makes a window permanently unfocusable; `no_initial_focus`
-only declines the grab at map time, leaving it clickable afterwards. Omarchy uses
-the harsher `no_focus`, but only on empty-class XWayland drag artifacts
-(`windows.lua:18`), where nothing is ever typed. On an interactive gum prompt
-asking for a name and URL, `no_focus` would mean never being able to type into
-it. The cost of the gentler rule is still real: every installer prompt sharing
-that class -- package, AUR, theme, TUI, web app -- now opens unfocused and needs
-a click first.
+**Three different behaviours get called "auto-focus", and they have three
+different levers.** Worth keeping straight, because two of them were tried
+against a hover problem and neither did anything:
+
+| behaviour | lever | scope |
+|---|---|---|
+| an already-running app asks to be raised | `misc:focus_on_activate` | global |
+| a new window takes focus when it maps | `no_initial_focus` (per-window; `no_focus` is the harsher "never focusable") | per-window only, no global switch |
+| focus follows the pointer | `input:follow_mouse`, and per-window `no_follow_mouse` | both |
+
+The prompt windows needed the third. `input.lua` already sets
+`follow_mouse = 2` (pointer focus detached from keyboard focus) and every global
+knob reads the way click-to-focus wants -- `mouse_refocus` false,
+`focus_on_close` 0, `focus_on_activate` false -- yet these particular windows
+still followed the pointer. Hyprland's per-window `no_follow_mouse` is the
+escape hatch; Omarchy reaches for the same rule for the JetBrains IDEs
+(`apps/jetbrains.lua`), which have the same complaint.
+`overrides/hypr/looknfeel-decoration.lua` applies it to
+`^(org\.omarchy\..*|TUI\..*)$` -- Omarchy's own prompt app-ids, rather than
+the whole `floating-window` tag, which also carries imv, mpv, Evince and the
+Nautilus previewer.
 
 **Window opacity runs through a tag.** `windows.lua` tags every window
 `+default-opacity`, per-app files under `default/hypr/apps/` strip that tag from
