@@ -257,13 +257,69 @@ Item {
   // class simply is not found here and the tile keeps its glyph -- drop a second
   // copy named for the class if you want it in both places.
   //
-  // Existence is not tested up front: Image reports status Image.Error for a
-  // missing file, and the delegate falls back to the glyph on anything that is
-  // not Image.Ready. That covers a machine where apply.sh never ran, an empty
-  // fallbacks/ directory, and a name mismatch, with no stat() per tile.
-  function flatIconBase(cls) {
+  // Icon index: one directory listing at launch, cached for the session.
+  //
+  // Existence used to be probed per tile -- two Images per mark, .svg then
+  // .png, whichever reported Image.Ready won. That cost two failed opens per
+  // tile on every rebuild for any app without a drop-in (the journal filled
+  // with "Cannot open" from it), and it made the delegate's STRUCTURE depend on
+  // Image.status.
+  //
+  // That dependency is what aborted the shell, four times. QQuickImageBase::
+  // itemChange reloads an Image on any device-pixel-ratio change --
+  // unconditionally, qquickimagebase.cpp:426, under the comment "If the screen
+  // DPI changed, reload image" -- and Qt delivers that change by recursing the
+  // item tree from QQuickWindow::physicalDpiChanged. So on every HUD unmap,
+  // status left Ready from inside the walk; anything bound to status that owned
+  // a child item tore it down while the walk still held a pointer, and the walk
+  // then called a virtual on freed memory. Nothing here could defer its way out
+  // of it -- the reload is Qt's, not ours (tried in eaecd58, reverted in
+  // 9975332 after three more crashes).
+  //
+  // Resolving paths up front removes the class of problem rather than the
+  // instance: a tile knows whether it has an icon before anything loads, so the
+  // layer and the effect key off a cached bool that no reload can disturb.
+  property var iconIndex: ({})
+
+  function iconFor(cls) {
     var c = String(cls || "").trim()
-    return c.length > 0 ? root.flatIconDir + c : ""
+    if (c.length === 0) return ""
+    var u = root.iconIndex[c]
+    return u === undefined ? "" : u
+  }
+
+  // `ls` directly rather than through a shell: Process runs the argv as given,
+  // so the directory needs no quoting. A missing directory writes to stderr and
+  // leaves stdout empty, which lands as an empty index -- every tile a glyph,
+  // which is exactly the old behaviour on a machine where apply.sh never ran.
+  //
+  // Once per launch. The set only changes when apply.sh runs, and that already
+  // restarts the shell.
+  Process {
+    id: iconScan
+    command: ["ls", "-1", root.flatIconDir]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: root._applyIconIndex(text)
+    }
+  }
+
+  function _applyIconIndex(text) {
+    var idx = {}
+    var lines = String(text || "").split("\n")
+    for (var i = 0; i < lines.length; i++) {
+      var f = lines[i].trim()
+      var dot = f.lastIndexOf(".")
+      if (dot <= 0) continue
+      var ext = f.substring(dot + 1).toLowerCase()
+      if (ext !== "svg" && ext !== "png") continue
+      var base = f.substring(0, dot)
+      // svg wins the tie, for the reason the sync prefers it: Qt rasterises a
+      // vector at the drawn size instead of scaling a bitmap up to it.
+      if (ext === "svg" || idx[base] === undefined)
+        idx[base] = "file://" + root.flatIconDir + f
+    }
+    root.iconIndex = idx
   }
 
   // Friendly app name for the class, shown ahead of the window title as
@@ -419,7 +475,7 @@ Item {
   //    a valuesChanged signal instead deadlocks the already-populated case --
   //    the signal has already been and gone, and the list stays empty forever.
   //    That was a real bug here, not a hypothetical.
-  Component.onCompleted: { Hyprland.refreshToplevels(); root._rebuild() }
+  Component.onCompleted: { iconScan.running = true; Hyprland.refreshToplevels(); root._rebuild() }
 
   // Events that can change the set of windows or their on-screen order. Focus
   // changes are deliberately absent: `activated` already tracks those live, and
@@ -835,7 +891,7 @@ Item {
             // crisp at this size, and it recolours for free on selection. The
             // exception is an app with a hand-placed icon in
             // overrides/icons/fallbacks/, which the menu also uses -- see
-            // flatIconBase() above.
+            // iconFor() above.
             //
             // That PNG is baked at the theme `foreground`, but a selected tile
             // draws in `selected-text` (#007AFF accent in both our themes), so
@@ -853,7 +909,11 @@ Item {
               anchors.horizontalCenter: parent.horizontalCenter
               width: card.iconSize
               height: glyphText.implicitHeight
-              readonly property string flatBase: root.flatIconBase(modelData.cls)
+              // Resolved once from the cached index, never probed. hasIcon is
+              // the only thing the layer, the effect and the glyph below key
+              // off -- deliberately NOT Image.status, see iconFor() above.
+              readonly property string iconUrl: root.iconFor(modelData.cls)
+              readonly property bool hasIcon: mark.iconUrl.length > 0
 
               // Match the INK, not the canvas. app-icons.sh centres each mark in
               // 200 of 256 px, but a text glyph at pixelSize N fills close to N
@@ -883,28 +943,15 @@ Item {
               // renders at 72px, which is upscaling. See CLAUDE.md.
               readonly property int decodePx: Math.ceil(mark.iconBox * Screen.devicePixelRatio)
 
-              // Two probes rather than one: the sync writes .svg or .png
-              // depending on what was dropped in, and Image cannot try a list.
-              // The svg is preferred for the same reason the sync prefers it --
-              // Qt rasterises a vector at the drawn size instead of scaling a
-              // bitmap to it.
-              Image {
-                id: flatSvg
-                source: mark.flatBase.length > 0 ? "file://" + mark.flatBase + ".svg" : ""
-                sourceSize.width: mark.decodePx
-                sourceSize.height: mark.decodePx
-                visible: false
-                asynchronous: true
-              }
-
               Image {
                 id: flatMark
                 anchors.centerIn: parent
                 width: mark.iconBox
                 height: width
-                source: flatSvg.status === Image.Ready
-                  ? flatSvg.source
-                  : (mark.flatBase.length > 0 ? "file://" + mark.flatBase + ".png" : "")
+                // The index already picked the extension, so there is one Image
+                // per mark and no probe. Empty for a class with no drop-in,
+                // which loads nothing at all.
+                source: mark.iconUrl
                 // sourceSize is REQUIRED here, and for a reason that differs by
                 // format. For a raster it selects the decode resolution, and
                 // leaving it unset simply uses the file's own (256px) -- fine.
@@ -919,31 +966,25 @@ Item {
                 fillMode: Image.PreserveAspectFit
                 asynchronous: true
                 // Kept as a hidden layer so the effect can sample it as a
-                // texture. UNCONDITIONAL, deliberately: do NOT bind this to
-                // flatMark.status.
+                // texture -- but only on tiles that HAVE one, so a glyph-only
+                // tile costs no FBO and no extra render pass. Measured against
+                // a live window set: chromium and ghostty resolve, cursor, the
+                // omarchy agent and the screensaver do not, so roughly half the
+                // strip was paying for a layer it never sampled.
                 //
-                // A conditional layer saves an FBO and a render pass on every
-                // glyph-only tile, which is why this was briefly
-                // `flatMark.status === Image.Ready` (d41db12), mirroring
-                // Omarchy's Tray.qml:786. It also crashed the shell. decodePx
-                // above binds to Screen.devicePixelRatio, so Qt's own DPR
-                // propagation (QQuickWindow::physicalDpiChanged ->
-                // updatePixelRatioHelper) re-evaluates sourceSize WHILE it is
-                // recursing this very subtree: the Images reload, status
-                // leaves Ready, and the layer plus the MultiEffect's internal
-                // items are destroyed underneath the walk -- which then calls
-                // a virtual on a freed QQuickItem. "pure virtual method
-                // called", SIGABRT. It fired on every HUD close on the
-                // 1.25-scaled DP-2 (three crashes, 2026-09-08). A permanent
-                // layer destroys nothing mid-walk.
+                // Keyed on hasIcon, not on status. status is not stable across a
+                // DPR change -- Qt reloads the Image from inside the item-tree
+                // walk -- and a layer destroyed mid-walk is what aborted the
+                // shell. hasIcon comes from the cached index and cannot move
+                // while the walk runs.
                 visible: false
-                layer.enabled: true
+                layer.enabled: mark.hasIcon
               }
 
               MultiEffect {
                 anchors.fill: flatMark
                 source: flatMark
-                visible: flatMark.status === Image.Ready
+                visible: mark.hasIcon
                 colorization: 1.0
                 colorizationColor: cell.sel ? Color.menu.selectedText : Color.menu.text
               }
@@ -951,9 +992,10 @@ Item {
               Text {
                 id: glyphText
                 anchors.centerIn: parent
-                // Also covers a missing or unreadable PNG: if apply.sh step 7f
-                // never ran, every tile simply stays a glyph.
-                visible: flatMark.status !== Image.Ready
+                // Covers apply.sh step 7f never having run, an empty
+                // fallbacks/ directory and a name mismatch alike: all three
+                // leave the class out of the index, so every tile stays a glyph.
+                visible: !mark.hasIcon
                 text: root.glyphFor(modelData.cls)
                 textFormat: Text.PlainText
                 font.family: Style.font.menuFamily
