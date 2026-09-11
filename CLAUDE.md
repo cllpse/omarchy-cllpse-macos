@@ -598,6 +598,14 @@ Electron, so it inherits Chromium's ignoring of `FREETYPE_PROPERTIES` (see the
 Chromium entry under *traps*). Comic Code renders thinner in Cursor than in
 Ghostty for that reason, and no setting closes the gap.
 
+Comic Code is the **editor** font only. `terminal.integrated.fontFamily`
+defaults to `editor.fontFamily`, so without a key of its own the integrated
+terminal picks up Comic Code too; it is pinned to `monospace` instead. The
+generic rather than a literal face, so the terminal keeps tracking whatever
+`omarchy font set` points at (SF Mono here) rather than being frozen to it.
+`terminal.integrated.fontWeight` needs no entry — it defaults to `normal` and
+does *not* inherit the editor's 600.
+
 Ghostty's `font-size = 14` is a terminal size and was not copied.
 `editor.fontSize` (15) stays: it is a user preference with no Omarchy equivalent.
 Only Cursor is handled; VS Code / VSCodium would each need their own merge.
