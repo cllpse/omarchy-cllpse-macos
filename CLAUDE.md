@@ -553,6 +553,41 @@ Cursor's registry defines it as an alpha of `tab.hoverBorder`. Transparent rathe
 slot back to Bearded instead of clearing it. VS Code reads 8-digit `#RRGGBBAA`,
 which Omarchy's own generated file already relies on for its `#007AFF20` washes.
 
+**Shadows are off across the board, and `widget.shadow` is the one that matters.**
+`cursor/settings.json` sets all seven shadow colour ids this build registers to
+`#00000000` -- `widget.shadow`, `scrollbar.shadow`, `editorStickyScroll.shadow`,
+`sideBarStickyScroll.shadow`, `panelStickyScroll.shadow`,
+`listFilterWidget.shadow`, `diffEditor.unchangedRegionShadow` (the last three
+sticky ones are moot anyway, since `editor.stickyScroll.enabled` and
+`workbench.tree.enableStickyScroll` are both false). They go in the
+**unscoped** top level of `workbench.colorCustomizations`, not in the chrome
+hook's per-theme scopes: `setCustomColors` applies the general block first and
+overwrites it with the `[theme]` block, and none of the seven appear in the
+chrome copy, so the two coexist -- and the hook's `+` preserves whatever
+top-level keys are already there. `inlineChat.shadow` is *not* one of them: it
+is in Omarchy's generated file, but Cursor no longer registers it, so the
+`--vscode-inlineChat-shadow` rules resolve to nothing and are already inert.
+
+`widget.shadow` reaches much further than VS Code's own widgets, because
+Cursor's whole shadow palette is derived from it --
+`--cursor-shadow-primary: var(--vscode-widget-shadow)` and
+`--cursor-shadow-secondary/tertiary/workbench` are `color-mix`es of it at
+60/30/40% -- so every `--cursor-box-shadow-{sm,base,lg,xl}` composite collapses
+too. Their `0 0 0 1px var(--vscode-widget-border, …)` hairline ring survives,
+which is what keeps popovers legible with the shadow gone; it is a border, not a
+shadow. (In glass mode those vars are only defined under
+`body:not([data-cursor-glass-mode=true])`, so they are undefined there and the
+composites collapse for a different reason.)
+
+What no colour id can reach is the ~50 hardcoded `rgba(0,0,0,…)` box-shadows in
+Cursor's own React UI -- modals, dropdown menus, the blame hover, the code-block
+copy button, the fullscreen announcement containers. Those need a patch, not a
+setting. Two things are genuinely lost with the shadows: `scrollbar.shadow` was
+the only cue that an editor, list or terminal has content scrolled above the
+fold, and the `inset 0 -1px 0 var(--vscode-widget-shadow)` bottom edge on `kbd`
+chips in rendered markdown and the action widget goes flat (the main keybinding
+labels keep theirs, via `keybindingLabel.bottomBorder`).
+
 One wart — changing a preferred theme leaves the previous scope orphaned in
 `colorCustomizations`; it is inert unless that theme is picked again, and the
 hook does not prune it because it cannot tell its own scopes from a user's.
