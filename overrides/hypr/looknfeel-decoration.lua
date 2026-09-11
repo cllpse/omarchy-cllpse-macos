@@ -136,20 +136,7 @@ o.window(".*[Ff]igma.*", { tag = "-default-opacity", opacity = "1 1" })
 -- The blur showing through an unfocused window is wanted here, not a side
 -- effect to be suppressed -- see the window opacity block above. Set false
 -- explicitly (it is also the Hyprland default) so the choice is on the record.
--- ── Focus stealing: OFF ────────────────────────────────────────────────────
--- misc:focus_on_activate governs whether Hyprland honours an xdg-activation
--- request -- an already-running app asking to be brought to the front. Omarchy
--- ships it TRUE (default/hypr/looknfeel.lua:109), so anything that asks gets
--- the keyboard, mid-keystroke.
---
--- This is a different thing from a brand-new window taking focus when it maps,
--- which Hyprland does by default and which only a per-window `no_focus` rule
--- suppresses. Worth keeping straight: turning this off does NOT stop a freshly
--- opened window from focusing, and the two get conflated constantly.
 hl.config({
-  misc = {
-    focus_on_activate = false,
-  },
   decoration = {
     dim_inactive = false,
     rounding = 18,
@@ -365,23 +352,3 @@ hl.animation({ leaf = "specialWorkspace", enabled = true, speed = 0.86, bezier =
 -- If `omarchy display text size` changes the Ghostty font size, the clean
 -- width changes with the cell metrics -- re-sweep and update the 896.
 hl.window_rule({ match = { tag = "floating-window", class = "org.omarchy.terminal" }, size = { 896, 600 } })
-
--- ── Omarchy's own prompt windows: no hover focus ──────────────────────────
--- The Install/TUI entries in the Omarchy menu open a floating terminal
--- (`omarchy-launch-floating-terminal-with-presentation` ->
--- `xdg-terminal-exec --app-id=org.omarchy.terminal`; ghostty's desktop entry
--- declares `X-TerminalArgAppId=--class=`, so the app-id survives into the
--- class). Moving the pointer across one of these moved focus with it.
---
--- This is NOT the global follow_mouse setting misbehaving. input.lua sets
--- follow_mouse = 2 -- pointer focus detached from keyboard focus -- and every
--- global knob already reads the way click-to-focus wants: mouse_refocus false,
--- focus_on_close 0, focus_on_activate false. Hyprland simply has a per-window
--- escape hatch, `no_follow_mouse`, and these windows needed it. Omarchy reaches
--- for the same rule for the JetBrains IDEs (`apps/jetbrains.lua`), which have
--- the same complaint.
---
--- Scoped to Omarchy's own prompt app-ids rather than the whole `floating-window`
--- tag: that tag also carries imv, mpv, Evince and the Nautilus previewer, where
--- hover focus was never the problem.
-o.window("^(org\\.omarchy\\..*|TUI\\..*)$", { no_follow_mouse = true })

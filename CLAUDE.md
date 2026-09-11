@@ -35,45 +35,6 @@ overrides live in the user files, so they land last and win. `hl.*` is
 Hyprland's native Lua API; `o.*` is Omarchy's helper layer over it
 (`o.window` → `hl.window_rule`), defined in `default/hypr/helpers.lua`.
 
-**Two different things get called "auto-focus", and only one has a global knob.**
-`misc:focus_on_activate` decides whether Hyprland honours an *xdg-activation
-request* -- an already-running app asking to be raised. Omarchy ships it **true**
-(`default/hypr/looknfeel.lua:109`); `overrides/hypr/looknfeel-decoration.lua`
-sets it false. A **new window taking focus when it maps** is separate: Hyprland
-does that by default and only a per-window `no_focus` rule stops it, so turning
-`focus_on_activate` off does nothing for it.
-
-That distinction matters for Omarchy's own menu actions. `install.webapp` (and
-the TUI/theme/package installers) run
-`omarchy-launch-floating-terminal-with-presentation`, which is
-`setsid uwsm-app -- xdg-terminal-exec --app-id=org.omarchy.terminal` -- so the
-window is whatever `~/.config/xdg-terminals.list` names first, **ghostty here,
-not foot**, despite the floating-terminal window rules living in
-`default/hypr/apps/terminals.lua`. Those windows also took focus on **hover**, which is a
-third thing again and the one that actually bit here.
-
-**Three different behaviours get called "auto-focus", and they have three
-different levers.** Worth keeping straight, because two of them were tried
-against a hover problem and neither did anything:
-
-| behaviour | lever | scope |
-|---|---|---|
-| an already-running app asks to be raised | `misc:focus_on_activate` | global |
-| a new window takes focus when it maps | `no_initial_focus` (per-window; `no_focus` is the harsher "never focusable") | per-window only, no global switch |
-| focus follows the pointer | `input:follow_mouse`, and per-window `no_follow_mouse` | both |
-
-The prompt windows needed the third. `input.lua` already sets
-`follow_mouse = 2` (pointer focus detached from keyboard focus) and every global
-knob reads the way click-to-focus wants -- `mouse_refocus` false,
-`focus_on_close` 0, `focus_on_activate` false -- yet these particular windows
-still followed the pointer. Hyprland's per-window `no_follow_mouse` is the
-escape hatch; Omarchy reaches for the same rule for the JetBrains IDEs
-(`apps/jetbrains.lua`), which have the same complaint.
-`overrides/hypr/looknfeel-decoration.lua` applies it to
-`^(org\.omarchy\..*|TUI\..*)$` -- Omarchy's own prompt app-ids, rather than
-the whole `floating-window` tag, which also carries imv, mpv, Evince and the
-Nautilus previewer.
-
 **Window opacity runs through a tag.** `windows.lua` tags every window
 `+default-opacity`, per-app files under `default/hypr/apps/` strip that tag from
 things that must stay opaque (DaVinci Resolve, PiP and webcam overlays, Steam,
