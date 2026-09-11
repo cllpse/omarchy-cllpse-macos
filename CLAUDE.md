@@ -526,9 +526,15 @@ rebuilt from `colors.toml` on every theme-set) into
 `workbench.colorCustomizations`, which sits **above** the active theme and is the
 only lever that reaches this short of forking Bearded. Taking the values from
 Omarchy's generated file rather than re-deriving them from `colors.toml` means
-there is no second derivation to drift. Chrome only — editor pane, widgets, lists
-and terminal stay Bearded; widening it is a matter of adding prefixes to
-`$CHROME` in the hook, since the whole `colors` object is there. The two scopes
+there is no second derivation to drift. Chrome, plus two whole keys in `$EXACT`:
+`editor.background` and `editorGutter.background`, so the editor pane *is* the
+window colour instead of a `#f4f4f4` panel sitting inside a `#FFFFFF` window.
+The gutter must come along — Bearded sets it explicitly to the same grey — while
+`editorPane`, `editorGroup.emptyBackground` and `editorStickyScroll` need no
+entry, since Bearded leaves them unset and VS Code derives them from
+`editor.background` (checked). Widgets, lists, terminal and all syntax stay
+Bearded; widening further is a matter of adding prefixes to `$CHROME` or names to
+`$EXACT`, since the whole `colors` object is there. The two scopes
 are read from `preferredLight/DarkColorTheme` rather than hardcoded, so the
 variant names live in one place. Both scopes get the current palette, which is
 always correct: only one is ever active, and it matches the mode that selected

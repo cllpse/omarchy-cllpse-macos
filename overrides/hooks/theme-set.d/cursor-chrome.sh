@@ -44,6 +44,21 @@ jq -e . "$THEME" >/dev/null 2>&1 || exit 0
 
 CHROME='["titleBar.","activityBar","sideBar","statusBar","editorGroupHeader.","tab.","panel","menu","commandCenter.","toolbar.","banner.","breadcrumb"]'
 
+# Whole-key additions, for surfaces that are not chrome but must agree with it.
+# The editor pane is the big one: Bearded paints it #f4f4f4 against the window's
+# #FFFFFF, so the editor sat as a visible panel inside the window instead of
+# being the window. Taking Omarchy's value makes the editor the window colour.
+#
+# editorGutter.background has to come too -- Bearded sets it explicitly to the
+# same #f4f4f4, so on its own the gutter would stay grey against a white editor.
+# The neighbouring surfaces (editorPane, editorGroup.emptyBackground,
+# editorStickyScroll) need no entry: Bearded leaves them unset and VS Code
+# derives them from editor.background, which is now ours (checked).
+#
+# Widgets, lists, the terminal and syntax stay Bearded -- this is the editor
+# SURFACE, not the editor's contents.
+EXACT='["editor.background","editorGutter.background"]'
+
 # Keys forced on top of whatever Omarchy painted, where its value isn't wanted.
 #
 # tab.activeBorderTop is the accent line drawn ABOVE the active tab (Omarchy
@@ -75,10 +90,11 @@ FORCE='{"tab.activeBorderTop":"#00000000","tab.unfocusedActiveBorderTop":"#00000
 
 
 tmp=$(mktemp)
-if ! jq --slurpfile t "$THEME" --argjson pre "$CHROME" --argjson force "$FORCE" '
+if ! jq --slurpfile t "$THEME" --argjson pre "$CHROME" --argjson exact "$EXACT" --argjson force "$FORCE" '
       . as $set
       | (($t[0].colors // {})
-         | with_entries(select(.key as $k | any($pre[]; . as $p | $k | startswith($p))))
+         | with_entries(select(.key as $k
+             | any($pre[]; . as $p | $k | startswith($p)) or ($exact | index($k) != null)))
          + $force
          | .["tab.hoverBorder"] = (.["tab.activeBorder"] // .["tab.hoverBorder"])) as $chrome
       | ( [ $set["workbench.preferredLightColorTheme"],
