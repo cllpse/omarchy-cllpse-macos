@@ -45,7 +45,7 @@
   "window.controlsStyle": "hidden",
   "json.maxItemsComputed": 0,
   "editor.fontFamily": "'ComicCode Nerd Font', monospace",
-  "editor.fontSize": 15,
+  "editor.fontSize": 14,
   "explorer.compactFolders": false,
   "editor.formatOnSave": true,
   "git.openRepositoryInParentFolders": "never",
