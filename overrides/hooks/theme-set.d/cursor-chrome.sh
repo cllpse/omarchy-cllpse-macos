@@ -64,12 +64,18 @@ CHROME='["titleBar.","activityBar","sideBar","statusBar","editorGroupHeader.","t
 # is deliberately left alone -- only the border was unwanted.
 FORCE='{"tab.activeBorderTop":"#00000000","tab.unfocusedActiveBorderTop":"#00000000","tab.hoverBorder":"#00000000"}'
 
+# Derived afterwards, so it follows whatever the active theme paints rather than
+# being pinned: the active tab's bottom border takes the tab HOVER colour
+# instead of Omarchy's accent (#007AFF), so the selected tab is marked with the
+# same restraint as a hovered one rather than a saturated blue edge.
+
 tmp=$(mktemp)
 if ! jq --slurpfile t "$THEME" --argjson pre "$CHROME" --argjson force "$FORCE" '
       . as $set
       | (($t[0].colors // {})
          | with_entries(select(.key as $k | any($pre[]; . as $p | $k | startswith($p))))
-         + $force) as $chrome
+         + $force
+         | .["tab.activeBorder"] = (.["tab.hoverBackground"] // .["tab.activeBorder"])) as $chrome
       | ( [ $set["workbench.preferredLightColorTheme"],
             $set["workbench.preferredDarkColorTheme"] ] | map(select(type == "string")) ) as $themes
       | if ($themes | length) == 0 or ($chrome | length) == 0 then $set
