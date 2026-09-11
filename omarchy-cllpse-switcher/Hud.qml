@@ -881,7 +881,35 @@ Item {
               // something a per-Image sourceSize can or should pre-compensate
               // for: decoding at 1.25 would draw a 45px image into a region Qt
               // renders at 72px, which is upscaling. See CLAUDE.md.
-              readonly property int decodePx: Math.ceil(mark.iconBox * Screen.devicePixelRatio)
+              //
+              // APPLIED OUT OF BAND, never left bound to the DPR. A live
+              // binding here is what aborted the shell. Qt announces a scale
+              // change by recursing the item tree
+              // (QQuickWindow::physicalDpiChanged -> updatePixelRatioHelper),
+              // and a bound decodePx rewrites sourceSize from inside that walk:
+              // the Images reload, flatMark.status leaves Ready, and whatever
+              // is keyed on status -- the layer below, the MultiEffect -- is
+              // torn down while the walk still holds pointers into it. The walk
+              // then calls a virtual on a freed QQuickItem. "pure virtual
+              // method called", SIGABRT, four times on 2026-09-08.
+              //
+              // The binding below produces the first value and is then dropped
+              // by the Component.onCompleted assignment -- same value, so
+              // nothing reloads. Every later change re-applies through
+              // Qt.callLater, which pushes the write past the end of the
+              // current call stack, so it lands after the walk has finished
+              // instead of during it. Same idiom Omarchy uses in its agents
+              // Panel.qml for the same class of reentrancy.
+              //
+              // iconBox is deferred too. It does not depend on the DPR today,
+              // but it feeds the same sourceSize, and routing both through one
+              // path means a future change to card.iconSize cannot reopen this.
+              readonly property real dpr: Screen.devicePixelRatio
+              property int decodePx: Math.ceil(mark.iconBox * mark.dpr)
+              function applyDecodePx() { mark.decodePx = Math.ceil(mark.iconBox * mark.dpr) }
+              Component.onCompleted: mark.applyDecodePx()
+              onDprChanged: Qt.callLater(mark.applyDecodePx)
+              onIconBoxChanged: Qt.callLater(mark.applyDecodePx)
 
               // Two probes rather than one: the sync writes .svg or .png
               // depending on what was dropped in, and Image cannot try a list.
@@ -919,25 +947,30 @@ Item {
                 fillMode: Image.PreserveAspectFit
                 asynchronous: true
                 // Kept as a hidden layer so the effect can sample it as a
-                // texture. UNCONDITIONAL, deliberately: do NOT bind this to
-                // flatMark.status.
+                // texture -- but only while there IS a texture to sample. Most
+                // windows have no drop-in and fall back to the glyph below, and
+                // an unconditional layer allocates an FBO and an extra render
+                // pass per tile for an Image that never draws anything.
                 //
-                // A conditional layer saves an FBO and a render pass on every
-                // glyph-only tile, which is why this was briefly
-                // `flatMark.status === Image.Ready` (d41db12), mirroring
-                // Omarchy's Tray.qml:786. It also crashed the shell. decodePx
-                // above binds to Screen.devicePixelRatio, so Qt's own DPR
-                // propagation (QQuickWindow::physicalDpiChanged ->
-                // updatePixelRatioHelper) re-evaluates sourceSize WHILE it is
-                // recursing this very subtree: the Images reload, status
-                // leaves Ready, and the layer plus the MultiEffect's internal
-                // items are destroyed underneath the walk -- which then calls
-                // a virtual on a freed QQuickItem. "pure virtual method
-                // called", SIGABRT. It fired on every HUD close on the
-                // 1.25-scaled DP-2 (three crashes, 2026-09-08). A permanent
-                // layer destroys nothing mid-walk.
+                // Bound to the same condition as the MultiEffect that consumes
+                // it, which is the idiom Omarchy's own Tray.qml uses
+                // (`visible: !symbolic` / `layer.enabled: symbolic`, Tray.qml
+                // :786): the layer exists exactly when the effect samples it.
+                //
+                // Pinned to `true` for two days after this binding crashed the
+                // shell (190bb9a). That was the wrong end to fix it: the fault
+                // was never the status condition, it was decodePx rewriting
+                // sourceSize from inside Qt's DPR walk -- see the note above,
+                // which now defers that write. With nothing mutating mid-walk
+                // the condition is safe again and the FBO saving comes back.
+                //
+                // Which is worth more here than the original note assumed:
+                // checked against the live window set, NOT ONE open class had a
+                // drop-in icon (chromium, ghostty, cursor, omarchy-agent all
+                // miss), so `true` was allocating a layer for every tile on
+                // screen and sampling none of them.
                 visible: false
-                layer.enabled: true
+                layer.enabled: flatMark.status === Image.Ready
               }
 
               MultiEffect {
