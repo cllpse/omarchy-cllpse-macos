@@ -125,6 +125,14 @@ say "Installing SF fonts -> ~/.local/share/fonts/SF/"
 mkdir -p ~/.local/share/fonts/SF
 cp -u "$HERE"/fonts/*.otf ~/.local/share/fonts/SF/
 
+# Comic Code, the editor font cursor/settings.json names. Kept in its own
+# subdirectory rather than beside the SF faces, because the step above globs
+# fonts/*.otf into ~/.local/share/fonts/SF/ and these are not SF -- the subdir
+# keeps them out of that glob and out of that directory.
+say "Installing Comic Code -> ~/.local/share/fonts/ComicCode/"
+mkdir -p ~/.local/share/fonts/ComicCode
+cp -u "$HERE"/fonts/comic-code/*.otf ~/.local/share/fonts/ComicCode/
+
 say "Installing fontconfig drop-ins -> ~/.config/fontconfig/conf.d/"
 mkdir -p ~/.config/fontconfig/conf.d
 rm -f ~/.config/fontconfig/conf.d/99-sf-pro.conf     # legacy name

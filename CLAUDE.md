@@ -576,10 +576,21 @@ Cursor's own default stack ends in `monospace`, which fontconfig resolves to SF
 Mono (from `omarchy font set`), so a machine **without** Comic Code lands exactly
 where it did before this key existed rather than on some arbitrary fallback —
 which is the state of this machine, where `fc-list` finds no Comic Code at all.
-The font is **not** vendored here: the `.otf`s live in the dotfiles repo, Comic
-Code is commercial, and this repo is on a public remote (see THIRD-PARTY.md).
+The two `.otf`s **are** vendored, in `overrides/fonts/comic-code/`, and
+installed by `apply.sh` to `~/.local/share/fonts/ComicCode/` - a subdirectory
+because the SF step globs `fonts/*.otf` into `~/.local/share/fonts/SF/` and
+these are not SF. Comic Code is commercial and this repo has a public remote, so
+it is listed in THIRD-PARTY.md alongside the Apple faces.
 Omarchy never writes a font key into Cursor — `omarchy-theme-set-vscode` only
 touches `colorTheme` — so nothing competes for it.
+
+**`fc-match` is not a usable probe on this machine - it reports SF for
+everything.** Checked: `fc-match "JetBrainsMono Nerd Font"` returns *SF Mono*,
+for a font that is installed and working. The strong-binding prepends in
+`99-cllpse-macos-ui-font.conf` and Omarchy's `50-omarchy.conf` put an SF face in
+front of every pattern, so first place is SF whatever you ask for. Use
+`fc-list :family="..."` to answer "is it installed", or `fc-match -s` and look
+at rank 2, which is where the family you actually asked for shows up.
 
 Ghostty's `font-thicken` / `font-thicken-strength` have **no** Cursor
 counterpart, and neither does the `environment.d` stem darkening: Cursor is

@@ -19,6 +19,23 @@ here are additionally patched derivatives.
 
 Obtain them from Apple directly: <https://developer.apple.com/fonts/>
 
+## Comic Code - `overrides/fonts/comic-code/` (2 `.otf`, ~4.4 MB)
+
+`ComicCodeNerdFont-SemiBold.otf` and `-Bold.otf`, the editor font
+`overrides/cursor/settings.json` names. Nerd Fonts-patched derivatives of Comic
+Code.
+
+Comic Code is a **commercial** typeface by Toshi Omagari, sold through
+<https://tosche.net/fonts/comic-code>. Its license does not grant
+redistribution, and these files are additionally patched derivatives. They are
+here because this repo is the install mechanism, not because the license allows
+it - buy your own copy.
+
+`apply.sh` installs them to `~/.local/share/fonts/ComicCode/`; `revert.sh`
+removes that directory. Deleting the two files is enough to opt out - the font
+stack in `cursor/settings.json` ends in `monospace`, so Cursor falls back to SF
+Mono on its own.
+
 ## Wallpapers — `omarchy-cllpse-theme/*/backgrounds/` (~128 MB)
 
 Stock macOS wallpapers (Big Sur, Monterey, Sonoma, Sequoia and others), plus
