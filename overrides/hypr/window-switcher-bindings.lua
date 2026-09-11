@@ -84,6 +84,18 @@ o.bind("SUPER + mouse:272", "Window switcher: focus tile, else move window", fun
     -- button is, so the HUD tracks the pointer itself and answers this with
     -- commit over the card, dismiss outside it.
     ws_exec("click")
+
+    -- The strip is down either way: BOTH branches the plugin can take here end
+    -- in dismiss() (commit() calls it too). So stop watching now rather than
+    -- waiting for SUPER to come up.
+    --
+    -- Leaving it true was a real bug: this flag is the only thing the bind has
+    -- to decide click-vs-drag, so after clicking away with SUPER still held,
+    -- every further SUPER + left-click kept dispatching "click" to a closed HUD
+    -- -- which ignores it -- and the stock "Move window" drag never ran. It
+    -- also stops the release poll firing a pointless "commit" at a strip that
+    -- has already gone.
+    ws_watching = false
   else
     -- Built per press rather than cached at load: a dispatcher value held
     -- across invocations is one more thing that has to be re-entrant, and the

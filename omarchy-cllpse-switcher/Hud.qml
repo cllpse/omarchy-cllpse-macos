@@ -70,6 +70,16 @@ Item {
   //
   // The bind asks for "click" and this decides what that means: over the card,
   // commit; outside it, dismiss.
+  //
+  // Kept honest across opens, which needs three writers rather than one.
+  // onPositionChanged alone is not enough because it only fires on MOTION: a
+  // strip that maps under a cursor already resting on the card would still read
+  // false and dismiss on a click aimed at a tile, and a `true` left over from a
+  // previous open survives every pointer move made while the surface was
+  // unmapped (`visible: root.opened` means no events are delivered then), so
+  // the next open could commit to a tile the pointer is nowhere near. Hence:
+  // cleared on every open in _openStepped(), recomputed from mouseX/mouseY the
+  // moment the pointer enters, and tracked by motion after that.
   property bool pointerInCard: false
 
   // ── Most-recently-used, for back-and-forth ──────────────────────────────────
@@ -154,7 +164,12 @@ Item {
     onPressed: root.open('{"action":"commit"}')
   }
 
-  readonly property string pluginId: (manifest && manifest.id) || "io.eject.window-switcher"
+  // Must match manifest.json's `id`. The fallback is only reached if the panel
+  // loader hands this plugin no manifest, and a WRONG id there fails silently:
+  // shell.hide() is given a name the shell does not know, so its panel
+  // bookkeeping never learns the HUD closed, while `visible: root.opened`
+  // hides the window anyway and nothing looks broken.
+  readonly property string pluginId: (manifest && manifest.id) || "cllpse.window-switcher"
 
   function open(payloadJson) {
     var action = "next"
@@ -188,6 +203,17 @@ Item {
         root.listPending = true
         root.pendingCommit = false
         Hyprland.refreshToplevels()
+        // The rebuild has to be SCHEDULED, not waited for. refreshToplevels()
+        // rewrites each lastIpcObject in place and leaves the values array
+        // alone, so valuesChanged only fires when the refresh POPULATES a list
+        // that was empty. The other cold shape -- values already present but
+        // their lastIpcObject not yet filled, the case _rebuild()'s own comment
+        // describes -- emits nothing at all, and without this timer nothing
+        // ever calls _rebuild() again: listPending stays true, which blocks
+        // every later press from refreshing, and the strip is dead until an
+        // unrelated compositor event happens to fire refreshDebounce.
+        // Same pairing refreshDebounce already uses below.
+        rebuildAfterRefresh.restart()
       }
       return
     }
@@ -264,10 +290,11 @@ Item {
     var g = 0xf108 // desktop (generic fallback)
     if (has("ghostty", "alacritty", "kitty", "foot", "wezterm", "xterm", "konsole", "terminal")) g = 0xe795
     else if (has("firefox", "librewolf", "floorp", "zen-browser", "zen_browser", "waterfox")) g = 0xf269
-    // Helium is a Chromium fork and belongs in the family bucket. The menu
-    // shows its own asterisk instead (a hand-placed drop-in, icons/fallbacks/
-    // helium.png) because an image can carry a mark that no glyph in the font
-    // does; a text cell cannot.
+    // Helium is a Chromium fork and belongs in the family bucket. It used to
+    // carry its own asterisk in the menu, from a hand-placed icons/fallbacks/
+    // helium.png -- dropped along with every other raster when fallbacks/ went
+    // SVG-only (see that directory's README), so both surfaces show this glyph
+    // now. A vector for it can be dropped back in at any time.
     else if (has("chromium", "chrome", "helium", "vivaldi", "brave", "edge", "opera")) g = 0xf268
     else if (has("code", "cursor", "sublime", "jetbrains", "idea", "pycharm", "webstorm", "zed", "vim", "emacs")) g = 0xf121
     else if (has("steam")) g = 0xf1b6
@@ -939,6 +966,10 @@ Item {
   // Open the strip `step` places from whatever is focused right now.
   function _openStepped(step) {
     root.hoverSelect = false
+    // Never inherit the last open's pointer state -- see pointerInCard. The
+    // enter handler below re-establishes it before any click can arrive, so
+    // clearing here costs nothing and a stale `true` cannot survive.
+    root.pointerInCard = false
     var n = root.wins.length
     if (n < 2) return
     var cur = root._activeIndex()
@@ -1082,6 +1113,7 @@ Item {
     // ignored rather than treated as "outside", or clicking the card's own
     // margin would close the thing you are aiming at.
     MouseArea {
+      id: clickAway
       anchors.fill: parent
       acceptedButtons: Qt.LeftButton
       // Hover only, in practice. The click handler below fires just for a press
@@ -1089,15 +1121,25 @@ Item {
       // does, since the bind takes it first. It stays for the case where the
       // strip is up without SUPER held.
       hoverEnabled: true
+
+      // One hit-test, three callers, so "inside the card" cannot mean two
+      // different things depending on which handler asked.
+      function inCard(x, y) {
+        var p = mapToItem(card, x, y)
+        return p.x >= 0 && p.y >= 0 && p.x <= card.width && p.y <= card.height
+      }
+
+      // Entering is its OWN signal and carries no position argument, which is
+      // exactly why this cannot be left to onPositionChanged: a surface that
+      // maps under a stationary cursor emits enter and no motion at all.
+      // mouseX/mouseY are valid here because hoverEnabled is on.
+      onEntered: root.pointerInCard = clickAway.inCard(clickAway.mouseX, clickAway.mouseY)
       onPositionChanged: function (mouse) {
-        var p = mapToItem(card, mouse.x, mouse.y)
-        root.pointerInCard = p.x >= 0 && p.y >= 0
-          && p.x <= card.width && p.y <= card.height
+        root.pointerInCard = clickAway.inCard(mouse.x, mouse.y)
       }
       onExited: root.pointerInCard = false
       onClicked: function (mouse) {
-        var p = mapToItem(card, mouse.x, mouse.y)
-        if (p.x >= 0 && p.y >= 0 && p.x <= card.width && p.y <= card.height) return
+        if (clickAway.inCard(mouse.x, mouse.y)) return
         root.dismiss()   // close, never switch -- see dismiss() vs commit()
       }
     }
@@ -1332,7 +1374,7 @@ Item {
               // overrides/icons/fallbacks/, which the menu also uses -- see
               // iconFor() above.
               //
-              // That PNG is baked at the theme `foreground`, but a selected tile
+              // That SVG is baked at the theme `foreground`, but a selected tile
               // draws in `selected-text` (#007AFF accent in both our themes), so
               // blitting it as-is would leave the FOCUSED tile showing a grey
               // icon under a blue label. MultiEffect recolours it, exactly the
