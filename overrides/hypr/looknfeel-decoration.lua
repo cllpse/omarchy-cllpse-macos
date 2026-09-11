@@ -303,6 +303,22 @@ hl.layer_rule({
 -- fadeLayersIn, fadeLayersOut) would have landed at 0.46-0.6 on a straight
 -- 1/3 scale and are clamped to 1 instead, rather than let the fastest
 -- animations get fast enough to look like a hard cut.
+--
+-- layersIn is the one deliberate deviation from that 1/3 rule: 1.2 (120ms), not
+-- stock 4's 1.33. It is the category both the Omarchy panels and our switcher
+-- map under -- there is no per-rule duration, so this leaf IS their timing --
+-- and 133ms read a shade slow once the switcher joined them and its card began
+-- ramping with the rest (see the fade layer rule above). 120ms is where the
+-- switcher's own scrim Behavior used to sit, so this is a return to a
+-- known-good number rather than a fresh guess.
+--
+-- Nothing else on the in-path has headroom: layersOut, fadeLayersIn and
+-- fadeLayersOut are already clamped at the floor of 1, and the parent `layers`
+-- leaf (1.27) is inert while both its children are set explicitly.
+--
+-- Blast radius: layersIn is shared by every animated layer surface -- the five
+-- keyboard-driven panels and the switcher, plus notifications, the OSD, polkit
+-- and reminders. All of them take the same 13ms trim.
 hl.animation({ leaf = "global", enabled = true, speed = 3.33, bezier = "default" })
 hl.animation({ leaf = "border", enabled = true, speed = 1.8, bezier = "easeOutQuint" })
 hl.animation({ leaf = "windows", enabled = true, speed = 1.26, bezier = "easeOutQuint" })
@@ -313,7 +329,7 @@ hl.animation({ leaf = "fadeOut", enabled = true, speed = 1, bezier = "almostLine
 hl.animation({ leaf = "fade", enabled = true, speed = 1.01, bezier = "quick" })
 hl.animation({ leaf = "fadeSwitch", enabled = false })
 hl.animation({ leaf = "layers", enabled = true, speed = 1.27, bezier = "easeOutQuint" })
-hl.animation({ leaf = "layersIn", enabled = true, speed = 1.33, bezier = "easeOutQuint", style = "fade" })
+hl.animation({ leaf = "layersIn", enabled = true, speed = 1.2, bezier = "easeOutQuint", style = "fade" })
 hl.animation({ leaf = "layersOut", enabled = true, speed = 1, bezier = "linear", style = "fade" })
 hl.animation({ leaf = "fadeLayersIn", enabled = true, speed = 1, bezier = "almostLinear" })
 hl.animation({ leaf = "fadeLayersOut", enabled = true, speed = 1, bezier = "almostLinear" })
