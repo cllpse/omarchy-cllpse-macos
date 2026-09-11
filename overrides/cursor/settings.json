@@ -65,7 +65,6 @@
   "workbench.preferredDarkColorTheme": "Bearded Theme Black & Gold Soft",
   "workbench.iconTheme": "bearded-icons",
   "workbench.colorCustomizations": {
-    "widget.shadow": "#00000000",
     "scrollbar.shadow": "#00000000",
     "editorStickyScroll.shadow": "#00000000",
     "sideBarStickyScroll.shadow": "#00000000",

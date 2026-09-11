@@ -532,9 +532,25 @@ window colour instead of a `#f4f4f4` panel sitting inside a `#FFFFFF` window.
 The gutter must come along — Bearded sets it explicitly to the same grey — while
 `editorPane`, `editorGroup.emptyBackground` and `editorStickyScroll` need no
 entry, since Bearded leaves them unset and VS Code derives them from
-`editor.background` (checked). Widgets, lists, terminal and all syntax stay
+`editor.background` (checked). Lists, inputs, the terminal and all syntax stay
 Bearded; widening further is a matter of adding prefixes to `$CHROME` or names to
-`$EXACT`, since the whole `colors` object is there. The two scopes
+`$EXACT`, since the whole `colors` object is there.
+
+**Anything that floats over the window is chrome too.** `quickInput`,
+`pickerGroup.`, `editorHoverWidget.` and `keybindingLabel.` are in `$CHROME`
+alongside the frame: the quick input (SUPER+P and SUPER+SHIFT+P are one widget),
+the separator and group label inside it, both hover widgets — `.monaco-hover` in
+the editor and `.workbench-hover` over tabs and the sidebar read the same
+`editorHoverWidget.*` vars, so one prefix covers editor tooltips and workbench
+tooltips alike — and the keybinding chips those surfaces draw. Bearded paints a
+tooltip `#c9ced2` against a `#FFFFFF` window, with teal chips; Omarchy's values
+are the window's own. Three neighbours are deliberately out: `list.` would
+repaint every tree in the workbench for the sake of the picker's rows, and
+Omarchy's `list.hoverBackground` is the window background, so taking it would
+cost the hover feedback Bearded has; `input.` reaches the find widget, settings
+search and SCM box for a `#f9f9fa`-vs-`#FFFFFF` difference inside one field;
+`editorSuggestWidget.` is completion, which is syntax-adjacent and belongs with
+what Bearded was chosen for. The two scopes
 are read from `preferredLight/DarkColorTheme` rather than hardcoded, so the
 variant names live in one place. Both scopes get the current palette, which is
 always correct: only one is ever active, and it matches the mode that selected
@@ -542,7 +558,17 @@ it. A `$FORCE` map is applied on top of the copy for keys where Omarchy's own va
 isn't wanted: `tab.activeBorderTop` (the accent line above the active tab), its
 unfocused twin, and `tab.hoverBorder` (the line under a tab while the pointer is
 over it) are set to `#00000000`. `tab.unfocusedHoverBorder` needs no entry — VS
-Code derives it from `tab.hoverBorder`, and neither theme sets it explicitly. The bottom border is
+Code derives it from `tab.hoverBorder`, and neither theme sets it explicitly.
+
+**A tooltip's edge cannot come from a shadow**, which is why
+`editorHoverWidget.border` stays at the copied `{{ muted }}` and is not in
+`$FORCE`. The editor hover has no `box-shadow` declaration at all —
+`.monaco-editor .monaco-hover` is background, border, radius, colour and nothing
+else — so there is no shadow on it to recolour; the workbench hover does have
+one, but it is a soft `0 2px 8px var(--vscode-widget-shadow)`, and that key is
+global, so lighting it would bring back every widget shadow in the app
+(`widget.shadow` also feeds Cursor's whole `--cursor-shadow-*` palette). A `0 0
+0 1px` ring is CSS geometry, not a colour, and out of reach of any setting. The bottom border is
 deliberately **shared** between the selected and hovered states: Omarchy gives
 them different values (`tab.activeBorder` the full accent, `tab.hoverBorder` a
 25%-alpha wash of it), so a tab's bottom edge changed weight depending on which
@@ -553,40 +579,63 @@ Cursor's registry defines it as an alpha of `tab.hoverBorder`. Transparent rathe
 slot back to Bearded instead of clearing it. VS Code reads 8-digit `#RRGGBBAA`,
 which Omarchy's own generated file already relies on for its `#007AFF20` washes.
 
-**Shadows are off across the board, and `widget.shadow` is the one that matters.**
-`cursor/settings.json` sets all seven shadow colour ids this build registers to
-`#00000000` -- `widget.shadow`, `scrollbar.shadow`, `editorStickyScroll.shadow`,
-`sideBarStickyScroll.shadow`, `panelStickyScroll.shadow`,
-`listFilterWidget.shadow`, `diffEditor.unchangedRegionShadow` (the last three
-sticky ones are moot anyway, since `editor.stickyScroll.enabled` and
-`workbench.tree.enableStickyScroll` are both false). They go in the
-**unscoped** top level of `workbench.colorCustomizations`, not in the chrome
-hook's per-theme scopes: `setCustomColors` applies the general block first and
-overwrites it with the `[theme]` block, and none of the seven appear in the
-chrome copy, so the two coexist -- and the hook's `+` preserves whatever
-top-level keys are already there. `inlineChat.shadow` is *not* one of them: it
-is in Omarchy's generated file, but Cursor no longer registers it, so the
-`--vscode-inlineChat-shadow` rules resolve to nothing and are already inert.
+**Edges and shadows are two tokens, because two is all the product exposes.**
+Material 2's elevation scale was the target and is out of reach: a 2dp or 6dp
+shadow is three stacked layers with their own offsets, blurs and spreads, and
+box-shadow geometry is CSS — every surface's is hardcoded in
+`workbench.desktop.main.css`. Border *width* is the same story: there is no
+`*BorderWidth` or `*BorderSize` key anywhere in the registry (grepped), and
+every edge in the product is 1px. Colour is what is themable, so the system is
+one colour for every edge and one for every shadow, with each surface keeping
+the shadow **shape** Cursor gave it.
 
-`widget.shadow` reaches much further than VS Code's own widgets, because
-Cursor's whole shadow palette is derived from it --
-`--cursor-shadow-primary: var(--vscode-widget-shadow)` and
-`--cursor-shadow-secondary/tertiary/workbench` are `color-mix`es of it at
-60/30/40% -- so every `--cursor-box-shadow-{sm,base,lg,xl}` composite collapses
-too. Their `0 0 0 1px var(--vscode-widget-border, …)` hairline ring survives,
-which is what keeps popovers legible with the shadow gone; it is a border, not a
-shadow. (In glass mode those vars are only defined under
-`body:not([data-cursor-glass-mode=true])`, so they are undefined there and the
-composites collapse for a different reason.)
+*Border token* — `muted`, read off `textSeparator.foreground` (a bare
+`{{ muted }}` in Omarchy's template) so it tracks the theme: `#BDBDBD` light,
+`#565656` dark, the same colour as the Hyprland window border. Most managed
+edges already resolved to it, since Omarchy's own `*.border` ids are muted and
+`$CHROME` copies them. The one that did not is **`widget.border`**, which both
+themes leave unset (registered default `null`), so Cursor's composites were
+falling back to their own `--cursor-stroke-tertiary`. It is the `0 0 0 1px` ring
+inside all four `--cursor-box-shadow-{sm,base,lg,xl}` composites — the edge on
+the **quick input** — plus the find widget's side borders, `simple-find-part`,
+the marketplace menus, the announcement modal and the feedback pane. Assigning
+it is what makes the command palette and the tooltips share one edge.
 
-What no colour id can reach is the ~50 hardcoded `rgba(0,0,0,…)` box-shadows in
-Cursor's own React UI -- modals, dropdown menus, the blame hover, the code-block
-copy button, the fullscreen announcement containers. Those need a patch, not a
-setting. Two things are genuinely lost with the shadows: `scrollbar.shadow` was
-the only cue that an editor, list or terminal has content scrolled above the
-fold, and the `inset 0 -1px 0 var(--vscode-widget-shadow)` bottom edge on `kbd`
-chips in rendered markdown and the action widget goes flat (the main keybinding
-labels keep theirs, via `keybindingLabel.bottomBorder`).
+*Shadow token* — `widget.shadow`, black at 14% (`#00000024`, Material's own
+penumbra alpha). A literal, so it sits in `$FORCE`. `cursor/settings.json`
+zeroes the other six shadow ids this build registers — `scrollbar.shadow`,
+`editorStickyScroll.shadow`, `sideBarStickyScroll.shadow`,
+`panelStickyScroll.shadow`, `listFilterWidget.shadow`,
+`diffEditor.unchangedRegionShadow` (the three sticky ones are moot anyway, since
+`editor.stickyScroll.enabled` and `workbench.tree.enableStickyScroll` are both
+false). Those go in the **unscoped** top level of
+`workbench.colorCustomizations`, not the hook's per-theme scopes:
+`setCustomColors` applies the general block first and overwrites it with the
+`[theme]` block, none of the six appear in the chrome copy, and the hook's `+`
+preserves top-level keys, so the two coexist. `inlineChat.shadow` is not an
+eighth — it is in Omarchy's generated file, but Cursor no longer registers it,
+so those rules are already inert.
+
+`widget.shadow` reaches further than its name suggests: Cursor derives
+`--cursor-shadow-primary` from it and `--cursor-shadow-secondary/tertiary/workbench`
+from `color-mix`es at 60/30/40%, so every `--cursor-box-shadow-*` composite
+takes its colour from there too. Two consequences. Material's black is
+near-invisible on a dark background — Material's own behaviour, it uses surface
+overlays instead — and swapping the literal for `$muted` in the hook's
+derivation is the one-line alternative if the dark theme wants a visible shadow.
+And **the editor hover takes nothing from it**: `.monaco-editor .monaco-hover`
+has no `box-shadow` declaration at all (background, border, radius, colour,
+nothing else), so on that surface the border token is the only edge there is.
+
+Two more limits worth not re-deriving. The ~50 hardcoded `rgba(0,0,0,…)`
+box-shadows in Cursor's own React UI — modals, dropdown menus, the blame hover,
+the code-block copy button — answer to no colour id. And **the two hovers cannot
+be told apart**: the registry has five `editorHoverWidget.*` ids and no workbench
+equivalent, so `:is(.monaco-workbench,…) .workbench-hover` and `.monaco-editor
+.monaco-hover` share one `border` var — both or neither, whatever is done to it.
+
+The one real loss from the zeroed six is `scrollbar.shadow`: it was the only cue
+that an editor, list or terminal has content scrolled above the fold.
 
 One wart — changing a preferred theme leaves the previous scope orphaned in
 `colorCustomizations`; it is inert unless that theme is picked again, and the
