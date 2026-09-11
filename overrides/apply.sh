@@ -432,9 +432,29 @@ if [[ -x /usr/bin/cursor || -d ${cursor_settings%/*} ]]; then
     else
       jq . "$HERE/cursor/settings.json" >"$_merged" 2>/dev/null || true
     fi
+    # editor.fontSize is DERIVED, not pinned. `omarchy display text size` is the
+    # one knob for apparent text size across the desktop -- it already drives the
+    # shell base size (px), the GTK scaling factor and the terminal point size
+    # (px * 9/12) -- and VS Code's editor.fontSize is in px like the first of
+    # those, so Cursor can ride the same knob instead of holding its own number.
+    # The value in cursor/settings.json is the fallback for when the reading
+    # fails; it is not the source of truth.
+    _px="$(omarchy display text size 2>/dev/null | sed -n '1s/[^0-9]*\([0-9][0-9]*\).*/\1/p')"
+    if [[ $_px =~ ^[0-9]+$ ]] && (( _px >= 6 && _px <= 40 )); then
+      _sized=$(mktemp)
+      if jq --argjson px "$_px" '.["editor.fontSize"] = $px' "$_merged" >"$_sized" 2>/dev/null && [[ -s $_sized ]]; then
+        mv "$_sized" "$_merged"
+      else
+        rm -f "$_sized"
+        skip "could not write derived editor.fontSize — kept the value from cursor/settings.json"
+      fi
+    else
+      skip "could not read \`omarchy display text size\` — kept editor.fontSize from cursor/settings.json"
+    fi
+
     if [[ -s $_merged ]]; then
       mv "$_merged" "$cursor_settings"
-      say "Cursor -> $cursor_settings (jq merge)"
+      say "Cursor -> $cursor_settings (jq merge, editor.fontSize ${_px:-fallback} from display text size)"
     else
       rm -f "$_merged"
       skip "Cursor settings merge produced nothing — left settings.json untouched"
