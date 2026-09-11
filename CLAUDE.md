@@ -49,10 +49,22 @@ the TUI/theme/package installers) run
 `setsid uwsm-app -- xdg-terminal-exec --app-id=org.omarchy.terminal` -- so the
 window is whatever `~/.config/xdg-terminals.list` names first, **ghostty here,
 not foot**, despite the floating-terminal window rules living in
-`default/hypr/apps/terminals.lua`. Those prompts are interactive gum widgets, so
-a `no_focus` rule on `org.omarchy.terminal` would make them unusable without a
-click -- which is the reason not to reach for one when a fresh install window
-steals focus.
+`default/hypr/apps/terminals.lua`. Measured: those windows steal focus at map
+time, and setting `focus_on_activate = false` changed nothing for them -- which
+is the cleanest available proof that the two mechanisms really are separate.
+`overrides/hypr/looknfeel-decoration.lua` therefore carries
+`o.window("org.omarchy.terminal", { no_initial_focus = true })`.
+
+**`no_focus` and `no_initial_focus` are different rules and picking the wrong one
+bricks the window.** Hyprland has both (confirmed in the binary's rule-name
+table). `no_focus` makes a window permanently unfocusable; `no_initial_focus`
+only declines the grab at map time, leaving it clickable afterwards. Omarchy uses
+the harsher `no_focus`, but only on empty-class XWayland drag artifacts
+(`windows.lua:18`), where nothing is ever typed. On an interactive gum prompt
+asking for a name and URL, `no_focus` would mean never being able to type into
+it. The cost of the gentler rule is still real: every installer prompt sharing
+that class -- package, AUR, theme, TUI, web app -- now opens unfocused and needs
+a click first.
 
 **Window opacity runs through a tag.** `windows.lua` tags every window
 `+default-opacity`, per-app files under `default/hypr/apps/` strip that tag from

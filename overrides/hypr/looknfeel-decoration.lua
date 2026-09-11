@@ -365,3 +365,32 @@ hl.animation({ leaf = "specialWorkspace", enabled = true, speed = 0.86, bezier =
 -- If `omarchy display text size` changes the Ghostty font size, the clean
 -- width changes with the cell metrics -- re-sweep and update the 896.
 hl.window_rule({ match = { tag = "floating-window", class = "org.omarchy.terminal" }, size = { 896, 600 } })
+
+-- ── Omarchy's installer prompts don't grab the keyboard on open ────────────
+-- Every "Install ..." entry in the Omarchy menu runs
+-- omarchy-launch-floating-terminal-with-presentation, which is
+-- `setsid uwsm-app -- xdg-terminal-exec --app-id=org.omarchy.terminal ...`.
+-- That app-id survives into the window class here because ghostty's desktop
+-- entry declares `X-TerminalArgAppId=--class=` -- so the class really is
+-- org.omarchy.terminal, the same one the sizing rule above matches.
+--
+-- These windows took focus the moment they mapped, mid-keystroke elsewhere.
+-- That is NOT what misc:focus_on_activate controls: that setting only governs
+-- xdg-activation requests from an already-running app, and turning it off
+-- (above) changed nothing here -- measured, the window still stole focus. A
+-- window taking focus when it MAPS is a separate mechanism with no global
+-- switch; a per-window rule is the only lever.
+--
+-- no_initial_focus, NOT no_focus. Hyprland has both, and they are a trap:
+-- no_focus makes a window permanently unfocusable, which for an interactive
+-- gum prompt asking for a name and URL means you could never type into it.
+-- no_initial_focus only declines the focus grab at map time -- click the window
+-- and it focuses normally. Omarchy itself uses the harsher no_focus, but only
+-- on empty-class XWayland drag artifacts (windows.lua:18), where nothing is
+-- ever typed.
+--
+-- The cost, stated plainly: these prompts now open unfocused, so they need a
+-- click before typing. That covers every installer entry sharing this class
+-- (package, AUR, theme, TUI, web app), not just the web-app one. Delete this
+-- rule to go back.
+o.window("org.omarchy.terminal", { no_initial_focus = true })
