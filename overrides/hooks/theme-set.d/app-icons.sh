@@ -30,6 +30,13 @@ set -euo pipefail
 
 HERE="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 FALLBACKS="$HERE/../../icons/fallbacks"
+# Drop-ins that keep their own colours. Separate directory rather than a naming
+# convention, because two different things have to leave them alone: this script
+# must not repaint the file, and the switcher must not colorize it at draw time
+# -- and the switcher decides that from the PATH (anything under cllpse-flat is
+# flat by definition). A second output directory settles both at once.
+COLOR_IN="$HERE/../../icons/color"
+COLOR_OUT="$HOME/.icons/cllpse-color/apps"
 COLORS="$HOME/.local/state/omarchy/current/theme/colors.toml"
 OUT="$HOME/.icons/cllpse-flat/apps"
 
@@ -45,74 +52,95 @@ declare -A wanted=()
 # Both loops below iterate globs that legitimately match nothing.
 shopt -s nullglob
 
-for f in "$FALLBACKS"/*.svg "$FALLBACKS"/*.png; do
-  base=$(basename "$f"); name=${base%.*}; ext=${base##*.}
-  # One file per app, or both would land in $OUT and the index's svg pass would
-  # outrank the png one -- so a .png drop-in would silently lose to a stale .svg.
-  if [[ -n ${wanted[$name]:-} ]]; then
-    printf 'app-icons: %s has both .svg and .png in fallbacks/, using .svg\n' "$name" >&2
-    continue
-  fi
-  wanted[$name]="$name.$ext"
+# SVG only. Rasters used to be accepted here and normalised by ImageMagick --
+# trimmed to the ink, resized to 200x200, then re-padded onto a 256x256 canvas.
+# That gave every raster a known 200/256 ink ratio, which the switcher undid at
+# draw time by scaling its icon box by 256/200. The SVG branch below does no
+# such padding, so the same compensation drew every vector 28% oversized: they
+# overflowed their box and clipped, while the rasters beside them looked small
+# and off-centre.
+#
+# Compensating per extension worked but kept two conventions alive, one of them
+# only reachable by reading this file. Accepting a single format retires the
+# question: every drop-in is edge-to-edge, the switcher draws at ink size with
+# no ratio at all, and an app whose icon only exists as a raster keeps its Nerd
+# Font glyph -- which is the flat look anyway, and what an app with no drop-in
+# has always fallen back to.
+#
+# aether, cliamp, helium and LimineSnapperSync were the four that went. If a
+# vector turns up for any of them, dropping it in is the whole of the work.
+for f in "$FALLBACKS"/*.svg; do
+  base=$(basename "$f"); name=${base%.*}
+  wanted[$name]="$base"
 
-  if [[ $ext == svg ]]; then
-    # Repaint every paint, with three failure modes all found in practice here:
-    #
-    # fill="none" is parked first because it is load-bearing -- it is how an
-    # outline-only shape says it has no fill, and flooding it turns the outline
-    # into a solid blob. The parking token must NOT itself read fill="..." or
-    # the generic rule below matches it too and the protection silently does
-    # nothing.
-    #
-    # The style-property character classes must stop at } and < as well as at
-    # the quotes: a CSS <style> block writes `.a{fill:#0acf83}.b{fill:#a259ff}`,
-    # and a class that only excludes quotes runs from the first `fill:` through
-    # every rule after it and into the following tag, destroying the document --
-    # that corrupted org.gnome.DiskUtility's symbolic icon into unparseable XML,
-    # which rsvg reported as "Couldn't find end of Start Tag".
-    #
-    # Both quote styles: Inkscape-authored SVGs use single quotes throughout,
-    # and a rule written only for double quotes silently leaves those
-    # unrecoloured, which on a matching theme looks like the icon vanished.
-    sed -e 's/fill="none"/__KEEPF__/g;      s/fill='"'"'none'"'"'/__KEEPF__/g' \
-        -e 's/stroke="none"/__KEEPS__/g;    s/stroke='"'"'none'"'"'/__KEEPS__/g' \
-        -e "s/fill=\"[^\"]*\"/fill=\"$fg\"/g" \
-        -e "s/fill='[^']*'/fill='$fg'/g" \
-        -e "s/stroke=\"[^\"]*\"/stroke=\"$fg\"/g" \
-        -e "s/stroke='[^']*'/stroke='$fg'/g" \
-        -e "s/fill:[^;}\"'<]*/fill:$fg/g" \
-        -e "s/stroke:[^;}\"'<]*/stroke:$fg/g" \
-        -e 's/__KEEPF__/fill="none"/g' \
-        -e 's/__KEEPS__/stroke="none"/g' \
-        "$f" >"$OUT/$name.svg"
+  # Repaint every paint, with three failure modes all found in practice here:
+  #
+  # fill="none" is parked first because it is load-bearing -- it is how an
+  # outline-only shape says it has no fill, and flooding it turns the outline
+  # into a solid blob. The parking token must NOT itself read fill="..." or
+  # the generic rule below matches it too and the protection silently does
+  # nothing.
+  #
+  # The style-property character classes must stop at } and < as well as at
+  # the quotes: a CSS <style> block writes `.a{fill:#0acf83}.b{fill:#a259ff}`,
+  # and a class that only excludes quotes runs from the first `fill:` through
+  # every rule after it and into the following tag, destroying the document --
+  # that corrupted org.gnome.DiskUtility's symbolic icon into unparseable XML,
+  # which rsvg reported as "Couldn't find end of Start Tag".
+  #
+  # Both quote styles: Inkscape-authored SVGs use single quotes throughout,
+  # and a rule written only for double quotes silently leaves those
+  # unrecoloured, which on a matching theme looks like the icon vanished.
+  sed -e 's/fill="none"/__KEEPF__/g;      s/fill='"'"'none'"'"'/__KEEPF__/g' \
+      -e 's/stroke="none"/__KEEPS__/g;    s/stroke='"'"'none'"'"'/__KEEPS__/g' \
+      -e "s/fill=\"[^\"]*\"/fill=\"$fg\"/g" \
+      -e "s/fill='[^']*'/fill='$fg'/g" \
+      -e "s/stroke=\"[^\"]*\"/stroke=\"$fg\"/g" \
+      -e "s/stroke='[^']*'/stroke='$fg'/g" \
+      -e "s/fill:[^;}\"'<]*/fill:$fg/g" \
+      -e "s/stroke:[^;}\"'<]*/stroke:$fg/g" \
+      -e 's/__KEEPF__/fill="none"/g' \
+      -e 's/__KEEPS__/stroke="none"/g' \
+      "$f" >"$OUT/$name.svg"
 
-    # An SVG that carries no paint at all -- simple-icons ships exactly this,
-    # a bare <path d="..."/> -- has nothing for the rules above to rewrite, and
-    # SVG's default fill is black, so it would render invisible on a dark theme.
-    # Give the root a fill; children that set their own still win, so this is
-    # safe on files that did get recoloured. Only when the root has none, or the
-    # duplicate attribute makes the document unparseable. The tag can wrap
-    # lines, hence grep -z: one NUL-delimited record, so [^>]* spans newlines
-    # without a `tr` to flatten them first.
-    if ! grep -zqE '<svg[^>]*fill=' "$OUT/$name.svg"; then
-      sed -i "0,/<svg/s//<svg fill=\"$fg\"/" "$OUT/$name.svg"
-    fi
-  elif command -v magick >/dev/null; then
-    # Alpha as the mask, painted in the theme colour. -strip drops the PNG date
-    # chunks ImageMagick stamps in, which are otherwise the only thing that
-    # differs between two runs of an identical input.
-    magick "$f" -channel A -threshold 50% +channel -fill "$fg" -colorize 100 \
-      -trim +repage -background none -resize 200x200 -gravity center \
-      -extent 256x256 -strip "PNG32:$OUT/$name.png" 2>/dev/null || true
-  else
-    cp -f "$f" "$OUT/$name.png"
+  # An SVG that carries no paint at all -- simple-icons ships exactly this,
+  # a bare <path d="..."/> -- has nothing for the rules above to rewrite, and
+  # SVG's default fill is black, so it would render invisible on a dark theme.
+  # Give the root a fill; children that set their own still win, so this is
+  # safe on files that did get recoloured. Only when the root has none, or the
+  # duplicate attribute makes the document unparseable. The tag can wrap
+  # lines, hence grep -z: one NUL-delimited record, so [^>]* spans newlines
+  # without a `tr` to flatten them first.
+  if ! grep -zqE '<svg[^>]*fill=' "$OUT/$name.svg"; then
+    sed -i "0,/<svg/s//<svg fill=\"$fg\"/" "$OUT/$name.svg"
   fi
 done
 
+# Colour pass: copied verbatim, no recolouring, no ImageMagick.
+#
+# $HOME/.icons is first in the XDG sweep the switcher runs (and in Omarchy's own
+# AppLibrary), and this lands under */apps/*, so a file here is found by name
+# exactly like a vendor icon -- which is the point: it IS one, just ours.
+declare -A wantedColor=()
+if [[ -d $COLOR_IN ]]; then
+  mkdir -p "$COLOR_OUT"
+  for f in "$COLOR_IN"/*.svg; do
+    b=$(basename "$f")
+    wantedColor[${b%.*}]="$b"
+    cp -f "$f" "$COLOR_OUT/$b"
+  done
+  for f in "$COLOR_OUT"/*.svg; do
+    b=$(basename "$f")
+    [[ ${wantedColor[${b%.*}]:-} == "$b" ]] || rm -f "$f"
+  done
+  rmdir "$COLOR_OUT" "$(dirname "$COLOR_OUT")" 2>/dev/null || true
+fi
+
 # Remove anything no longer backed by a file in fallbacks/, so deleting a
-# drop-in really does hand that app back to its vendor icon. Both extensions:
-# an app that switches from .png to .svg would otherwise leave the old file
-# behind, and the svg pass outranks the png one.
+# drop-in really does hand that app back to its vendor icon. Still sweeps .png
+# as well as .svg: this run generates none, but an earlier one did, and a
+# leftover raster is exactly the stale second convention this change exists to
+# remove.
 for f in "$OUT"/*.svg "$OUT"/*.png; do
   b=$(basename "$f")
   [[ ${wanted[${b%.*}]:-} == "$b" ]] || rm -f "$f"

@@ -40,6 +40,38 @@ Item {
   // before the first list lands -- after that the list is kept warm.
   property bool listPending: false
 
+  // Whether the window list has ever actually landed, as opposed to merely
+  // being non-empty.
+  //
+  // The cold-start guard used to read wins.length, on the reasoning that an
+  // empty list meant Hyprland had not answered yet. Empty-workspace tiles broke
+  // that: a fresh shell whose toplevels have not arrived still builds five
+  // placeholders, which sailed past the `< 2` check, so the cold path never ran
+  // and the strip opened showing five empty workspaces while six windows were
+  // on screen. Counting entries cannot tell "nothing to show" from "nothing
+  // loaded"; this flag can.
+  property bool listLoaded: false
+
+  // Whether the current highlight came from the pointer rather than the
+  // keyboard. The two share root.index -- hovering a tile selects it -- so
+  // without this the title recolours under the mouse, which reads as the strip
+  // reacting to a pointer that is only passing over it. Selection still shows:
+  // the tile keeps its background and border either way.
+  property bool hoverSelect: false
+
+  // Whether the pointer is currently over the card.
+  //
+  // The click itself never reaches this surface: Hyprland resolves mouse binds
+  // before handing a button to a layer surface, so SUPER + left-click is taken
+  // by the bind in window-switcher-bindings.lua and the HUD's own input region
+  // never sees the press. Motion is not intercepted, though -- which is the
+  // whole reason hover works at all -- so the plugin can know WHERE the pointer
+  // is even though it cannot know that it was clicked.
+  //
+  // The bind asks for "click" and this decides what that means: over the card,
+  // commit; outside it, dismiss.
+  property bool pointerInCard: false
+
   // ── Most-recently-used, for back-and-forth ──────────────────────────────────
   //
   // A single tap must return to the window you came from, and a second tap must
@@ -60,6 +92,15 @@ Item {
   // arrives (e.g. the Lua key poll died), dismiss the strip WITHOUT switching
   // after this long with no next/prev activity, so a stuck HUD can't linger.
   readonly property int idleTimeoutMs: 30000
+
+  // How many empty workspaces get a tile of their own.
+  //
+  // Matched to what Omarchy's bar seeds: Workspaces.qml:23 starts from
+  // [1, 2, 3, 4, 5] and only grows past that for workspaces that actually
+  // exist. Anything above 5 that exists is occupied, so its windows already
+  // put it in the strip -- padding to the same 5 keeps the two showing the
+  // same set of blank desktops without a second source of truth.
+  readonly property int emptyWorkspaceSlots: 5
 
   // ── Input path ──────────────────────────────────────────────────────────────
   //
@@ -97,6 +138,17 @@ Item {
 
   GlobalShortcut {
     appid: root.shortcutAppid
+    name: "click"
+    description: "Window switcher: click -- focus a tile, or close if outside"
+    onPressed: {
+      if (!root.opened) return
+      if (root.pointerInCard) root.commit()
+      else root.dismiss()
+    }
+  }
+
+  GlobalShortcut {
+    appid: root.shortcutAppid
     name: "commit"
     description: "Window switcher: focus the highlighted window"
     onPressed: root.open('{"action":"commit"}')
@@ -126,8 +178,8 @@ Item {
       // no process to spawn and nothing to wait for. The rebuild below only
       // does real work on the very first summon; after that _rebuild() finds
       // the list unchanged and leaves the model alone.
-      if (root.wins.length < 2) root._rebuild()
-      if (root.wins.length >= 2) { root._openStepped(step); return }
+      if (!root.listLoaded) root._rebuild()
+      if (root.listLoaded && root.wins.length >= 2) { root._openStepped(step); return }
       // Cold: nothing cached yet (first summon after a shell restart, or a
       // refresh still in flight). Remember the presses and let _rebuild()
       // apply them the moment the list lands, exactly as before.
@@ -142,6 +194,7 @@ Item {
 
     var n = root.wins.length
     if (n === 0) { root.dismiss(); return }
+    root.hoverSelect = false
     root.index = ((root.index + step) % n + n) % n
     idleTimer.restart()
   }
@@ -166,10 +219,16 @@ Item {
   function commit() {
     idleTimer.stop()
     if (root.opened && root.index >= 0 && root.index < root.wins.length) {
-      var addr = root.wins[root.index].address
-      if (addr) {
+      var sel = root.wins[root.index]
+      if (sel.kind === "workspace") {
+        // Same dispatch the bar's own widget uses (Workspaces.qml:33), so a
+        // blank desktop is reached exactly as clicking its bar pip would.
         focusProc.command = ["hyprctl", "dispatch",
-          "hl.dsp.focus({ window = \"address:" + addr + "\" })"]
+          "hl.dsp.focus({ workspace = \"" + sel.wsId + "\" })"]
+        focusProc.running = true
+      } else if (sel.address) {
+        focusProc.command = ["hyprctl", "dispatch",
+          "hl.dsp.focus({ window = \"address:" + sel.address + "\" })"]
         focusProc.running = true
       }
     }
@@ -281,11 +340,160 @@ Item {
   // layer and the effect key off a cached bool that no reload can disturb.
   property var iconIndex: ({})
 
+  // Icon resolution, in one sentence: an svg override if there is one, the
+  // launcher's coloured icon otherwise, a Nerd Font glyph when there is
+  // neither.
+  //
+  // This was briefly behind a vendorIcons flag, which added a third state --
+  // overrides and glyphs, no vendor art -- that the rule above does not have.
+  // The flag is gone; the rule is the behaviour.
+
+  // Vendor icons, indexed here rather than asked for.
+  //
+  // Omarchy already has this resolver -- AppLibrary.iconSource() -- but it is
+  // gated: shell.qml:603 hands a plugin `appLibrary` only when its manifest
+  // declares the "menu" kind, and this one is a "panel". Declaring "menu" to
+  // get past that would also want an entryPoints.menu (PluginRegistry.qml:120)
+  // and would register the switcher as a launcher entry, which it is not.
+  //
+  // So the sweep runs here: the same command AppLibrary:122-137 issues, parsed
+  // on the same first-hit-wins rule, so the strip and the launcher resolve the
+  // same file for a given name. No manifest games, nothing gated.
+  property var vendorIndex: ({})
+
+  Process {
+    id: vendorScan
+    command: ["bash", "-c",
+      'dirs="$HOME/.icons $HOME/.local/share/icons"; '
+      + 'IFS=":"; for d in ${XDG_DATA_DIRS:-/usr/local/share:/usr/share}; do dirs="$dirs $d/icons"; done; unset IFS; '
+      + 'for ext in svg png; do '
+      + '  for base in $dirs; do '
+      // Two plain finds rather than one \( -o \) group: inside a QML string
+      // the backslash is eaten by the JS lexer, so the parens reach bash bare
+      // and it exits on a syntax error with an empty stdout -- a silent miss,
+      // which is exactly how this failed the first time.
+      + '    [ -d "$base" ] && find "$base" -path "*/apps/*" -name "*.$ext" 2>/dev/null; '
+      + '    [ -d "$base" ] && find "$base" -path "*/devices/*" -name "*.$ext" 2>/dev/null; '
+      + '  done; '
+      + '  find /usr/share/pixmaps -maxdepth 1 -name "*.$ext" 2>/dev/null; '
+      + 'done']
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: root._applyVendorIndex(text)
+    }
+  }
+
+  function _applyVendorIndex(text) {
+    var idx = {}
+    var lines = String(text || "").split("\n")
+    for (var i = 0; i < lines.length; i++) {
+      var pth = lines[i].trim()
+      if (pth.length === 0) continue
+      var slash = pth.lastIndexOf("/")
+      var file = slash >= 0 ? pth.substring(slash + 1) : pth
+      var dot = file.lastIndexOf(".")
+      var name = dot > 0 ? file.substring(0, dot) : file
+      // First hit wins and the svg pass runs first, so a scalable icon outranks
+      // a raster of the same name -- AppLibrary's rule, kept deliberately.
+      if (name.length > 0 && idx[name] === undefined) idx[name] = "file://" + pth
+    }
+    root.vendorIndex = idx
+  }
+
+  // Web apps: window class -> host -> desktop entry -> Icon= / Name=.
+  //
+  // An Omarchy web app is a Chromium window, and Chromium names it
+  // chrome-<host><path>-Profile_N, which no icon index can match -- so Slack
+  // arrived here as a Chrome glyph labelled "Chrome". The launcher never has
+  // the problem because it never sees a window class: it lists desktop entries
+  // and reads Icon= and Name= straight off them.
+  //
+  // There is nothing to join on directly -- these entries carry no
+  // StartupWMClass -- so the host is the key. Slack.desktop execs
+  // https://app.slack.com/... and the window class begins chrome-app.slack.com__
+  // The host is the stable part; the path after it is a workspace/channel id
+  // that changes, and the -Profile_N suffix is per browser profile.
+  readonly property var webAppIndex: {
+    var idx = ({})
+    var vals = (DesktopEntries.applications && DesktopEntries.applications.values) || []
+    for (var i = 0; i < vals.length; i++) {
+      var e = vals[i]
+      if (!e) continue
+      var icon = String(e.icon || "")
+      var ex = String(e.execString || e.command || "")
+      var m = ex.match(/https?:\/\/([^\/"'\s]+)/)
+      if (!m) continue
+      if (idx[m[1]] === undefined)
+        idx[m[1]] = ({ icon: icon, name: String(e.name || "") })
+    }
+    return idx
+  }
+
+  // Window class -> desktop entry, for classes that are not icon names.
+  //
+  // Cursor is the case in point: Hyprland reports the class `cursor`, the entry
+  // is cursor.desktop carrying StartupWMClass=Cursor and Icon=co.anysphere.cursor,
+  // and the file on disk is /usr/share/pixmaps/co.anysphere.cursor.png. Nothing
+  // joins `cursor` to that filename except the entry, which is exactly why the
+  // launcher shows it and a class-keyed index cannot.
+  //
+  // Keyed on both StartupWMClass and the entry id, lowercased, because
+  // Hyprland's class and the entry's declaration disagree on case as often as
+  // not -- `cursor` against `Cursor` here.
+  readonly property var classIndex: {
+    var idx = ({})
+    var vals = (DesktopEntries.applications && DesktopEntries.applications.values) || []
+    for (var i = 0; i < vals.length; i++) {
+      var e = vals[i]
+      if (!e) continue
+      var rec = ({ icon: String(e.icon || ""), name: String(e.name || "") })
+      var keys = [String(e.startupClass || ""), String(e.id || "").replace(/\.desktop$/, "")]
+      for (var k = 0; k < keys.length; k++) {
+        var key = keys[k].toLowerCase()
+        if (key.length > 0 && idx[key] === undefined) idx[key] = rec
+      }
+    }
+    return idx
+  }
+
+  // An entry's Icon= run through the same two indexes a class goes through, so
+  // a flat drop-in still overrides the vendor file.
+  function _iconFromEntry(hit) {
+    if (!hit) return ""
+    var name = String(hit.icon || "")
+    if (name.length === 0) return ""
+    var flat = root.iconIndex[name]
+    if (flat !== undefined) return flat
+    var v = root.vendorIndex[name]
+    return v === undefined ? "" : v
+  }
+
+  function _webAppEntry(cls) {
+    var c = String(cls || "")
+    if (c.indexOf("chrome-") !== 0) return null
+    var rest = c.substring(7)
+    var cut = rest.indexOf("__")
+    var host = cut > 0 ? rest.substring(0, cut) : rest.replace(/-Profile_\d+$/, "")
+    if (host.length === 0) return null
+    var hit = root.webAppIndex[host]
+    return hit === undefined ? null : hit
+  }
+
   function iconFor(cls) {
     var c = String(cls || "").trim()
     if (c.length === 0) return ""
+    // Drop-ins win outright -- they are the deliberate override, and keeping
+    // them first means precedence does not depend on AppLibrary's internals.
     var u = root.iconIndex[c]
-    return u === undefined ? "" : u
+    if (u !== undefined) return u
+    // Then the desktop entry -- by class for a normal app, by host for a web
+    // app. Both end at the same place: the Icon= the launcher reads.
+    var w = root._iconFromEntry(root.classIndex[c.toLowerCase()])
+    if (w.length > 0) return w
+    w = root._iconFromEntry(root._webAppEntry(c))
+    if (w.length > 0) return w
+    var v = root.vendorIndex[c]
+    return v === undefined ? "" : v
   }
 
   // `ls` directly rather than through a shell: Process runs the argv as given,
@@ -311,13 +519,13 @@ Item {
       var f = lines[i].trim()
       var dot = f.lastIndexOf(".")
       if (dot <= 0) continue
-      var ext = f.substring(dot + 1).toLowerCase()
-      if (ext !== "svg" && ext !== "png") continue
-      var base = f.substring(0, dot)
-      // svg wins the tie, for the reason the sync prefers it: Qt rasterises a
-      // vector at the drawn size instead of scaling a bitmap up to it.
-      if (ext === "svg" || idx[base] === undefined)
-        idx[base] = "file://" + root.flatIconDir + f
+      // .svg only, deliberately. Rasters were dropped from fallbacks/ so that
+      // one ink convention holds everywhere -- see iconSize in the delegate.
+      // Ignoring a stray .png here means a leftover from an older generation
+      // cannot quietly reintroduce the second convention; the app falls back to
+      // its glyph until the file is regenerated, which is the honest result.
+      if (f.substring(dot + 1).toLowerCase() !== "svg") continue
+      idx[f.substring(0, dot)] = "file://" + root.flatIconDir + f
     }
     root.iconIndex = idx
   }
@@ -328,6 +536,11 @@ Item {
   // a reverse-DNS style class, e.g. "org.gnome.Nautilus") for anything not
   // listed here, rather than leaving the tile unlabelled.
   function nameFor(cls) {
+    // A web app is named by its desktop entry, not by the browser hosting it.
+    // Without this the Slack tile reads "Chrome" -- correct for the class,
+    // useless on screen, and identical to every other web app you have.
+    var w = root._webAppEntry(cls)
+    if (w && w.name.length > 0) return w.name
     var c = String(cls || "").toLowerCase()
     function has() {
       for (var i = 0; i < arguments.length; i++)
@@ -440,6 +653,7 @@ Item {
 
   Process { id: focusProc }
 
+
   // ── Window list ─────────────────────────────────────────────────────────────
   //
   // Kept warm from Hyprland's event socket rather than rebuilt by shelling out
@@ -475,7 +689,7 @@ Item {
   //    a valuesChanged signal instead deadlocks the already-populated case --
   //    the signal has already been and gone, and the list stays empty forever.
   //    That was a real bug here, not a hypothetical.
-  Component.onCompleted: { iconScan.running = true; Hyprland.refreshToplevels(); root._rebuild() }
+  Component.onCompleted: { iconScan.running = true; vendorScan.running = true; Hyprland.refreshToplevels(); root._rebuild() }
 
   // Events that can change the set of windows or their on-screen order. Focus
   // changes are deliberately absent: `activated` already tracks those live, and
@@ -559,36 +773,80 @@ Item {
       var o = vs[i].lastIpcObject
       if (!o || o.mapped !== true) continue
       if (!o.workspace || (o.workspace.id | 0) <= 0) continue // special / scratchpad
-      if (String(o["class"] || "").toLowerCase() === "org.omarchy.agent") continue // this plugin's own dev window
+      // Agent terminals are deliberately NOT filtered, though they were once.
+      // Omarchy launches them as `ghostty --class=org.omarchy.agent`, which at
+      // the time only happened while working on this plugin -- hence the old
+      // "this plugin's own dev window" skip. They are now simply how a Claude
+      // session runs, so the filter hid the very window you were typing in and
+      // made it unreachable with Cmd+Tab. Do not put it back without checking
+      // that first.
       mapped.push(o)
+    }
+
+    // Loaded means a window actually SURVIVED the filters, not that Hyprland
+    // has told us toplevels exist.
+    //
+    // vs.length > 0 was the earlier signal and it lied: right after a restart
+    // the toplevel objects arrive before their lastIpcObject is filled in, so
+    // every one of them fails the `!o` test above, mapped comes out empty, and
+    // the flag said loaded while the strip held nothing but placeholders. Third
+    // variant of the same bug -- the first counted wins.length, the second
+    // trusted a returned refresh, this one trusted an unpopulated object.
+    if (mapped.length > 0) root.listLoaded = true
+
+    var out = []
+    var occupied = ({})
+    for (var j = 0; j < mapped.length; j++) {
+      var m = mapped[j]
+      var wid = (m.workspace && m.workspace.id) | 0
+      occupied[wid] = true
+      var t = (m.title && m.title !== "") ? m.title
+        : (m.initialTitle && m.initialTitle !== "") ? m.initialTitle
+        : ""   // no title -- the detail line renders an ellipsis for this
+      out.push({
+        kind: "window",
+        address: m.address,
+        title: t,
+        cls: m["class"] || m.initialClass || "",
+        ws: String((m.workspace && m.workspace.name) || "").trim(),
+        wsId: wid,
+        x: (m.at && m.at[0]) | 0,
+        y: (m.at && m.at[1]) | 0
+      })
+    }
+
+    // A tile per empty workspace, so Cmd+Tab can reach a blank desktop the same
+    // way it reaches a window -- previously the only route was the bar or a
+    // workspace keybind.
+    //
+    // The synthetic "ws:N" address is what lets everything downstream stay as
+    // it was: _sameWins still compares addresses and sees a real difference,
+    // _activeIndex and _mruIndex match against live window addresses and simply
+    // never hit one of these, and commit() branches on kind.
+    for (var w = 1; w <= root.emptyWorkspaceSlots; w++) {
+      if (occupied[w]) continue
+      out.push({
+        kind: "workspace",
+        address: "ws:" + w,
+        title: "Empty",
+        cls: "",
+        ws: String(w),
+        wsId: w,
+        x: -1,
+        y: -1
+      })
     }
 
     // Order of appearance: workspace first (ascending id, matching the bar),
     // then left-to-right / top-to-bottom position within that workspace --
-    // not MRU. The focused window is found separately, via `activated`.
-    mapped.sort(function (a, b) {
-      var wa = (a.workspace && a.workspace.id) | 0
-      var wb = (b.workspace && b.workspace.id) | 0
-      if (wa !== wb) return wa - wb
-      var ax = (a.at && a.at[0]) | 0, bx = (b.at && b.at[0]) | 0
-      if (ax !== bx) return ax - bx
-      var ay = (a.at && a.at[1]) | 0, by = (b.at && b.at[1]) | 0
-      return ay - by
+    // not MRU. The focused window is found separately, via `activated`. An
+    // empty workspace carries x/y of -1, so it sorts to the head of its own id
+    // -- which is the whole workspace, there being nothing else there.
+    out.sort(function (a, b) {
+      if (a.wsId !== b.wsId) return a.wsId - b.wsId
+      if (a.x !== b.x) return a.x - b.x
+      return a.y - b.y
     })
-
-    var out = []
-    for (var j = 0; j < mapped.length; j++) {
-      var m = mapped[j]
-      var t = (m.title && m.title !== "") ? m.title
-        : (m.initialTitle && m.initialTitle !== "") ? m.initialTitle
-        : "(untitled)"
-      out.push({
-        address: m.address,
-        title: t,
-        cls: m["class"] || m.initialClass || "",
-        ws: String((m.workspace && m.workspace.name) || "").trim()
-      })
-    }
 
     // The whole point: only touch the model when something actually changed.
     // An unchanged assignment resets the ListView and churns delegates.
@@ -596,9 +854,31 @@ Item {
 
     if (!root.listPending) return
     root.listPending = false
+    // Deliberately NOT marking the list loaded here.
+    //
+    // It used to, on the reasoning that a returned refresh is authoritative
+    // even when empty. It is not, right after a shell restart: refreshToplevels
+    // can come back before Hyprland's toplevel list has reached us, so an empty
+    // answer marked the list loaded, the placeholders sailed through the
+    // length check, and the strip opened on five empty workspaces with six
+    // windows on screen. Only actually SEEING a toplevel counts -- see the
+    // vs.length check at the top of this function.
+    //
+    // The cost is a genuinely window-less session, where the strip then never
+    // opens at all. That was the behaviour before empty workspaces existed, and
+    // a session with no windows has nothing to switch between but blank
+    // desktops.
 
     // Cold-start presses that landed before the list did.
-    if (out.length < 2) { // nothing to switch to
+    //
+    // listLoaded is checked as well as the count, and that is the whole point:
+    // out.length counts empty-workspace placeholders, so a refresh that came
+    // back before Hyprland's toplevels reached us still clears the bar here and
+    // opens the strip on five empty workspaces. The count cannot tell "nothing
+    // to switch to" from "nothing arrived yet"; the flag can. Dropping the
+    // queued presses in that case costs one keypress, which beats opening onto
+    // a list that is wrong.
+    if (!root.listLoaded || out.length < 2) { // nothing to switch to, or nothing yet
       root.pendingSteps = 0
       root.pendingCommit = false
       return
@@ -658,6 +938,7 @@ Item {
 
   // Open the strip `step` places from whatever is focused right now.
   function _openStepped(step) {
+    root.hoverSelect = false
     var n = root.wins.length
     if (n < 2) return
     var cur = root._activeIndex()
@@ -708,13 +989,64 @@ Item {
   // -1 for "none" -- past the end, or in the gap between two cells. Shared by
   // the hover handler and the click handler so the two can never disagree about
   // what is under the cursor.
+  // True where tile `i` opens a new workspace group, which is what earns it
+  // the wider lead gap.
+  function _groupStart(i) {
+    return i > 0 && i < root.wins.length
+      && root.wins[i].wsId !== root.wins[i - 1].wsId
+  }
+
+  // Left edge of tile `i` within the content. The uniform stride is still the
+  // bulk of it; every group break before `i` adds one groupGap on top. Linear
+  // rather than cached: the strip is a handful of tiles, and a cache would be
+  // one more thing to invalidate when wins changes.
+  function _cellX(i) {
+    var x = i * (card.cellW + card.gap)
+    for (var k = 1; k <= i && k < root.wins.length; k++)
+      if (root.wins[k].wsId !== root.wins[k - 1].wsId) x += card.groupGap
+    return x
+  }
+
+  // The compositor's output scale, which is NOT Screen.devicePixelRatio.
+  //
+  // Qt draws this surface at buffer scale 2 and Hyprland resamples it to the
+  // output's 1.25, so a logical pixel is 1.25 physical ones. Qt only knows
+  // about the 2. Anything that has to land on a whole SCREEN pixel needs the
+  // 1.25, and Hyprland is the only thing that has it.
+  readonly property real outputScale: {
+    var m = Hyprland.focusedMonitor
+    if (!m) return 1
+    var s = Number(m.scale)
+    if (!isFinite(s) || s <= 0) {
+      var o = m.lastIpcObject
+      s = o ? Number(o.scale) : 1
+    }
+    return (isFinite(s) && s > 0) ? s : 1
+  }
+
+  // Round a logical length to land on a whole physical pixel.
+  //
+  // Without this a 3px rule is 3.75 physical, and every rule resolves that
+  // fraction differently depending on where it falls -- measured 4, 3 and 3
+  // columns for three rules that are nominally identical. Snapping the width
+  // AND the position puts them all on the same grid, so they come out the same
+  // width as each other, which is what "breaking on scaling" actually looked
+  // like. Perfect crispness is not on offer -- a buffer pixel is 0.625 screen
+  // pixels, so nothing can be integral in both -- but consistency is.
+  function _snapPx(v) {
+    var s = root.outputScale
+    if (!(s > 0)) return v
+    return Math.round(v * s) / s
+  }
+
   function _cellAt(lx) {
     if (lx < 0) return -1
-    var stride = card.cellW + card.gap
-    var idx = Math.floor(lx / stride)
-    if (idx < 0 || idx >= root.wins.length) return -1
-    if (lx - idx * stride > card.cellW) return -1
-    return idx
+    for (var i = 0; i < root.wins.length; i++) {
+      var x = root._cellX(i)
+      if (lx < x) return -1              // in a gap, before this tile starts
+      if (lx <= x + card.cellW) return i
+    }
+    return -1
   }
 
   Timer {
@@ -733,13 +1065,42 @@ Item {
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
     exclusionMode: ExclusionMode.Ignore
-    // Click-through everywhere EXCEPT the card: the strip is a full-screen
-    // surface, so an unmasked window would eat every click on the desktop
-    // behind it. Same idiom Omarchy uses for notification toasts
-    // (notifications/Service.qml -- Overlay layer, keyboardFocus None,
-    // `mask: Region { item: popupColumn }`), which is the proof that a click
-    // does reach a surface set up this way.
-    mask: Region { item: card }
+    // Unmasked, deliberately. This used to mask input to the card
+    // (mask: Region { item: card }) so the rest of the full-screen surface
+    // stayed click-through -- the same idiom Omarchy uses for notification
+    // toasts, which are passive and long-lived.
+    //
+    // A switcher is neither. It is modal for the moment it is up, and clicking
+    // beside it should dismiss it rather than land on whatever happened to be
+    // behind. Eating those clicks is only a hazard for a surface that is up
+    // when you are not looking at it; `visible: root.opened` means this one
+    // never is.
+
+    // Click-away. Sits before the card, so anything the tile handlers above it
+    // take never reaches here; this only sees what they did not. A press inside
+    // the card that missed a tile -- the padding, the gaps between groups -- is
+    // ignored rather than treated as "outside", or clicking the card's own
+    // margin would close the thing you are aiming at.
+    MouseArea {
+      anchors.fill: parent
+      acceptedButtons: Qt.LeftButton
+      // Hover only, in practice. The click handler below fires just for a press
+      // that actually reaches the surface -- which SUPER + left-click never
+      // does, since the bind takes it first. It stays for the case where the
+      // strip is up without SUPER held.
+      hoverEnabled: true
+      onPositionChanged: function (mouse) {
+        var p = mapToItem(card, mouse.x, mouse.y)
+        root.pointerInCard = p.x >= 0 && p.y >= 0
+          && p.x <= card.width && p.y <= card.height
+      }
+      onExited: root.pointerInCard = false
+      onClicked: function (mouse) {
+        var p = mapToItem(card, mouse.x, mouse.y)
+        if (p.x >= 0 && p.y >= 0 && p.x <= card.width && p.y <= card.height) return
+        root.dismiss()   // close, never switch -- see dismiss() vs commit()
+      }
+    }
 
     // The SUPER+SPACE menu's own scrim, bound rather than reproduced.
     //
@@ -793,8 +1154,34 @@ Item {
       x: Math.round((parent.width - width) / 2)
       y: Math.round((parent.height - height) / 2)
 
-      readonly property int cellW: Style.space(212)
+      // Tile width, as a named token rather than a bare number.
+      //
+      // The number was never raw pixels: Style.space(px) multiplies by
+      // effectiveSpacingScale (spacingScale * fontScale), so it has always
+      // tracked `omarchy display text size` and a theme's `[spacing] scale`.
+      // What it lacked was a handle. spacingToken() gives it one -- a theme can
+      // now set `switcher-cell-width` in its [spacing] section and win, exactly
+      // as it can for xs/md/lg or dropdown-width, and the fallback below is
+      // what applies otherwise.
+      //
+      // Note the asymmetry, which is spacingToken's own and not ours: an
+      // override is taken RAW (rounded, unscaled), while the fallback goes
+      // through space(). A theme setting this is stating a final width; the
+      // default is stating a width at scale 1.
+      //
+      // 150 stepped down twice from the original 212 (212 -> 180 -> 150, about
+      // -15% each time). Narrower tiles put more of the strip on screen and sit
+      // closer to macOS's own Cmd-Tab proportions. Both text lines already
+      // elide, so the only cost is fewer characters before the ellipsis -- no
+      // layout gives way.
+      readonly property int cellW: Style.spacingToken("switcher-cell-width", 150)
       readonly property int gap: Style.spacing.xs
+
+      // Extra space inserted where the workspace changes, so the strip reads as
+      // groups rather than one run. Tiles stay a uniform width; only the space
+      // before a group's first tile grows, which is why _cellX below has to do
+      // the arithmetic the ListView's own uniform `spacing` cannot.
+      readonly property int groupGap: Style.spacingToken("switcher-group-gap", 36)
       // Same shape as Menu.qml's baseRowHeight/detailRowHeight: a floor, raised
       // if the stacked contents need more. Keeps the cell honest when
       // `omarchy display text size` grows the font tokens.
@@ -805,29 +1192,58 @@ Item {
       // Style.spacing (xs 3 / sm 4 / md 6 / lg 8 / xl 10) to retune; rowH and
       // the padding both derive from it, so there is one place to change.
       readonly property int iconTitleGap: Style.spacing.lg
-      readonly property int iconTitleTopUp: Math.max(0, card.iconTitleGap - Style.space(3))
+      readonly property int iconTitleTopUp: Math.max(0, card.iconTitleGap - Style.spacing.xs)
 
+      // The floor is a named token for the same reason cellW is: it is what
+      // actually decides tile height. The computed side sits well under it
+      // (85 against 104 at the default base), so the floor wins outright and a
+      // theme with no say over it has no say over the tile.
+      //
+      // Style.spacing.xs rather than Style.space(3): identical by default, but
+      // space(3) hard-codes the number a theme can rename through the `xs` key.
+      // The Column below spaces itself by xs, and these two terms are its two
+      // gaps -- so they have to move together with it, not with a literal.
       readonly property int rowH: Math.max(
-        Style.space(104),
+        Style.spacingToken("switcher-row-height", 104),
         card.iconSize + Style.font.heading + Style.font.title
-          + Style.space(3) * 2 + card.iconTitleTopUp + Style.spacing.rowPaddingX * 2)
+          + Style.spacing.xs * 2 + card.iconTitleTopUp + Style.spacing.rowPaddingX * 2)
       // In the menu the icon sits inline beside a label (Style.font.iconLarge);
       // here it's the primary element of a card, so it steps up the type scale
-      // to `display` -- the way a macOS Cmd-Tab tile leads with its icon.
+      // -- the way a macOS Cmd-Tab tile leads with its icon.
       //
-      // A token rather than a multiple of iconLarge on purpose. iconLarge is
-      // already rounded (fontPx = round(baseSize * mult)), so scaling it rounds
-      // a second time and lands on arbitrary sizes that drift with base-size.
-      // display is a clean 2.0 rem: exact at every base-size, and ~1.33x
-      // iconLarge, which is where the hand-tuned multiplier was heading anyway.
-      readonly property int iconSize: Style.font.display
+      // fontPx(1.667) is 20 at the default base, one step down from the
+      // `display` token (2.0 rem / 24) this used to be. There is no token in
+      // between: the ladder runs title 14, heading 16, display 24, so taking
+      // the next token down would have put the icon at 16 -- the same size as
+      // the name line beneath it, which stops reading as an icon-led tile.
+      //
+      // Stepping off the ladder costs two things, both accepted knowingly. It
+      // no longer picks up a per-theme `display` override, and fontPx rounds
+      // wherever 1.667 isn't exact (20.0 at base 12, 23.33 -> 23 at base 14)
+      // where the old 2.0 was exact at every base size. A correctly
+      // proportioned tile at the size actually in use beats an exact multiple
+      // at sizes that are not.
+      readonly property int iconSize: Style.fontPx(1.667)
+
+      // What an ICON is drawn at, as opposed to the em box a glyph gets. The
+      // two are not the same thing and never were.
+      //
+      // A Nerd Font glyph does not fill its em box. Measured off a screen
+      // capture at this size, ink is 26px of a 29px box -- and the 26 holds
+      // across glyphs of very different shapes: desktop 29x26, code 32x26,
+      // chrome 26x26. Widths vary with the mark, HEIGHT does not. An
+      // edge-to-edge SVG fills its box completely, so handed the same number it
+      // renders about 11% larger than the glyph beside it.
+      //
+      // 0.9 closes that, measured rather than guessed: 26/29 = 0.897.
+      readonly property int iconDrawn: Math.round(card.iconSize * 0.9)
       // Matches the menu's cursor-row border (Menu.qml selectedBorderSpec), so
       // the theme's [menu] selected-border / selected-border-alpha reach the
       // HUD instead of being silently dropped.
       readonly property var selectedBorderSpec:
         Border.surfaceSpec("menu", "selected-border", Color.menu.selectedBorder, 0)
       readonly property int stripW: root.wins.length > 0
-        ? root.wins.length * cellW + (root.wins.length - 1) * gap
+        ? root._cellX(root.wins.length - 1) + cellW
         : 0
       // Overflow scrim width: the card's own left/right padding (so the
       // fade starts right at the card edge, not inset from it) plus
@@ -873,169 +1289,349 @@ Item {
         // label in heading/Medium and the secondary line in title at 0.52
         // (bumped two token steps up from the menu's own bodySmall).
         // Only the icon deliberately departs -- see card.iconSize.
-        delegate: BorderSurface {
-          id: cell
-          width: card.cellW
+        // Wrapped so a tile can carry the group gap in front of it: ListView's
+        // own `spacing` is uniform, and this is the only place the extra space
+        // can live without the tiles themselves changing width.
+        delegate: Item {
+          id: slot
+          readonly property bool groupStart: root._groupStart(index)
+          width: card.cellW + (slot.groupStart ? card.groupGap : 0)
           height: list.height
-          radius: Style.cornerRadius
-          readonly property bool sel: index === root.index
-          color: sel ? Color.menu.selectedBackground : "transparent"
-          borderSpec: sel ? card.selectedBorderSpec : Border.none()
 
-          Column {
-            anchors.centerIn: parent
-            width: parent.width - Style.spacing.rowPaddingX * 2
-            spacing: Style.space(3)
+          // Group separator: a hairline down the middle of the lead gap.
+          //
+          // Centred on the VISUAL gap rather than on the slot. The previous
+          // tile ends one ListView `gap` behind this slot's origin, so the
+          // empty run actually spans -gap..groupGap in slot coordinates and its
+          // midpoint is (groupGap - gap) / 2, not groupGap / 2.
+          //
+          // Colour and weight both come from the theme rather than from here.
+          // Color.muted is the palette's own muted role -- colour8, falling
+          // back to foreground -- which is what a divider between groups wants:
+          // secondary information, not the surface-edge treatment the border
+          // role is tuned for.
+          //
+          BorderSurface {
+            id: cell
+            x: slot.groupStart ? card.groupGap : 0
+            width: card.cellW
+            height: list.height
+            radius: Style.cornerRadius
+            readonly property bool sel: index === root.index
+            color: sel ? Color.menu.selectedBackground : "transparent"
+            borderSpec: sel ? card.selectedBorderSpec : Border.none()
 
-            // The mark. Almost always a Nerd Font glyph rendered as text --
-            // crisp at this size, and it recolours for free on selection. The
-            // exception is an app with a hand-placed icon in
-            // overrides/icons/fallbacks/, which the menu also uses -- see
-            // iconFor() above.
-            //
-            // That PNG is baked at the theme `foreground`, but a selected tile
-            // draws in `selected-text` (#007AFF accent in both our themes), so
-            // blitting it as-is would leave the FOCUSED tile showing a grey
-            // icon under a blue label. MultiEffect recolours it, exactly the
-            // way Omarchy tints symbolic tray icons (Tray.qml:789). Measured at
-            // ~0.002 ms per icon, against the handful of tiles a switcher shows.
-            //
-            // Height tracks the fallback Text's implicitHeight, not iconSize,
-            // so swapping a glyph for an image shifts no layout: line height
-            // exceeds pixelSize, and rowH above is written against the old
-            // stacking.
-            Item {
-              id: mark
-              anchors.horizontalCenter: parent.horizontalCenter
-              width: card.iconSize
-              height: glyphText.implicitHeight
-              // Resolved once from the cached index, never probed. hasIcon is
-              // the only thing the layer, the effect and the glyph below key
-              // off -- deliberately NOT Image.status, see iconFor() above.
-              readonly property string iconUrl: root.iconFor(modelData.cls)
-              readonly property bool hasIcon: mark.iconUrl.length > 0
+            Column {
+              anchors.centerIn: parent
+              width: parent.width - Style.spacing.rowPaddingX * 2
+              spacing: Style.spacing.xs
 
-              // Match the INK, not the canvas. app-icons.sh centres each mark in
-              // 200 of 256 px, but a text glyph at pixelSize N fills close to N
-              // -- so drawing the icon into a plain iconSize box renders it
-              // visibly smaller than the glyph beside it. Measured on screen:
-              // 27px of ink against the Chromium glyph's 33. Scaling the box by
-              // 256/200 lines the two up, and as a side effect downscales the
-              // 256px master less, which is where most of the softness came from.
-              readonly property int iconBox: Math.round(card.iconSize * 256 / 200)
-
-              // ONE decode size, shared by both Images below.
+              // The mark. Almost always a Nerd Font glyph rendered as text --
+              // crisp at this size, and it recolours for free on selection. The
+              // exception is an app with a hand-placed icon in
+              // overrides/icons/fallbacks/, which the menu also uses -- see
+              // iconFor() above.
               //
-              // Qt's pixmap cache is keyed on (url, requestSize), so the probe
-              // and the Image that actually draws share an entry only when they
-              // ask for the SAME size. These used to differ -- the probe asked
-              // for iconSize, the drawn one for iconBox -- which rasterised the
-              // same SVG twice per tile and threw one result away. Keep them
-              // equal or that comes straight back.
-              // Screen.devicePixelRatio, deliberately -- it is what Qt actually
-              // rasterises this surface at. Measured on this machine:
-              // Screen.devicePixelRatio and Window.window.devicePixelRatio both
-              // report 2 while Hyprland's output scale is 1.25, i.e. Qt takes
-              // the next integer buffer scale and the COMPOSITOR scales the
-              // finished 2x surface down to 1.25x. That last step is not
-              // something a per-Image sourceSize can or should pre-compensate
-              // for: decoding at 1.25 would draw a 45px image into a region Qt
-              // renders at 72px, which is upscaling. See CLAUDE.md.
-              readonly property int decodePx: Math.ceil(mark.iconBox * Screen.devicePixelRatio)
-
-              Image {
-                id: flatMark
-                anchors.centerIn: parent
-                width: mark.iconBox
-                height: width
-                // The index already picked the extension, so there is one Image
-                // per mark and no probe. Empty for a class with no drop-in,
-                // which loads nothing at all.
-                source: mark.iconUrl
-                // sourceSize is REQUIRED here, and for a reason that differs by
-                // format. For a raster it selects the decode resolution, and
-                // leaving it unset simply uses the file's own (256px) -- fine.
-                // For a VECTOR it selects the rasterisation resolution, and
-                // leaving it unset makes Qt rasterise at the SVG's intrinsic
-                // size, which for these sources is 24x24 (simple-icons) or
-                // 16x16 (freedesktop symbolic). Those then get scaled UP to the
-                // drawn size, which is exactly as blurry as it sounds. Omarchy's
-                // own Menu.qml sets it for the same reason.
-                sourceSize.width: mark.decodePx
-                sourceSize.height: mark.decodePx
-                fillMode: Image.PreserveAspectFit
-                asynchronous: true
-                // Kept as a hidden layer so the effect can sample it as a
-                // texture -- but only on tiles that HAVE one, so a glyph-only
-                // tile costs no FBO and no extra render pass. Measured against
-                // a live window set: chromium and ghostty resolve, cursor, the
-                // omarchy agent and the screensaver do not, so roughly half the
-                // strip was paying for a layer it never sampled.
+              // That PNG is baked at the theme `foreground`, but a selected tile
+              // draws in `selected-text` (#007AFF accent in both our themes), so
+              // blitting it as-is would leave the FOCUSED tile showing a grey
+              // icon under a blue label. MultiEffect recolours it, exactly the
+              // way Omarchy tints symbolic tray icons (Tray.qml:789). Measured at
+              // ~0.002 ms per icon, against the handful of tiles a switcher shows.
+              //
+              // Height tracks the fallback Text's implicitHeight, not iconSize,
+              // so swapping a glyph for an image shifts no layout: line height
+              // exceeds pixelSize, and rowH above is written against the old
+              // stacking.
+              Item {
+                id: mark
+                anchors.horizontalCenter: parent.horizontalCenter
+                width: card.iconSize
+                height: glyphText.implicitHeight
+                // Resolved once from the cached index, never probed. hasIcon is
+                // the only thing the layer, the effect and the glyph below key
+                // off -- deliberately NOT Image.status, see iconFor() above.
+                readonly property string iconUrl: root.iconFor(modelData.cls)
+                readonly property bool hasIcon: mark.iconUrl.length > 0
+                // Where the url came from decides how it is drawn: a drop-in is
+                // repainted to the theme foreground by the MultiEffect below,
+                // while vendor artwork is the whole point of the flag and has
+                // to reach the screen with its own colours intact.
                 //
-                // Keyed on hasIcon, not on status. status is not stable across a
-                // DPR change -- Qt reloads the Image from inside the item-tree
-                // walk -- and a layer destroyed mid-walk is what aborted the
-                // shell. hasIcon comes from the cached index and cannot move
-                // while the walk runs.
-                visible: false
-                layer.enabled: mark.hasIcon
-              }
+                // Derived from the path rather than tracked separately, and
+                // stable per tile either way -- nothing here reads Image.status,
+                // which is what made layer.enabled safe in the first place.
+                readonly property bool iconIsFlat: mark.hasIcon
+                  && mark.iconUrl.indexOf("file://" + root.flatIconDir) === 0
+                readonly property bool isWorkspace: modelData.kind === "workspace"
 
-              MultiEffect {
-                anchors.fill: flatMark
-                source: flatMark
-                visible: mark.hasIcon
-                colorization: 1.0
-                colorizationColor: cell.sel ? Color.menu.selectedText : Color.menu.text
-              }
+                // Match the INK, not the canvas -- but only where there IS
+                // canvas, which is the half of this that was wrong.
+                //
+                // There is no ink-ratio compensation here any more, and that is
+                // the point: every drop-in is an edge-to-edge SVG, so the drawn
+                // box IS iconSize and an icon sits beside a glyph of the same
+                // pixelSize with nothing to reconcile.
+                //
+                // It used to scale the box by 256/200, which was right for a PNG
+                // and wrong for an SVG. app-icons.sh trimmed each raster and
+                // re-padded it onto a 256x256 canvas at 200x200, so its ink
+                // really was 200/256 of the file, while the SVG branch only
+                // recoloured and copied -- a simple-icons source arriving
+                // edge-to-edge. Applying the raster ratio to both drew every SVG
+                // 28% oversized, overflowing the mark and clipping top and
+                // bottom, while the correctly-sized rasters beside them looked
+                // small and off-centre. One cause, both complaints.
+                //
+                // Compensating per asset fixed it but kept two conventions alive.
+                // Dropping the rasters leaves one, enforced end to end: the
+                // generator takes only .svg, the index indexes only .svg, and an
+                // app with no drop-in falls back to its Nerd Font glyph.
 
+                // ONE decode size, shared by both Images below.
+                //
+                // Screen.devicePixelRatio, deliberately -- it is what Qt actually
+                // rasterises this surface at. Measured on this machine:
+                // Screen.devicePixelRatio and Window.window.devicePixelRatio both
+                // report 2 while Hyprland's output scale is 1.25, i.e. Qt takes
+                // the next integer buffer scale and the COMPOSITOR scales the
+                // finished 2x surface down to 1.25x. That last step is not
+                // something a per-Image sourceSize can or should pre-compensate
+                // for: decoding at 1.25 would draw a 45px image into a region Qt
+                // renders at 72px, which is upscaling. See CLAUDE.md.
+                readonly property int decodePx: Math.ceil(card.iconDrawn * Screen.devicePixelRatio)
+
+                Image {
+                  id: flatMark
+                  anchors.centerIn: parent
+                  width: card.iconDrawn
+                  height: width
+                  // The index already picked the extension, so there is one Image
+                  // per mark and no probe. Empty for a class with no drop-in,
+                  // which loads nothing at all.
+                  source: mark.iconUrl
+                  // sourceSize is REQUIRED here, and for a reason that differs by
+                  // format. For a raster it selects the decode resolution, and
+                  // leaving it unset simply uses the file's own (256px) -- fine.
+                  // For a VECTOR it selects the rasterisation resolution, and
+                  // leaving it unset makes Qt rasterise at the SVG's intrinsic
+                  // size, which for these sources is 24x24 (simple-icons) or
+                  // 16x16 (freedesktop symbolic). Those then get scaled UP to the
+                  // drawn size, which is exactly as blurry as it sounds. Omarchy's
+                  // own Menu.qml sets it for the same reason.
+                  sourceSize.width: mark.decodePx
+                  sourceSize.height: mark.decodePx
+                  fillMode: Image.PreserveAspectFit
+                  asynchronous: true
+                  // Kept as a hidden layer so the effect can sample it as a
+                  // texture -- but only on tiles that HAVE one, so a glyph-only
+                  // tile costs no FBO and no extra render pass. Measured against
+                  // a live window set: chromium and ghostty resolve, cursor, the
+                  // omarchy agent and the screensaver do not, so roughly half the
+                  // strip was paying for a layer it never sampled.
+                  //
+                  // Keyed on hasIcon, not on status. status is not stable across a
+                  // DPR change -- Qt reloads the Image from inside the item-tree
+                  // walk -- and a layer destroyed mid-walk is what aborted the
+                  // shell. hasIcon comes from the cached index and cannot move
+                  // while the walk runs.
+                  // Drawn directly when it is vendor art; kept as a hidden
+                  // layer for the MultiEffect to sample when it is a drop-in.
+                  visible: mark.hasIcon && !mark.iconIsFlat
+                  layer.enabled: mark.iconIsFlat
+                }
+
+                MultiEffect {
+                  anchors.fill: flatMark
+                  source: flatMark
+                  visible: mark.iconIsFlat
+                  colorization: 1.0
+                  colorizationColor: cell.sel ? Color.menu.selectedText : Color.menu.text
+                }
+
+                Text {
+                  id: glyphText
+                  anchors.centerIn: parent
+                  // Covers apply.sh step 7f never having run, an empty
+                  // fallbacks/ directory and a name mismatch alike: all three
+                  // leave the class out of the index, so every tile stays a glyph.
+                  visible: !mark.hasIcon && !mark.isWorkspace
+                  text: root.glyphFor(modelData.cls)
+                  textFormat: Text.PlainText
+                  font.family: Style.font.menuFamily
+                  font.pixelSize: card.iconSize
+                  color: cell.sel ? Color.menu.selectedText : Color.menu.text
+                }
+
+                // Empty-workspace mark: a dashed box with rounded corners,
+                // U+F0489.
+                //
+                // Picked by RENDERING candidates, not by name -- this font's
+                // name-to-codepoint mapping does not match the Nerd Font
+                // tables. nf-md-select (U+F0C08) draws a circled J here, and
+                // U+2B1A DOTTED SQUARE is absent from the face entirely, which
+                // matters because a missing glyph renders as NOTHING in this
+                // font rather than tofu: an absent box and a blank slot look
+                // identical, so name-guessing fails silently.
+                //
+                // F0485 was the first fit and is the same idea with square
+                // corners; F0489 rounds them, which sits closer to the rest of
+                // the strip. F14FC is rounded but solid, so it reads as a
+                // container rather than an absence.
+                //
+                // pixelSize is iconSize, the same as the app glyph below, so it
+                // lands on the shared ink ratio with no extra arithmetic.
+                Text {
+                  visible: mark.isWorkspace
+                  anchors.centerIn: parent
+                  text: String.fromCodePoint(0xF0489)
+                  textFormat: Text.PlainText
+                  font.family: Style.font.menuFamily
+                  font.pixelSize: card.iconSize
+                  // No selection tint, unlike every other mark in the tile. An
+                  // empty workspace is a place rather than a thing you are
+                  // looking at, and recolouring it made the strip twitch under
+                  // a passing pointer.
+                  color: Color.menu.text
+                }
+              }
               Text {
-                id: glyphText
-                anchors.centerIn: parent
-                // Covers apply.sh step 7f never having run, an empty
-                // fallbacks/ directory and a name mismatch alike: all three
-                // leave the class out of the index, so every tile stays a glyph.
-                visible: !mark.hasIcon
-                text: root.glyphFor(modelData.cls)
+                width: parent.width
+                horizontalAlignment: Text.AlignHCenter
+                text: modelData.kind === "workspace"
+                  ? "Workspace " + modelData.wsId
+                  : (root.nameFor(modelData.cls) || root.sanitizeTitle(modelData.title))
+                // Tops the Column's uniform xs up to card.iconTitleGap. Counted
+                // into card.rowH too, or the taller stack is clipped by the
+                // fixed cell height.
+                topPadding: card.iconTitleTopUp
                 textFormat: Text.PlainText
+                elide: Text.ElideRight
+                maximumLineCount: 1
                 font.family: Style.font.menuFamily
-                font.pixelSize: card.iconSize
-                color: cell.sel ? Color.menu.selectedText : Color.menu.text
+                font.pixelSize: Style.font.heading
+                font.weight: Font.Medium
+                // Keyboard selection colours this; hover does not -- see
+                // root.hoverSelect. The detail line below never changed colour
+                // at all, so it needs no equivalent.
+                color: (cell.sel && !root.hoverSelect)
+                  ? Color.menu.selectedText : Color.menu.text
               }
-            }
-            Text {
-              width: parent.width
-              horizontalAlignment: Text.AlignHCenter
-              text: root.nameFor(modelData.cls) || root.sanitizeTitle(modelData.title)
-              // Tops the Column's uniform xs up to card.iconTitleGap. Counted
-              // into card.rowH too, or the taller stack is clipped by the
-              // fixed cell height.
-              topPadding: card.iconTitleTopUp
-              textFormat: Text.PlainText
-              elide: Text.ElideRight
-              maximumLineCount: 1
-              font.family: Style.font.menuFamily
-              font.pixelSize: Style.font.heading
-              font.weight: Font.Medium
-              color: cell.sel ? Color.menu.selectedText : Color.menu.text
-            }
-            Text {
-              width: parent.width
-              horizontalAlignment: Text.AlignHCenter
-              text: modelData.ws + " – " + root.sanitizeTitle(modelData.title)
-              textFormat: Text.PlainText
-              elide: Text.ElideRight
-              maximumLineCount: 1
-              font.family: Style.font.menuFamily
-              // Two token steps up from the menu's secondary/detail line
-              // (bodySmall) -- still opacity 0.52, just title instead.
-              font.pixelSize: Style.font.title
-              color: Color.menu.text
-              opacity: 0.52
+              // Detail line: just the title. The workspace is carried by the
+              // gap in the strip, not by anything in here -- see card.groupGap.
+              // A "1 - " prefix and, briefly, a filled number badge both lived
+              // here first; each spent horizontal room in a 150px tile to repeat
+              // what adjacency already says.
+              Text {
+                width: parent.width
+                horizontalAlignment: Text.AlignHCenter
+                // An ellipsis when there is no title to show.
+                //
+                // Covers two cases that look the same on screen: a window that
+                // reports no title at all, and one whose title survives
+                // sanitizeTitle as nothing -- an all-CJK title, say, since the
+                // whitelist is Latin plus a few marks. Both used to read
+                // "(untitled)", which spent a 150px line saying so.
+                //
+                // The character cannot come from the model: it is not in
+                // titleWhitelist, so sanitizeTitle would strip it right back
+                // out. It has to be applied after sanitising, here.
+                text: modelData.kind === "workspace"
+                  ? "Empty"
+                  : (root.sanitizeTitle(modelData.title) || "…")
+                textFormat: Text.PlainText
+                elide: Text.ElideRight
+                maximumLineCount: 1
+                font.family: Style.font.menuFamily
+                // One step above Menu.qml's detail line, which is bodySmall
+                // (Menu.qml:1299, at the same opacity 0.52).
+                //
+                // It has been walked down to find this: `title` was two steps
+                // over and read as a different component next to the launcher;
+                // bodySmall matched exactly but sat too quiet under a heading
+                // in a card this wide. `body` is the step between.
+                //
+                // The label above matches the launcher outright -- heading /
+                // Font.Medium / elide, the same as Menu.qml:1286 -- so the
+                // deviation is confined to this line, on purpose.
+                font.pixelSize: Style.font.body
+                color: Color.menu.text
+                opacity: 0.52
+              }
             }
           }
         }
       }
+
+      // Group rules, drawn OVER the card rather than inside the ListView.
+      //
+      // The list clips to its own height -- it has to, or a scrolled cell
+      // spills past the viewport -- so a rule parented to a delegate can never
+      // reach the card's top and bottom edges. Lifting it out is the only way
+      // to span the container.
+      //
+      // x tracks the list's scroll so the rules stay welded to the gaps they
+      // belong to, and the wrapper clips horizontally so none escapes the
+      // viewport when the strip is wider than the card. The card's own border
+      // draws at z 100000, above this, so a rule cannot bleed into the edge.
+      Item {
+        id: groupRules
+        // The card's own border width, from the same spec the card draws with,
+        // so the rules stop exactly where the stroke begins instead of running
+        // under it. Top and bottom are read separately: the spec is a
+        // {top,right,bottom,left} shape and a theme may set them apart.
+        readonly property var edge: card.borderSpec.widths
+        readonly property real edgeTop: groupRules.edge ? groupRules.edge.top : 0
+        readonly property real edgeBottom: groupRules.edge ? groupRules.edge.bottom : 0
+
+        x: list.x
+        y: groupRules.edgeTop
+        width: list.width
+        height: card.height - groupRules.edgeTop - groupRules.edgeBottom
+        clip: true
+
+        Repeater {
+          model: root.wins.length
+
+          delegate: Rectangle {
+            id: groupRule
+            // 3x the theme's hairline. It has climbed 1 -> 1.5 -> 3: at full
+            // card height a hairline reads as a hesitation rather than a
+            // division, and the gap it sits in is 32px, so there is room.
+            readonly property real stroke: Math.max(1, Style.normalBorderWidth) * 3
+            visible: root._groupStart(index)
+            // Centred in the gap between the two tiles, and centred on its own
+            // stroke within that.
+            //
+            // _cellX is the TILE's left edge, so the empty run in front of it
+            // is gap + groupGap wide and its midpoint is half that back. This
+            // read `+ (groupGap - gap) / 2` while the rule still lived inside
+            // the delegate, where x was relative to the SLOT -- one groupGap
+            // further left. Lifting it out onto the card without re-deriving
+            // the offset put every rule 28px into the tile to its right.
+            x: root._snapPx(root._cellX(index) - (list.contentX - list.originX)
+              - (card.gap + card.groupGap) / 2 - groupRule.width / 2)
+            width: root._snapPx(groupRule.stroke)
+            height: parent.height
+            // The hover/selection background -- the same fill a tile takes
+            // when the cursor is on it.
+            //
+            // There is no dedicated hover role in the palette; the menu's
+            // hovered row and its cursor row are one and the same
+            // (menu.selected-background), so that is the honest source. It is
+            // also exactly the step this rule wants: the theme sets it to
+            // #F6F6F6 on light, with the note that #FFFFFF "has no brighter
+            // tier -- white is the ceiling", i.e. the palette's own nearest
+            // move off the surface colour.
+            //
+            // Which is the thing pure white and pure black both got wrong from
+            // opposite directions: one vanished into the card, the other cut
+            // through it like chrome. A hair off the surface reads as a seam.
+            color: Color.menu.selectedBackground
+          }
+        }
+      }
+
 
       // Click a tile to focus that window. Placed after the ListView so it sits
       // above it; the list is `interactive: false`, so nothing below competes
@@ -1060,6 +1656,8 @@ Item {
           if (!root.opened || root.wins.length < 2) return
           var idx = root._cellAt(mouse.x + list.contentX - list.originX)
           if (idx < 0) return
+          root.hoverSelect = true
+          root.pointerInCard = true
           root.index = idx
         }
         onClicked: function (mouse) {

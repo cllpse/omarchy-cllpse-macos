@@ -76,7 +76,14 @@ o.bind("SUPER + SHIFT + TAB", "Window switcher: previous", ws_step("prev"))
 hl.unbind("SUPER + mouse:272")
 o.bind("SUPER + mouse:272", "Window switcher: focus tile, else move window", function()
   if ws_watching then
-    ws_exec("commit")
+    -- "click", not "commit": the plugin decides which it was.
+    --
+    -- The bind cannot tell a press on a tile from one beside the strip -- it
+    -- has no idea where the card is -- and committing on both meant clicking
+    -- away navigated instead of closing. Motion is not intercepted the way the
+    -- button is, so the HUD tracks the pointer itself and answers this with
+    -- commit over the card, dismiss outside it.
+    ws_exec("click")
   else
     -- Built per press rather than cached at load: a dispatcher value held
     -- across invocations is one more thing that has to be re-entrant, and the

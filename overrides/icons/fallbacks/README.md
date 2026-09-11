@@ -8,8 +8,7 @@ Add a file to take an app over; delete it to hand that app back.
 
 ## Naming
 
-The filename must be the desktop entry's `Icon=` value, verbatim, plus `.svg` or
-`.png`:
+The filename must be the desktop entry's `Icon=` value, verbatim, plus `.svg`:
 
 ```
 Exec line in the .desktop     Icon=com.mitchellh.ghostty
@@ -23,10 +22,23 @@ often not the window class either:
 grep -h '^Icon=' ~/.local/share/applications/*.desktop /usr/share/applications/*.desktop | sort -u
 ```
 
-`.svg` is strongly preferred. The same icon is drawn at 21px in the menu and 28px
-in the switcher; Qt rasterises a vector at whichever size is asked for, while a
-PNG has to be scaled to both and goes soft. If you only have a PNG, give it at
-least 256×256.
+`.svg` only — a raster here is ignored. Qt rasterises a vector at whichever size
+is asked for, while a PNG has to be scaled to each and goes soft.
+
+The harder reason is ink. The sync used to accept rasters and normalise them,
+trimming to the ink and re-padding onto a 256×256 canvas at 200×200, so every
+PNG carried a known 200/256 ink ratio that the switcher undid at draw time. SVGs
+got no such padding, so the same compensation drew every vector 28% oversized —
+they overflowed their box and clipped, while the rasters beside them looked
+small and off-centre. Two conventions, one of them invisible unless you read the
+sync script.
+
+So there is one now: every drop-in is edge-to-edge, and the switcher draws at
+ink size with no ratio at all. An app whose icon exists only as a raster keeps
+its Nerd Font glyph, which is the flat look regardless, and is what an app with
+no drop-in has always fallen back to. `aether`, `cliamp`, `helium` and
+`LimineSnapperSync` were the four dropped on that basis; a vector for any of
+them can simply be dropped back in.
 
 ## What the file should contain
 
@@ -45,10 +57,6 @@ without you keeping two copies.
   would be invisible on a dark theme, so the sync gives the root element a fill.
   It only does this when the root has none, since a duplicate attribute makes
   the document unparseable.
-- **PNG** — the alpha channel is used as the mask and painted in the theme
-  colour, so anything non-transparent becomes part of the mark. A logo on an
-  opaque background tile will come out as a solid block; trim it to the mark
-  first.
 
 ## Preparing a file you sourced
 
@@ -104,5 +112,5 @@ class if you want it in both. Check a running window's class with:
 hyprctl clients -j | grep '"class"'
 ```
 
-Give exactly one file per app — a `.svg` and a `.png` of the same name is a
-conflict, and the sync warns and keeps the `.svg`.
+One `.svg` per app. A `.png` of the same name is not a conflict any more, just
+ignored — the sync no longer reads rasters at all.
