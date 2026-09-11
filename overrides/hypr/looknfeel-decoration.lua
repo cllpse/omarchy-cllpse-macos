@@ -136,7 +136,20 @@ o.window(".*[Ff]igma.*", { tag = "-default-opacity", opacity = "1 1" })
 -- The blur showing through an unfocused window is wanted here, not a side
 -- effect to be suppressed -- see the window opacity block above. Set false
 -- explicitly (it is also the Hyprland default) so the choice is on the record.
+-- ── Focus stealing: OFF ────────────────────────────────────────────────────
+-- misc:focus_on_activate governs whether Hyprland honours an xdg-activation
+-- request -- an already-running app asking to be brought to the front. Omarchy
+-- ships it TRUE (default/hypr/looknfeel.lua:109), so anything that asks gets
+-- the keyboard, mid-keystroke.
+--
+-- This is a different thing from a brand-new window taking focus when it maps,
+-- which Hyprland does by default and which only a per-window `no_focus` rule
+-- suppresses. Worth keeping straight: turning this off does NOT stop a freshly
+-- opened window from focusing, and the two get conflated constantly.
 hl.config({
+  misc = {
+    focus_on_activate = false,
+  },
   decoration = {
     dim_inactive = false,
     rounding = 18,

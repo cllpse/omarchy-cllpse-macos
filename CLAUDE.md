@@ -35,6 +35,25 @@ overrides live in the user files, so they land last and win. `hl.*` is
 Hyprland's native Lua API; `o.*` is Omarchy's helper layer over it
 (`o.window` → `hl.window_rule`), defined in `default/hypr/helpers.lua`.
 
+**Two different things get called "auto-focus", and only one has a global knob.**
+`misc:focus_on_activate` decides whether Hyprland honours an *xdg-activation
+request* -- an already-running app asking to be raised. Omarchy ships it **true**
+(`default/hypr/looknfeel.lua:109`); `overrides/hypr/looknfeel-decoration.lua`
+sets it false. A **new window taking focus when it maps** is separate: Hyprland
+does that by default and only a per-window `no_focus` rule stops it, so turning
+`focus_on_activate` off does nothing for it.
+
+That distinction matters for Omarchy's own menu actions. `install.webapp` (and
+the TUI/theme/package installers) run
+`omarchy-launch-floating-terminal-with-presentation`, which is
+`setsid uwsm-app -- xdg-terminal-exec --app-id=org.omarchy.terminal` -- so the
+window is whatever `~/.config/xdg-terminals.list` names first, **ghostty here,
+not foot**, despite the floating-terminal window rules living in
+`default/hypr/apps/terminals.lua`. Those prompts are interactive gum widgets, so
+a `no_focus` rule on `org.omarchy.terminal` would make them unusable without a
+click -- which is the reason not to reach for one when a fresh install window
+steals focus.
+
 **Window opacity runs through a tag.** `windows.lua` tags every window
 `+default-opacity`, per-app files under `default/hypr/apps/` strip that tag from
 things that must stay opaque (DaVinci Resolve, PiP and webcam overlays, Steam,
