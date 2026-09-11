@@ -28,9 +28,10 @@
 --
 -- scroll_factor is the top-level (mouse-wheel) multiplier; touchpad.scroll_factor
 -- is a separate knob that only affects the trackpad. They move in opposite
--- directions here on purpose: 1.5 (150%) on the wheel, because a notched wheel
+-- directions here on purpose: 1.35 (135%) on the wheel, because a notched wheel
 -- moves in coarse discrete steps and Omarchy's base felt short of a line's worth
--- per notch; 0.35 on the trackpad, below Omarchy's stock 0.4, because a
+-- per notch -- 1.5 was the first pass at that and overshot slightly; 0.35 on
+-- the trackpad, below Omarchy's stock 0.4, because a
 -- continuous two-finger surface wants the opposite -- macOS trackpad scrolling
 -- is slow and precise per unit of finger travel, and it is the momentum fling,
 -- not the gain, that covers distance.
@@ -51,7 +52,7 @@ hl.config({
       scroll_factor = 0.35,
     },
     left_handed = false,
-    scroll_factor = 1.5,
+    scroll_factor = 1.35,
     mouse_refocus = false,
   },
 })
