@@ -56,7 +56,13 @@ CHROME='["titleBar.","activityBar","sideBar","statusBar","editorGroupHeader.","t
 # tab.unfocusedActiveBorderTop is the SAME line while the editor group is
 # unfocused (Omarchy: #BDBDBD). Left alone it would reappear in grey whenever
 # focus moved to the terminal or another group, so it goes too.
-FORCE='{"tab.activeBorderTop":"#00000000","tab.unfocusedActiveBorderTop":"#00000000"}'
+#
+# tab.hoverBorder is the line drawn under a tab while the pointer is over it
+# (Omarchy: #007AFF40), so a tab's bottom edge changed on hover. Its unfocused
+# twin needs no entry: VS Code derives tab.unfocusedHoverBorder from this one,
+# and neither Omarchy nor Bearded sets it explicitly (checked). tab.hoverBackground
+# is deliberately left alone -- only the border was unwanted.
+FORCE='{"tab.activeBorderTop":"#00000000","tab.unfocusedActiveBorderTop":"#00000000","tab.hoverBorder":"#00000000"}'
 
 tmp=$(mktemp)
 if ! jq --slurpfile t "$THEME" --argjson pre "$CHROME" --argjson force "$FORCE" '
