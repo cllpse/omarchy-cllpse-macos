@@ -510,7 +510,7 @@ So the Cursor theme follows `omarchy theme set` through the same signal that
 flips GTK and `prefers-color-scheme`, with no hook and no key for Omarchy to
 overwrite. `autoDetectColorScheme` is the load-bearing part: drop it and the two
 `preferred*` keys go inert and `colorTheme` takes over again, losing to Omarchy
-on the next switch. The variants (`Bearded Theme Vivid Light`,
+on the next switch. The variants (`Bearded Theme Light`,
 `Bearded Theme Black & Gold Soft`) were picked by measuring against the themes'
 own backgrounds — Black & Gold Soft's `#221F1D` is ΔE 2.2 from `#1E1E1E` and the
 only near-neutral dark in the set (chroma 2.1 against the palette's 0), the rest

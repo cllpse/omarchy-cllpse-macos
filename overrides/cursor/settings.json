@@ -57,7 +57,7 @@
   "workbench.layoutControl.enabled": false,
   "workbench.agentsWindowButton.enabled": false,
   "window.autoDetectColorScheme": true,
-  "workbench.preferredLightColorTheme": "Bearded Theme Vivid Light",
+  "workbench.preferredLightColorTheme": "Bearded Theme Light",
   "workbench.preferredDarkColorTheme": "Bearded Theme Black & Gold Soft",
   "workbench.iconTheme": "bearded-icons",
   "update.showReleaseNotes": false,
