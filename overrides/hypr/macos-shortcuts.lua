@@ -199,9 +199,22 @@ o.bind("SUPER + SHIFT + P", "Command palette (Cmd+Shift+P)", send_shortcut_once(
 -- its own class's list), but a window that unmaps between the two calls would
 -- leave nothing to close; falling back to the plain dispatcher keeps the
 -- keybind from silently doing nothing in that race.
+-- The class guard below is load-bearing, not defensive noise. Lua stores no key
+-- at all for a nil value, so `{ class = active.class }` with a nil class is
+-- literally `{}` -- an EMPTY filter, which matches every window on every
+-- workspace and turns this loop into "close the entire desktop". An empty
+-- string is the same hazard one step milder: it exact-matches every classless
+-- window rather than the focused app. Neither can reach the sweep; both fall
+-- back to the plain dispatcher, which closes the focused window and nothing
+-- else -- the same fallback the empty-list race below already uses.
 o.bind("SUPER + Q", "Quit app (Cmd+Q, all its windows)", function()
   local active = hl.get_active_window()
   if not active then
+    return
+  end
+
+  if not active.class or active.class == "" then
+    hl.dispatch(hl.dsp.window.close())
     return
   end
 
