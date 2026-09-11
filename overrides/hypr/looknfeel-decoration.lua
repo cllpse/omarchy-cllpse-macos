@@ -286,7 +286,7 @@ hl.layer_rule({
 -- Behavior is removed rather than left alone: with no_anim off, a QML fade
 -- inside the surface would stack on top of the compositor's.
 
--- ── Animation speed (3x) ───────────────────────────────────────────────────
+-- ── Animation speed (3.5x) ─────────────────────────────────────────────────
 -- Can't live in the theme: colors.toml/shell.toml carry no animation keys at
 -- all (checked shell.toml.tpl), and the shell's own per-component durations
 -- (e.g. Hud.qml's 420ms selection fade) are hardcoded per QML file, not
@@ -297,44 +297,40 @@ hl.layer_rule({
 -- proportional to duration -- SMALLER speed = FASTER animation. Verified
 -- empirically (burst-screenshotted a window spawn at speed=0.3 vs speed=20;
 -- 0.3 finished before the first capture, 20 was still mid pop-in several
--- frames in). Every leaf below is Omarchy's stock speed divided by 3 (3x
--- faster) -- not multiplied by 3, which would have made it 3x *slower* --
--- with a floor of 1: six leaves (windowsOut, fadeIn, fadeOut, layersOut,
--- fadeLayersIn, fadeLayersOut) would have landed at 0.46-0.6 on a straight
--- 1/3 scale and are clamped to 1 instead, rather than let the fastest
--- animations get fast enough to look like a hard cut.
+-- frames in). Every leaf below is Omarchy's stock speed divided by 3.5 (3.5x
+-- faster) -- not multiplied by 3.5, which would have made it 3.5x *slower* --
+-- with a floor of 0.6: six leaves (windowsOut, fadeIn, fadeOut, layersOut,
+-- fadeLayersIn, fadeLayersOut) land at 0.40-0.51 on a straight 1/3.5 scale and
+-- are clamped to 0.6 instead, rather than let the fastest animations get fast
+-- enough to look like a hard cut.
 --
--- layersIn is the one deliberate deviation from that 1/3 rule: 1.2 (120ms), not
--- stock 4's 1.33. It is the category both the Omarchy panels and our switcher
--- map under -- there is no per-rule duration, so this leaf IS their timing --
--- and 133ms read a shade slow once the switcher joined them and its card began
--- ramping with the rest (see the fade layer rule above). 120ms is where the
--- switcher's own scrim Behavior used to sit, so this is a return to a
--- known-good number rather than a fresh guess.
+-- Was 3x on a floor of 1, and the floor is why the divisor could move. At floor
+-- 1 the scheme was already saturating: those same six leaves were pinned there,
+-- and a straight 4x would have pinned ten of the fourteen enabled leaves --
+-- which stops being "divide by N" and becomes "set almost everything to 100ms",
+-- with the floor rather than the divisor setting the timings. 3.5x on 0.6 keeps
+-- the divisor in charge. The clamped set is the same six as at 3x, now at 60ms
+-- instead of 100ms.
 --
--- Nothing else on the in-path has headroom: layersOut, fadeLayersIn and
--- fadeLayersOut are already clamped at the floor of 1, and the parent `layers`
--- leaf (1.27) is inert while both its children are set explicitly.
---
--- Blast radius: layersIn is shared by every animated layer surface -- the five
--- keyboard-driven panels and the switcher, plus notifications, the OSD, polkit
--- and reminders. All of them take the same 13ms trim.
-hl.animation({ leaf = "global", enabled = true, speed = 3.33, bezier = "default" })
-hl.animation({ leaf = "border", enabled = true, speed = 1.8, bezier = "easeOutQuint" })
-hl.animation({ leaf = "windows", enabled = true, speed = 1.26, bezier = "easeOutQuint" })
-hl.animation({ leaf = "windowsIn", enabled = true, speed = 1.37, bezier = "easeOutQuint", style = "popin 87%" })
-hl.animation({ leaf = "windowsOut", enabled = true, speed = 1, bezier = "linear", style = "popin 87%" })
-hl.animation({ leaf = "fadeIn", enabled = true, speed = 1, bezier = "almostLinear" })
-hl.animation({ leaf = "fadeOut", enabled = true, speed = 1, bezier = "almostLinear" })
-hl.animation({ leaf = "fade", enabled = true, speed = 1.01, bezier = "quick" })
+-- What prompted it: the layer fades read a shade slow once the switcher joined
+-- the whole-surface fade (see the layer rule above). layersIn lands at 1.14
+-- here, against 1.33 at 3x and a hand-set 1.2 that this reset discards.
+hl.animation({ leaf = "global", enabled = true, speed = 2.86, bezier = "default" })
+hl.animation({ leaf = "border", enabled = true, speed = 1.54, bezier = "easeOutQuint" })
+hl.animation({ leaf = "windows", enabled = true, speed = 1.08, bezier = "easeOutQuint" })
+hl.animation({ leaf = "windowsIn", enabled = true, speed = 1.17, bezier = "easeOutQuint", style = "popin 87%" })
+hl.animation({ leaf = "windowsOut", enabled = true, speed = 0.6, bezier = "linear", style = "popin 87%" })
+hl.animation({ leaf = "fadeIn", enabled = true, speed = 0.6, bezier = "almostLinear" })
+hl.animation({ leaf = "fadeOut", enabled = true, speed = 0.6, bezier = "almostLinear" })
+hl.animation({ leaf = "fade", enabled = true, speed = 0.87, bezier = "quick" })
 hl.animation({ leaf = "fadeSwitch", enabled = false })
-hl.animation({ leaf = "layers", enabled = true, speed = 1.27, bezier = "easeOutQuint" })
-hl.animation({ leaf = "layersIn", enabled = true, speed = 1.2, bezier = "easeOutQuint", style = "fade" })
-hl.animation({ leaf = "layersOut", enabled = true, speed = 1, bezier = "linear", style = "fade" })
-hl.animation({ leaf = "fadeLayersIn", enabled = true, speed = 1, bezier = "almostLinear" })
-hl.animation({ leaf = "fadeLayersOut", enabled = true, speed = 1, bezier = "almostLinear" })
+hl.animation({ leaf = "layers", enabled = true, speed = 1.09, bezier = "easeOutQuint" })
+hl.animation({ leaf = "layersIn", enabled = true, speed = 1.14, bezier = "easeOutQuint", style = "fade" })
+hl.animation({ leaf = "layersOut", enabled = true, speed = 0.6, bezier = "linear", style = "fade" })
+hl.animation({ leaf = "fadeLayersIn", enabled = true, speed = 0.6, bezier = "almostLinear" })
+hl.animation({ leaf = "fadeLayersOut", enabled = true, speed = 0.6, bezier = "almostLinear" })
 hl.animation({ leaf = "workspaces", enabled = false })
-hl.animation({ leaf = "specialWorkspace", enabled = true, speed = 1.0, bezier = "easeOutQuint", style = "slidevert" })
+hl.animation({ leaf = "specialWorkspace", enabled = true, speed = 0.86, bezier = "easeOutQuint", style = "slidevert" })
 
 -- ── Presentation-popup width ───────────────────────────────────────────────
 -- The floating terminal Omarchy shows for `omarchy pkg remove` / install /
