@@ -134,12 +134,18 @@ o.bind("SUPER + S", "Save (Cmd+S)", unless_terminal("CTRL", "S"))
 -- Firefox, which is emphatically not what Cmd+K should do.
 o.bind("SUPER + K", "Clear terminal (Cmd+K)", only_in_terminal("CTRL SHIFT", "K"))
 
--- App shortcuts for Chrome (new tab/reopen closed tab/reload/new window/
--- print or Quick Open/command palette) -- safe everywhere, no terminal guard
--- needed: none of Ctrl+T (transpose-chars), Ctrl+Shift+T (unbound), Ctrl+R
--- (reverse-isearch), Ctrl+N (next-history), Ctrl+P (previous-history) or
--- Ctrl+Shift+P are destructive readline bindings the way Ctrl+Z/W/S are, so
--- there's nothing to protect against.
+-- App shortcuts for Chrome (new tab/reopen closed tab/reload/address bar/new
+-- window/print or Quick Open/command palette) -- safe everywhere, no terminal
+-- guard needed: none of Ctrl+T (transpose-chars), Ctrl+Shift+T (unbound),
+-- Ctrl+R (reverse-isearch), Ctrl+L (clear-screen), Ctrl+N (next-history),
+-- Ctrl+P (previous-history) or Ctrl+Shift+P are destructive readline bindings
+-- the way Ctrl+Z/W/S are, so there's nothing to protect against.
+--
+-- Cmd+L is the one where the terminal behaviour is actively WANTED rather than
+-- merely harmless, so it is ungated on purpose -- unlike SUPER+K above. In a
+-- browser Ctrl+L focuses the address bar; at a shell prompt readline's Ctrl+L
+-- clears the screen, which is what the same chord does in Terminal.app. One
+-- bind, both behaviours, no app check needed.
 -- These started as keyboard firmware key overrides, then moved here to
 -- match how Z/W/S/Q already work: Hyprland can see the focused app and
 -- could add per-app handling later (e.g. the Ctrl+P print-vs-Quick-Open
@@ -147,6 +153,7 @@ o.bind("SUPER + K", "Clear terminal (Cmd+K)", only_in_terminal("CTRL SHIFT", "K"
 o.bind("SUPER + T", "New tab (Cmd+T)", send_shortcut_once("CTRL", "T"))
 o.bind("SUPER + SHIFT + T", "Reopen closed tab (Cmd+Shift+T)", send_shortcut_once("CTRL SHIFT", "T"))
 o.bind("SUPER + R", "Reload (Cmd+R)", send_shortcut_once("CTRL", "R"))
+o.bind("SUPER + L", "Focus address bar (Cmd+L) / clear terminal", send_shortcut_once("CTRL", "L"))
 o.bind("SUPER + N", "New window (Cmd+N)", send_shortcut_once("CTRL", "N"))
 o.bind("SUPER + P", "Print / Quick Open (Cmd+P)", send_shortcut_once("CTRL", "P"))
 o.bind("SUPER + SHIFT + P", "Command palette (Cmd+Shift+P)", send_shortcut_once("CTRL SHIFT", "P"))
