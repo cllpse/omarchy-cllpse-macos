@@ -44,11 +44,26 @@ jq -e . "$THEME" >/dev/null 2>&1 || exit 0
 
 CHROME='["titleBar.","activityBar","sideBar","statusBar","editorGroupHeader.","tab.","panel","menu","commandCenter.","toolbar.","banner.","breadcrumb"]'
 
+# Keys forced on top of whatever Omarchy painted, where its value isn't wanted.
+#
+# tab.activeBorderTop is the accent line drawn ABOVE the active tab (Omarchy
+# puts the theme accent there, #007AFF). Transparent rather than deleted: drop
+# the key and Bearded's own value shows through instead, since colorCustomizations
+# only overrides what it names. VS Code reads 8-digit #RRGGBBAA, so the trailing
+# 00 is zero alpha -- the same form Omarchy's own file uses for its #007AFF20
+# washes.
+#
+# tab.unfocusedActiveBorderTop is the SAME line while the editor group is
+# unfocused (Omarchy: #BDBDBD). Left alone it would reappear in grey whenever
+# focus moved to the terminal or another group, so it goes too.
+FORCE='{"tab.activeBorderTop":"#00000000","tab.unfocusedActiveBorderTop":"#00000000"}'
+
 tmp=$(mktemp)
-if ! jq --slurpfile t "$THEME" --argjson pre "$CHROME" '
+if ! jq --slurpfile t "$THEME" --argjson pre "$CHROME" --argjson force "$FORCE" '
       . as $set
       | (($t[0].colors // {})
-         | with_entries(select(.key as $k | any($pre[]; . as $p | $k | startswith($p))))) as $chrome
+         | with_entries(select(.key as $k | any($pre[]; . as $p | $k | startswith($p))))
+         + $force) as $chrome
       | ( [ $set["workbench.preferredLightColorTheme"],
             $set["workbench.preferredDarkColorTheme"] ] | map(select(type == "string")) ) as $themes
       | if ($themes | length) == 0 or ($chrome | length) == 0 then $set

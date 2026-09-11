@@ -532,7 +532,14 @@ and terminal stay Bearded; widening it is a matter of adding prefixes to
 are read from `preferredLight/DarkColorTheme` rather than hardcoded, so the
 variant names live in one place. Both scopes get the current palette, which is
 always correct: only one is ever active, and it matches the mode that selected
-it. One wart — changing a preferred theme leaves the previous scope orphaned in
+it. A `$FORCE` map is applied on top of the copy for keys where Omarchy's own value
+isn't wanted: `tab.activeBorderTop` (the accent line above the active tab) and
+its unfocused twin are set to `#00000000`. Transparent rather than *deleted* —
+`colorCustomizations` only overrides what it names, so dropping a key hands that
+slot back to Bearded instead of clearing it. VS Code reads 8-digit `#RRGGBBAA`,
+which Omarchy's own generated file already relies on for its `#007AFF20` washes.
+
+One wart — changing a preferred theme leaves the previous scope orphaned in
 `colorCustomizations`; it is inert unless that theme is picked again, and the
 hook does not prune it because it cannot tell its own scopes from a user's.
 
