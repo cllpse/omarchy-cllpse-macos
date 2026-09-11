@@ -55,6 +55,10 @@
   "workbench.statusBar.visible": false,
   "workbench.layoutControl.enabled": false,
   "workbench.agentsWindowButton.enabled": false,
+  "window.autoDetectColorScheme": true,
+  "workbench.preferredLightColorTheme": "Bearded Theme Vivid Light",
+  "workbench.preferredDarkColorTheme": "Bearded Theme Black & Gold Soft",
+  "workbench.iconTheme": "bearded-icons",
   "update.showReleaseNotes": false,
   "extensions.ignoreRecommendations": true,
   "[typescript]": {

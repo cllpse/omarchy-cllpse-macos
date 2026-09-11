@@ -1,0 +1,21 @@
+# Colours use ANSI names, which resolve to the terminal's 16-colour palette --
+# themed by Omarchy from the active theme's colors.toml. Follows cllpse-macos
+# (blue accent) and every other theme automatically.
+#
+# Same four theme keys and the same accepted vocabulary as ../lazygit/config.yml
+# (lazydocker and lazygit share the gocui colour layer): a colour NAME, plus the
+# attribute keywords bold / reverse / underline, as a list per key. Verified
+# present in this build (0.25.2): activeBorderColor, inactiveBorderColor,
+# selectedLineBgColor, optionsTextColor -- lazydocker has no equivalent of
+# lazygit's cherryPicked/unstagedChanges keys, so this file is the shorter one.
+gui:
+  theme:
+    activeBorderColor:
+      - blue
+      - bold
+    inactiveBorderColor:
+      - default
+    optionsTextColor:
+      - blue
+    selectedLineBgColor:
+      - reverse

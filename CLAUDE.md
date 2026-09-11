@@ -444,12 +444,20 @@ passes `--ozone-platform=x11` explicitly, overriding Omarchy's global
 **Chromium's context menu has no per-item removal mechanism, and a bare
 Preferences edit doesn't reach it either** — only `/etc/chromium/policies/
 managed/*.json` does. Spellcheck, translate, password-save prompt, address/card
-autofill, DevTools/Inspect, Print, Cast, "Create QR Code" and "Add to reading
+autofill, Print, Cast, "Create QR Code" and "Add to reading
 list" are all off via `overrides/chromium/policies-managed.json`, installed by
 `apply.sh`'s last step (9) with `sudo install`, the one sudo step in the whole
 script — deliberately last, so the single password prompt comes after every
 other change has landed.
-That step only writes if `/etc/chromium/policies/managed/` already exists,
+**DevTools is deliberately not in that list.** `DeveloperToolsAvailability: 2`
+was, originally, and it is the one key whose blast radius went past the menu —
+it blocks Inspect *everywhere*, local dev servers included. It is now absent
+rather than set to `1`, so Chromium's own default applies (`0`: available except
+on force-installed extensions), on the principle that a managed policy should
+only assert what we have an opinion about. "Inspect" is back in the context menu
+as a consequence; no lever separates the entry from the feature.
+
+Step 9 only writes if `/etc/chromium/policies/managed/` already exists,
 matching `omarchy-theme-set-browser-policy`'s own guard verbatim (never hand a
 browser a managed-policy root it doesn't otherwise have), and leaves the file
 root:root — required, since a one-time Omarchy migration purges anything in
@@ -491,10 +499,32 @@ It skips (never truncates) if the live file has JSONC comments `jq` rejects, and
 `workbench.colorTheme`** — `omarchy-theme-set-vscode` rewrites that to `"Omarchy"`
 on every `omarchy theme set` (it also installs the generated `omarchy-theme`
 VS Code extension into `~/.cursor/extensions`), so a competing value just loses
-the race on the next theme switch. The file is kept to stock-Cursor keys — no
-setting in it depends on a marketplace extension (`iconTheme`, GitLens/Copilot
-keys and the Biome / ESLint per-language formatters were all stripped), and it
-sets no `editor.fontFamily` / `editor.fontWeight`: Cursor's default stack ends in
+the race on the next theme switch.
+
+**The Bearded theme sidesteps that race rather than fighting it.** With
+`window.autoDetectColorScheme = true`, Cursor ignores `workbench.colorTheme`
+entirely and reads `workbench.preferredLightColorTheme` /
+`preferredDarkColorTheme`, choosing between them from the OS colour scheme —
+which is `gsettings color-scheme`, which the theme's `mode` key already drives.
+So the Cursor theme follows `omarchy theme set` through the same signal that
+flips GTK and `prefers-color-scheme`, with no hook and no key for Omarchy to
+overwrite. `autoDetectColorScheme` is the load-bearing part: drop it and the two
+`preferred*` keys go inert and `colorTheme` takes over again, losing to Omarchy
+on the next switch. The variants (`Bearded Theme Vivid Light`,
+`Bearded Theme Black & Gold Soft`) were picked by measuring against the themes'
+own backgrounds — Black & Gold Soft's `#221F1D` is ΔE 2.2 from `#1E1E1E` and the
+only near-neutral dark in the set (chroma 2.1 against the palette's 0), the rest
+carrying a visible blue cast.
+
+This is the one place the override **does** depend on marketplace extensions
+(`beardedbear.beardedtheme`, `beardedbear.beardedicons`). `workbench.iconTheme`
+had been deliberately stripped once before to keep that from being true; it is
+back by choice. A machine without the extensions falls back to Cursor's default
+theme and icons — no error, just not what the repo describes.
+
+The file is otherwise kept to stock-Cursor keys — GitLens/Copilot keys and the
+Biome / ESLint per-language formatters were all stripped — and it sets no
+`editor.fontFamily` / `editor.fontWeight`: Cursor's default stack ends in
 `monospace`, which fontconfig resolves to SF Mono (from `omarchy font set`), so
 the editor inherits the system monospace without Omarchy writing a font key into
 Cursor — it never does, `omarchy-theme-set-vscode` only touches `colorTheme`.

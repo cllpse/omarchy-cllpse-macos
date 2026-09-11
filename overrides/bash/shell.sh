@@ -101,3 +101,25 @@ export LS_COLORS="${LS_COLORS:+$LS_COLORS:}di=01;34:ln=04;34:ex=01;32:pi=01;36:s
 # terminal-wide escape hatch for exactly this conflict (same mechanism tmux/
 # vim mouse-mode users rely on), guaranteed to make a native selection no
 # matter what the app wants, without touching scroll or Claude's own mouse UI.
+
+# Tool aliases. Each is guarded on the tool the way the `ls` alias above is:
+# apply.sh installs no packages, so an unguarded alias on a machine that lacks
+# the tool replaces a working command with a broken one. overrides/README.md's
+# "Before running apply.sh" lists where each of these comes from.
+
+# Microsoft Edit as `edit`.
+command -v msedit >/dev/null 2>&1 && alias edit="msedit"
+
+# `diff` -> `git diff`, so diffs go through the hunk pager set in
+# ../git/pager.conf. This shadows diffutils' /usr/bin/diff in INTERACTIVE shells
+# only: bash does not expand aliases in non-interactive shells (expand_aliases is
+# off), so apply.sh's own `diff -q` and every other script still reach the real
+# binary, and `command diff a b` does too.
+command -v git >/dev/null 2>&1 && alias diff="git diff"
+
+# gh-dash TUI as `dash`. gh-dash is a gh EXTENSION, not a binary on PATH, so
+# `command -v` can't see it. Test for the extension directory rather than asking
+# gh: `gh extension list` measured 34ms here, and this runs on every interactive
+# shell -- the same reason the fzf palette above is parsed in-shell instead of
+# shelling out to awk.
+[[ -d "${XDG_DATA_HOME:-$HOME/.local/share}/gh/extensions/gh-dash" ]] && alias dash="gh dash"

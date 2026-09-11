@@ -37,6 +37,8 @@ link() { # $1 target  $2 link-path
 
 link "$OVERRIDES/hooks/theme-set.d/app-icons.sh"        "$HOME/.config/omarchy/hooks/theme-set.d/app-icons.sh"
 link "$OVERRIDES/hooks/theme-set.d/starship-colors.sh"  "$HOME/.config/omarchy/hooks/theme-set.d/starship-colors.sh"
+link "$OVERRIDES/hooks/theme-set.d/hunk-colors.sh"      "$HOME/.config/omarchy/hooks/theme-set.d/hunk-colors.sh"
+link "$OVERRIDES/hooks/theme-set.d/yazi-syntax.sh"      "$HOME/.config/omarchy/hooks/theme-set.d/yazi-syntax.sh"
 link "$OVERRIDES/hooks/post-update.d/cllpse-macos-repair.sh" \
      "$HOME/.config/omarchy/hooks/post-update.d/cllpse-macos-repair.sh"
 link "$REPO/omarchy-cllpse-theme/omarchy-cllpse-theme-dark"  "$HOME/.config/omarchy/themes/omarchy-cllpse-theme-dark"

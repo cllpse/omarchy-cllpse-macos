@@ -10,13 +10,15 @@
 #   5. force hintnone for GTK/GNOME (gsettings) + Ghostty (freetype-load-flags)
 #   5b. strip GTK window buttons (gsettings button-layout)
 #   6. hypr overrides: OMARCHY_MENU_FONT (shell popups) + decoration (rounding, blur)
-#   7. install bat / lazygit / lsd theme configs, merge Cursor settings, add fzf + lsd colours to .bashrc
+#   7. install bat / lazygit / lsd / yazi / lazydocker / gh-dash / hunk theme
+#      configs, merge Cursor settings, add fzf +
+#      lsd colours and the tool aliases to .bashrc, git diff pager to git config
 #   7f. flat app icons for the menu (hand-placed SVGs in icons/fallbacks/)
 #   7f2. post-update repair hook: re-link what an Omarchy update could take out
 #   7h. Omarchy shell.json: window-switcher plugin, transparent bar, bar layout,
 #       disabled first-party plugins
 #   8. apply the theme (refreshes whichever cllpse-macos theme is active; dark otherwise)
-#   9. Chromium context-menu declutter: spellcheck/translate/password/autofill/DevTools/
+#   9. Chromium context-menu declutter: spellcheck/translate/password/autofill/
 #      Print/Cast/QR/Reading-list off (managed policy, sudo) — last, so the one
 #      password prompt in the script comes after all the other work is done
 
@@ -283,6 +285,75 @@ else
   skip "lsd not installed — skipped ~/.config/lsd theme files"
 fi
 
+# yazi. Its own preset theme is already ANSI-based, so this is not undoing a
+# hardcoded palette -- it pins the accent to blue so yazi agrees with the other
+# TUIs, and flattens the chrome onto `reset`. See yazi/theme.toml.
+if command -v yazi >/dev/null 2>&1; then
+  say "yazi -> ~/.config/yazi/theme.toml (ANSI theme)"
+  mkdir -p ~/.config/yazi
+  backup ~/.config/yazi/theme.toml
+  cp "$HERE/yazi/theme.toml" ~/.config/yazi/theme.toml
+else
+  skip "yazi not installed — skipped ~/.config/yazi/theme.toml"
+fi
+
+# lazydocker. Same four gocui theme keys, and the same ANSI vocabulary, as
+# lazygit above.
+if command -v lazydocker >/dev/null 2>&1; then
+  say "lazydocker -> ~/.config/lazydocker/config.yml (ANSI theme)"
+  mkdir -p ~/.config/lazydocker
+  backup ~/.config/lazydocker/config.yml
+  cp "$HERE/lazydocker/config.yml" ~/.config/lazydocker/config.yml
+else
+  skip "lazydocker not installed — skipped ~/.config/lazydocker/config.yml"
+fi
+
+# gh-dash. MERGED, not copied: its config.yml also holds the user's own
+# prSections / issuesSections / layout, which this repo has no business owning.
+# Only the `theme` key is replaced. PyYAML round-trips the file, so comments and
+# key order in the parts we don't touch are not preserved -- acceptable here
+# because gh-dash generates that file itself, but it is why this is a merge
+# rather than a deep-merge of every key.
+_ghdash_dir="${XDG_DATA_HOME:-$HOME/.local/share}/gh/extensions/gh-dash"
+_ghdash_cfg="${XDG_CONFIG_HOME:-$HOME/.config}/gh-dash/config.yml"
+if [[ -d $_ghdash_dir ]] && command -v python3 >/dev/null 2>&1; then
+  mkdir -p "${_ghdash_cfg%/*}"
+  backup "$_ghdash_cfg"
+  if python3 - "$_ghdash_cfg" "$HERE/gh-dash/theme.yml" <<'PYGH'
+import sys, io
+try:
+    import yaml
+except ImportError:
+    sys.exit(3)
+cfg_path, theme_path = sys.argv[1], sys.argv[2]
+try:
+    with io.open(cfg_path, encoding="utf-8") as f:
+        cfg = yaml.safe_load(f) or {}
+except FileNotFoundError:
+    cfg = {}
+if not isinstance(cfg, dict):
+    sys.exit(4)
+with io.open(theme_path, encoding="utf-8") as f:
+    frag = yaml.safe_load(f) or {}
+# Replace only the colors sub-tree, so a `theme.ui` block the user set survives.
+theme = cfg.get("theme")
+if not isinstance(theme, dict):
+    theme = {}
+theme["colors"] = frag["theme"]["colors"]
+cfg["theme"] = theme
+with io.open(cfg_path, "w", encoding="utf-8") as f:
+    yaml.safe_dump(cfg, f, sort_keys=False, default_flow_style=False, allow_unicode=True)
+PYGH
+  then
+    say "gh-dash -> $_ghdash_cfg (ANSI theme, merged)"
+  else
+    skip "gh-dash theme merge failed (PyYAML missing or config unparseable) —"
+    skip "  merge $HERE/gh-dash/theme.yml in by hand"
+  fi
+else
+  skip "gh-dash not installed — skipped its theme merge"
+fi
+
 # Starship has no Omarchy-aware theming of its own and no config "import"
 # mechanism to point at a themed file the way Ghostty/Alacritty/foot do, so
 # instead of a themed/*.tpl this hooks into `omarchy-hook theme-set`
@@ -296,6 +367,32 @@ mkdir -p ~/.config/omarchy/hooks/theme-set.d
 ln -sfn "$HERE/hooks/theme-set.d/starship-colors.sh" ~/.config/omarchy/hooks/theme-set.d/starship-colors.sh
 backup ~/.config/starship.toml
 "$HERE/hooks/theme-set.d/starship-colors.sh" || skip "starship-colors.sh produced nothing this run — left ~/.config/starship.toml untouched"
+
+# hunk — the one tool here that cannot use the terminal palette (its validator
+# takes hex only, and every built-in theme is a bundled Shiki theme), so its
+# colours are BAKED from the active colors.toml on every theme-set, the same
+# hook mechanism starship uses above. The hook writes config.toml whole, so
+# back it up once before the first run.
+# yazi's previewer — syntect reads a .tmTheme, which is hex-only, so the
+# previewer's syntax colours are baked per theme like hunk's. Unlike the rest of
+# yazi/theme.toml (ANSI, no regeneration), this one needs the hook. See the
+# syntect_theme note in yazi/theme.toml for what the trade buys.
+if command -v yazi >/dev/null 2>&1; then
+  say "yazi previewer -> ~/.config/omarchy/hooks/theme-set.d/yazi-syntax.sh"
+  mkdir -p ~/.config/omarchy/hooks/theme-set.d ~/.config/yazi
+  ln -sfn "$HERE/hooks/theme-set.d/yazi-syntax.sh" ~/.config/omarchy/hooks/theme-set.d/yazi-syntax.sh
+  "$HERE/hooks/theme-set.d/yazi-syntax.sh" || skip "yazi-syntax.sh produced nothing this run — left the .tmTheme untouched"
+fi
+
+if command -v hunk >/dev/null 2>&1; then
+  say "hunk -> ~/.config/omarchy/hooks/theme-set.d/hunk-colors.sh"
+  mkdir -p ~/.config/omarchy/hooks/theme-set.d ~/.config/hunk
+  ln -sfn "$HERE/hooks/theme-set.d/hunk-colors.sh" ~/.config/omarchy/hooks/theme-set.d/hunk-colors.sh
+  backup ~/.config/hunk/config.toml
+  "$HERE/hooks/theme-set.d/hunk-colors.sh" || skip "hunk-colors.sh produced nothing this run — left ~/.config/hunk/config.toml untouched"
+else
+  skip "hunk not installed — skipped its theme hook (mise use -g hunk)"
+fi
 
 # Cursor — deep-merge our editor prefs into settings.json with jq: our keys win,
 # any key we don't set is kept. Omarchy owns workbench.colorTheme (it rewrites it
@@ -329,6 +426,19 @@ else
 fi
 
 sync_fenced ~/.bashrc "$HERE/bash/shell.sh"
+
+# git: route `git diff` through hunk (see git/pager.conf for why it needs no
+# guard). Fenced rather than copied, because ~/.config/git/config is Omarchy's
+# stock file plus the user's own [user] block -- identity that must not come
+# from this repo. Seed from the stock copy first if the user has none, so a
+# fresh machine doesn't end up with a git config consisting only of our block
+# (the `sync_fenced` trap in README.md's gaps table).
+mkdir -p ~/.config/git
+if [[ ! -e ~/.config/git/config && -r /usr/share/omarchy/config/git/config ]]; then
+  say "git -> seeded ~/.config/git/config from Omarchy's stock copy"
+  cp /usr/share/omarchy/config/git/config ~/.config/git/config
+fi
+sync_fenced ~/.config/git/config "$HERE/git/pager.conf"
 
 # ── 7b. display scaling + text size ──────────────────────────────────────────
 # Restore overrides/display.conf (written by ./overrides/save-display.sh). Any
@@ -613,8 +723,8 @@ fi
 # LAST on purpose. This is the only step that needs sudo, so it runs after
 # everything else rather than stalling a run halfway through on a password
 # prompt. It used to sit between 7f2 and 7h.
-# Spellcheck / Translate / password-save-prompt / Autofill / DevTools / Print /
-# Cast / QR-code / Reading-list all end up here, not in a Preferences file.
+# Spellcheck / Translate / password-save-prompt / Autofill / Print / Cast /
+# QR-code / Reading-list all end up here, not in a Preferences file.
 # An earlier version of this step wrote the first five as plain Preferences
 # keys instead — a plain pref only changes the *default*, so Settings still
 # showed the toggle as changeable, and per Chrome's own docs a bare
@@ -653,9 +763,14 @@ fi
 # which also matters here: a one-time Omarchy migration purges anything in
 # this directory NOT owned by root.
 #
-# NB: DeveloperToolsAvailability=2 also blocks Inspect on your own local dev
-# servers, not just random pages; drop that key from
-# chromium/policies-managed.json and re-run if that turns out to be too broad.
+# DevTools is deliberately NOT in this list. DeveloperToolsAvailability=2 was
+# here originally, as part of the context-menu declutter, but it is the one key
+# whose blast radius went well past the menu: it blocks Inspect everywhere,
+# including your own local dev servers. Dropping the key restores Chromium's
+# own default (0 — DevTools available except on force-installed extensions)
+# rather than asserting a value, which is what a managed policy should do for a
+# setting we have no opinion about. "Inspect" comes back in the context menu as
+# a consequence; there is no lever that separates the two.
 if [[ -f "$HERE/chromium/policies-managed.json" &&
       -d /etc/chromium/policies/managed && ! -L /etc/chromium/policies/managed ]]; then
   dest=/etc/chromium/policies/managed/cllpse-macos.json
@@ -678,7 +793,7 @@ echo "    • open a new shell for the fzf colours"
 echo "    • restart Ghostty / Foot windows for SF Mono + hintnone"
 echo "    • relaunch running GTK/Qt apps + the bar for hintnone"
 echo "    • light theme:  omarchy theme set omarchy-cllpse-theme-light"
-echo "    • the spellcheck/translate/password/autofill/DevTools/Print/Cast/QR/reading-list policy (9)"
+echo "    • the spellcheck/translate/password/autofill/Print/Cast/QR/reading-list policy (9)"
 echo "      already refreshed live if Chromium was running — no relaunch needed"
 echo "    • boot splash / login screen (needs sudo, not run by this script):"
 echo "        omarchy plymouth set by theme omarchy-cllpse-theme-dark   # or -light"

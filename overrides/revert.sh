@@ -91,16 +91,28 @@ strip_fenced ~/.config/hypr/looknfeel.lua
 strip_fenced ~/.config/hypr/bindings.lua
 strip_fenced ~/.config/hypr/input.lua
 strip_fenced ~/.bashrc
+strip_fenced ~/.config/git/config
 
 restore ~/.config/bat/config
 restore ~/.config/lazygit/config.yml
 restore ~/.config/lsd/config.yaml
 restore ~/.config/lsd/colors.yaml
+restore ~/.config/yazi/theme.toml
+restore ~/.config/lazydocker/config.yml
+restore ~/.config/gh-dash/config.yml
 restore ~/.config/Cursor/User/settings.json
 
 say "Removing starship theme-set hook"
 [[ -L ~/.config/omarchy/hooks/theme-set.d/starship-colors.sh ]] && rm -f ~/.config/omarchy/hooks/theme-set.d/starship-colors.sh
 restore ~/.config/starship.toml
+
+say "Removing yazi previewer theme-set hook"
+[[ -L ~/.config/omarchy/hooks/theme-set.d/yazi-syntax.sh ]] && rm -f ~/.config/omarchy/hooks/theme-set.d/yazi-syntax.sh
+rm -f ~/.config/yazi/cllpse-macos.tmTheme
+
+say "Removing hunk theme-set hook"
+[[ -L ~/.config/omarchy/hooks/theme-set.d/hunk-colors.sh ]] && rm -f ~/.config/omarchy/hooks/theme-set.d/hunk-colors.sh
+restore ~/.config/hunk/config.toml
 
 # Flat app icons (apply.sh step 7f). The whole override is one directory we
 # created, so removing it hands every app back to its vendor icon; there is no
