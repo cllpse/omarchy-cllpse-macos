@@ -536,10 +536,13 @@ it. A `$FORCE` map is applied on top of the copy for keys where Omarchy's own va
 isn't wanted: `tab.activeBorderTop` (the accent line above the active tab), its
 unfocused twin, and `tab.hoverBorder` (the line under a tab while the pointer is
 over it) are set to `#00000000`. `tab.unfocusedHoverBorder` needs no entry — VS
-Code derives it from `tab.hoverBorder`, and neither theme sets it explicitly. `tab.activeBorder` is
-deliberately left at Omarchy's accent — the active tab keeps its blue bottom
-edge, and clearing `tab.hoverBorder` is what stops that edge being restyled under
-the pointer. Transparent rather than *deleted* —
+Code derives it from `tab.hoverBorder`, and neither theme sets it explicitly. The bottom border is
+deliberately **shared** between the selected and hovered states: Omarchy gives
+them different values (`tab.activeBorder` the full accent, `tab.hoverBorder` a
+25%-alpha wash of it), so a tab's bottom edge changed weight depending on which
+state it was in. The hook assigns one from the other — derived, not pinned, so it
+tracks the theme's accent — and `tab.unfocusedHoverBorder` follows for free, since
+Cursor's registry defines it as an alpha of `tab.hoverBorder`. Transparent rather than *deleted* —
 `colorCustomizations` only overrides what it names, so dropping a key hands that
 slot back to Bearded instead of clearing it. VS Code reads 8-digit `#RRGGBBAA`,
 which Omarchy's own generated file already relies on for its `#007AFF20` washes.

@@ -57,17 +57,21 @@ CHROME='["titleBar.","activityBar","sideBar","statusBar","editorGroupHeader.","t
 # unfocused (Omarchy: #BDBDBD). Left alone it would reappear in grey whenever
 # focus moved to the terminal or another group, so it goes too.
 #
-# tab.hoverBorder is the line drawn under a tab while the pointer is over it
-# (Omarchy: #007AFF40), so a tab's bottom edge changed on hover. Its unfocused
-# twin needs no entry: VS Code derives tab.unfocusedHoverBorder from this one,
-# and neither Omarchy nor Bearded sets it explicitly (checked). tab.hoverBackground
-# is deliberately left alone -- only the border was unwanted.
+# tab.hoverBackground is deliberately left alone -- only the borders are managed
+# here.
+FORCE='{"tab.activeBorderTop":"#00000000","tab.unfocusedActiveBorderTop":"#00000000"}'
+
+# ONE bottom border, shared by the selected and hovered states. Omarchy gives
+# them different values -- tab.activeBorder the full accent (#007AFF),
+# tab.hoverBorder a 25%-alpha wash of it (#007AFF40) -- so a tab's bottom edge
+# changed weight depending on whether it was selected or merely under the
+# pointer. Assigning one from the other makes hover and selection read
+# identically.
 #
-# tab.activeBorder (Omarchy's accent, #007AFF) is deliberately NOT in this map:
-# the active tab keeps its blue bottom edge. Clearing tab.hoverBorder above is
-# what stops that edge changing under the pointer, so the blue is constant
-# rather than restyled on hover.
-FORCE='{"tab.activeBorderTop":"#00000000","tab.unfocusedActiveBorderTop":"#00000000","tab.hoverBorder":"#00000000"}'
+# Derived rather than pinned in $FORCE so it stays whatever accent the active
+# theme paints. tab.unfocusedHoverBorder needs no entry: Cursor's own colour
+# registry defines it as a .5 (dark) / .7 (light) alpha of tab.hoverBorder, so
+# it follows from this.
 
 
 tmp=$(mktemp)
@@ -75,7 +79,8 @@ if ! jq --slurpfile t "$THEME" --argjson pre "$CHROME" --argjson force "$FORCE" 
       . as $set
       | (($t[0].colors // {})
          | with_entries(select(.key as $k | any($pre[]; . as $p | $k | startswith($p))))
-         + $force) as $chrome
+         + $force
+         | .["tab.hoverBorder"] = (.["tab.activeBorder"] // .["tab.hoverBorder"])) as $chrome
       | ( [ $set["workbench.preferredLightColorTheme"],
             $set["workbench.preferredDarkColorTheme"] ] | map(select(type == "string")) ) as $themes
       | if ($themes | length) == 0 or ($chrome | length) == 0 then $set
