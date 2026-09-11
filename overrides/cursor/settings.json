@@ -19,6 +19,8 @@
   "editor.renderControlCharacters": false,
   "editor.renderWhitespace": "none",
   "editor.stickyScroll.enabled": false,
+  "editor.overviewRulerBorder": false,
+  "editor.scrollbar.verticalScrollbarSize": 10,
   "editor.rulers": [],
   "editor.lineNumbers": "interval",
   "diffEditor.renderIndicators": false,
