@@ -677,10 +677,14 @@ face, which is why copying its `font-family = ComicCode Nerd Font SemiBold`
 across verbatim silently did nothing.
 
 Ghostty's `font-thicken` / `font-thicken-strength` have **no** Cursor
-counterpart, and neither does the `environment.d` stem darkening: Cursor is
-Electron, so it inherits Chromium's ignoring of `FREETYPE_PROPERTIES` (see the
-Chromium entry under *traps*). Comic Code renders thinner in Cursor than in
-Ghostty for that reason, and no setting closes the gap.
+counterpart, and neither did the `environment.d` stem darkening while it
+existed: Cursor is Electron, so it inherits Chromium's ignoring of
+`FREETYPE_PROPERTIES` (see the Chromium entry under *traps*). That drop-in has
+since been dropped from the repo — and `apply.sh` step 7c now deletes an
+already-installed copy by name, since both it and `revert.sh` otherwise only
+walk the repo directory and a file removed from the repo would live on
+forever. Comic Code renders thinner in Cursor than in Ghostty regardless, and
+no setting closes the gap.
 
 Ghostty's `font-size = 14` is a terminal size and was not copied.
 `editor.fontSize` is **derived**, not pinned: `apply.sh` reads `omarchy display
@@ -793,6 +797,13 @@ and the original is kept in prose as provenance. Don't leave the two out of sync
 - **Blur only shows through what a surface leaves translucent.** At
   `background-alpha` 0.92 barely 8% of the backdrop shows, so widening the blur
   radius there is close to invisible; `background-alpha` is the stronger lever.
+  Taken to its conclusion: every `shell.*.toml` here now ships
+  `background-alpha = 1.0`, so the `hl.layer_rule { blur = true }` in
+  `overrides/hypr/looknfeel-decoration.lua` is **entirely inert** — the only
+  thing `decoration.blur` still reaches is the unfocused window at 0.875. The
+  rule is kept because it is the whole cost of re-enabling glass later; the
+  number to watch when doing that is its `ignore_alpha = 0.6`, which splits
+  cards (above) from scrims (below, currently 0.25).
 - The repo carries ~229 MB of Apple fonts and wallpapers it does not own, on a
   public remote. See [`THIRD-PARTY.md`](THIRD-PARTY.md) before adding more.
 - **`macos-*` Ghostty keys are no-ops on Linux.** `macos-titlebar-style`,
@@ -841,10 +852,11 @@ and the original is kept in prose as provenance. Don't leave the two out of sync
   `custom.git_branch` (middle-truncation, which the built-in can't do — it
   truncates from the head) depends on this to match the built-in's own
   disappear-outside-a-repo behaviour.
-- **Chromium ignores `FREETYPE_PROPERTIES`.** The stem darkening in
-  `overrides/environment.d/10-cllpse-macos-font-rendering.conf` reaches every
-  app on the desktop *except* Chromium, so page text there renders at the thin
-  weight the SF faces are drawn at. Measured: identical output with darkening
+- **Chromium ignores `FREETYPE_PROPERTIES`.** The stem darkening this repo used
+  to ship as `overrides/environment.d/10-cllpse-macos-font-rendering.conf`
+  reached every app on the desktop *except* Chromium, so page text there
+  rendered at the thin weight the SF faces are drawn at. The drop-in is gone
+  now, but the finding is why it never helped there in the first place. Measured: identical output with darkening
   off, on and strong, while the same value through system FreeType (ImageMagick,
   same `.otf`) adds 24% ink. Fontconfig `embolden` is ignored too; hinting is
   the only render param Chromium honours, and it is already at `hintnone`. No
@@ -853,6 +865,28 @@ and the original is kept in prose as provenance. Don't leave the two out of sync
   working lever is CSS (`-webkit-text-stroke: .2px` ≈ +21% ink, against
   FreeType's +24%), which needs a content-script extension since Chromium
   dropped user stylesheets.
+- **jq's `//` treats `false` as absent, which silently drops exactly the value
+  worth recording.** `.bar.transparent // empty` emits nothing for `false`, not
+  just for `null` — so `apply.sh`'s `record_prior` for `bar.transparent` got an
+  empty string on every stock machine (Omarchy ships `false`), refused it, and
+  left `revert.sh` with nothing to put back and no way to know the bar had ever
+  been opaque. The reading is `.key | if . == null then empty else tostring
+  end`. Applies to any boolean or numeric-zero default behind `//` in this repo.
+- **A Lua table key assigned `nil` is not stored, so `{ class = x }` with a nil
+  `x` is `{}` — an EMPTY filter, which matches everything.** `hl.get_windows({
+  class = active.class })` in `macos-shortcuts.lua` is the live example: with a
+  classless focused window that is `hl.get_windows({})`, and the SUPER+Q loop
+  that follows would have closed every window on every workspace. Guard the
+  value before it reaches the table, not the table afterwards. This is the
+  mirror image of the exact-match note below it — the filter being strict is
+  what makes a *populated* table safe, and says nothing about an empty one.
+- **Python's `re.sub` expands backslash escapes in its REPLACEMENT string.**
+  `re.sub(pat, block, text)` where `block` is generated content turns any `\p`,
+  `\1` or `\g<…>` in it into a regex escape — `re.error: bad escape` at best,
+  a silently altered file at worst. `yazi/generate-icons.py` splices a
+  725-rule table this way and happens to contain no backslash today, which is
+  what would have made the next yazi upgrade's failure hard to place. Pass a
+  lambda (`lambda _m: block`) so the text goes through literally.
 - **Chromium's `Preferences` JSON nests dotted pref names — a flat key with a
   literal dot in it is never read.** `translate.enabled` is stored on disk as
   `{"translate": {"enabled": ...}}`, not as a top-level key literally named

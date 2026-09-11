@@ -121,13 +121,19 @@ o.window(".*[Ff]igma.*", { tag = "-default-opacity", opacity = "1 1" })
 -- unfocused window opacity (letting less of the blur through) than by shrinking
 -- size again, which starts to make the 4th pass pointless.
 --
--- Note this is only visible through whatever a surface leaves translucent. At
--- shell.menu/notifications alpha 0.92 just 8% of the backdrop shows, so radius
--- barely registers there -- the bar (0.72) is where it reads. Lowering
--- background-alpha is the stronger lever than widening blur.
+-- Note this is only visible through whatever a surface leaves translucent, and
+-- the shell surfaces no longer leave any: every shell.*.toml here now ships
+-- background-alpha = 1.0, so the ONLY thing these knobs still reach is the
+-- unfocused window at 0.875 (blur.ignore_opacity above is what lets the
+-- focused 0.99 blur too). The figures this was tuned against were the earlier
+-- alphas -- menu/notifications 0.92, where just 8% of the backdrop showed, and
+-- the bar at 0.72, where it actually read -- so treat the walk below as a
+-- record of how the knobs behave, not as a description of what is on screen.
+-- Lowering background-alpha is still the stronger lever than widening blur.
 --
 -- This is only the global engine. On its own it does nothing to the Omarchy
--- shell surfaces -- the per-namespace layer rules below opt each one in.
+-- shell surfaces -- the per-namespace layer rules below opt each one in, and
+-- while those surfaces are opaque that rule is inert. See it for the detail.
 
 -- ── Unfocused window dim: OFF, deliberately ────────────────────────────────
 -- dim_inactive darkens unfocused windows as a focus cue. It was tried at 0.10
@@ -156,10 +162,12 @@ hl.config({
       -- themes saturate alike.
       vibrancy_darkness = 0.30,
       -- Frosted grain, a touch above Hyprland's 0.0117 default. Worth knowing
-      -- how little this shows: at the surface alphas here -- menu 0.92, windows
-      -- 0.875 -- only 8-12% of the noisy backdrop is visible, so even 0.2 was
-      -- near-indistinguishable from this in a side-by-side. The bar at 0.72 is
-      -- the only surface transparent enough for grain to really read.
+      -- how little this shows: measured at the alphas in force at the time --
+      -- menu 0.92, windows 0.875 -- only 8-12% of the noisy backdrop was
+      -- visible, so even 0.2 was near-indistinguishable from this in a
+      -- side-by-side, and the bar at 0.72 was the only surface transparent
+      -- enough for grain to really read. With the shell surfaces now opaque,
+      -- the unfocused window at 0.875 is the only place any of this lands.
       noise = 0.02,
       brightness = 1.0,
       contrast = 1.0,
@@ -198,37 +206,47 @@ hl.config({
 -- These rules are additive to Omarchy's own no_anim layer rules in
 -- default/hypr/apps/omarchy-shell.lua -- they don't replace them.
 --
+-- READ THIS FIRST: as the themes ship today, this whole rule is INERT.
+--
+-- Every surface it names is opaque. shell.bar.toml, shell.menu.toml,
+-- shell.launcher.toml and shell.notifications.toml all set background-alpha =
+-- 1.0, and an opaque pixel has nothing to blur through; the two scrims are at
+-- 0.25, under the ignore_alpha below, so they render sharp by design. Nothing
+-- here is currently reaching the screen. It is kept, rather than deleted,
+-- because it is the entire cost of re-enabling glass: drop one alpha in a
+-- theme and that surface frosts again with no compositor-side change.
+--
+-- Window blur is a different setting and is NOT inert -- decoration.blur above
+-- is what the 0.99/0.875 window opacity reads through. This rule only ever
+-- governed the shell's own LAYER surfaces.
+--
 -- ignore_alpha leaves any pixel below that alpha unblurred. It started at 0.1,
 -- purely to keep the fully-transparent margin around rounded cards (menu,
 -- launcher, polkit, notifications are fullscreen layers with a centred card)
 -- from blurring into a rectangle.
 --
--- It is now 0.6, which does more work. A card and the scrim behind it are the
--- SAME layer surface, so Hyprland cannot blur them differently -- per layer the
--- only controls are blur on/off and this threshold. Sitting it between the
--- scrims and the cards splits them:
+-- It is 0.6 because a card and the scrim behind it are the SAME layer surface,
+-- so Hyprland cannot blur them differently -- per layer the only controls are
+-- blur on/off and this threshold. 0.6 sits between the two, so a translucent
+-- card frosts while its scrim stays sharp and the windows behind it stay
+-- readable. That is what it did at the alphas this shipped with before the
+-- surfaces went opaque (bar 0.72, launcher 0.85, menu 0.92, launcher scrim
+-- 0.35) and what it would do again at any alpha above 0.6.
 --
---   launcher scrim 0.35, menu scrim 0.25   -> below 0.6, not blurred
---   bar 0.72, launcher 0.85, menu 0.92     -> at or above 0.6, blurred
---
--- so the menu and the window switcher keep their frosted card while the dimmed
--- backdrop stays sharp and the windows behind it remain readable -- which is the
--- point of a switcher. Watch this if any surface alpha changes: a card dropped
--- below 0.6 would silently lose its blur.
+-- So the number to watch when re-enabling glass is 0.6: a card set BELOW it
+-- silently gets no blur, and a scrim set above it starts blurring the desktop
+-- behind the dim -- which for the switcher defeats the point of being able to
+-- see what you are switching between.
 --
 -- blur_popups extends blur to child dropdowns (bar module menus, panel flyouts).
 --
 -- window-switcher-hud is our own plugin (omarchy-cllpse-switcher/, symlinked to
 -- ~/.config/omarchy/plugins/cllpse.window-switcher). Its card already binds
--- Color.menu.background / .scrim, so once its layer is in the match it blurs
--- exactly like the Omarchy menu.
+-- Color.menu.background / .scrim, so it tracks the menu either way: opaque
+-- while the menu is opaque, frosted the moment the menu frosts.
 --
 -- Not matched: omarchy-background (the wallpaper itself) and the transient
 -- omarchy-bar-drag-ghost / -move-ghost surfaces.
---
--- Inert until the matching shell.toml `background-alpha` drops below 1.0 -- an
--- opaque surface has nothing to blur through. The launcher/menu scrim tuning
--- (whether the dimmed backdrop should also blur) needs a look once alpha is in.
 hl.layer_rule({
   match = { namespace = "^omarchy-(bar|menu|notifications|osd|polkit|clipboard|emojis|reminders|image-selector|network-qr|keyboard-panel|lock-preview|window-switcher-hud)$" },
   blur = true,
