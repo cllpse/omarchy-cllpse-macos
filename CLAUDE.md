@@ -172,9 +172,30 @@ the switcher; a second copy named for the class covers both.
 Since app icons are never recoloured, a file dropped there has a **fixed**
 colour and would not survive a light/dark switch — which is why the rendering is
 a `theme-set` hook (`hooks/theme-set.d/app-icons.sh`), not a one-off in
-`apply.sh`. `omarchy theme set` restarts the shell, which is what drops Qt's
-URL-keyed image cache and lets a re-rendered file actually appear; rewriting the
-same path without that restart shows the stale image.
+`apply.sh`.
+
+**`omarchy theme set` does NOT restart the shell** — an earlier version of this
+file said it did, and four comments in the repo were written on that basis.
+Measured: the `quickshell` pid is unchanged across a theme set. What it actually
+does is push the new palette into the running process over IPC
+(`omarchy-theme-set:112/308`, `shell_ipc shell applyTheme`) and restart the
+terminal, hyprctl, btop, opencode and helix (319-323) — never the shell.
+
+That matters for the icons and almost nothing else, because two caches survive a
+palette push: the Omarchy menu draws an app icon as a plain `Image`
+(`Menu.qml:1253`) with no recolouring and no `cache:` key, so Qt's **URL-keyed**
+pixmap cache can keep serving the previous theme's colour from an unchanged
+path; and the switcher builds its drop-in index from a single `ls` at launch, so
+a newly added drop-in is not in it at all — the file is right on disk and the
+tile still shows a glyph. `app-icons.sh` therefore restarts the shell itself,
+from an `EXIT` trap, and only when a synced file actually changed (a re-publish
+of the same theme writes identical bytes and must stay silent, or every no-op
+theme-set would take the bar down).
+
+`shell.json` is the counter-example worth knowing, so it isn't "fixed" twice:
+`shell.qml:134-142` holds a `FileView` on it with `watchChanges: true` and
+`onFileChanged: reload()`, so `apply.sh`'s key writes land live with no restart
+involved.
 
 **The boot splash (Plymouth) and the real login screen (SDDM) are a separate
 step from `omarchy theme set`**, and not run by `apply.sh`'s main flow:
@@ -1014,6 +1035,32 @@ and the original is kept in prose as provenance. Don't leave the two out of sync
   while Chromium was closed — and failed quietly, printing a plausible "quit it
   and re-run" and returning success. Resolve `/proc/<pid>/exe` to test for a
   running binary. Suspect any guard in this repo that greps for a path.
+- **A grep pattern that starts with `-` is parsed as an OPTION, and `-F` does
+  not save you.** `sync_fenced`'s markers are `-- >>> … >>>` on a `.lua` target,
+  and `grep -qxF "$open" file` fails with `invalid option -- >>> …` rather than
+  simply not matching — so the "is this block already here?" test answered *no*
+  every time and a duplicate block was appended on every run, on `.lua` files
+  only. Pass the pattern with `-e`: `grep -qxF -e "$open"`. The bug this
+  replaced hid behind the same asymmetry from the other side: the original test
+  matched `$mark` as a **substring**, and because `cllpse-macos overrides` is a
+  prefix of `cllpse-macos overrides: keybinds`, a file carrying only a
+  *suffixed* block reported the plain one as present, after which the `awk`
+  rewrite found no matching open-marker line, passed the file through unchanged,
+  and — the output being non-empty — reported success. The empty-write guard
+  cannot catch that: the file is not truncated, it is simply never written.
+  `bindings.lua` is the only file here with four blocks, so it is the one this
+  reaches.
+- **Two output directories, one cleanup.** `app-icons.sh` writes both
+  `~/.icons/cllpse-flat/` and `~/.icons/cllpse-color/`, but `revert.sh` removed
+  only the first for as long as the colour pass existed — the pass was added in
+  `89ff73a` and the removal block was last touched in the older `3ee160d`, so
+  the two simply never met. The leftover is the worst shape one can take here:
+  `$HOME/.icons` is the **first** directory in the sweeps both `AppLibrary` and
+  the switcher run, so those drop-ins keep overriding vendor icons forever, and
+  with the repo reverted nothing on the machine explains why. It also silently
+  defeated the `rmdir ~/.icons` below it, which cannot remove a non-empty
+  directory. When a script grows a second output path, grep `revert.sh` for the
+  first one before assuming it is covered.
 
 ## Reproducing this on another machine
 

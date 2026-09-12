@@ -24,8 +24,14 @@
 # Because app icons are never recoloured by the shell, a synced file carries a
 # FIXED colour and would not survive a light/dark switch -- which is why this is
 # a theme-set hook rather than a one-off in apply.sh, exactly like
-# starship-colors.sh. `omarchy theme set` restarts the shell, so Qt's URL-keyed
-# image cache is dropped and the new colour actually lands.
+# starship-colors.sh.
+#
+# `omarchy theme set` does NOT restart the shell. It pushes the new palette into
+# the running process over IPC (omarchy-theme-set:112/308, `shell_ipc shell
+# applyTheme`) and restarts only the terminal, hyprctl, btop, opencode and helix
+# (319-323). Measured: the quickshell pid is unchanged across a theme set. This
+# file used to claim the opposite, and the restart at the bottom is what makes
+# the claim true rather than the comment.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
@@ -42,6 +48,50 @@ OUT="$HOME/.icons/cllpse-flat/apps"
 
 # Every loop here iterates a glob that legitimately matches nothing.
 shopt -s nullglob
+
+# ── Make the result visible ─────────────────────────────────────────────────
+# Everything below writes files the SHELL has already cached, and the palette
+# push that `omarchy theme set` performs does not invalidate either cache:
+#
+#   - The Omarchy menu draws an app icon as a plain Image (Menu.qml:1253) with
+#     no recolouring and no `cache:` property, so Qt's URL-keyed pixmap cache
+#     can keep serving the previous theme's colour from an unchanged path.
+#   - The switcher builds its drop-in index from a single `ls` at launch
+#     (Hud.qml, iconScan), so a newly added drop-in is not in it at all -- the
+#     file is correct on disk and the strip still shows a Nerd Font glyph.
+#
+# Without a restart the repaint below is work nothing ever displays. Restart
+# only when something ACTUALLY changed: re-publishing the same theme rewrites
+# identical bytes, and taking the bar down on every no-op theme-set would be a
+# worse bug than the one this fixes. A manifest either side of the passes is
+# what decides, and an EXIT trap is what makes it cover the flat pass's two
+# early `exit 0`s (no colors.toml, unreadable foreground) as well as the end.
+_manifest() {
+  { [[ -d $OUT ]]       && find "$OUT"       -type f -exec md5sum {} +
+    [[ -d $COLOR_OUT ]] && find "$COLOR_OUT" -type f -exec md5sum {} +
+  } 2>/dev/null | sort || true
+}
+_before="$(_manifest)"
+
+_restart_shell_if_changed() {
+  [[ "$_before" != "$(_manifest)" ]] || return 0
+  command -v omarchy-restart-shell >/dev/null 2>&1 || return 0
+  # Never fail the hook over this, and do not treat a refusal as an error.
+  # omarchy-restart-shell exits 1 on a LOCKED session by design -- restarting
+  # would kill the lock client and strand the session behind Hyprland's failsafe
+  # -- and a hook that exits non-zero prints "Hook failed:" for something the
+  # user never asked for. Measured: with the screen locked this is the branch
+  # that runs, every time.
+  #
+  # The consequence is accepted rather than worked around: a theme change made
+  # while locked leaves the icons at the previous colour, with no retry. It is
+  # cosmetic, it is invisible until the session is unlocked anyway, and it
+  # self-heals on the next theme change or shell restart. Polling for an unlock
+  # from a hook that has already exited would cost a background process on every
+  # theme-set to fix a stale icon nobody can currently see.
+  omarchy-restart-shell >/dev/null 2>&1 || true
+}
+trap _restart_shell_if_changed EXIT
 
 # ── Colour pass ─────────────────────────────────────────────────────────────
 # Copied verbatim, no recolouring, no ImageMagick -- so it needs neither the

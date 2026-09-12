@@ -520,8 +520,16 @@ Item {
   // leaves stdout empty, which lands as an empty index -- every tile a glyph,
   // which is exactly the old behaviour on a machine where apply.sh never ran.
   //
-  // Once per launch. The set only changes when apply.sh runs, and that already
-  // restarts the shell.
+  // Once per launch, which is only safe because something restarts the shell
+  // whenever the set changes. That something is app-icons.sh, not `omarchy
+  // theme set` -- theme-set pushes the palette in over IPC and restarts the
+  // terminal, hyprctl, btop, opencode and helix, never the shell (measured: the
+  // quickshell pid is unchanged across one). The hook restarts it from an EXIT
+  // trap when, and only when, a synced file actually changed.
+  //
+  // Get that wrong and the failure is quiet in the worst way: the drop-in is
+  // correct on disk, this index predates it, and the tile just keeps its Nerd
+  // Font glyph with nothing to say why.
   Process {
     id: iconScan
     command: ["ls", "-1", root.flatIconDir]
