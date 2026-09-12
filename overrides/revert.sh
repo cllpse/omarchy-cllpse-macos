@@ -157,12 +157,22 @@ restore ~/.config/hunk/config.toml
 say "Removing the post-update repair hook"
 [[ -L ~/.config/omarchy/hooks/post-update.d/cllpse-macos-repair.sh ]] && rm -f ~/.config/omarchy/hooks/post-update.d/cllpse-macos-repair.sh
 
-say "Removing flat app icons + their theme-set hook"
+say "Removing app icon drop-ins + their theme-set hook"
 [[ -L ~/.config/omarchy/hooks/theme-set.d/app-icons.sh ]] && rm -f ~/.config/omarchy/hooks/theme-set.d/app-icons.sh
-if [[ -d ~/.icons/cllpse-flat ]]; then
-  rm -rf ~/.icons/cllpse-flat
-  say "removed ~/.icons/cllpse-flat"
-fi
+# BOTH output directories. app-icons.sh writes two -- cllpse-flat (repainted in
+# the theme foreground) and cllpse-color (copied verbatim) -- and for a while
+# this only knew about the first, because the colour pass was added afterwards
+# (89ff73a) and this block was last touched before it (3ee160d). Leaving
+# cllpse-color behind is the worst shape a leftover can take here: $HOME/.icons
+# is the FIRST directory in the sweeps AppLibrary and the switcher run, so those
+# drop-ins go on overriding vendor icons forever, and with the repo reverted
+# there is nothing left on the machine to explain why. It also silently defeated
+# the rmdir below, which cannot remove a non-empty ~/.icons.
+for d in ~/.icons/cllpse-flat ~/.icons/cllpse-color; do
+  [[ -d $d ]] || continue
+  rm -rf "$d"
+  say "removed $d"
+done
 rmdir ~/.icons 2>/dev/null || true
 
 # shell.json: undo exactly the keys apply.sh step 7h wrote, rather than restoring
