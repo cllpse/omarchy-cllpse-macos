@@ -229,3 +229,124 @@ o.bind("SUPER + Q", "Quit app (Cmd+Q, all its windows)", function()
     hl.dispatch(hl.dsp.window.close({ window = window }))
   end
 end)
+
+-- ── Everything else Cmd does: forward SUPER + <key> as CTRL + <key> ─────────
+-- The binds above are the chords that need THOUGHT -- a terminal-aware
+-- variant, a different key entirely, a window sweep. Everything below is the
+-- boring majority, where macOS's Cmd+<key> and Linux's Ctrl+<key> are already
+-- the same action and the only thing missing was the translation.
+--
+-- Enumerated by hand before; generated here, because the enumerated list was
+-- the actual problem. Figma is the case that exposed it: Cmd+D duplicate,
+-- Cmd+G group, Cmd+A select-all, Cmd+B/I/U, Cmd+F find, Cmd+/ quick actions,
+-- Cmd+[ / Cmd+] send backward/forward -- none of which were listed, all of
+-- which are the plain forward. Adding them one at a time is how you end up
+-- doing this again for the next app.
+--
+-- Left OUT of keybind-allowlist.conf on purpose, all of them. The allowlist's
+-- rule is "anything bound and not listed gets an hl.unbind() generated", and
+-- those unbinds land in the `keybinds` block, which sits ABOVE this one in
+-- bindings.lua. So an omitted chord is unbound first and re-bound here --
+-- exactly the SUPER+W pattern, and the right semantics for a blanket claim:
+-- whatever Omarchy binds to one of these now or in a future release is
+-- removed, and this file's version is the one that survives. Listing them
+-- instead would let both register.
+--
+-- Terminal-guarded without exception, and not defensively: Ctrl+D is EOF,
+-- Ctrl+U kills the line, Ctrl+B/E/A move the cursor, and Ctrl+[ IS Escape.
+-- Forwarding any of those into a shell would be actively destructive, so the
+-- whole generated set does nothing in a terminal rather than being audited
+-- key by key.
+--
+-- H and M are deliberately absent. On macOS Cmd+H hides the app and Cmd+M
+-- minimises the window -- system actions the focused app never sees -- so
+-- forwarding them would not reproduce macOS, it would invent something
+-- (Ctrl+H opens browser history). Leaving them unbound is the honest match.
+-- `grave` is out for the same reason: Cmd+` cycles an app's windows on macOS,
+-- while Ctrl+` toggles the terminal panel in Cursor.
+local FORWARD_LETTERS = { "A", "B", "D", "E", "F", "G", "I", "J", "O", "U", "Y" }
+local FORWARD_DIGITS = { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9" }
+local FORWARD_PUNCTUATION = {
+  "bracketleft", "bracketright", "slash", "backslash",
+  "semicolon", "apostrophe", "comma", "period",
+}
+
+-- Shift is forwarded for letters and punctuation (Cmd+Shift+G ungroups in
+-- Figma, Cmd+Shift+[ sends to back) but not for digits: Cmd+Shift+<digit> is
+-- not a shortcut anywhere this targets, and 10 inert binds are 10 more lines
+-- in the generated unbinds for nothing.
+local function forward_group(keys, with_shift)
+  for _, key in ipairs(keys) do
+    o.bind("SUPER + " .. key, "Cmd+" .. key .. " -> Ctrl+" .. key,
+      unless_terminal("CTRL", key))
+
+    if with_shift then
+      o.bind("SUPER + SHIFT + " .. key, "Cmd+Shift+" .. key .. " -> Ctrl+Shift+" .. key,
+        unless_terminal("CTRL SHIFT", key))
+    end
+  end
+end
+
+forward_group(FORWARD_LETTERS, true)
+forward_group(FORWARD_DIGITS, false)
+forward_group(FORWARD_PUNCTUATION, true)
+
+-- ── Zoom: Cmd+scroll and Cmd+= / Cmd+- ─────────────────────────────────────
+-- SUPER + scroll was free to take: Omarchy binds it to workspace switching
+-- (default/hypr/bindings/tiling.lua:67-68) and keybind-allowlist.conf already
+-- drops both, so nothing had to be given up for this.
+--
+-- Why a keystroke and not a scroll event: Hyprland cannot synthesize one.
+-- Enumerating hl.dsp live gives cursor, dpms, event, exec_cmd, exec_raw, exit,
+-- focus, force_idle, force_renderer_reload, global, group, layout, no_op, pass,
+-- release_input_capture, send_key_state, send_shortcut, submap, window,
+-- workspace -- every one of which moves keys, windows or workspaces. There is
+-- no pointer-axis dispatcher, so "make the app see Ctrl+scroll" is not
+-- available at this layer; it would take an evdev-level remapper (keyd,
+-- interception-tools) running as a service, which this repo installs nothing
+-- of. One zoom step per wheel notch is the approximation, and it is a close
+-- one on a notched wheel -- the Pulsar here has no free-spin mode and no
+-- trackpad is attached, so each detent is one event, not a burst.
+--
+-- Figma is special-cased because its canvas zoom is the BARE key. Figma
+-- Desktop is Electron, so Ctrl+= there is Chromium's own UI zoom (the whole
+-- interface, which is what figma-linux's ui.scaleFigmaUI setting also drives)
+-- rather than the canvas. `=` and `-` unmodified are what Figma's own
+-- shortcut list documents for zoom, on every platform.
+--
+-- Everything else gets Ctrl+= / Ctrl+-, which is right in both directions that
+-- matter: Chromium zooms the page, and Ghostty's own defaults are ctrl+= /
+-- ctrl+- for increase/decrease_font_size -- the same thing Cmd+scroll does in
+-- macOS Terminal, which is why this one is NOT terminal-guarded like the
+-- forwarder above.
+local function active_window_class_matches(pattern)
+  local window = hl.get_active_window()
+
+  if not window or not window.class then
+    return false
+  end
+
+  return window.class:match(pattern) ~= nil
+end
+
+-- The live class is lowercase `figma-desktop`; matched loosely for the same
+-- reason looknfeel-decoration.lua's opacity rule is, since the AppImage has
+-- reported it both ways across versions.
+local function zoom(key)
+  return function()
+    if active_window_class_matches("[Ff]igma") then
+      send_shortcut_once("", key)()
+    else
+      send_shortcut_once("CTRL", key)()
+    end
+  end
+end
+
+o.bind("SUPER + equal", "Zoom in (Cmd+=)", zoom("equal"))
+o.bind("SUPER + minus", "Zoom out (Cmd+-)", zoom("minus"))
+
+-- Scroll up is zoom in: natural_scroll is false for both mouse and touchpad
+-- (input-tuning.lua:49/51), so the wheel is traditional and up means in, the
+-- same pairing Ctrl+scroll already has in every browser.
+o.bind("SUPER + mouse_up", "Zoom in (Cmd+scroll up)", zoom("equal"))
+o.bind("SUPER + mouse_down", "Zoom out (Cmd+scroll down)", zoom("minus"))

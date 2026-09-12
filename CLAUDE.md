@@ -1050,24 +1050,28 @@ and the original is kept in prose as provenance. Don't leave the two out of sync
   cannot catch that: the file is not truncated, it is simply never written.
   `bindings.lua` is the only file here with four blocks, so it is the one this
   reaches.
-- **Hyprland's autoreload watches the config it was STARTED with, not the
-  modules that file `require`s.** Of the four files `sync_fenced` edits, only
-  `hyprland.lua` is the watched one; `bindings.lua`, `looknfeel.lua` and
-  `input.lua` are modules it pulls in. So `apply.sh` could rewrite a binding and
-  the running compositor would keep the previous version indefinitely, with
-  nothing anywhere to say so — `apply.sh` printed a clean run, the file on disk
-  was correct, and `hyprctl binds` even showed the right *description*, because
-  only the closure body had changed. The SUPER+Q class guard (`bc02cf8`) sat
-  unapplied this way for a day while the compositor still ran the version that
-  closes every window on every workspace for a classless focused window. The
-  tell is an old Hyprland log with no reload lines in it
-  (`$XDG_RUNTIME_DIR/hypr/$HYPRLAND_INSTANCE_SIGNATURE/hyprland.log`). `apply.sh`
-  step 8b now runs `hyprctl reload` for this.
-  That reload is sufficient, which is worth knowing because Lua's `require`
-  caches modules in `package.loaded` and a reload that merely re-ran the
-  top-level file would fix nothing. Measured: a global set through `hyprctl
-  eval` before a reload reads back `nil` after it, so the reload builds a
-  **fresh Lua state** and every module is re-required from disk.
+- **Hyprland logs NOTHING when it reloads its config, so an old log with no
+  reload lines in it is not evidence that no reload happened.** Several
+  `hyprctl reload`s in a row left zero matching lines in a 15,000-line, actively
+  written `hyprland.log`. That absence was read here as proof that `apply.sh`'s
+  edit to `bindings.lua` had never reached the compositor — and a whole trap
+  entry, plus a step in `apply.sh`, got written on it before the claim was
+  tested directly. It was wrong.
+  **Autoreload does pick up a `require`d module**, not just the config Hyprland
+  was started with: appending one bind to `~/.config/hypr/bindings.lua` took
+  `hyprctl binds` from 150 to 151 within three seconds, with nothing
+  dispatched. `apply.sh`'s `sync_fenced` edits land on their own; step 8b's
+  `hyprctl reload` is determinism and a guard against
+  `misc:disable_autoreload`, not a fix.
+  The lesson that generalises: this compositor is quiet about a lot, so
+  "nothing in the log" is never the measurement. Test the state itself — count
+  the binds, read the value back — and keep the probe in the notes.
+  One genuine finding survived from that pass, and it is worth keeping because
+  it is not obvious: **a reload rebuilds the Lua state entirely.** Lua caches
+  modules in `package.loaded`, so a reload that merely re-ran the top-level file
+  would keep a stale `bindings.lua`. It does not — a global set through
+  `hyprctl eval` before a reload reads back `nil` after it, and
+  `package.loaded` comes back freshly populated.
 - **Two output directories, one cleanup.** `app-icons.sh` writes both
   `~/.icons/cllpse-flat/` and `~/.icons/cllpse-color/`, but `revert.sh` removed
   only the first for as long as the colour pass existed — the pass was added in

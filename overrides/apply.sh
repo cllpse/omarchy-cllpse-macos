@@ -867,24 +867,30 @@ if [[ -n $restored_bg ]]; then
 fi
 
 # ── 8b. Reload Hyprland ──────────────────────────────────────────────────────
-# Three of the four files sync_fenced edits -- bindings.lua, looknfeel.lua,
-# input.lua -- are require()d MODULES, not the config Hyprland was started with.
-# Autoreload watches ~/.config/hypr/hyprland.lua and not what that file pulls in,
-# so unless the hyprland.lua block itself changed, editing the other three leaves
-# the running compositor on the previous version with nothing to say so.
+# Belt and braces, NOT a fix for an observed bug -- an earlier version of this
+# comment claimed otherwise and was simply wrong. Hyprland's autoreload does
+# pick up a change to a require()d module, not just to the config it was
+# started with: measured by appending one bind to ~/.config/hypr/bindings.lua
+# and watching `hyprctl binds` go 150 -> 151 within three seconds with no
+# reload dispatched. The sync_fenced edits above land on their own.
 #
-# That is not hypothetical: the SUPER+Q class guard (bc02cf8) sat correct on disk
-# for a day while the compositor kept running the version that closes every
-# window on every workspace when the focused one has no class. An 18-hour-old
-# Hyprland log with zero reload lines is what that looks like from the outside.
+# What this still buys is determinism -- apply.sh finishes with the config
+# known live rather than depending on a watcher's timing -- and it covers
+# `misc:disable_autoreload = true`, which a machine may legitimately set.
 #
-# `hyprctl reload` is sufficient, and measured rather than assumed: a global set
-# through `hyprctl eval` before a reload reads back nil after it, so the reload
-# builds a FRESH Lua state, package.loaded starts empty, and every module is
-# re-required from disk. A reload that merely re-ran the top-level file would
-# have kept the cached modules and fixed nothing.
+# Worth knowing if this is ever re-examined: **Hyprland logs nothing on a
+# config reload.** Several reloads in a row left zero matching lines in a
+# 15,000-line hyprland.log. So an old log with no reload lines in it is not
+# evidence that no reload happened, which is exactly the bad inference the
+# previous version of this comment was built on.
+#
+# That a reload suffices is not obvious and was measured too: Lua caches
+# modules in package.loaded, so a reload that merely re-ran the top-level file
+# would keep a stale bindings.lua. It does not -- a global set through
+# `hyprctl eval` before a reload reads back nil after it, so the Lua state is
+# rebuilt and every module is re-required from disk.
 if command -v hyprctl >/dev/null 2>&1 && hyprctl version >/dev/null 2>&1; then
-  say "hyprctl reload  (bindings/looknfeel/input are require()d — autoreload does not watch them)"
+  say "hyprctl reload  (autoreload already covers this; this makes it deterministic)"
   hyprctl reload >/dev/null 2>&1 || skip "hyprctl reload failed — run it yourself, or relogin"
 else
   skip "no running Hyprland — the hypr overrides apply at the next login"
