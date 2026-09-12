@@ -64,6 +64,32 @@ re-running that after a yazi upgrade picks up new icons.
 The glyphs themselves are [Nerd Fonts](https://github.com/ryanoasis/nerd-fonts)
 codepoints (MIT); only the codepoints are stored here, not any font data.
 
+## App icon drop-ins — `overrides/icons/color/` and `overrides/icons/fallbacks/`
+
+Hand-placed SVGs, one per desktop entry's `Icon=` (and, for the switcher, per
+window class). Two kinds, and only one of them is a concern:
+
+*Vendor marks*, which are the trademarks of the products they identify and are
+**not** this repository's to license — `figma-desktop.svg` (Figma, Inc.),
+`co.anysphere.cursor.svg` (Anysphere), `com.mitchellh.ghostty.svg` (Ghostty),
+`org.omarchy.agent.svg` (Omarchy), `youtube.svg` and `youtube-music.svg`
+(Google). They are reproductions of each product's own mark, sourced by hand
+rather than generated, and are here so the Omarchy menu shows a flat icon
+instead of a full-colour vendor logo — see
+[`overrides/icons/fallbacks/README.md`](overrides/icons/fallbacks/README.md) for
+the shape contract. Using a mark to identify the product it belongs to is
+ordinary nominative use, but redistribution is not a right any of these grant,
+and none of them are covered by this repository's MIT license.
+
+*Generic freedesktop icons* — `applications-system`, `printer`, `cups`,
+`network-wired`, `disk-usage`, `org.gnome.DiskUtility`, `fcitx`, `btop` — name
+things rather than brands and carry their upstream projects' own licenses.
+
+`overrides/hooks/theme-set.d/app-icons.sh` recolours the `fallbacks/` set to the
+active palette on every theme-set; `color/` is copied verbatim. Neither is
+generated from anything, so deleting a file simply hands that app back to its
+own icon — which is also the cheapest way to stop redistributing one.
+
 ## Yaru icon themes
 
 `icons.theme` references `Yaru-dark` / `Yaru-blue`, which are packaged

@@ -6,16 +6,23 @@
 # user-level. keyd is the one package this script depends on and it does NOT
 # install it — step 8b configures keyd if present and says so if it is not.
 #
+#   0. record the pre-existing font and theme, for revert.sh to restore
 #   1. symlink both themes + the window-switcher plugin into ~/.config/omarchy/
 #   2. install the SF fonts + fontconfig drop-ins (UI font + hintnone)
 #   3. point monospace at SF Mono (omarchy font set)
 #   4. point GTK / GNOME apps at SF Pro / SF Mono (gsettings)
 #   5. force hintnone for GTK/GNOME (gsettings) + Ghostty (freetype-load-flags)
 #   5b. strip GTK window buttons (gsettings button-layout)
+#   5c. xkb: the Preonic's Danish letters (~/.config/xkb/symbols/)
 #   6. hypr overrides: OMARCHY_MENU_FONT (shell popups) + decoration (rounding, blur)
+#   6b. keybind allowlist: scan the live binds, unbind what the allowlist omits,
+#       then re-sync the macOS-parity and window-management blocks
 #   7. install bat / lazygit / lsd / yazi / lazydocker / gh-dash / hunk theme
 #      configs, merge Cursor settings, add fzf +
 #      lsd colours and the tool aliases to .bashrc, git diff pager to git config
+#   7b. restore saved display scaling + text size from display.conf
+#   7c. session environment drop-ins (~/.config/environment.d/)
+#   7d. Chromium scale: device-scale-factor flag + default page zoom
 #   7e. Figma Desktop's launcher entry (correct Name= and StartupWMClass)
 #   7f. flat app icons for the menu (hand-placed SVGs in icons/fallbacks/)
 #   7f2. post-update repair hook: re-link what an Omarchy update could take out
@@ -736,6 +743,14 @@ if [[ -f $_figma_tpl ]]; then
       # A fresh extraction restored the real AppRun and left our rename behind.
       rm -f "$_figma_dir/AppRun.real"
       skip "removed a stale AppRun.real left by an earlier wrapper"
+    elif [[ -e $_figma_dir/AppRun ]] &&
+         ! grep -q 'integrate_desktop' "$_figma_dir/AppRun" 2>/dev/null; then
+      # Something is standing in for the launcher and there is no AppRun.real
+      # to put back. Figma is already broken in this state (a wrapper execs a
+      # file that is gone), but it fails at launch, far from here -- so say so
+      # rather than writing an entry that points at it.
+      skip "WARNING: $_figma_dir/AppRun is not the app's own launcher and there is"
+      skip "  no AppRun.real to restore — re-extract the AppImage over that directory"
     fi
 
     if [[ ! -x $_figma_dir/AppRun ]]; then

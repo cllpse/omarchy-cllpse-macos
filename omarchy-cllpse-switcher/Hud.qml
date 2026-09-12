@@ -330,7 +330,7 @@ Item {
   //
   // Keyed on the window class, because that is all a switcher has, while the
   // dropped file is named for the desktop entry's `Icon=`. Those agree for most
-  // apps but not all (measured: 6 of the 23 entries declaring StartupWMClass use
+  // apps but not all (measured: 5 of the 24 entries declaring StartupWMClass use
   // a class that is not their icon name). A drop-in whose name differs from the
   // class simply is not found here and the tile keeps its glyph -- drop a second
   // copy named for the class if you want it in both places.

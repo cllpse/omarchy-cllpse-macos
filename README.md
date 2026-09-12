@@ -149,6 +149,10 @@ overrides/                everything that lives outside a theme folder + apply.s
 omarchy-cllpse-switcher/  macOS-style window-switcher HUD plugin (id cllpse.window-switcher);
                           apply.sh symlinks it into ~/.config/omarchy/plugins/
 reference/                BUILD.md (the spec) + fonts.conf (BUILD's original, superseded)
+THIRD-PARTY.md            what this repo redistributes and does not own
+CLAUDE.md                 Omarchy's own mechanics and the traps already hit — written for
+                          an agent working in here, but it is the densest reference in the
+                          repo and worth reading before changing anything
 ```
 
 `apply.sh` symlinks each theme folder into `~/.config/omarchy/themes/` under the

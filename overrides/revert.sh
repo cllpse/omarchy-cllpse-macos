@@ -98,7 +98,12 @@ for f in 10-cllpse-macos-font-rendering.conf; do
   [[ -e $t ]] && { rm -f "$t"; say "removed retired drop-in $f"; }
 done
 
-# Figma Desktop's launcher entry (apply.sh step 7e). restore() puts back a
+# Figma Desktop's launcher entry (apply.sh step 7e). Note what is deliberately
+# NOT undone: step 7e also removes a wrapper around ~/Applications/figma-desktop/
+# AppRun if it finds one, and that is not restored here. The wrapper was never
+# this repo's to begin with, and putting one back would re-break the path the
+# app derives its own desktop entry from. Nothing inside the app directory is
+# ours, which is the whole point -- there is nothing there to revert. restore() puts back a
 # .pre-cllpse backup if one exists, and otherwise removes the file — which is
 # the honest undo here: the AppImage re-creates it on its next launch, with
 # upstream's Name=Figma and StartupWMClass=Figma. Removing it means Figma has no

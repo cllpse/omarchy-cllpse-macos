@@ -1,8 +1,14 @@
 # fallbacks/
 
-This directory is the **only** source of app icons for the Omarchy menu. Nothing
-is generated: each file here is one you placed by hand, and an app with no file
-here simply keeps its own vendor icon, in full colour, unchanged.
+This directory is one of the two sources of app icons for the Omarchy menu —
+the **repainted** one. Nothing is generated: each file here is one you placed by
+hand, gets recoloured to the active theme on every theme-set, and an app with no
+file here (or in `../color/`) simply keeps its own vendor icon, in full colour,
+unchanged.
+
+Its sibling `../color/` is the same idea without the repaint: files there are
+copied verbatim, for marks that only read in their own colours. A name in either
+directory takes that app over; do not put the same name in both.
 
 Add a file to take an app over; delete it to hand that app back.
 

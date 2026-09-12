@@ -229,7 +229,7 @@ replace.
 
 The switcher keys on the **window class** while a drop-in is named for the
 desktop entry's `Icon=`. Those agree for most apps but not all — measured on
-this machine, 6 of the 23 entries declaring `StartupWMClass` use a class that is
+this machine, 5 of the 24 entries declaring `StartupWMClass` use a class that is
 not their icon name, and Chromium's is the literal unsubstituted
 `@@startup_wm_class`. A drop-in whose filename differs from the class reaches
 the menu but not the switcher; drop a second copy named for the class to cover
@@ -285,7 +285,7 @@ Worth knowing about `glyphFor`, which is still the default for every tile:
   `.png`. Everything else stays text — a glyph is crisper at this size than any
   bitmap, and it recolours for free.
 - The drop-in is named for the desktop entry's `Icon=` while the switcher only
-  has a window class. They agree for most apps but not all (6 of the 23 entries
+  has a window class. They agree for most apps but not all (5 of the 24 entries
   declaring `StartupWMClass` differ), so a drop-in whose name differs from the
   class keeps its glyph here — drop a second copy named for the class to cover
   both.

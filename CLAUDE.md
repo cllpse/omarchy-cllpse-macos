@@ -93,8 +93,11 @@ own `freetype-load-flags`. Kitty hardcodes light hinting with no override.
   `applyShellValues` — dead keys. A shell-source patch was tried and fully
   reverted.
 - Font *size* is machine-level only: `~/.config/omarchy/shell.toml` `[font]
-  base-size` (currently **13**, via `omarchy display text size`; `display.conf`
-  records it for `apply.sh` to restore). That file is **watched live** —
+  base-size` (**14** at the time of writing, via `omarchy display text size`;
+  `display.conf` records it for `apply.sh` to restore — and the two have drifted
+  apart before, when the live size was changed without re-running
+  `save-display.sh`, leaving `apply.sh` primed to undo the change on its next
+  run. Read the live value, don't trust this number or that file). That file is **watched live** —
   `Color.qml:242-251` holds a `FileView` on the user copy with
   `watchChanges: true` and `onFileChanged: reload()`, so a size change reaches
   the running shell with no restart and no theme-set. The *theme's* copy at
@@ -153,9 +156,21 @@ Yaru 16×16 upscaled to 21px). Two consequences worth remembering: setting
 dropped there outranks every installed theme. Because such a directory carries
 no `index.theme`, GTK and Qt ignore it entirely — the override reaches the
 Omarchy shell and nothing else. That is the whole mechanism behind `apply.sh`
-step 7f and `overrides/icons/fallbacks/`. Nothing there is generated: each icon
-is a hand-placed SVG named for a desktop entry's `Icon=` value, and an app
-without one keeps its vendor icon. An earlier version generated the whole set
+step 7f and `overrides/icons/`. Nothing there is generated: each icon is a
+hand-placed SVG named for a desktop entry's `Icon=` value, and an app without
+one keeps its vendor icon.
+
+**There are two drop-in directories, not one, and they differ in exactly one
+respect.** `icons/fallbacks/` is **repainted** to the active palette by
+`app-icons.sh` and lands in `~/.icons/cllpse-flat/apps/`; `icons/color/` is
+copied **verbatim** — no ImageMagick, no palette — and lands in
+`~/.icons/cllpse-color/apps/`. Both sit under `*/apps/*` in the sweep, so both
+outrank every installed theme, and a name present in either takes that app over.
+Use `color/` for a mark that only reads in its own colours (a multi-hue vendor
+logo) and `fallbacks/` for anything that should track light/dark. The colour
+pass runs **first** and outside the flat pass's guards, on purpose: it needs
+neither the palette nor a readable `colors.toml`, and coupling them once meant
+emptying `fallbacks/` silently stopped syncing `color/` too. An earlier version generated the whole set
 from Nerd Font outlines; it was removed in favour of sourcing marks by hand,
 because automatic derivation cannot produce a usable mark for a logo defined by
 colour boundaries rather than shape (measured: Chromium, OBS and Moonlight all
@@ -166,7 +181,7 @@ ones).
 **Two keyspaces, one rule.** `overrides/icons/fallbacks/` is named for a desktop
 entry's `Icon=`; `omarchy-cllpse-switcher/Hud.qml`'s `glyphFor` is keyed on the
 window class, because a switcher has nothing else. A single shared key does not
-exist — measured here, 6 of the 23 entries declaring `StartupWMClass` use a
+exist — measured here, 5 of the 24 entries declaring `StartupWMClass` use a
 class that is not their icon name, and Chromium's is the literal unsubstituted
 `@@startup_wm_class`. So the switcher probes `~/.icons/cllpse-flat/apps/<class>`
 (`.svg` first, then `.png`) and falls back to its own glyph on anything that is
@@ -988,10 +1003,11 @@ and the original is kept in prose as provenance. Don't leave the two out of sync
   rewrites a real config against a harness first.
 - **`Style.qml`'s trailing size comments are base-12 annotations, not sizes.**
   `heading: fontToken("heading", fontPx(1.333)) // 16` reads as "16px", but
-  `fontPx(mult) = round(fontBaseSize * mult)` and this machine runs
-  `base-size = 14` — so heading is 19, body 14, `iconLarge` 21, `display` 28.
-  Compute against the live base, never quote the comment. Check it with
-  `omarchy display text size`.
+  `fontPx(mult) = round(fontBaseSize * mult)`, so the number depends entirely
+  on the live base. Worked through at `base-size = 14`: heading 19, body 14,
+  `iconLarge` 21, `display` 28 — and at 13 those become 17, 13, 20, 26, which is
+  the point. Compute against the live base, never quote the comment and never
+  quote this example either. Check it with `omarchy display text size`.
 - **Size from a token, not a multiple of one.** Every `Style.font.*` value is
   already rounded, so scaling one rounds twice and lands on numbers that drift
   off the scale as base-size moves (`iconLarge * 1.4` → 25/29/34/38 px at base
@@ -1304,6 +1320,29 @@ and the original is kept in prose as provenance. Don't leave the two out of sync
   would keep a stale `bindings.lua`. It does not — a global set through
   `hyprctl eval` before a reload reads back `nil` after it, and
   `package.loaded` comes back freshly populated.
+- **"Not in Omarchy's `.packages` lists" does not mean AUR, and guessing cost a
+  wrong install command in the README.** Those two files
+  (`/usr/share/omarchy/install/omarchy-{base,other}.packages`) list what Omarchy
+  itself installs — they are not a census of Arch. A package absent from them
+  can still be in `extra` (`msedit`, `keyd`, `ghostty`, `yazi`, `lsd`,
+  `python-secretstorage`, the whole `qmk`/`avr-*` toolchain) or in the
+  **`omarchy` binary repo**, which is a configured pacman repo on this machine
+  alongside core/extra/multilib and is where `cursor-bin` comes from. Only
+  `bibata-cursor-theme-bin` and `ytm-player` are genuinely foreign here. The
+  checks are `pacman -Si <pkg>` for the `Repository:` line and `pacman -Qqm`
+  for the actual AUR set; absence from a list is not one.
+
+  The audit those lists *are* good for is the other direction — what this
+  machine has that Omarchy did not put there:
+
+  ```bash
+  comm -23 <(pacman -Qqe | sort -u) \
+           <(cat /usr/share/omarchy/install/*.packages | sed 's/#.*//' \
+             | tr -s ' \t' '\n' | sed '/^$/d' | sort -u)
+  ```
+
+  README.md's *Everything else installed here* is that output, grouped, and is
+  meant to reconcile to zero against it.
 - **Two output directories, one cleanup.** `app-icons.sh` writes both
   `~/.icons/cllpse-flat/` and `~/.icons/cllpse-color/`, but `revert.sh` removed
   only the first for as long as the colour pass existed — the pass was added in
