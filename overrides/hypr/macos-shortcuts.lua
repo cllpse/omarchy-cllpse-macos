@@ -329,14 +329,23 @@ local function active_window_class_matches(pattern)
   return window.class:match(pattern) ~= nil
 end
 
+-- Figma gets NOTHING here, which is the correct macOS match rather than a gap.
+-- Figma's own shortcut for zoom is the BARE = / - on every platform -- there is
+-- no Cmd+= in Figma to reproduce -- and a bare keypress needs no bind at all,
+-- since nothing here intercepts an unmodified key. So the right behaviour in
+-- Figma is for this chord to stay out of the way.
+--
+-- The first version sent a synthetic bare = when Figma was focused, which could
+-- not have worked: the physical SUPER is still held while the bind runs, so the
+-- app receives Meta+= rather than the = it was meant to see. Inert is both
+-- simpler and actually right.
+--
 -- The live class is lowercase `figma-desktop`; matched loosely for the same
 -- reason looknfeel-decoration.lua's opacity rule is, since the AppImage has
 -- reported it both ways across versions.
 local function zoom(key)
   return function()
-    if active_window_class_matches("[Ff]igma") then
-      send_shortcut_once("", key)()
-    else
+    if not active_window_class_matches("[Ff]igma") then
       send_shortcut_once("CTRL", key)()
     end
   end
@@ -345,8 +354,28 @@ end
 o.bind("SUPER + equal", "Zoom in (Cmd+=)", zoom("equal"))
 o.bind("SUPER + minus", "Zoom out (Cmd+-)", zoom("minus"))
 
--- Scroll up is zoom in: natural_scroll is false for both mouse and touchpad
--- (input-tuning.lua:49/51), so the wheel is traditional and up means in, the
--- same pairing Ctrl+scroll already has in every browser.
-o.bind("SUPER + mouse_up", "Zoom in (Cmd+scroll up)", zoom("equal"))
-o.bind("SUPER + mouse_down", "Zoom out (Cmd+scroll down)", zoom("minus"))
+-- SUPER + scroll is deliberately NOT bound, after trying it and reverting.
+--
+-- Synthesizing a keystroke per notch cannot work here, for two independent
+-- reasons that only show up under a real gesture. send_shortcut_once presses
+-- the key and schedules its release 50ms later, but wheel notches arrive far
+-- faster than that, so the pairs overlap: the second notch presses a key that
+-- is already down and the first release lands in the middle of the gesture.
+-- And the physical SUPER is still held throughout, so what the app actually
+-- receives is Meta+= rather than the bare = Figma wants.
+--
+-- Leaving the chord unbound is the better mechanism, not a surrender. An
+-- unbound SUPER + scroll passes through to the focused window as a REAL wheel
+-- event carrying the Meta modifier, which is continuous and pixel-accurate in
+-- a way a stepped keystroke never is -- and Figma is a web app whose wheel
+-- handler has to accept Cmd on macOS, so it reads ctrlKey || metaKey and zooms
+-- on it. Omarchy's own SUPER + scroll workspace binds stay unbound (see
+-- keybind-allowlist.conf) so nothing reclaims the chord.
+--
+-- If a future app wants a literal Ctrl+wheel instead, that is an evdev-level
+-- remap (keyd, interception-tools) and not something this layer can reach:
+-- hl.dsp has no pointer-axis dispatcher at all -- enumerated live, it holds
+-- cursor, dpms, event, exec_cmd, exec_raw, exit, focus, force_idle,
+-- force_renderer_reload, global, group, layout, no_op, pass,
+-- release_input_capture, send_key_state, send_shortcut, submap, window,
+-- workspace.
