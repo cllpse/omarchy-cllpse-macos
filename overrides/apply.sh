@@ -55,7 +55,23 @@ sync_fenced() { # $1 target  $2 snippet-file  $3 marker-suffix
   local open="$c >>> $mark >>>" close="$c <<< $mark <<<"
   [[ -e $1 ]] || : >"$1"
 
-  if ! grep -qF "$mark" "$1" 2>/dev/null; then
+  # Match the open marker as a WHOLE LINE, not $mark as a substring. $mark for a
+  # plain block ("cllpse-macos overrides") is a prefix of every suffixed one
+  # ("cllpse-macos overrides: keybinds"), so a substring test says "the block is
+  # already here" when only a SUFFIXED block is. The awk rewrite below then finds
+  # no line equal to $open, passes the file through unchanged, and — the output
+  # being non-empty — reports success. Net effect: the block is silently never
+  # installed. bindings.lua carries four blocks, so it is the file this reaches.
+  # The current call order (plain before suffixed) hides it on a fresh machine;
+  # deleting the plain block by hand and re-running is enough to surface it.
+  #
+  # -e is REQUIRED, not stylistic: $open for a .lua target starts with "--",
+  # which grep parses as end-of-options (or as a bad option) rather than as a
+  # pattern, and the test then never matches. That failure appends a duplicate
+  # block on every run instead of updating in place — and it lands only on .lua
+  # files, i.e. exactly the ones this guard exists for. The old substring test
+  # dodged it by accident: $mark carries no leading dash.
+  if ! grep -qxF -e "$open" "$1" 2>/dev/null; then
     { printf '\n%s\n' "$open"; cat "$2"; printf '%s\n' "$close"; } >>"$1"
     say "appended overrides block to $1"
     return
@@ -633,8 +649,14 @@ fi
 # icon. The sync is a theme-set hook rather than a step here because app icons
 # are never recoloured by the shell — a synced file has a fixed colour and must
 # be rewritten per theme. Run once now so the icons exist before step 8; step
-# 8's `omarchy theme set` then re-runs it and restarts the shell, which is what
-# drops Qt's URL-keyed image cache and makes a colour change actually land.
+# 8's `omarchy theme set` then re-runs it as a hook.
+#
+# Neither this run nor that one relies on theme-set restarting the shell, which
+# it does NOT do — it pushes the palette in over IPC and restarts only the
+# terminal, hyprctl, btop, opencode and helix. The restart the icons need (Qt
+# caches them by URL, and the switcher indexes them once at launch) is app-
+# icons.sh's own, fired from its EXIT trap and only when a file actually
+# changed.
 if [[ -d "$HERE/icons/fallbacks" ]]; then
   _n=$(find "$HERE/icons/fallbacks" -maxdepth 1 \( -name '*.svg' -o -name '*.png' \) | wc -l)
   say "app icons -> ~/.icons/cllpse-flat/apps/ ($_n hand-placed)"
@@ -713,8 +735,12 @@ ln -sfn "$HERE/hooks/post-update.d/cllpse-macos-repair.sh" \
 # the font and theme above: a value that already matches what we would write is
 # refused, so a re-run can't turn revert into a no-op.
 #
-# Picked up by step 8's theme-set, which restarts the shell — a hyprctl reload
-# does not.
+# Picked up live, with no restart needed and none available: shell.qml:134-142
+# holds a FileView on ~/.config/omarchy/shell.json with watchChanges: true and
+# onFileChanged: reload(), so a targeted key write lands as soon as it is saved.
+# (A hyprctl reload would do nothing here either way — this file is the shell's,
+# not Hyprland's. And step 8's theme-set does not restart the shell, which an
+# earlier version of this comment assumed it did.)
 shell_json=~/.config/omarchy/shell.json
 switcher_id=cllpse.window-switcher
 # The id this plugin's manifest used to declare. Omarchy enables a third-party
