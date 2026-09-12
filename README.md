@@ -329,8 +329,10 @@ comm -23 <(pacman -Qqe | sort -u) \
 ```
 
 That prints every explicitly-installed package Omarchy's own lists do not
-contain — 23 here. Nine of them are this repo's dependencies and are covered in
-[`overrides/README.md`](overrides/README.md); the rest are below.
+contain — 20 here. Nine of them are this repo's dependencies and are covered in
+[`overrides/README.md`](overrides/README.md); the other eleven are the two
+groups below. Anything that turns up in the command's output and not in this
+section is either new or was never wanted.
 
 **Keyboard firmware toolchain** — `pacman -S qmk avrdude avr-gcc avr-libc`.
 Not used by anything in this repo, but two of its features exist *because* of
@@ -339,13 +341,12 @@ the keyboard it flashes: step 5c's `us-danish-letters` xkb layout, and
 because the Preonic's firmware intercepts `SUPER` on the keys those binds used.
 Read that as provenance for two otherwise-arbitrary decisions.
 
-**Applications** — none needed by `apply.sh`, all recognised by parts of it:
-
-| | Source | Note |
-|---|---|---|
-| Helium | `~/Applications/helium-<version>-x86_64.AppImage` | A Chromium fork. `Hud.qml` buckets it with the browser family for its switcher glyph and names it, but nothing installs or requires it — the switcher simply recognises the window if it is there. Same relationship as Figma, minus the launcher entry |
-| `gitcomet`, `gitcomet-debug` | AUR | No repo reference at all |
-| `flatpak` | `extra` | Installed; zero flatpaks present |
+**Helium** — `~/Applications/helium-<version>-x86_64.AppImage`, a Chromium
+fork, and not a package, so it does not appear in the command's output at all.
+`Hud.qml` buckets it with the browser family for its switcher glyph and names
+it, but nothing here installs or requires it — the switcher simply recognises
+the window if it is there. Same relationship as Figma Desktop, minus the
+launcher entry.
 
 **Audio workaround** — `~/.local/bin/force-analog-sink`, run by
 `~/.config/systemd/user/force-analog-sink.service`. The onboard Realtek ALC897
