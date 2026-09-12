@@ -309,16 +309,22 @@ forward_group(FORWARD_PUNCTUATION, true)
 -- trackpad is attached, so each detent is one event, not a burst.
 --
 -- Figma is special-cased because its canvas zoom is the BARE key. Figma
--- Desktop is Electron, so Ctrl+= there is Chromium's own UI zoom (the whole
--- interface, which is what figma-linux's ui.scaleFigmaUI setting also drives)
--- rather than the canvas. `=` and `-` unmodified are what Figma's own
+-- Desktop is Electron, so Ctrl+= there is Chromium's own UI zoom -- the whole
+-- interface -- rather than the canvas. `=` and `-` unmodified are what Figma's own
 -- shortcut list documents for zoom, on every platform.
 --
--- Everything else gets Ctrl+= / Ctrl+-, which is right in both directions that
--- matter: Chromium zooms the page, and Ghostty's own defaults are ctrl+= /
--- ctrl+- for increase/decrease_font_size -- the same thing Cmd+scroll does in
--- macOS Terminal, which is why this one is NOT terminal-guarded like the
--- forwarder above.
+-- Everything else gets Ctrl+= / Ctrl+-, which is what Chromium wants: it zooms
+-- the page.
+--
+-- This one is NOT terminal-guarded, and the reason has changed. It used to be
+-- that Ghostty's own defaults bound ctrl+= / ctrl+- to
+-- increase/decrease_font_size -- the same thing Cmd+scroll does in macOS
+-- Terminal -- so forwarding into a terminal was the wanted behaviour.
+-- ../ghostty/ghostty.conf now unbinds all four of Ghostty's font-size chords,
+-- because the font size belongs to `omarchy display text size` rather than to
+-- the terminal, so the forward reaches the running program instead of resizing
+-- anything. Left unguarded because a program is free to answer Ctrl+= / Ctrl+-
+-- if it wants to; `unless_terminal` is the one-line change if that is noise.
 local function active_window_class_matches(pattern)
   local window = hl.get_active_window()
 
@@ -392,17 +398,30 @@ o.bind("SUPER + minus", "Zoom out (Cmd+-)", zoom("minus"))
 -- forwards the modifier perfectly and Figma discards it -- it tests ctrlKey on
 -- Linux and only honours metaKey when it thinks it is on a Mac.
 --
--- So the fix is below the compositor: keyd remaps the leftmeta KEY to
--- leftcontrol while Figma is focused, and drops the remap the moment it is
+-- So the fix is below the compositor: keyd binds the leftmeta KEY to the
+-- `figma:C` layer while Figma is focused, and drops the bind the moment it is
 -- not. Click, scroll and every shortcut then carry a real Ctrl, with nothing
 -- synthesized anywhere.
 --
 -- The cost, which is real and bounded: while Figma is focused Hyprland never
--- sees SUPER, so SUPER + TAB / SPACE / W / Q do nothing there. WM_MOD is
--- untouched -- it is Ctrl+Alt and only the meta key is remapped -- so
--- workspaces and window management still work, which is the way out. Note the
--- corollary: in Figma, SUPER + ALT emits Ctrl+Alt and therefore fires the
--- WM_MOD binds.
+-- sees SUPER, so a chord the layer does not carve out cannot reach a bind
+-- here -- SUPER + SPACE among them. The layer's own carve-outs are TAB (the
+-- window switcher, since Cmd+Tab is the app switcher on macOS and not a Figma
+-- shortcut) and Q (below). WM_MOD is untouched -- it is Ctrl+Alt and only the
+-- meta key is bound -- so workspaces and window management still work, which
+-- is the way out. Note the corollary: in Figma, SUPER + ALT emits Ctrl+Alt and
+-- therefore fires the WM_MOD binds.
+--
+-- SUPER + Q is carved out because Figma cannot answer it at all: its menu
+-- table registers Quit as Electron's `Command+Q`, which is macOS-only, so on
+-- Linux the Ctrl+Q the layer would otherwise emit lands on nothing. The
+-- carve-out sends a clean Meta+Q, and the SUPER + Q bind below closes every
+-- Figma window -- see overrides/keyd/default.conf for the measurement.
+--
+-- SUPER + W is NOT carved out, because Figma does answer it:
+-- `CommandOrControl+W` is bound to closeActiveTab, which is the same chord
+-- this file's own SUPER + W would have synthesized. It closes the TAB though,
+-- not the window, and not even on the last tab.
 --
 -- No daemon and no watcher: `window.active` fires on every focus change, and
 -- the guard below means a process is spawned only when the Figma boundary is

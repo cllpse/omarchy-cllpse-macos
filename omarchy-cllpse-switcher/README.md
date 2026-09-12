@@ -264,6 +264,21 @@ Worth knowing about `glyphFor`, which is still the default for every tile:
   present in SF Mono is not necessarily present in SF Pro Text.
 - Ordering in `glyphFor`/`nameFor` is load-bearing: `obsidian` is tested before
   `obs`, and the specific `libreoffice-*` classes before the bare `libreoffice`.
+- `nameFor`'s curated list is **not** the last word: anything it does not match
+  falls through to the desktop entry's `Name=` (via `classIndex`) before the
+  title-cased-class fallback, so the switcher and the launcher print the same
+  string without a second list kept in step by hand. The list is now only for
+  names we deliberately disagree with the entry about — measured on this
+  machine, keeping it ahead of the lookup is what preserves `mpv` over
+  `mpv.desktop`'s "Media Player" and `Qt V4L2` over "Qt V4L2 test Utility".
+  Figma Desktop is the case that exposed the split: the launcher read
+  `Name=Figma Desktop` off the entry while a hardcoded `has("figma")` here
+  answered "Figma".
+- That lookup is only as good as the entry's `StartupWMClass`. Figma's upstream
+  entry declares `Figma` against a live class of `figma-desktop`, which joins to
+  nothing — the local entry is corrected to the class Hyprland actually reports.
+  A name that still resolves to a title-cased class is the signal to check that
+  declaration first.
 - If a hand-placed icon exists for the window's class in
   `~/.icons/cllpse-flat/apps/` (synced from `overrides/icons/fallbacks/`), an
   `Image` replaces the text cell for that tile. `.svg` is probed first, then

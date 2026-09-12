@@ -81,15 +81,16 @@ o.window({ tag = "chromium-based-browser" }, { opacity = "0.99 0.875" })
 o.window({ tag = "firefox-based-browser" }, { opacity = "0.99 0.875" })
 
 -- ── Figma opacity: fully opaque, focused or not ────────────────────────────
--- Figma Desktop (the figma-linux AppImage) is a colour-critical design tool --
+-- Figma Desktop (nickvdp/figma-desktop-linux, an AppImage repack of Figma's
+-- own Electron build) is a colour-critical design tool --
 -- same rationale Omarchy's own davinci-resolve.lua gives DaVinci Resolve:
 -- translucency, and the blur pass rendered behind it, distorts colour work.
 -- Not one of Omarchy's stock exclusions (browser/video/DaVinci/PiP/Steam/QEMU/
 -- RetroArch), so it still carried our +default-opacity 0.98/0.875 rule above
 -- until now. Loosely matched -- ".*[Ff]igma.*" against the class, same idiom
 -- as davinci-resolve.lua's ".*[Rr]esolve.*" -- because the live window class
--- is the lowercase "figma-desktop", not the "Figma" its .desktop's
--- StartupWMClass claims. Strip the tag and set opacity explicitly, same
+-- is the lowercase "figma-desktop", not the "Figma" the AppImage's own
+-- .desktop declares as StartupWMClass. Strip the tag and set opacity explicitly, same
 -- belt-and-suspenders as Omarchy's own steam.lua / qemu.lua.
 o.window(".*[Ff]igma.*", { tag = "-default-opacity", opacity = "1 1" })
 

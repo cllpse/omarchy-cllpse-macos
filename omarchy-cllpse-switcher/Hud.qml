@@ -559,9 +559,15 @@ Item {
 
   // Friendly app name for the class, shown ahead of the window title as
   // "App Name (title)". Same class-matching idiom as glyphFor, so the two
-  // stay in step. Falls back to title-casing the raw class (last segment of
-  // a reverse-DNS style class, e.g. "org.gnome.Nautilus") for anything not
-  // listed here, rather than leaving the tile unlabelled.
+  // stay in step.
+  //
+  // Three steps, most specific first: a web app is named by its own desktop
+  // entry rather than by the browser hosting it; then the curated list below,
+  // which exists only for names we deliberately disagree with the entry about;
+  // then the entry's Name=, which is what the launcher shows. Title-casing the
+  // raw class (last segment of a reverse-DNS style class, e.g.
+  // "org.gnome.Nautilus") is the last resort, for a window whose class joins to
+  // no entry at all, rather than leaving the tile unlabelled.
   function nameFor(cls) {
     // A web app is named by its desktop entry, not by the browser hosting it.
     // Without this the Slack tile reads "Chrome" -- correct for the class,
@@ -623,7 +629,6 @@ Item {
     else if (has("nemo")) return "Nemo"
     else if (has("obsidian")) return "Obsidian"
     else if (has("obs")) return "OBS Studio"
-    else if (has("figma")) return "Figma"
     else if (has("pinta")) return "Pinta"
     else if (has("imv")) return "Image Viewer"
     else if (has("kdenlive")) return "Kdenlive"
@@ -647,6 +652,24 @@ Item {
     else if (has("omacalc")) return "Omacalc"
     else if (has("omawrite")) return "Omawrite"
     else if (has("omacut")) return "Omacut"
+
+    // Nothing curated matched -- take the name off the desktop entry, which is
+    // the same Name= the launcher reads, so the two surfaces agree by
+    // construction instead of by a second list kept in step by hand.
+    //
+    // Figma Desktop is the case that exposed it: the launcher showed
+    // "Figma Desktop" (its entry's Name=) while a hardcoded has("figma") here
+    // answered "Figma". The chain above is now only for names we deliberately
+    // disagree with the entry about -- "VS Code" over "Visual Studio Code",
+    // "mpv" over mpv.desktop's "Media Player" -- and everything else resolves
+    // itself, including apps that are not in it at all.
+    //
+    // The join is classIndex's, so it is only as good as the entry's
+    // StartupWMClass. Upstream's Figma entry declares StartupWMClass=Figma
+    // against a live class of `figma-desktop`, which matches nothing; the local
+    // entry is corrected to the class Hyprland actually reports.
+    var e = root.classIndex[c]
+    if (e && String(e.name || "").length > 0) return String(e.name)
 
     var seg = String(cls || "").split(".").pop().replace(/[-_]+/g, " ").trim()
     if (!seg) return ""

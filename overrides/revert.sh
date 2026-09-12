@@ -98,6 +98,15 @@ for f in 10-cllpse-macos-font-rendering.conf; do
   [[ -e $t ]] && { rm -f "$t"; say "removed retired drop-in $f"; }
 done
 
+# Figma Desktop's launcher entry (apply.sh step 7e). restore() puts back a
+# .pre-cllpse backup if one exists, and otherwise removes the file — which is
+# the honest undo here: the AppImage re-creates it on its next launch, with
+# upstream's Name=Figma and StartupWMClass=Figma. Removing it means Figma has no
+# launcher entry until then, which is the same state a machine that never ran
+# apply.sh and never launched Figma is in.
+restore ~/.local/share/applications/figma-desktop-appimage.desktop
+update-desktop-database ~/.local/share/applications 2>/dev/null || true
+
 strip_fenced ~/.config/ghostty/config
 strip_fenced ~/.config/hypr/hyprland.lua
 strip_fenced ~/.config/hypr/looknfeel.lua
@@ -151,6 +160,21 @@ rm -f ~/.config/yazi/cllpse-macos.tmTheme
 say "Removing hunk theme-set hook"
 [[ -L ~/.config/omarchy/hooks/theme-set.d/hunk-colors.sh ]] && rm -f ~/.config/omarchy/hooks/theme-set.d/hunk-colors.sh
 restore ~/.config/hunk/config.toml
+
+say "Removing ytm-player theme template + hook"
+[[ -L ~/.config/omarchy/hooks/theme-set.d/ytm-player.sh ]] && rm -f ~/.config/omarchy/hooks/theme-set.d/ytm-player.sh
+[[ -L ~/.config/omarchy/themed/ytm-player.toml.tpl ]] && rm -f ~/.config/omarchy/themed/ytm-player.toml.tpl
+# theme.toml is ours whole, so it goes. config.toml is the USER's file -- the
+# hook rewrites its [ui] theme line and config-prefs.py sets nine preference
+# keys in it -- so restore a backup if apply.sh made one, but never delete it
+# the way restore() would when none exists.
+rm -f ~/.config/ytm-player/theme.toml
+rm -f ~/.local/bin/cllpse-ytm-signin
+if [[ -e ~/.config/ytm-player/config.toml.pre-cllpse ]]; then
+  restore ~/.config/ytm-player/config.toml
+elif [[ -e ~/.config/ytm-player/config.toml ]]; then
+  say "left ~/.config/ytm-player/config.toml alone — its [ui] theme may still name textual-light/dark"
+fi
 
 # Flat app icons (apply.sh step 7f). The whole override is one directory we
 # created, so removing it hands every app back to its vendor icon; there is no
@@ -265,7 +289,7 @@ else
 fi
 rmdir "$STATE" 2>/dev/null || true
 
-# keyd (apply.sh step 8c). Order matters: drop any LIVE remap first, because a
+# keyd (apply.sh step 8b). Order matters: drop any LIVE remap first, because a
 # runtime `keyd bind` outlives both this script and the compositor -- it goes
 # only on `keyd bind reset`, a keyd restart or a reboot. Reverting the config
 # while leftmeta was still bound to leftcontrol would strand a meta key that
@@ -288,7 +312,10 @@ keyd_conf=/etc/keyd/default.conf
 if [[ -f $keyd_conf ]] && head -1 "$keyd_conf" | grep -q 'installed by overrides/apply.sh'; then
   say "Removing the keyd config this repo installed (needs sudo): $keyd_conf"
   sudo rm -f "$keyd_conf" || say "  could not remove $keyd_conf — remove it yourself"
-  sudo systemctl reload keyd >/dev/null 2>&1 || sudo systemctl restart keyd >/dev/null 2>&1 || true
+  # restart, not reload: the unit has no ExecReload (CanReload=no), so a reload
+  # request only ever falls through to this. keyd re-reads its config at start
+  # and nowhere else.
+  sudo systemctl restart keyd >/dev/null 2>&1 || true
   say "  keyd left installed and enabled — remove it yourself if nothing else needs it:"
   say "    sudo systemctl disable --now keyd && sudo pacman -Rs keyd"
 fi

@@ -27,25 +27,38 @@ into `~/.config/omarchy/themes/` and the window-switcher plugin into
 `~/.config/omarchy/plugins/`, all pointing at this checkout. Moving or deleting
 the clone later breaks the themes and the switcher.
 
-**2. Install what `apply.sh` can't.** Two packages, neither of them in Omarchy's
-own package lists:
+**2. Install what `apply.sh` can't.** It installs nothing at all — no packages,
+no `gh` extensions, no `mise` tools. These are the ones a stock Omarchy box does
+*not* already have:
 
 ```bash
-yay -S bibata-cursor-theme-bin      # AUR — pacman -S will NOT find it
-sudo pacman -S lsd
+sudo pacman -S lsd ghostty yazi keyd python-secretstorage msedit
+sudo pacman -S cursor-bin                        # the `omarchy` repo, not `extra`
+yay -S bibata-cursor-theme-bin ytm-player        # AUR — pacman -S will NOT find these two
+mise use -g hunk gh
+gh extension install dlvhdr/gh-dash
 ```
 
-`bibata-cursor-theme-bin` is the one that matters: the cursor theme is set in
-`gsettings` and `hl.env` **whether or not the package is present**, so without it
-you get a fallback cursor and only a warning in the output. `lsd` degrades
+Plus two Cursor marketplace extensions, `beardedbear.beardedtheme` and
+`beardedbear.beardedicons`. The table at the top of
+[`overrides/README.md`](overrides/README.md) is the authoritative list and says
+what each one is for and **how it fails if you skip it** — worth reading, because
+only some are guarded and the failures do not look alike.
+
+`bibata-cursor-theme-bin` is the one that matters most: the cursor theme is set
+in `gsettings` and `hl.env` **whether or not the package is present**, so without
+it you get a fallback cursor and only a warning in the output. `lsd` degrades
 quietly — missing, it just skips the `ls` alias and its theme files.
 
-Everything else `apply.sh` touches is already there on an Omarchy box: `bat`,
-`lazygit`, `fzf` and `starship` are in `omarchy-base.packages`; `lua` (the
-keybind scan, step 6b) and `jq` (the Cursor merge, step 7) arrive as `hyprland`
-and `omarchy` dependencies; `python3` (the Chromium zoom, step 7d) as a
-dependency of much of the rest of the system. `lua` is the only one called
-unguarded — without it `apply.sh` aborts mid-run rather than skipping the step.
+What genuinely *is* already there on an Omarchy box: `bat`, `lazygit`, `fzf`,
+`starship`, `lazydocker`, `jq` and `imagemagick` are in `omarchy-base.packages`;
+`lua` (the keybind scan, step 6b) and `python3` (the Chromium zoom, step 7d)
+arrive as dependencies of `hyprland` and of much of the rest of the system.
+`lua` is the only one called unguarded — without it `apply.sh` aborts mid-run
+rather than skipping the step. Note that **`ghostty` and `yazi` are not** on that
+list, despite Omarchy shipping config files for both: its package lists ship
+`foot` as the terminal, and nothing on this machine depends on either, so both
+are here because they were installed by hand.
 
 **3. Set the display values for *your* hardware.** `overrides/display.conf` ships
 values tuned for one ~110 PPI 3840x1600 display and applies them confidently:
@@ -251,7 +264,8 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   Figma Desktop isn't one of Omarchy's stock colour-critical exclusions, so
   `looknfeel-decoration.lua` adds its own: `.*[Ff]igma.*` matched loosely
   against the class (the live window class is the lowercase `figma-desktop`,
-  not the `Figma` its `.desktop`'s `StartupWMClass` claims), untagged and
+  not the `Figma` the AppImage's own `.desktop` declares as `StartupWMClass`),
+  untagged and
   pinned to `1 1` — same reasoning and idiom as Omarchy's own
   `davinci-resolve.lua`.
   Because `blur.ignore_opacity` is true, a semi-transparent window has the full
@@ -302,3 +316,98 @@ in `hyprland-env.lua` is the same story from the other side: it sits after
 `require("default.hypr.toggles")`, so it applies on a machine with no layout
 plugin, and a plugin that owns the layout (`nomarkoo.keyboard-layout`) would take
 it back. These blocks exist for self-sufficiency, not to fight a plugin.
+
+### Everything else installed here
+
+The complete set, so a rebuild isn't guesswork and so the *Before you run this*
+list stays honest about what it leaves out. Regenerate it with:
+
+```bash
+comm -23 <(pacman -Qqe | sort -u) \
+         <(cat /usr/share/omarchy/install/*.packages | sed 's/#.*//' \
+           | tr -s ' \t' '\n' | sed '/^$/d' | sort -u)
+```
+
+That prints every explicitly-installed package Omarchy's own lists do not
+contain — 23 here. Nine of them are this repo's dependencies and are covered in
+[`overrides/README.md`](overrides/README.md); the rest are below.
+
+**Keyboard firmware toolchain** — `pacman -S qmk avrdude avr-gcc avr-libc`.
+Not used by anything in this repo, but two of its features exist *because* of
+the keyboard it flashes: step 5c's `us-danish-letters` xkb layout, and
+`window-management-mod.lua` moving window navigation from `SUPER` to `CTRL+ALT`
+because the Preonic's firmware intercepts `SUPER` on the keys those binds used.
+Read that as provenance for two otherwise-arbitrary decisions.
+
+**Applications** — none needed by `apply.sh`, all recognised by parts of it:
+
+| | Source | Note |
+|---|---|---|
+| Helium | `~/Applications/helium-<version>-x86_64.AppImage` | A Chromium fork. `Hud.qml` buckets it with the browser family for its switcher glyph and names it, but nothing installs or requires it — the switcher simply recognises the window if it is there. Same relationship as Figma, minus the launcher entry |
+| `gitcomet`, `gitcomet-debug` | AUR | No repo reference at all |
+| `flatpak` | `extra` | Installed; zero flatpaks present |
+
+**Audio workaround** — `~/.local/bin/force-analog-sink`, run by
+`~/.config/systemd/user/force-analog-sink.service`. The onboard Realtek ALC897
+rear line-out does not report jack presence, so WirePlumber marks the analog
+route unavailable and refuses to restore the analog sink on every login. Neither
+the script nor the unit is in this repo — hardware-specific, and nothing here
+touches audio.
+
+**CLI tools that install themselves** — `~/.local/bin/` holds a set of one-line
+wrappers (`copilot`, `crush`, `cursor-agent`, `gemini`, `ghui`, `grok`,
+`hermes`, `muse`, `omp`, `opencode`, `pi`, `playwright`) that each `mise use -g`
+their own tool on first run and then exec it. They need no install step and
+appear in no package list. `herdr`, `claude`, `codex`, `gh` and `hunk` come from
+`mise` proper (`~/.config/mise/config.toml`); only `hunk` and `gh` matter to this
+repo.
+
+**Arch and Omarchy base** — `efibootmgr`, `intel-ucode`, `mkinitcpio`, `sudo`,
+`omarchy`, `omarchy-keyring`, `omarchy-settings`. Listed only so that running
+the command above and diffing it against this section comes out empty.
+
+### Figma Desktop — installing and updating it
+
+`apply.sh` installs no applications, and Figma has no self-updater, so the app
+itself is yours to keep current. What the repo *does* own is its launcher entry
+(step 7e), because the app writes its own on every launch and gets two fields
+wrong for this desktop — `Name=Figma` where the product is *Figma Desktop*, and
+`StartupWMClass=Figma` against a live Hyprland class of `figma-desktop`, which
+joins to no window and costs the window switcher its tile label.
+
+The app is [`nickvdp/figma-desktop-linux`](https://github.com/nickvdp/figma-desktop-linux),
+an AppImage repack of Figma's own Electron build — not the community
+`figma-linux` wrapper around the web app, which is a different project with a
+different settings schema. It is run **extracted**, not as a mounted AppImage:
+
+```bash
+# installing and updating are the same steps
+cd ~/Applications
+./figma-desktop-<version>-amd64.AppImage --appimage-extract   # -> squashfs-root/
+rm -rf figma-desktop && mv squashfs-root figma-desktop
+
+cd ~/Sites/omarchy-cllpse-macos && ./overrides/apply.sh
+```
+
+**Nothing inside `~/Applications/figma-desktop/` belongs to this repo**, so an
+extraction has nothing of ours to destroy and the third step only rewrites the
+launcher entry. That is a deliberate property, not luck. The app's launcher
+regenerates the entry whenever `Exec` differs from `Exec="${appimage_path}" %u`,
+and with no `APPIMAGE` in the environment that path is `readlink -f "$0"` —
+`~/Applications/figma-desktop/AppRun`, which carries no version number. So the
+entry the repo writes matches what the app would write, on every release, and is
+never taken back.
+
+A wrapper script around `AppRun` breaks exactly that. It has to displace the
+launcher to `AppRun.real`, which changes the computed path, which then needs an
+`APPIMAGE` export to repair — and it lives inside the app directory, where the
+next extraction deletes it and hands `Name` and `StartupWMClass` back silently.
+This machine ran one for a while. Step 7e removes it if it finds it. The only
+thing it did that is still wanted, `FIGMA_USE_WAYLAND=1`, is an `environment.d`
+drop-in instead (step 7c), which no update can reach.
+
+Two things worth knowing after an update: the entry change needs no relogin, but
+`environment.d` does, so a *first* install wants a logout before Figma runs as a
+native Wayland client at the right scale. And `keyd` — the one package this repo
+depends on, for Figma's `Cmd`+click and `Cmd`+scroll — is configured by step 8b
+and not installed by it.

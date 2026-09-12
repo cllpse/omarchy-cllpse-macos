@@ -1,0 +1,68 @@
+#!/bin/bash
+# Sign in to YouTube Music for ytm-player, with the keyring workaround Hyprland
+# needs. Run it whenever ytm reports an expired session:
+#
+#   cllpse-ytm-signin              # chromium (what this machine uses)
+#   cllpse-ytm-signin firefox      # any browser ytm's setup accepts
+#
+# WHY THIS EXISTS AT ALL
+#
+# yt-dlp picks a Chromium cookie-decryption backend from XDG_CURRENT_DESKTOP.
+# Its table (cookies.py, _get_linux_desktop_environment) knows GNOME, KDE,
+# XFCE, LXQt, Unity, Deepin, Pantheon, UKUI and X-Cinnamon -- not Hyprland. An
+# unrecognised value returns OTHER, _choose_linux_keyring maps OTHER to
+# BASICTEXT, and BASICTEXT hands back no key at all, because it assumes cookies
+# are v10 (unencrypted). Chromium here runs --password-store=gnome-libsecret,
+# so its cookies are v11 and every single one fails to decrypt:
+#
+#   WARNING: cannot decrypt v11 cookies: no key found
+#   Extracted 0 cookies from chromium (713 could not be decrypted)
+#
+# XDG_CURRENT_DESKTOP is a colon-separated priority list and yt-dlp scans every
+# part, so appending GNOME fixes the lookup while Hyprland stays first for
+# everything else that reads it -- portals included. Scoped to this one process
+# on purpose; environment.d would hand the whole session a GNOME identity to
+# satisfy one TUI. bash/shell.sh wraps the plain `ytm` command the same way,
+# which is what lets ytm's own try_auto_refresh() renew a session silently
+# instead of forcing you back here every time one expires.
+set -euo pipefail
+
+BROWSER="${1:-chromium}"
+
+command -v ytm >/dev/null 2>&1 || {
+  echo "ytm is not installed (yay -S ytm-player)" >&2
+  exit 1
+}
+
+# yt-dlp reaches the keyring over D-Bus through secretstorage. Without it the
+# GNOMEKEYRING backend is chosen and then cannot be read, which surfaces as the
+# same "no key found" line and sends you to the manual header paste for nothing.
+python3 -c 'import secretstorage' 2>/dev/null || {
+  echo "python-secretstorage is missing — ytm cannot read the Chromium keyring." >&2
+  echo "  sudo pacman -S python-secretstorage" >&2
+  exit 1
+}
+
+# A locked login keyring reads as "failed to read from keyring" rather than a
+# decrypt error, so say which one it is before handing over to the wizard.
+if ! python3 - <<'PY'
+import contextlib, sys
+import secretstorage
+with contextlib.closing(secretstorage.dbus_init()) as con:
+    col = secretstorage.get_default_collection(con)
+    if col.is_locked():
+        sys.exit("the login keyring is LOCKED — unlock it and re-run")
+    if not any(i.get_label() == "Chromium Safe Storage" for i in col.get_all_items()):
+        sys.exit('no "Chromium Safe Storage" item — open Chromium once, then re-run')
+PY
+then
+  exit 1
+fi
+
+if pgrep -x ytm >/dev/null 2>&1; then
+  echo "note: ytm is running — restart it afterwards so it picks up the new sign-in"
+fi
+
+echo "Signing in via $BROWSER (be signed in to music.youtube.com there first)…"
+exec env XDG_CURRENT_DESKTOP="${XDG_CURRENT_DESKTOP:-Hyprland}:GNOME" \
+  ytm setup --browser "$BROWSER"

@@ -123,3 +123,27 @@ command -v git >/dev/null 2>&1 && alias diff="git diff"
 # shell -- the same reason the fzf palette above is parsed in-shell instead of
 # shelling out to awk.
 [[ -d "${XDG_DATA_HOME:-$HOME/.local/share}/gh/extensions/gh-dash" ]] && alias dash="gh dash"
+
+# ytm-player, with a keyring workaround. yt-dlp maps XDG_CURRENT_DESKTOP to a
+# Chromium cookie-decryption backend, and its table (cookies.py,
+# _get_linux_desktop_environment) knows GNOME/KDE/XFCE/LXQt/Unity/Deepin/
+# Pantheon/UKUI/X-Cinnamon -- not Hyprland. An unknown value falls through to
+# OTHER, _choose_linux_keyring maps OTHER to BASICTEXT, and BASICTEXT returns
+# no key at all because it assumes cookies are v10 (unencrypted). Chromium here
+# runs --password-store=gnome-libsecret, so its cookies are v11 and every one
+# fails: "cannot decrypt v11 cookies: no key found", 0 of 713 extracted.
+#
+# That breaks more than `ytm setup`. ytm's own try_auto_refresh() renews an
+# expiring YouTube session by re-extracting browser cookies through this same
+# yt-dlp path, so on Hyprland a renewal can NEVER succeed and every expiry
+# becomes a manual re-signin. Appending GNOME fixes both: the variable is a
+# colon-separated priority list, yt-dlp scans every part, and Hyprland stays
+# first for everything else that reads it -- portals included. Scoped to this
+# one process on purpose, NOT environment.d, which would hand the whole session
+# a GNOME identity to satisfy one TUI.
+#
+# Needs python-secretstorage (extra) for the D-Bus call to
+# org.freedesktop.secrets; without it the keyring is chosen but unreadable.
+if command -v ytm >/dev/null 2>&1; then
+  ytm() { XDG_CURRENT_DESKTOP="${XDG_CURRENT_DESKTOP:-Hyprland}:GNOME" command ytm "$@"; }
+fi

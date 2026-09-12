@@ -16,10 +16,124 @@
 #
 # Runtime-only: `keyd bind` applies to the live daemon and is dropped by `keyd
 # bind reset`, by a keyd restart, and by a reboot. Nothing is written to disk.
+#
+# Failures are announced, which is the whole reason this is not a one-line
+# `exec keyd bind`. macos-shortcuts.lua calls this through hl.dsp.exec_raw,
+# which discards both stdout and stderr, so a helper that merely exited 255
+# was indistinguishable from one that worked -- Figma's scroll just kept
+# behaving as if the remap had never been written. That cost a debugging
+# session, and the cause was mundane: `keyd bind` talks to a root-owned socket
+# whose group is keyd, and supplementary groups are fixed when the process
+# tree is created.
+#
+# Which is NOT the same as "fixed at login", and the difference cost a second
+# debugging session. uwsm starts Hyprland as a unit of the systemd USER
+# MANAGER (`user@<uid>.service`), so every process on the desktop inherits
+# that manager's group set -- and with logind's stock `KillUserProcesses=no`
+# the manager outlives a logout. Measured here: the manager started 12:31:20,
+# `usermod -aG` wrote /etc/group at 12:32:37, and a fresh graphical login at
+# 12:54:51 produced a Hyprland whose /proc/<pid>/status still read
+# `Groups: 998 1000`. Two logouts changed nothing. Only a reboot (or an
+# explicit `systemctl restart user@<uid>`, which takes the desktop with it)
+# reseeds it.
+#
+# So the group is not waited on. `newgrp` is setuid-root and reads /etc/group
+# directly, so it hands this process the group the session never received;
+# piping the command to it runs the bind under a correct group set with no
+# relogin and no sudo. It is only ever reached when /etc/group already lists
+# the user, so it can never sit at a group-password prompt. Cost, measured:
+# ~3ms per call, against a helper that only fires when Figma's focus boundary
+# is crossed.
 set -uo pipefail
 
+# Once per session, not once per focus change. Every Figma focus toggle calls
+# this, so an un-stamped notify would fire a notification per alt-tab. The
+# stamp lives in XDG_RUNTIME_DIR (cleared at logout) precisely so that a fresh
+# login which STILL fails gets told again -- a relogin is the usual fix here,
+# and one that did not work has to be able to say so. The /tmp fallback is
+# tmpfs, so it clears at boot rather than never.
+STAMP="${XDG_RUNTIME_DIR:-/tmp}/cllpse-figma-keyd.failed"
+
+# Membership as the KERNEL sees it for this process, versus membership as
+# /etc/group records it. The two disagree for exactly one reason -- the group
+# was granted after this session logged in -- and that is the single most
+# likely failure here, so it gets its own message rather than a raw errno.
+in_session_group() { id -nG | tr ' ' '\n' | grep -qx keyd; }
+
+in_group_file() {
+  local members
+  members=$(getent group keyd | cut -d: -f4)
+  [[ ",${members}," == *",${USER:-$(id -un)},"* ]]
+}
+
+diagnose() {
+  local err=$1
+
+  if [[ $err != *keyd.socket* ]]; then
+    printf '%s' "$err"
+    return
+  fi
+
+  if ! in_group_file; then
+    printf '%s is not in the keyd group. Run: sudo usermod -aG keyd %s, then reboot.' \
+      "${USER:-$(id -un)}" "${USER:-$(id -un)}"
+  elif ! in_session_group; then
+    # The newgrp path below exists precisely to survive this, so reaching it
+    # here means newgrp is missing or refused -- not that a relogin is owed.
+    printf 'This session predates the keyd group and newgrp could not stand in for it. Reboot.'
+  else
+    printf 'keyd refused the connection. Check the daemon: systemctl status keyd'
+  fi
+}
+
+fail() {
+  local message
+  message=$(diagnose "$1")
+
+  printf '%s: %s\n' "${0##*/}" "$message" >&2
+
+  [[ -e $STAMP ]] && return
+  : >"$STAMP"
+
+  if command -v notify-send >/dev/null 2>&1; then
+    notify-send -a Figma -u critical \
+      "Figma's Cmd key is not remapped" \
+      "Cmd+click and Cmd+scroll will not work in Figma. ${message}"
+  fi
+}
+
+# layer(figma), not leftcontrol. The layer is defined in
+# /etc/keyd/default.conf and is inert until this line activates it; `:C` makes
+# it behave as Control everywhere except the keys it maps explicitly, which is
+# what keeps SUPER + TAB reaching the window switcher instead of vanishing into
+# Figma. keyd cannot CREATE a layer at runtime, only bind to one, which is why
+# the definition has to live on disk. Binding leftcontrol directly also drew a
+# "you should use layer(control) instead" warning on every single call.
 case ${1:-} in
-  on)  exec keyd bind 'leftmeta = leftcontrol' ;;
-  off) exec keyd bind reset ;;
+  on)  bind=('leftmeta = layer(figma)') ;;
+  off) bind=(reset) ;;
   *)   printf 'usage: %s on|off\n' "${0##*/}" >&2; exit 2 ;;
 esac
+
+# Direct first: after a reboot the group is in the session and this is the
+# whole story. The fallback is only for a process tree older than the grant.
+if in_session_group || ! in_group_file || ! command -v newgrp >/dev/null 2>&1; then
+  error=$(keyd bind "${bind[@]}" 2>&1) && rc=0 || rc=$?
+else
+  # newgrp execs the login shell with the extra group and, given a pipe,
+  # that shell reads its commands from stdin. %q the whole line so a bind
+  # containing spaces survives the second round of shell parsing, and keep
+  # the exit status -- newgrp propagates the shell's, verified.
+  printf -v cmd '%q ' keyd bind "${bind[@]}"
+  error=$(printf '%s\n' "$cmd" | newgrp keyd 2>&1) && rc=0 || rc=$?
+fi
+
+if [[ $rc -eq 0 ]]; then
+  # Clear the stamp on success so a LATER failure is announced again, rather
+  # than being swallowed by a stamp left over from before the fix.
+  rm -f "$STAMP"
+  exit 0
+fi
+
+fail "$error"
+exit 1

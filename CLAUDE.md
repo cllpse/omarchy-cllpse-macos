@@ -93,7 +93,13 @@ own `freetype-load-flags`. Kitty hardcodes light hinting with no override.
   `applyShellValues` — dead keys. A shell-source patch was tried and fully
   reverted.
 - Font *size* is machine-level only: `~/.config/omarchy/shell.toml` `[font]
-  base-size` (currently 14, via `omarchy display text size`). The theme must not
+  base-size` (currently **13**, via `omarchy display text size`; `display.conf`
+  records it for `apply.sh` to restore). That file is **watched live** —
+  `Color.qml:242-251` holds a `FileView` on the user copy with
+  `watchChanges: true` and `onFileChanged: reload()`, so a size change reaches
+  the running shell with no restart and no theme-set. The *theme's* copy at
+  `currentThemePath + "/shell.toml"` is `watchChanges: false`, so those still
+  need a theme-set to publish. The theme must not
   touch it — pinning text while icons still scale with `base-size` makes bar
   icons look oversized. `shell.toml` is merged with the theme's **per key**
   (`mergeShell` in `Color.qml`).
@@ -168,6 +174,21 @@ not `Image.Ready` — which covers a missing file, an empty `fallbacks/`, a
 machine where step 7f never ran, and a name mismatch, with no stat() per tile.
 A drop-in whose filename differs from the window class reaches the menu but not
 the switcher; a second copy named for the class covers both.
+
+The switcher's *label* closed that gap rather than widening it. `nameFor` used
+to be a curated class→name chain ending in a title-cased class, which is a
+second list to keep in step with the launcher by hand — and it drifted: the
+launcher read `Name=Figma Desktop` off the desktop entry while the chain
+answered `Figma`. It now falls through to that same `Name=` (through the
+existing `classIndex`, which already carried it for `iconFor`) before the
+title-case fallback, so the two surfaces agree by construction. The curated
+chain stays **ahead** of the lookup and is now only for names we deliberately
+disagree with the entry about — measured across every class in it, that is
+exactly three on this machine: Figma (fixed by deleting its line), `mpv`, whose
+entry says "Media Player", and `qv4l2`, whose entry says "Qt V4L2 test
+Utility". Everything else either agrees already or joins to no entry at all.
+The lookup is only as good as the entry's `StartupWMClass`, which is why the
+correction above is load-bearing rather than cosmetic.
 
 Since app icons are never recoloured, a file dropped there has a **fixed**
 colour and would not survive a light/dark switch — which is why the rendering is
@@ -430,8 +451,55 @@ or `omarchy theme set` does.
 
 ---
 
+**The installed Figma is `nickvdp/figma-desktop-linux`, not `figma-linux`.**
+Two unrelated projects, and this file named the wrong one for a while.
+Ours is an AppImage repack of Figma's *own* Electron build
+(`~/Applications/figma-desktop-126.5.6-amd64.AppImage`, extracted to
+`~/Applications/figma-desktop/`, app id
+`io.github.nickvdp.figma-desktop-linux`); `figma-linux` is a community Electron
+wrapper around the web app, with its own settings schema and a `ThemeCreator`.
+Three names are in play and all three are load-bearing somewhere: the AppStream
+`<name>` and the local `.desktop` `Name=` are **Figma Desktop** (what the
+launcher shows), the bundled `.desktop` `Name=` is `Figma`, and the live
+Hyprland class is `figma-desktop`. Config lives in `~/.config/Figma/` — verified
+from the running process, whose crashpad db is
+`~/.config/Figma/DesktopProfile/v41/Crashpad` and whose annotations read
+`_productName=Figma`. `~/.config/figma-linux/` exists on this machine but is a
+**leftover from the other project** (written 09:20, before this app dir was
+extracted at 09:46, and carrying `figma-linux`'s schema); nothing reads it.
+
+**Upstream's `.desktop` declares `StartupWMClass=Figma`, which matches no live
+window.** The class Hyprland reports is `figma-desktop`, so every entry→window
+join keyed on that declaration misses — taskbar grouping, startup notification,
+and our own switcher's `classIndex`. `apply.sh` step 7e owns the entry
+(`overrides/applications/figma-desktop-appimage.desktop.tpl`, `{{ home }}`
+expanded at install) and corrects both that and `Name=`.
+
+**The `Exec=` line is what keeps that file ours, and it has to be byte-exact.**
+`integrate_desktop()` runs on *every launch* and rewrites the whole entry —
+`Name=Figma`, `StartupWMClass=Figma` — unless the existing `Exec` already equals
+`Exec="${appimage_path}" %u`. That path is `$APPIMAGE` when set, and otherwise
+`readlink -f "$0"`; since this is an **extracted directory** rather than a
+mounted `.AppImage`, `APPIMAGE` is unset and the path is simply
+`~/Applications/figma-desktop/AppRun`. It carries no version, so the template's
+Exec matches what the app would write on every release and the rewrite never
+fires. Updating Figma is: extract over the app directory, re-run `apply.sh`.
+
+**Which is why nothing wraps `AppRun` any more.** This machine ran a local
+wrapper that renamed the launcher to `AppRun.real` and exported
+`APPIMAGE="$here/AppRun"`. Both halves were self-inflicted: displacing the
+launcher is what broke the computed path, and the export existed only to repair
+it. Its other job, `FIGMA_USE_WAYLAND=1`, is step 7c's `environment.d` drop-in
+— measured live in `systemctl --user show-environment`, so it reaches every
+launch, and no update can touch it. A wrapper is a file **inside** the app
+directory, which the next extraction deletes; going without one means nothing in
+there is ours and an update has nothing to undo. `apply.sh` step 7e removes a
+wrapper if it finds one, keyed on `integrate_desktop` being present in
+`AppRun.real` and absent from `AppRun`, and clears a stale `AppRun.real` that a
+fresh extraction left orphaned.
+
 **keyd is the one package this repo depends on, and the only reason is Figma.**
-`apply.sh` does not install it — step 8c configures it if present and says so if
+`apply.sh` does not install it — step 8b configures it if present and says so if
 not — but that still makes it the first external dependency and the second sudo
 step, so the "no packages" line above is narrower than it used to be.
 
@@ -445,11 +513,40 @@ Wayland client as `META(Super)` on **14 of 14** events, so Hyprland forwards the
 modifier correctly and Figma discards it. Remapping the key *below* the
 compositor is the only mechanism left.
 
-The remap is **runtime-only and scoped by focus**. `/etc/keyd/default.conf` is
-identity — it remaps nothing — and `~/.local/bin/cllpse-figma-keyd` issues
-`keyd bind 'leftmeta = leftcontrol'` when Figma takes focus and `keyd bind
+The remap is **runtime-only and scoped by focus**. `/etc/keyd/default.conf`
+remaps nothing on its own: `[main]` is empty, and the `[figma:C]` layer it
+defines is inert until `~/.local/bin/cllpse-figma-keyd` issues `keyd bind
+'leftmeta = layer(figma)'` when Figma takes focus, dropped again by `keyd bind
 reset` when it loses it. Nothing is written to disk, and a keyd restart or a
-reboot clears it.
+reboot clears it. The layer has to be *defined* on disk because **`keyd bind`
+can only bind to a layer, never create one** — which is also the shape of the
+worst failure here, below.
+
+**keyd re-reads that file at start or on `keyd reload`, and at no other time.**
+`keyd reload` is the daemon's own command and goes over the same group-owned
+socket as `keyd bind`, so it needs **no root** and does not interrupt the grab
+(verified as this user: rc=0). What does not exist is `systemctl reload keyd` —
+the unit is a bare `ExecStart=/usr/bin/keyd` with no `ExecReload`, so
+`systemctl show keyd -p CanReload` says `no` and that request only ever fails;
+`apply.sh` step 8b asks `keyd reload` first and falls back to
+`sudo systemctl restart keyd` for a session that does not yet hold the group.
+Either way something has to ask: editing `overrides/keyd/default.conf` reaches
+the daemon at step 8b's `sudo install` + reload and nowhere else — the same
+publish-step relationship `omarchy theme set` has to a theme folder. Live
+example, cost half an hour: the `[figma:C]` layer was added to the repo file
+while `/etc` kept the previous revision, so the focus handler's bind answered
+`figma is not a valid layer` and exited 255 into `hl.dsp.exec_raw`, which
+discards stderr. Nothing said so until Cmd+scroll was tried in Figma. Step 8b
+now ends with a smoke test (`cllpse-figma-keyd on` then `off`) that proves
+config-parsed + layer-present + socket-reachable in one call.
+
+**`keyd check <file>` validates a config without root**, which is worth using
+before anything reaches `/etc`: keyd *exits* on a parse error, and it exits
+holding no device, so a bad file presents as a keyboard that has quietly stopped
+being remapped rather than as an error. Step 8b gates the install on it. The
+other two subcommands worth knowing are `keyd listen` (layer state changes of
+the running daemon) and `keyd monitor` (live key events) — `keyd -h` lists them;
+there is still no way to query the runtime binds themselves.
 
 **No daemon.** `hl.on("window.active", …)` fires on every focus change and
 `hl.get_active_window().class` identifies the app, so a state guard means a
@@ -460,15 +557,48 @@ nothing, which is why the handler calls `get_active_window()` instead.
 Three things that are easy to get wrong here, all handled in
 `macos-shortcuts.lua`: the state must be **seeded from the current focus** at
 load, because a reload builds a fresh Lua state while keyd keeps its runtime
-bind and the two would silently disagree; `hyprland.shutdown` must drop the
+bind and the two would silently disagree (and the converse is why `apply.sh`
+reloads Hyprland *after* restarting keyd — the restart drops every runtime
+bind, so a reload ahead of it left the handler believing the remap was on
+against a daemon that had just reset it, until the Figma focus boundary was
+crossed twice); `hyprland.shutdown` must drop the
 remap, because a runtime bind outlives the compositor and would hand the next
 session a meta key that types Ctrl; and `[ids]` must be pinned to
 `k:03a8:a649`, because the `*` wildcard matches anything the kernel calls a
 keyboard and the **Pulsar 8K dongle presents three such interfaces** — a
 wildcard would route a gaming mouse's dongle through keyd for nothing.
 
+The `vendor:product` half of that pin is doing all of the work; **the `k:`
+prefix is inert here**, so don't credit it with the exclusion. keyd(1) says it
+"may be used to exclusively match keyboards", but measured from
+`journalctl -u keyd` — which prints one `DEVICE: match`/`ignoring` line per
+device at startup and is the only place this is visible — all **five** Preonic
+interfaces are grabbed, `Drop Preonic Mouse` among them. Harmless, and the
+reason is worth recording so it isn't re-derived: that interface's key bitmap
+is `KEY=ff0000 0 0 0 0` in `/proc/bus/input/devices`, bits 272-279, which is
+exactly `BTN_LEFT` through `BTN_TASK` and not one typing key — there is no
+`leftmeta` on that stream for the runtime bind to land on.
+
+**`Command+Q` is macOS-only in Electron, so Figma registers no Quit
+accelerator on Linux at all.** Read out of `app.asar`'s own menu table —
+`"CommandOrControl+T":"NewTab"`, `"CommandOrControl+W":"CloseTab"`,
+`"CommandOrControl+Shift+W":"Close"`, but `"Command+Q":"Quit"` — which means the
+Ctrl+Q the `[figma:C]` layer used to hand it landed on nothing whatsoever. Not a
+chord Figma chose to ignore: one it never had. So `q = M-q` joins `tab = M-tab`
+as a carve-out and SUPER+Q reaches Hyprland, whose bind closes every window
+sharing the focused class — what quitting Figma means to this compositor.
+
+**Cmd+W is deliberately *not* carved out**, and the same file says why:
+`CommandOrControl+W` → `closeActiveTab` is registered, through a menu that is
+genuinely installed (`setApplicationMenu` appears nine times in the bundle), so
+the plain `:C` fallthrough already delivers the exact chord Hyprland's own
+SUPER+W would have synthesized. A carve-out would add a compositor round-trip
+to arrive at the same Ctrl+W. Note the asymmetry this leaves: SUPER+W closes the
+Figma **tab**, not the window — `closeActiveTab` on the last tab does not close
+the window, and `CmdOrCtrl+Shift+W` is the entry that does.
+
 The accepted cost: while Figma is focused Hyprland never sees SUPER, so
-`SUPER + TAB / SPACE / W / Q` do nothing there. `WM_MOD` is untouched (it is
+`SUPER + SPACE` and any other uncarved chord do nothing there. `WM_MOD` is untouched (it is
 Ctrl+Alt, and only the meta key is remapped), so workspaces and window
 management still work and are the way out. Corollary worth knowing: in Figma,
 `SUPER + ALT` emits Ctrl+Alt and therefore fires the WM_MOD binds.
@@ -780,6 +910,50 @@ all; only the settings-backed toggles (`workbench.statusBar.visible`,
 `workbench.layoutControl.enabled`, `workbench.agentsWindowButton.enabled`,
 `workbench.activityBar.location`, …) can.
 
+**ytm-player is split two ways: colours are themed, preferences are not.**
+`themed/ytm-player.toml.tpl` renders per theme and `hooks/theme-set.d/ytm-player.sh`
+copies it to `theme.toml` and rewrites `[ui] theme` (Textual's `dark` flag is
+not settable from `theme.toml`, and it drives every derived contrast token).
+Everything that does *not* change with the theme — the startup page, the
+playhead style, the clutter toggles — is written once by `apply.sh` through
+`ytm/config-prefs.py`, insert-or-replace per key so `[ui] theme` and anything
+the user set stay put.
+
+Four ytm mechanics behind that, all measured against 2.1.0:
+`Settings.save()` emits **every** field of every section, so `config.toml`
+always carries all 58 keys and can never carry a comment — but saving is
+reached by only two user actions (set-theme-as-default, Browse's region
+picker), not on exit, so this is not the Chromium/Cursor trap and a write
+while ytm is open survives (it just lands at the next launch, settings being
+read once at start). `Settings.load()` is per-key and type-checked, so a
+partial file is valid — `config-prefs.py` can create one before ytm has ever
+run. `startup_page` is validated against `PAGE_NAMES` (`app/_navigation.py:23`:
+library, search, context, browse, queue, help, **liked_songs**,
+recently_played) and a name off that list **silently** falls back to
+`library`, which looks exactly like the key having no effect. And
+`playback_bar_position` is a **dead key** — defined in `config/settings.py`
+and read nowhere; the bar is bottom because `PlaybackBar`'s own CSS says
+`dock: bottom`. It is set anyway, since ytm re-emits it on every save
+regardless and it is the only place the intent can be written down.
+
+The playhead itself is `[ui] progress_style`: `"block"` (chosen) fills the
+elapsed part with solid blocks against light-shade ones, `"line"` draws a thin
+rule with a round head at the current position. Both live on the playback
+bar's bottom row and both seek on click.
+
+**`[ui] show_selection_info = false` hides the playback bar and the footer,
+not just the selection line.** `#bottom-stack` (`app/_app.py:173`) is
+`height: auto` and holds three children, of which `PlaybackBar` and
+`FooterBar` are both `dock: bottom` — docked children contribute nothing to an
+auto height, so the selection-info bar is the only thing giving that container
+any height at all. `bar.display = False` (`app/_app.py:838`) therefore
+collapses the stack to zero and clips the two widgets that were wanted.
+Measured in a headless Textual app with the same structure: with the toggle
+on, the last rows carry the info line, the bar and the footer; with it off,
+they are blank. So the line stays on — ytm loads no user stylesheet
+(no `CSS_PATH`, no `.tcss` read from its config dir), so there is no lever
+that drops the one line and keeps the bar.
+
 **Window frames are all client-side — Hyprland draws none.** No window on
 Hyprland gets a compositor titlebar, only the 2px `decoration:border_size`; every
 min/max/close is the app's own CSD, so each toolkit is a separate lever:
@@ -790,10 +964,16 @@ min/max/close is the app's own CSD, so each toolkit is a separate lever:
   `window.menuBarVisibility: "hidden"` + `window.controlsStyle: "hidden"` in the
   override leave a bare drag strip. `controlsStyle` is Linux/Windows-only
   (`included:!isMacintosh`); this build has no key to remove the strip itself.
-- **Figma Desktop** (`figma-linux` AppImage, Electron, forced to native Wayland
-  by `~/Applications/figma-desktop/AppRun` + the `FIGMA_USE_WAYLAND=1` drop-in) —
-  draws its own top panel (`panelHeight` in `~/.config/figma-linux/settings.json`)
-  and exposes no frame or menu toggle. Nothing to script.
+- **Figma Desktop** (Electron, forced to native Wayland by the
+  `FIGMA_USE_WAYLAND=1` `environment.d` drop-in) —
+  its launcher sets `ELECTRON_USE_SYSTEM_TITLE_BAR=1` and
+  `--disable-features=CustomTitlebar`
+  (`usr/lib/figma-desktop/launcher-common.sh`), so it asks the compositor for a
+  titlebar and Hyprland gives it none: no frame, no panel, nothing to script.
+  An earlier version of this line said it drew its own top panel sized by
+  `panelHeight` in `~/.config/figma-linux/settings.json`. That was the *other*
+  project — see the provenance note below; that directory is a leftover and the
+  running app never reads it.
 
 **BUILD.md is reconciled to what ships.** Where a shipped value differs from the
 spec's starting figure, the table row carries the shipped value tagged `[chosen]`
@@ -1112,7 +1292,7 @@ and the original is kept in prose as provenance. Don't leave the two out of sync
   **Autoreload does pick up a `require`d module**, not just the config Hyprland
   was started with: appending one bind to `~/.config/hypr/bindings.lua` took
   `hyprctl binds` from 150 to 151 within three seconds, with nothing
-  dispatched. `apply.sh`'s `sync_fenced` edits land on their own; step 8b's
+  dispatched. `apply.sh`'s `sync_fenced` edits land on their own; step 8c's
   `hyprctl reload` is determinism and a guard against
   `misc:disable_autoreload`, not a fix.
   The lesson that generalises: this compositor is quiet about a lot, so
@@ -1135,6 +1315,59 @@ and the original is kept in prose as provenance. Don't leave the two out of sync
   defeated the `rmdir ~/.icons` below it, which cannot remove a non-empty
   directory. When a script grows a second output path, grep `revert.sh` for the
   first one before assuming it is covered.
+
+- **A group granted by `usermod -aG` does not reach the session that granted
+  it, a RELOGIN does not fix that, and `hl.dsp.exec_raw` hides the resulting
+  failure completely.** Three things were live at once, which is what made this
+  take two debugging sessions. `keyd bind` talks to `/run/keyd.socket`,
+  `srw-rw---- root keyd`, so `apply.sh` step 8b adds the user to the `keyd`
+  group — but supplementary groups are fixed when a process tree is created,
+  so the running Hyprland session and everything it spawns keep the old set.
+  The tell is `getent group keyd` listing the user while `id` does not.
+
+  The part that cost the second session: **"fixed at login" is wrong, and the
+  obvious fix does not work.** uwsm starts Hyprland as a unit of the systemd
+  **user manager** (`user@1000.service`), so Hyprland's parent is that manager
+  — not the SDDM helper that ran PAM — and with logind's stock
+  `KillUserProcesses=no` the manager outlives a logout. Measured here: the
+  manager started 12:31:20, `usermod -aG` wrote `/etc/group` at 12:32:37, and a
+  fresh graphical login at 12:54:51 produced a Hyprland whose
+  `/proc/<pid>/status` still read `Groups: 998 1000`. Two logouts changed
+  nothing. Only a reboot (or `systemctl restart user@1000`, which takes the
+  desktop with it) reseeds it. Check the ancestry, not the session: walk `PPid`
+  from the process that actually fails up to PID 1 and compare each
+  `/proc/<pid>/status` `Groups:` line against `getent group`.
+
+  So the group is no longer waited on. **`newgrp` is setuid-root and reads
+  `/etc/group` directly**, so piping a command to it runs that command under a
+  correct group set with no relogin and no sudo — `printf '%s\n' "$cmd" |
+  newgrp keyd`, since `newgrp` takes no `-c` and Arch ships no `sg`. Verified:
+  it propagates the inner shell's exit status, its stderr comes back clean with
+  no login-shell noise, and it costs ~3ms. `cllpse-figma-keyd` tries a plain
+  `keyd bind` first (the fast path from the next boot on) and falls back to
+  `newgrp` only when `/etc/group` lists the user and the session does not — so
+  it can never sit at a group-password prompt.
+
+  The third half was the missing error channel: `macos-shortcuts.lua` fires the
+  helper through `hl.dsp.exec_raw`, which discards stdout **and** stderr, so a
+  helper exiting 255 on every focus change looked exactly like one that worked,
+  and the *symptom* is at the far end — Figma's Cmd+scroll simply keeps not
+  working. The helper therefore diagnoses itself and raises one `notify-send`
+  per session, stamped in `XDG_RUNTIME_DIR` so a focus toggle cannot spam it.
+  The general lesson: anything reached only through `exec_raw` has no error
+  channel at all, so it has to carry its own.
+
+  **The `journalctl -u keyd` audit channel died with the `leftcontrol` form,
+  and nothing replaced it.** While the bind was `leftmeta = leftcontrol`, keyd
+  logged `WARNING: You should use layer(control) instead of assigning to
+  leftcontrol directly` on every accepted call, and counting that line across an
+  action proved the chain end to end (`hyprctl reload` with Figma focused took
+  it 5 → 6 — focus handler, helper and keyd all confirmed at once). The bind is
+  `layer(figma)` now, which is precisely what that warning asked for, so it
+  logs **nothing at all** — measured: three binds this boot, zero matching
+  lines. There is still no query command for runtime binds, so the only way to
+  check one landed is to issue it and read the exit status, which is what
+  `apply.sh`'s smoke test does. A `reset` was always silent.
 
 ## Reproducing this on another machine
 

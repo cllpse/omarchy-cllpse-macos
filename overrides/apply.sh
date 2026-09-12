@@ -1,10 +1,10 @@
 #!/bin/bash
 # Apply the cllpse-macos theme + every system-level override it needs.
 # Idempotent. Re-run any time. See revert.sh to undo.
-# Sudo is needed by exactly two steps, both near the end: 8c (keyd's config +
+# Sudo is needed by exactly two steps, both near the end: 8b (keyd's config +
 # service + group) and 9 (the Chromium managed policy). Everything else is
 # user-level. keyd is the one package this script depends on and it does NOT
-# install it — step 8c configures keyd if present and says so if it is not.
+# install it — step 8b configures keyd if present and says so if it is not.
 #
 #   1. symlink both themes + the window-switcher plugin into ~/.config/omarchy/
 #   2. install the SF fonts + fontconfig drop-ins (UI font + hintnone)
@@ -16,13 +16,16 @@
 #   7. install bat / lazygit / lsd / yazi / lazydocker / gh-dash / hunk theme
 #      configs, merge Cursor settings, add fzf +
 #      lsd colours and the tool aliases to .bashrc, git diff pager to git config
+#   7e. Figma Desktop's launcher entry (correct Name= and StartupWMClass)
 #   7f. flat app icons for the menu (hand-placed SVGs in icons/fallbacks/)
 #   7f2. post-update repair hook: re-link what an Omarchy update could take out
 #   7h. Omarchy shell.json: window-switcher plugin, transparent bar, bar layout,
 #       disabled first-party plugins
 #   8. apply the theme (refreshes whichever cllpse-macos theme is active; dark otherwise)
-#   8b. hyprctl reload (determinism; autoreload already covers the hypr files)
-#   8c. keyd: identity config + the Figma modifier remap helper (sudo)
+#   8b. keyd: identity config + the Figma modifier remap helper (sudo)
+#   8c. hyprctl reload (determinism; autoreload already covers the hypr files)
+#       — after 8b on purpose, so the focus handler's state is seeded against
+#       the keyd that is now running
 #   9. Chromium context-menu declutter: spellcheck/translate/password/autofill/
 #      Print/Cast/QR/Reading-list off (managed policy, sudo) — last, so the one
 #      password prompt in the script comes after all the other work is done
@@ -455,6 +458,58 @@ else
   skip "hunk not installed — skipped its theme hook (mise use -g hunk)"
 fi
 
+# ytm-player — a Textual TUI that reads theme.toml once at startup and feeds
+# those colours into Textual's own ColorSystem, so the palette has to be BAKED
+# per theme rather than picked up from the terminal. Unlike starship/hunk above,
+# this one does use a themed/*.tpl: Omarchy's renderer already resolves {{ mix }}
+# and every colors.toml key, so the hook only copies the rendered file into
+# place. It also rewrites [ui] theme, because theme.toml cannot set Textual's
+# `dark` flag and that flag drives every derived contrast token.
+if command -v ytm >/dev/null 2>&1; then
+  say "ytm-player -> ~/.config/omarchy/themed/ + theme-set.d/ytm-player.sh"
+  mkdir -p ~/.config/omarchy/themed ~/.config/omarchy/hooks/theme-set.d ~/.config/ytm-player
+  ln -sfn "$HERE/themed/ytm-player.toml.tpl" ~/.config/omarchy/themed/ytm-player.toml.tpl
+  ln -sfn "$HERE/hooks/theme-set.d/ytm-player.sh" ~/.config/omarchy/hooks/theme-set.d/ytm-player.sh
+  backup ~/.config/ytm-player/config.toml
+  "$HERE/hooks/theme-set.d/ytm-player.sh" || skip "ytm-player hook produced nothing this run — step 8's theme-set renders it"
+
+  # Preferences, as opposed to colours: the startup page, the playhead style
+  # and the clutter toggles don't change with the theme, so they are written
+  # once here rather than on every theme-set. Insert-or-replace per key, so
+  # everything we have no opinion about -- [ui] theme included, which the hook
+  # above owns -- keeps whatever ytm or the user last put there.
+  "$HERE/ytm/config-prefs.py" || skip "ytm config-prefs.py failed — left ~/.config/ytm-player/config.toml alone"
+
+  # Sign-in state. Deliberately a REPORT, not a prompt: apply.sh runs
+  # unattended end to end, and `ytm setup` is an interactive wizard that picks
+  # a browser and then an account. The keyring workaround it needs is in
+  # bash/shell.sh -- without it a session that expires can never renew itself,
+  # because ytm's try_auto_refresh() re-extracts browser cookies through the
+  # same yt-dlp path that `ytm setup` does.
+  # The sign-in command. Symlinked rather than install -m755 like keyd's helper,
+  # so edits in the repo take effect without a re-apply -- it is a script you
+  # read and tweak, not a binary something else points at.
+  say "ytm sign-in -> ~/.local/bin/cllpse-ytm-signin"
+  mkdir -p ~/.local/bin
+  ln -sfn "$HERE/ytm/cllpse-ytm-signin" ~/.local/bin/cllpse-ytm-signin
+
+  # Sign-in state is a REPORT, not a prompt: apply.sh runs unattended end to
+  # end, and `ytm setup` is an interactive wizard that picks a browser and then
+  # an account. cllpse-ytm-signin carries the keyring workaround and does its
+  # own preflight; without that workaround ytm's try_auto_refresh() can never
+  # renew a session, because it re-extracts browser cookies through the same
+  # failing yt-dlp path.
+  python3 -c 'import secretstorage' 2>/dev/null ||
+    skip "python-secretstorage missing — ytm cannot read the Chromium keyring (sudo pacman -S python-secretstorage)"
+  if [[ -s ~/.config/ytm-player/auth.json ]]; then
+    skip "ytm-player is signed in"
+  else
+    skip "ytm-player is NOT signed in — run: cllpse-ytm-signin"
+  fi
+else
+  skip "ytm-player not installed — skipped its theme template and hook (yay -S ytm-player)"
+fi
+
 # Cursor — deep-merge our editor prefs into settings.json with jq: our keys win,
 # any key we don't set is kept. Omarchy owns workbench.colorTheme (it rewrites it
 # to "Omarchy" on every `omarchy theme set`, via omarchy-theme-set-vscode), so
@@ -629,6 +684,76 @@ if [[ -x "$HERE/chromium/default-zoom.py" ]]; then
     "$("$HERE/chromium/default-zoom.py" --print 2>/dev/null || true)" "$_zoom"
   say "Chromium default page zoom -> ${_zoom}%"
   "$HERE/chromium/default-zoom.py" "$_zoom" || true
+fi
+
+# ── 7e. Figma Desktop launcher entry ─────────────────────────────────────────
+# The app regenerates its own entry on every launch (AppRun: integrate_desktop)
+# and gets two fields wrong for this desktop: Name=Figma, where the product is
+# "Figma Desktop" (its own AppStream <name> and X-AppImage-Name agree), and
+# StartupWMClass=Figma against a live Hyprland class of "figma-desktop". Nothing
+# joins an entry to a window through that second value, which costs taskbar
+# grouping, startup notification, and the window switcher's class -> entry
+# lookup -- the switcher printed a hardcoded "Figma" for as long as that lookup
+# could not land.
+#
+# integrate_desktop() only rewrites the file when the existing Exec differs from
+# `Exec="${appimage_path}" %u`, and with APPIMAGE unset that path is
+# `readlink -f "$0"` -- here ~/Applications/figma-desktop/AppRun, which carries
+# no version. So the template's Exec matches what the app would write, on every
+# version, and the rewrite never fires. Updating Figma is therefore: extract
+# over the app directory, re-run this script.
+#
+# That only holds while AppRun is the app's OWN launcher. A wrapper displaces it
+# to AppRun.real, which changes the computed path and then needs an APPIMAGE
+# export to paper over -- a file inside the app directory, which the next
+# extraction deletes, silently handing Name and StartupWMClass back. This
+# machine carried exactly that wrapper; its other job, FIGMA_USE_WAYLAND=1, is
+# step 7c's environment.d drop-in, which no update can reach. So the wrapper is
+# removed rather than maintained, and the unwrap is idempotent and conservative:
+# it acts only when AppRun is demonstrably not the launcher and AppRun.real
+# demonstrably is.
+#
+# Not installing Figma is the normal case on another machine, so a missing app
+# directory is a skip, not an error -- nothing else here depends on the entry.
+_figma_dir=~/Applications/figma-desktop
+_figma_entry=~/.local/share/applications/figma-desktop-appimage.desktop
+_figma_tpl="$HERE/applications/figma-desktop-appimage.desktop.tpl"
+if [[ -f $_figma_tpl ]]; then
+  if [[ ! -d $_figma_dir ]]; then
+    skip "Figma Desktop not installed at $_figma_dir — entry left alone"
+  else
+    # Un-wrap, if a wrapper is in the way. `integrate_desktop` is the marker:
+    # it is in the app's launcher and in nothing else here.
+    if [[ -f $_figma_dir/AppRun.real ]] &&
+       grep -q 'integrate_desktop' "$_figma_dir/AppRun.real" 2>/dev/null &&
+       ! grep -q 'integrate_desktop' "$_figma_dir/AppRun" 2>/dev/null; then
+      say "removing the AppRun wrapper — the app's own launcher already resolves to a stable path"
+      mv -f "$_figma_dir/AppRun.real" "$_figma_dir/AppRun"
+      chmod +x "$_figma_dir/AppRun"
+      skip "FIGMA_USE_WAYLAND comes from environment.d (step 7c) instead"
+    elif [[ -f $_figma_dir/AppRun.real ]] &&
+         grep -q 'integrate_desktop' "$_figma_dir/AppRun" 2>/dev/null; then
+      # A fresh extraction restored the real AppRun and left our rename behind.
+      rm -f "$_figma_dir/AppRun.real"
+      skip "removed a stale AppRun.real left by an earlier wrapper"
+    fi
+
+    if [[ ! -x $_figma_dir/AppRun ]]; then
+      skip "WARNING: $_figma_dir/AppRun is missing or not executable — entry left alone"
+    else
+      _figma_rendered=$(sed "s|{{ home }}|$HOME|g" "$_figma_tpl")
+      if [[ -f $_figma_entry ]] && [[ $(cat "$_figma_entry") == "$_figma_rendered" ]]; then
+        skip "figma-desktop-appimage.desktop already current"
+      else
+        say "Figma Desktop entry -> $_figma_entry"
+        mkdir -p ~/.local/share/applications
+        backup "$_figma_entry"
+        printf '%s\n' "$_figma_rendered" > "$_figma_entry"
+        update-desktop-database ~/.local/share/applications 2>/dev/null || true
+        skip "Name=Figma Desktop, StartupWMClass=figma-desktop (the app gets both wrong)"
+      fi
+    fi
+  fi
 fi
 
 # ── 7f. Flat app icons for the menu ──────────────────────────────────────────
@@ -871,37 +996,7 @@ if [[ -n $restored_bg ]]; then
   fi
 fi
 
-# ── 8b. Reload Hyprland ──────────────────────────────────────────────────────
-# Belt and braces, NOT a fix for an observed bug -- an earlier version of this
-# comment claimed otherwise and was simply wrong. Hyprland's autoreload does
-# pick up a change to a require()d module, not just to the config it was
-# started with: measured by appending one bind to ~/.config/hypr/bindings.lua
-# and watching `hyprctl binds` go 150 -> 151 within three seconds with no
-# reload dispatched. The sync_fenced edits above land on their own.
-#
-# What this still buys is determinism -- apply.sh finishes with the config
-# known live rather than depending on a watcher's timing -- and it covers
-# `misc:disable_autoreload = true`, which a machine may legitimately set.
-#
-# Worth knowing if this is ever re-examined: **Hyprland logs nothing on a
-# config reload.** Several reloads in a row left zero matching lines in a
-# 15,000-line hyprland.log. So an old log with no reload lines in it is not
-# evidence that no reload happened, which is exactly the bad inference the
-# previous version of this comment was built on.
-#
-# That a reload suffices is not obvious and was measured too: Lua caches
-# modules in package.loaded, so a reload that merely re-ran the top-level file
-# would keep a stale bindings.lua. It does not -- a global set through
-# `hyprctl eval` before a reload reads back nil after it, so the Lua state is
-# rebuilt and every module is re-required from disk.
-if command -v hyprctl >/dev/null 2>&1 && hyprctl version >/dev/null 2>&1; then
-  say "hyprctl reload  (autoreload already covers this; this makes it deterministic)"
-  hyprctl reload >/dev/null 2>&1 || skip "hyprctl reload failed — run it yourself, or relogin"
-else
-  skip "no running Hyprland — the hypr overrides apply at the next login"
-fi
-
-# ── 8c. keyd: Figma's modifier remap (needs sudo) ───────────────────────────
+# ── 8b. keyd: Figma's modifier remap (needs sudo) ───────────────────────────
 # The FIRST package this script has ever depended on, and the first system
 # daemon -- worth stating plainly, because until now apply.sh installed nothing
 # and needed root for exactly one file. It is not installed here either: keyd
@@ -930,30 +1025,122 @@ if command -v keyd >/dev/null 2>&1; then
   if [[ -e /etc/keyd/default.conf ]] && ! head -1 /etc/keyd/default.conf | grep -q 'installed by overrides/apply.sh'; then
     skip "/etc/keyd/default.conf exists and is not ours — left alone"
     skip "  merge overrides/keyd/default.conf by hand, or move yours aside and re-run"
+  elif ! keyd check "$HERE/keyd/default.conf" >/dev/null 2>&1; then
+    # Validated BEFORE it is handed to /etc, because the daemon is the one
+    # thing here that a bad file takes down: keyd exits on a parse error and
+    # exits holding no device, so the failure is a keyboard that has stopped
+    # being remapped rather than a message. `keyd check` needs no root and
+    # prints the offending line.
+    skip "overrides/keyd/default.conf does not parse — left /etc alone. Run:"
+    skip "  keyd check overrides/keyd/default.conf"
   else
     sudo install -Dm644 "$HERE/keyd/default.conf" /etc/keyd/default.conf
     sudo systemctl enable --now keyd >/dev/null 2>&1 \
       && skip "keyd service enabled and started" \
       || skip "could not enable keyd — start it yourself: sudo systemctl enable --now keyd"
-    sudo systemctl reload keyd >/dev/null 2>&1 || sudo systemctl restart keyd >/dev/null 2>&1 || true
+
+    # `keyd reload` -- the daemon's own command, over the same group-owned
+    # socket `keyd bind` uses, so it needs no root and does not interrupt the
+    # grab. NOT `systemctl reload`: this unit is a bare
+    # `ExecStart=/usr/bin/keyd` with no ExecReload, so
+    # `systemctl show keyd -p CanReload` says no and that request only ever
+    # fails. Either way something has to be asked, since keyd re-reads
+    # default.conf at start or on reload and at no other time -- editing
+    # overrides/keyd/default.conf reaches the daemon here and nowhere else.
+    # The restart is the fallback for a session that does not yet hold the
+    # keyd group (see the grant below); it costs a momentary ungrab.
+    keyd reload >/dev/null 2>&1 || sudo systemctl restart keyd >/dev/null 2>&1 || true
   fi
 
   # `keyd bind` talks to a root-owned socket whose group is keyd, so the user
-  # has to be in that group for the focus hook to work without sudo. Group
-  # membership only takes effect at the next LOGIN, which is why the follow-up
-  # list says so -- until then the hook runs and fails silently, which is the
-  # correct failure (a broken remap is worse than none).
+  # has to be in that group for the focus hook to work without sudo.
+  #
+  # A grant does NOT reach the running desktop, and "log out and back in" is
+  # not the fix it looks like. uwsm starts Hyprland as a unit of the systemd
+  # user manager, and with logind's stock `KillUserProcesses=no` that manager
+  # survives a logout -- so every process on the desktop keeps inheriting the
+  # group set the manager was created with. Measured on this machine: two full
+  # graphical logins after the grant, Hyprland's /proc/<pid>/status still read
+  # `Groups: 998 1000`. A reboot is what reseeds it.
+  #
+  # Which is why the helper does not wait for one: cllpse-figma-keyd falls back
+  # to `newgrp`, setuid-root and reading /etc/group directly, so the remap works
+  # in this session. The group is still granted, because it is what makes the
+  # fast path (a plain `keyd bind`) work from the next boot on.
   if id -nG | tr ' ' '\n' | grep -qx keyd; then
     skip "already in the keyd group"
   else
     sudo usermod -aG keyd "$USER" \
-      && skip "added $USER to the keyd group — takes effect at the next login" \
+      && skip "added $USER to the keyd group — this session reaches it via newgrp" \
       || skip "could not add $USER to the keyd group — run: sudo usermod -aG keyd $USER"
+  fi
+
+  # Smoke-test the whole chain, because every link in it fails SILENTLY and the
+  # symptom is at the far end -- Cmd+scroll in Figma simply keeps not zooming.
+  # One `on` proves three things at once: the installed config parsed, it
+  # defines the `figma` layer, and this user can reach keyd's socket. Cheap,
+  # ~3ms, and it is the check that was missing when /etc/keyd/default.conf sat
+  # a revision behind the repo for half an hour: the layer had been added to
+  # overrides/keyd/default.conf but never installed, so the focus handler's
+  # `keyd bind 'leftmeta = layer(figma)'` answered `figma is not a valid layer`
+  # and exited 255 into hl.dsp.exec_raw, which discards stderr. Nothing
+  # anywhere said so until the gesture was tried.
+  #
+  # It ends with `off` and is immediately followed by 8c's reload, which
+  # re-seeds macos-shortcuts.lua's figma_keyd_on from the live focus -- so this
+  # cannot strand the two out of step even if Figma happens to be focused.
+  if [[ -x ~/.local/bin/cllpse-figma-keyd ]] && command -v keyd >/dev/null 2>&1; then
+    if ~/.local/bin/cllpse-figma-keyd on >/dev/null 2>&1; then
+      ~/.local/bin/cllpse-figma-keyd off >/dev/null 2>&1 || true
+      skip "Figma remap reaches keyd (layer bound and released)"
+    else
+      skip "the Figma remap could NOT be bound — run it by hand to see why:"
+      skip "  ~/.local/bin/cllpse-figma-keyd on"
+    fi
   fi
 else
   skip "keyd not installed — Figma keeps Ctrl+click / Ctrl+scroll on the pinky"
   skip "  install it with: sudo pacman -S keyd, then re-run this script"
 fi
+# ── 8c. Reload Hyprland ──────────────────────────────────────────────────────
+# LAST of the 8s, after keyd, and that order is load-bearing for one thing: a
+# reload rebuilds the Lua state, which makes macos-shortcuts.lua re-seed
+# `figma_keyd_on` from the current focus and dispatch the helper to match. 8b
+# restarts keyd, and a restart drops every runtime bind -- so with the reload
+# ahead of it, an apply.sh run with Figma focused left the handler believing
+# the remap was on against a daemon that had just reset it, and it stayed that
+# way until the Figma focus boundary had been crossed twice. Reloading after
+# the restart makes the two agree unconditionally.
+#
+# Otherwise: belt and braces, NOT a fix for an observed bug -- an earlier version of this
+# comment claimed otherwise and was simply wrong. Hyprland's autoreload does
+# pick up a change to a require()d module, not just to the config it was
+# started with: measured by appending one bind to ~/.config/hypr/bindings.lua
+# and watching `hyprctl binds` go 150 -> 151 within three seconds with no
+# reload dispatched. The sync_fenced edits above land on their own.
+#
+# What this still buys is determinism -- apply.sh finishes with the config
+# known live rather than depending on a watcher's timing -- and it covers
+# `misc:disable_autoreload = true`, which a machine may legitimately set.
+#
+# Worth knowing if this is ever re-examined: **Hyprland logs nothing on a
+# config reload.** Several reloads in a row left zero matching lines in a
+# 15,000-line hyprland.log. So an old log with no reload lines in it is not
+# evidence that no reload happened, which is exactly the bad inference the
+# previous version of this comment was built on.
+#
+# That a reload suffices is not obvious and was measured too: Lua caches
+# modules in package.loaded, so a reload that merely re-ran the top-level file
+# would keep a stale bindings.lua. It does not -- a global set through
+# `hyprctl eval` before a reload reads back nil after it, so the Lua state is
+# rebuilt and every module is re-required from disk.
+if command -v hyprctl >/dev/null 2>&1 && hyprctl version >/dev/null 2>&1; then
+  say "hyprctl reload  (autoreload already covers this; this makes it deterministic)"
+  hyprctl reload >/dev/null 2>&1 || skip "hyprctl reload failed — run it yourself, or relogin"
+else
+  skip "no running Hyprland — the hypr overrides apply at the next login"
+fi
+
 # ── 9. Chromium context-menu declutter: managed policy (needs sudo) ────────
 # LAST on purpose. This is the only step that needs sudo, so it runs after
 # everything else rather than stalling a run halfway through on a password
@@ -1030,7 +1217,8 @@ echo "    • relaunch running GTK/Qt apps + the bar for hintnone"
 echo "    • light theme:  omarchy theme set omarchy-cllpse-theme-light"
 echo "    • the spellcheck/translate/password/autofill/Print/Cast/QR/reading-list policy (9)"
 echo "      already refreshed live if Chromium was running — no relaunch needed"
-echo "    • Figma's Cmd+click / Cmd+scroll need a RELOGIN: keyd group membership"
-echo "      only applies at the next login. Until then the focus hook fails silently."
+echo "    • Figma's Cmd+click / Cmd+scroll work now — the focus hook reaches keyd"
+echo "      through newgrp, since a granted group never reaches a running desktop"
+echo "      (the systemd user manager outlives a logout; only a reboot reseeds it)."
 echo "    • boot splash / login screen (needs sudo, not run by this script):"
 echo "        omarchy plymouth set by theme omarchy-cllpse-theme-dark   # or -light"

@@ -88,6 +88,17 @@ EXACT='["editor.background","editorGutter.background"]'
 # unfocused (Omarchy: #BDBDBD). Left alone it would reappear in grey whenever
 # focus moved to the terminal or another group, so it goes too.
 #
+# editor.lineHighlightBorder is the hairline box Bearded draws around the caret
+# line -- #22a5c926 teal on the light variant, #c7910c26 gold on the dark one.
+# It is the one border in the editor that is on screen at all times, and a
+# coloured one on a desktop whose windows are otherwise flat. Omarchy has the
+# same opinion: its own template pins the key to `{{ background }}00`, zero
+# alpha. The literal lives here rather than in $EXACT so the intent reads as
+# "no border" instead of "whatever alpha the palette lands on". The fill stays
+# Bearded's -- editor.lineHighlightBackground is untouched, so the current line
+# is still marked, by wash only, on the gutter too via
+# `editor.renderLineHighlight: "all"` in cursor/settings.json.
+#
 # tab.hoverBackground is deliberately left alone -- only the borders are managed
 # here.
 #
@@ -117,7 +128,7 @@ EXACT='["editor.background","editorGutter.background"]'
 # below is the one-line alternative if the dark theme wants a visible shadow.
 # And the editor hover takes nothing from it at all: `.monaco-editor
 # .monaco-hover` has no box-shadow declaration, so its only edge is the border.
-FORCE='{"tab.activeBorderTop":"#00000000","tab.unfocusedActiveBorderTop":"#00000000","widget.shadow":"#00000024"}'
+FORCE='{"tab.activeBorderTop":"#00000000","tab.unfocusedActiveBorderTop":"#00000000","editor.lineHighlightBorder":"#00000000","widget.shadow":"#00000024"}'
 
 # ONE bottom border, shared by the selected and hovered states. Omarchy gives
 # them different values -- tab.activeBorder the full accent (#007AFF),
