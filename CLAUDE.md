@@ -1050,6 +1050,24 @@ and the original is kept in prose as provenance. Don't leave the two out of sync
   cannot catch that: the file is not truncated, it is simply never written.
   `bindings.lua` is the only file here with four blocks, so it is the one this
   reaches.
+- **Hyprland's autoreload watches the config it was STARTED with, not the
+  modules that file `require`s.** Of the four files `sync_fenced` edits, only
+  `hyprland.lua` is the watched one; `bindings.lua`, `looknfeel.lua` and
+  `input.lua` are modules it pulls in. So `apply.sh` could rewrite a binding and
+  the running compositor would keep the previous version indefinitely, with
+  nothing anywhere to say so — `apply.sh` printed a clean run, the file on disk
+  was correct, and `hyprctl binds` even showed the right *description*, because
+  only the closure body had changed. The SUPER+Q class guard (`bc02cf8`) sat
+  unapplied this way for a day while the compositor still ran the version that
+  closes every window on every workspace for a classless focused window. The
+  tell is an old Hyprland log with no reload lines in it
+  (`$XDG_RUNTIME_DIR/hypr/$HYPRLAND_INSTANCE_SIGNATURE/hyprland.log`). `apply.sh`
+  step 8b now runs `hyprctl reload` for this.
+  That reload is sufficient, which is worth knowing because Lua's `require`
+  caches modules in `package.loaded` and a reload that merely re-ran the
+  top-level file would fix nothing. Measured: a global set through `hyprctl
+  eval` before a reload reads back `nil` after it, so the reload builds a
+  **fresh Lua state** and every module is re-required from disk.
 - **Two output directories, one cleanup.** `app-icons.sh` writes both
   `~/.icons/cllpse-flat/` and `~/.icons/cllpse-color/`, but `revert.sh` removed
   only the first for as long as the colour pass existed — the pass was added in

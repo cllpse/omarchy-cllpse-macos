@@ -866,6 +866,30 @@ if [[ -n $restored_bg ]]; then
   fi
 fi
 
+# ── 8b. Reload Hyprland ──────────────────────────────────────────────────────
+# Three of the four files sync_fenced edits -- bindings.lua, looknfeel.lua,
+# input.lua -- are require()d MODULES, not the config Hyprland was started with.
+# Autoreload watches ~/.config/hypr/hyprland.lua and not what that file pulls in,
+# so unless the hyprland.lua block itself changed, editing the other three leaves
+# the running compositor on the previous version with nothing to say so.
+#
+# That is not hypothetical: the SUPER+Q class guard (bc02cf8) sat correct on disk
+# for a day while the compositor kept running the version that closes every
+# window on every workspace when the focused one has no class. An 18-hour-old
+# Hyprland log with zero reload lines is what that looks like from the outside.
+#
+# `hyprctl reload` is sufficient, and measured rather than assumed: a global set
+# through `hyprctl eval` before a reload reads back nil after it, so the reload
+# builds a FRESH Lua state, package.loaded starts empty, and every module is
+# re-required from disk. A reload that merely re-ran the top-level file would
+# have kept the cached modules and fixed nothing.
+if command -v hyprctl >/dev/null 2>&1 && hyprctl version >/dev/null 2>&1; then
+  say "hyprctl reload  (bindings/looknfeel/input are require()d — autoreload does not watch them)"
+  hyprctl reload >/dev/null 2>&1 || skip "hyprctl reload failed — run it yourself, or relogin"
+else
+  skip "no running Hyprland — the hypr overrides apply at the next login"
+fi
+
 # ── 9. Chromium context-menu declutter: managed policy (needs sudo) ────────
 # LAST on purpose. This is the only step that needs sudo, so it runs after
 # everything else rather than stalling a run halfway through on a password
