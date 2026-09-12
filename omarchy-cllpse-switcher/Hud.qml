@@ -52,13 +52,6 @@ Item {
   // loaded"; this flag can.
   property bool listLoaded: false
 
-  // Whether the current highlight came from the pointer rather than the
-  // keyboard. The two share root.index -- hovering a tile selects it -- so
-  // without this the title recolours under the mouse, which reads as the strip
-  // reacting to a pointer that is only passing over it. Selection still shows:
-  // the tile keeps its background and border either way.
-  property bool hoverSelect: false
-
   // Whether the pointer is currently over the card.
   //
   // The click itself never reaches this surface: Hyprland resolves mouse binds
@@ -220,7 +213,6 @@ Item {
 
     var n = root.wins.length
     if (n === 0) { root.dismiss(); return }
-    root.hoverSelect = false
     root.index = ((root.index + step) % n + n) % n
     idleTimer.restart()
   }
@@ -965,7 +957,6 @@ Item {
 
   // Open the strip `step` places from whatever is focused right now.
   function _openStepped(step) {
-    root.hoverSelect = false
     // Never inherit the last open's pointer state -- see pointerInCard. The
     // enter handler below re-establishes it before any click can arrive, so
     // clearing here costs nothing and a stale `true` cannot survive.
@@ -1553,11 +1544,14 @@ Item {
                 font.family: Style.font.menuFamily
                 font.pixelSize: Style.font.heading
                 font.weight: Font.Medium
-                // Keyboard selection colours this; hover does not -- see
-                // root.hoverSelect. The detail line below never changed colour
-                // at all, so it needs no equivalent.
-                color: (cell.sel && !root.hoverSelect)
-                  ? Color.menu.selectedText : Color.menu.text
+                // Selection colours this, from the pointer and the keyboard
+                // alike. The launcher draws no such distinction -- its row
+                // delegate is `row.hasCursor ? selectedText : foreground`
+                // (Menu.qml:1242), and hovering a row selects it outright
+                // (onEntered -> selectFromPointer, Menu.qml:1340) -- and
+                // neither do the icon and glyph above. The detail line below
+                // never changed colour at all, so it needs no equivalent.
+                color: cell.sel ? Color.menu.selectedText : Color.menu.text
               }
               // Detail line: just the title. The workspace is carried by the
               // gap in the strip, not by anything in here -- see card.groupGap.
@@ -1698,7 +1692,6 @@ Item {
           if (!root.opened || root.wins.length < 2) return
           var idx = root._cellAt(mouse.x + list.contentX - list.originX)
           if (idx < 0) return
-          root.hoverSelect = true
           root.pointerInCard = true
           root.index = idx
         }
