@@ -430,6 +430,50 @@ or `omarchy theme set` does.
 
 ---
 
+**keyd is the one package this repo depends on, and the only reason is Figma.**
+`apply.sh` does not install it — step 8c configures it if present and says so if
+not — but that still makes it the first external dependency and the second sudo
+step, so the "no packages" line above is narrower than it used to be.
+
+Why it exists: Figma tests `ctrlKey` for deep-select (Cmd+click), canvas zoom
+(Cmd+scroll) and its shortcuts, and ignores `metaKey` off macOS. The forwarder
+in `macos-shortcuts.lua` handles the *keys* by synthesizing Ctrl, but **`hl.dsp`
+has no pointer-button or scroll-axis dispatcher** — only `cursor.move` and
+`cursor.move_to_corner` — so click and scroll cannot be translated at the
+compositor at all. Measured before concluding that: `SUPER + scroll` reaches a
+Wayland client as `META(Super)` on **14 of 14** events, so Hyprland forwards the
+modifier correctly and Figma discards it. Remapping the key *below* the
+compositor is the only mechanism left.
+
+The remap is **runtime-only and scoped by focus**. `/etc/keyd/default.conf` is
+identity — it remaps nothing — and `~/.local/bin/cllpse-figma-keyd` issues
+`keyd bind 'leftmeta = leftcontrol'` when Figma takes focus and `keyd bind
+reset` when it loses it. Nothing is written to disk, and a keyd restart or a
+reboot clears it.
+
+**No daemon.** `hl.on("window.active", …)` fires on every focus change and
+`hl.get_active_window().class` identifies the app, so a state guard means a
+process spawns only when the Figma boundary is actually crossed. The event's own
+callback argument is **userdata, not a table** — reading `.class` off it gets
+nothing, which is why the handler calls `get_active_window()` instead.
+
+Three things that are easy to get wrong here, all handled in
+`macos-shortcuts.lua`: the state must be **seeded from the current focus** at
+load, because a reload builds a fresh Lua state while keyd keeps its runtime
+bind and the two would silently disagree; `hyprland.shutdown` must drop the
+remap, because a runtime bind outlives the compositor and would hand the next
+session a meta key that types Ctrl; and `[ids]` must be pinned to
+`k:03a8:a649`, because the `*` wildcard matches anything the kernel calls a
+keyboard and the **Pulsar 8K dongle presents three such interfaces** — a
+wildcard would route a gaming mouse's dongle through keyd for nothing.
+
+The accepted cost: while Figma is focused Hyprland never sees SUPER, so
+`SUPER + TAB / SPACE / W / Q` do nothing there. `WM_MOD` is untouched (it is
+Ctrl+Alt, and only the meta key is remapped), so workspaces and window
+management still work and are the way out. Corollary worth knowing: in Figma,
+`SUPER + ALT` emits Ctrl+Alt and therefore fires the WM_MOD binds.
+
+
 ## Conventions in this repo
 
 **Fenced blocks.** `apply.sh` injects `>>> cllpse-macos overrides >>>` blocks into
@@ -580,6 +624,14 @@ isn't wanted: `tab.activeBorderTop` (the accent line above the active tab), its
 unfocused twin, and `tab.hoverBorder` (the line under a tab while the pointer is
 over it) are set to `#00000000`. `tab.unfocusedHoverBorder` needs no entry — VS
 Code derives it from `tab.hoverBorder`, and neither theme sets it explicitly.
+`editor.lineHighlightBorder` is zeroed there too — Bearded draws a coloured
+hairline box around the caret line (`#22a5c926` teal light, `#c7910c26` gold
+dark), the one border in the editor that is on screen at all times; with it gone
+the current line is still marked, by `editor.lineHighlightBackground`'s wash
+alone (on the gutter as well, via `editor.renderLineHighlight: "all"`). Omarchy's
+own template pins that key to `{{ background }}00`, so the force agrees with it
+rather than overriding it — it is a literal instead of an `$EXACT` copy so the
+intent reads as "no border".
 
 **A tooltip's edge cannot come from a shadow**, which is why
 `editorHoverWidget.border` stays at the copied `{{ muted }}` and is not in
@@ -1087,7 +1139,7 @@ and the original is kept in prose as provenance. Don't leave the two out of sync
 ## Reproducing this on another machine
 
 `apply.sh` is deterministic and idempotent for what it controls, but it is not a
-full machine build — it installs no packages (no sudo), no third-party plugins,
+full machine build — it installs no packages, no third-party plugins,
 and `display.conf` carries values tuned for one specific display. Several
 settings only take effect after a relogin. `overrides/README.md` has the full
 list under *What apply.sh does and does not guarantee*; read it before assuming a

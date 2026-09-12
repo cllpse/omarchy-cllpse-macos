@@ -1,7 +1,10 @@
 #!/bin/bash
 # Apply the cllpse-macos theme + every system-level override it needs.
 # Idempotent. Re-run any time. See revert.sh to undo.
-# No sudo except the LAST step (Chromium managed policy) — everything else is user-level.
+# Sudo is needed by exactly two steps, both near the end: 8c (keyd's config +
+# service + group) and 9 (the Chromium managed policy). Everything else is
+# user-level. keyd is the one package this script depends on and it does NOT
+# install it — step 8c configures keyd if present and says so if it is not.
 #
 #   1. symlink both themes + the window-switcher plugin into ~/.config/omarchy/
 #   2. install the SF fonts + fontconfig drop-ins (UI font + hintnone)
@@ -18,6 +21,8 @@
 #   7h. Omarchy shell.json: window-switcher plugin, transparent bar, bar layout,
 #       disabled first-party plugins
 #   8. apply the theme (refreshes whichever cllpse-macos theme is active; dark otherwise)
+#   8b. hyprctl reload (determinism; autoreload already covers the hypr files)
+#   8c. keyd: identity config + the Figma modifier remap helper (sudo)
 #   9. Chromium context-menu declutter: spellcheck/translate/password/autofill/
 #      Print/Cast/QR/Reading-list off (managed policy, sudo) — last, so the one
 #      password prompt in the script comes after all the other work is done
@@ -896,6 +901,59 @@ else
   skip "no running Hyprland — the hypr overrides apply at the next login"
 fi
 
+# ── 8c. keyd: Figma's modifier remap (needs sudo) ───────────────────────────
+# The FIRST package this script has ever depended on, and the first system
+# daemon -- worth stating plainly, because until now apply.sh installed nothing
+# and needed root for exactly one file. It is not installed here either: keyd
+# has to be present already, and this step configures it or says why it cannot.
+#
+# What it is for: Figma checks ctrlKey for deep-select (Cmd+click), canvas zoom
+# (Cmd+scroll) and its shortcuts, and ignores metaKey off macOS. The forwarder
+# in macos-shortcuts.lua covers the keys by synthesizing Ctrl, but hl.dsp has no
+# pointer-button or scroll-axis dispatcher, so click and scroll cannot be
+# translated at the compositor at all. Remapping the key below the compositor is
+# the only mechanism left. See that file's own block for the measurements.
+#
+# Nothing here remaps anything by itself. default.conf is identity-only and
+# pinned to the Preonic alone (the `*` wildcard would have swept in three
+# Pulsar 8K dongle interfaces the kernel calls keyboards); the remap exists
+# solely as a runtime `keyd bind` issued on focus, and dies with the daemon.
+if command -v keyd >/dev/null 2>&1; then
+  say "keyd -> ~/.local/bin/cllpse-figma-keyd + /etc/keyd/default.conf (sudo)"
+  mkdir -p ~/.local/bin
+  install -m755 "$HERE/keyd/cllpse-figma-keyd" ~/.local/bin/cllpse-figma-keyd
+
+  # Never clobber a keyd config this repo did not write. A machine may already
+  # be remapping keys for reasons that have nothing to do with us, and silently
+  # replacing that file would be the worst thing this script could do to a
+  # keyboard. Ours is recognised by its first line.
+  if [[ -e /etc/keyd/default.conf ]] && ! head -1 /etc/keyd/default.conf | grep -q 'installed by overrides/apply.sh'; then
+    skip "/etc/keyd/default.conf exists and is not ours — left alone"
+    skip "  merge overrides/keyd/default.conf by hand, or move yours aside and re-run"
+  else
+    sudo install -Dm644 "$HERE/keyd/default.conf" /etc/keyd/default.conf
+    sudo systemctl enable --now keyd >/dev/null 2>&1 \
+      && skip "keyd service enabled and started" \
+      || skip "could not enable keyd — start it yourself: sudo systemctl enable --now keyd"
+    sudo systemctl reload keyd >/dev/null 2>&1 || sudo systemctl restart keyd >/dev/null 2>&1 || true
+  fi
+
+  # `keyd bind` talks to a root-owned socket whose group is keyd, so the user
+  # has to be in that group for the focus hook to work without sudo. Group
+  # membership only takes effect at the next LOGIN, which is why the follow-up
+  # list says so -- until then the hook runs and fails silently, which is the
+  # correct failure (a broken remap is worse than none).
+  if id -nG | tr ' ' '\n' | grep -qx keyd; then
+    skip "already in the keyd group"
+  else
+    sudo usermod -aG keyd "$USER" \
+      && skip "added $USER to the keyd group — takes effect at the next login" \
+      || skip "could not add $USER to the keyd group — run: sudo usermod -aG keyd $USER"
+  fi
+else
+  skip "keyd not installed — Figma keeps Ctrl+click / Ctrl+scroll on the pinky"
+  skip "  install it with: sudo pacman -S keyd, then re-run this script"
+fi
 # ── 9. Chromium context-menu declutter: managed policy (needs sudo) ────────
 # LAST on purpose. This is the only step that needs sudo, so it runs after
 # everything else rather than stalling a run halfway through on a password
@@ -972,5 +1030,7 @@ echo "    • relaunch running GTK/Qt apps + the bar for hintnone"
 echo "    • light theme:  omarchy theme set omarchy-cllpse-theme-light"
 echo "    • the spellcheck/translate/password/autofill/Print/Cast/QR/reading-list policy (9)"
 echo "      already refreshed live if Chromium was running — no relaunch needed"
+echo "    • Figma's Cmd+click / Cmd+scroll need a RELOGIN: keyd group membership"
+echo "      only applies at the next login. Until then the focus hook fails silently."
 echo "    • boot splash / login screen (needs sudo, not run by this script):"
 echo "        omarchy plymouth set by theme omarchy-cllpse-theme-dark   # or -light"

@@ -1,7 +1,8 @@
 #!/bin/bash
 # Undo everything overrides/apply.sh did. Idempotent.
-# No sudo except removing the Chromium managed-policy file apply.sh installed
-# (the last step) — everything else here is user-level.
+# Sudo is needed by two steps near the end: removing the keyd config apply.sh
+# installed, and removing the Chromium managed-policy file. Everything else is
+# user-level. keyd itself is never uninstalled -- this script did not install it.
 # Only ever restores what this machine had before apply.sh first ran; it never
 # picks a font, theme, text size or scale of its own.
 
@@ -263,6 +264,38 @@ else
   say "no pre-existing theme recorded — pick one:  omarchy theme set <name>"
 fi
 rmdir "$STATE" 2>/dev/null || true
+
+# keyd (apply.sh step 8c). Order matters: drop any LIVE remap first, because a
+# runtime `keyd bind` outlives both this script and the compositor -- it goes
+# only on `keyd bind reset`, a keyd restart or a reboot. Reverting the config
+# while leftmeta was still bound to leftcontrol would strand a meta key that
+# types Ctrl, with the repo gone and nothing left to explain it.
+if command -v keyd >/dev/null 2>&1; then
+  keyd bind reset >/dev/null 2>&1 || true
+  say "keyd: dropped any live Figma remap"
+fi
+rm -f ~/.local/bin/cllpse-figma-keyd
+# ~/.local/bin is NOT removed even if it ends up empty: it is a standard XDG
+# location that predates this repo on this machine, and apply.sh only ever
+# mkdir -p'd it. Removing a directory we did not create is the mistake the
+# cllpse-color leftover was the mirror image of.
+
+# Only OUR config, identified the same way apply.sh identifies it, and only
+# ours: a keyd install that predates this repo keeps whatever it had. The
+# service is left enabled on purpose -- this script did not install keyd and
+# does not know what else may depend on it now.
+keyd_conf=/etc/keyd/default.conf
+if [[ -f $keyd_conf ]] && head -1 "$keyd_conf" | grep -q 'installed by overrides/apply.sh'; then
+  say "Removing the keyd config this repo installed (needs sudo): $keyd_conf"
+  sudo rm -f "$keyd_conf" || say "  could not remove $keyd_conf — remove it yourself"
+  sudo systemctl reload keyd >/dev/null 2>&1 || sudo systemctl restart keyd >/dev/null 2>&1 || true
+  say "  keyd left installed and enabled — remove it yourself if nothing else needs it:"
+  say "    sudo systemctl disable --now keyd && sudo pacman -Rs keyd"
+fi
+# Group membership is deliberately NOT revoked: the user may have joined the
+# keyd group for their own reasons, and dropping someone from a group they
+# might rely on is not this script's call. To undo it by hand:
+#   sudo gpasswd -d "$USER" keyd
 
 dest=/etc/chromium/policies/managed/cllpse-macos.json
 if [[ -f $dest ]]; then

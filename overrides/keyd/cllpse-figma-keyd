@@ -1,0 +1,25 @@
+#!/bin/bash
+# Toggle the Figma modifier remap in the running keyd daemon.
+#
+# Figma checks `ctrlKey` for its three modifier gestures -- deep-select
+# (Cmd+click), canvas zoom (Cmd+scroll) and every Cmd+<key> shortcut -- and
+# ignores `metaKey` unless it believes it is on a Mac. Measured with a QML
+# probe: SUPER + scroll reaches the client as META(Super) on 14 of 14 events,
+# so Hyprland forwards it correctly and Figma simply discards it.
+#
+# Hyprland can synthesize a KEY (that is what macos-shortcuts.lua's forwarder
+# does) but has no dispatcher for a pointer button or a scroll axis --
+# hl.dsp holds only cursor.move / cursor.move_to_corner for the pointer. So
+# click and scroll cannot be translated at the compositor layer at all, and the
+# only way to give Figma a real Ctrl is to make the key BE Ctrl below the
+# compositor. That is this.
+#
+# Runtime-only: `keyd bind` applies to the live daemon and is dropped by `keyd
+# bind reset`, by a keyd restart, and by a reboot. Nothing is written to disk.
+set -uo pipefail
+
+case ${1:-} in
+  on)  exec keyd bind 'leftmeta = leftcontrol' ;;
+  off) exec keyd bind reset ;;
+  *)   printf 'usage: %s on|off\n' "${0##*/}" >&2; exit 2 ;;
+esac

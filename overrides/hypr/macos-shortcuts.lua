@@ -379,3 +379,73 @@ o.bind("SUPER + minus", "Zoom out (Cmd+-)", zoom("minus"))
 -- force_renderer_reload, global, group, layout, no_op, pass,
 -- release_input_capture, send_key_state, send_shortcut, submap, window,
 -- workspace.
+
+-- ── Figma: make SUPER actually BE Ctrl, below the compositor ────────────────
+-- The forwarder above translates Cmd+<key>, which covers most of Figma. It
+-- cannot cover the other two gestures, and that is a hard limit rather than an
+-- omission: hl.dsp has no dispatcher for a pointer button or a scroll axis
+-- (only cursor.move and cursor.move_to_corner), so Cmd+click and Cmd+scroll
+-- cannot be synthesized at this layer at all.
+--
+-- Nor can they be passed through. Measured with a QML probe: SUPER + scroll
+-- arrives at a Wayland client as META(Super) on 14 of 14 events, so Hyprland
+-- forwards the modifier perfectly and Figma discards it -- it tests ctrlKey on
+-- Linux and only honours metaKey when it thinks it is on a Mac.
+--
+-- So the fix is below the compositor: keyd remaps the leftmeta KEY to
+-- leftcontrol while Figma is focused, and drops the remap the moment it is
+-- not. Click, scroll and every shortcut then carry a real Ctrl, with nothing
+-- synthesized anywhere.
+--
+-- The cost, which is real and bounded: while Figma is focused Hyprland never
+-- sees SUPER, so SUPER + TAB / SPACE / W / Q do nothing there. WM_MOD is
+-- untouched -- it is Ctrl+Alt and only the meta key is remapped -- so
+-- workspaces and window management still work, which is the way out. Note the
+-- corollary: in Figma, SUPER + ALT emits Ctrl+Alt and therefore fires the
+-- WM_MOD binds.
+--
+-- No daemon and no watcher: `window.active` fires on every focus change, and
+-- the guard below means a process is spawned only when the Figma boundary is
+-- actually crossed, not on every focus event.
+local FIGMA_KEYD = (os.getenv("HOME") or "") .. "/.local/bin/cllpse-figma-keyd"
+
+local function active_class()
+  local window = hl.get_active_window()
+  return (window and window.class) or ""
+end
+
+local function figma_focused()
+  return active_class():match("[Ff]igma") ~= nil
+end
+
+local function set_figma_keyd(on)
+  hl.dispatch(hl.dsp.exec_raw(FIGMA_KEYD .. (on and " on" or " off")))
+end
+
+-- Seeded from the CURRENT focus rather than assumed off. A reload builds a
+-- fresh Lua state while keyd keeps whatever runtime bind it already had, so
+-- starting from `false` with Figma focused would leave the two disagreeing --
+-- and the next focus change would compare want=false against state=false, skip
+-- the dispatch, and strand leftmeta as leftcontrol system-wide.
+local figma_keyd_on = figma_focused()
+set_figma_keyd(figma_keyd_on)
+
+hl.on("window.active", function()
+  local want = figma_focused()
+
+  if want == figma_keyd_on then
+    return
+  end
+
+  figma_keyd_on = want
+  set_figma_keyd(want)
+end)
+
+-- Hyprland exiting must not leave the remap behind. A runtime keyd bind
+-- outlives the compositor -- it is dropped only by `keyd bind reset`, a keyd
+-- restart or a reboot -- so without this, quitting Hyprland while Figma had
+-- focus would hand the next session a meta key that types Ctrl, with nothing
+-- on screen to say why.
+hl.on("hyprland.shutdown", function()
+  set_figma_keyd(false)
+end)
