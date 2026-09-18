@@ -52,7 +52,7 @@ quietly — missing, it just skips the `ls` alias and its theme files.
 
 What genuinely *is* already there on an Omarchy box: `bat`, `lazygit`, `fzf`,
 `starship`, `lazydocker`, `jq` and `imagemagick` are in `omarchy-base.packages`;
-`lua` (the keybind scan, step 6b) and `python3` (the Chromium zoom, step 7d)
+`lua` (the keybind scan, step 6b) and `python3` (the Chromium preferences, step 7d)
 arrive as dependencies of `hyprland` and of much of the rest of the system.
 `lua` is the only one called unguarded — without it `apply.sh` aborts mid-run
 rather than skipping the step. Note that **`ghostty` and `yazi` are not** on that
@@ -135,11 +135,15 @@ and the terminal color files are **generated** from `colors.toml` by Omarchy on
 `theme set` — intentionally not committed (BUILD.md: "don't hand-author").
 
 `chromium.theme` **is** committed, by exception: Omarchy's template is just
-`{{ background_rgb }}`, and pure white (`255,255,255`, the light `background`)
-is a degenerate `BrowserThemeColor` seed that makes Chromium paint context-menu
-separators in placeholder cyan. Each theme folder ships an explicit value —
-light `236,236,236` (`#ECECEC`, macOS `windowBackgroundColor`), dark `30,30,30`
-(`#1E1E1E`). Omarchy uses the shipped file and skips generation.
+`{{ background_rgb }}`, so the light theme's generated seed would be pure white.
+Each theme folder ships an explicit value instead — light `236,236,236`
+(`#ECECEC`, macOS `windowBackgroundColor`), dark `30,30,30` (`#1E1E1E`) — and
+Omarchy uses the shipped file and skips generation. Note that neither value
+makes Chromium's own UI neutral: that seed goes to Chromium as the
+`BrowserThemeColor` policy, which runs it through Material's tonal-spot scheme
+and forces chroma onto the result, so a grey seed comes back as a faintly cyan
+browser, separators included. Step 7d fixes that from the profile side instead, with the
+system (GTK) theme and grayscale.
 
 ## Layout
 
@@ -212,6 +216,17 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   preference `partition.default_zoom_level`, stored as `ln(factor)/ln(1.2)` —
   and Chromium must be closed when it is written, since it rewrites
   `Preferences` from memory on exit.
+- **Two more Chromium settings, same step.** The flags file also carries
+  `--enable-features=…,OverlayScrollbar` — the thin, auto-hiding scrollbar
+  macOS has, where Chromium otherwise draws a permanent gutter. It restates
+  Omarchy's own feature deliberately: a repeated `--enable-features` is
+  last-wins rather than merged, and our block is always last.
+  `overrides/chromium/neutral-theme.py` then sets the two profile keys that
+  get a neutral UI out of a browser whose theme colour is fixed by managed
+  policy: the system (GTK) theme, which covers the frame and the menus and
+  still follows light/dark (GTK tracks `gsettings color-scheme` like
+  everything else the `mode` key flips), and grayscale, which covers the accent
+  the first one leaves tinted. Closed-Chromium rule applies to both.
 - **App icons in the menu come from `overrides/icons/fallbacks/` (step 7f).** The
   menu already renders every non-app row as a Nerd Font glyph tinted
   `foreground`; app rows are the exception, drawn as a plain image of the
@@ -380,13 +395,40 @@ wrong for this desktop — `Name=Figma` where the product is *Figma Desktop*, an
 `StartupWMClass=Figma` against a live Hyprland class of `figma-desktop`, which
 joins to no window and costs the window switcher its tile label.
 
-The app is [`nickvdp/figma-desktop-linux`](https://github.com/nickvdp/figma-desktop-linux),
-an AppImage repack of Figma's own Electron build — not the community
-`figma-linux` wrapper around the web app, which is a different project with a
-different settings schema. It is run **extracted**, not as a mounted AppImage:
+The app is [`IliyaBrook/figma-linux`](https://github.com/IliyaBrook/figma-linux),
+which extracts the official Figma Desktop *Windows* installer, patches it for
+Linux and repacks it as an AppImage — the real Electron client, with the tray
+icon, the `figma://` handler and native `.fig` opening. It is **not**
+[`Figma-Linux/figma-linux`](https://github.com/Figma-Linux/figma-linux), a
+community Electron wrapper around the web app that happens to share the name and
+has a different settings schema. It is run **extracted**, not as a mounted
+AppImage.
+
+`overrides/install-figma.sh` does all of that. Installing and updating are the
+same command:
 
 ```bash
-# installing and updating are the same steps
+./overrides/install-figma.sh            # latest release, then apply.sh
+./overrides/install-figma.sh --check    # installed vs. latest; changes nothing
+```
+
+| flag | |
+|---|---|
+| `--check` | report installed vs. latest and exit |
+| `--version X.Y.Z` | pin a release instead of taking the latest |
+| `--appimage PATH` | extract a file you already have, no download |
+| `--force` | re-extract even when the version already matches |
+| `--keep-appimage` | keep the `.AppImage` (default: delete it after extracting) |
+| `--no-apply` | skip the `apply.sh` run at the end |
+
+It reads the installed version out of the app's own bundled desktop entry, won't
+extract over a running Figma, keeps the old directory until the new one is in
+place, and finishes by running `apply.sh` so step 7e puts the launcher entry
+back. No sudo; nothing is written outside `$HOME`.
+
+By hand, it is:
+
+```bash
 cd ~/Applications
 ./figma-desktop-<version>-amd64.AppImage --appimage-extract   # -> squashfs-root/
 rm -rf figma-desktop && mv squashfs-root figma-desktop

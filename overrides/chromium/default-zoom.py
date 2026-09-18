@@ -39,62 +39,23 @@ import json
 import math
 import os
 import sys
-import tempfile
 
-CONFIG = os.path.expanduser("~/.config/chromium")
-BINARY = "chromium"
-LABEL = "Chromium"
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import chromium_prefs  # noqa: E402  (path has to be set first)
+
+from chromium_prefs import LABEL, profiles, running  # noqa: E402
+
 # Chromium's default storage partition id. Confirmed against the live profile,
 # whose per_host_zoom_levels sit under the same key.
 PARTITION = "x"
 
 
-def running():
-    """True if a live process actually IS the browser binary (BINARY).
-
-    Deliberately not `pgrep -f /usr/lib/chromium/chromium`: -f matches whole
-    command lines, so anything merely *mentioning* the path counts as a hit --
-    a wrapper invoking this script, an editor, a grep, the shell running it.
-    That bug refused every write here while Chromium was closed, and it fails
-    in the silent direction: the caller is told the setting was skipped for a
-    good reason. Resolving /proc/<pid>/exe matches the binary and nothing else.
-    """
-    for entry in os.scandir("/proc"):
-        if not entry.name.isdigit():
-            continue
-        try:
-            exe = os.readlink(os.path.join("/proc", entry.name, "exe"))
-        except OSError:
-            continue  # exited between listing and reading, or not ours
-        if os.path.basename(exe) == BINARY:
-            return True
-    return False
-
-
-def profiles():
-    """Every existing profile directory, or Default if Chromium never ran."""
-    found = []
-    if os.path.isdir(CONFIG):
-        for name in sorted(os.listdir(CONFIG)):
-            path = os.path.join(CONFIG, name)
-            if name == "Default" or name.startswith("Profile "):
-                if os.path.isdir(path):
-                    found.append(path)
-    return found or [os.path.join(CONFIG, "Default")]
-
-
 def apply(path, level, percent):
     name = os.path.basename(path)
-    prefs = os.path.join(path, "Preferences")
 
-    data = {}
-    if os.path.exists(prefs):
-        try:
-            with open(prefs) as fh:
-                data = json.load(fh)
-        except (OSError, ValueError) as exc:
-            print(f"  - {name}: unreadable Preferences ({exc}) — left alone")
-            return False
+    data = chromium_prefs.read(path)
+    if data is None:
+        return False
 
     partition = data.setdefault("partition", {})
     current = partition.get("default_zoom_level", {}).get(PARTITION)
@@ -115,20 +76,7 @@ def apply(path, level, percent):
             return False
         partition.setdefault("default_zoom_level", {})[PARTITION] = level
 
-    # Atomic replace, so an interrupted run cannot leave a truncated profile.
-    os.makedirs(path, exist_ok=True)
-    fd, tmp = tempfile.mkstemp(dir=path, prefix=".default-zoom-")
-    try:
-        with os.fdopen(fd, "w") as fh:
-            json.dump(data, fh, separators=(",", ":"))
-        os.chmod(tmp, 0o600)
-        os.replace(tmp, prefs)
-    except BaseException:
-        try:
-            os.unlink(tmp)
-        except OSError:
-            pass
-        raise
+    chromium_prefs.write(path, data)
 
     per_host = partition.get("per_host_zoom_levels", {}).get(PARTITION, {})
     note = f"  ({len(per_host)} per-site zoom(s) still override it)" if per_host else ""

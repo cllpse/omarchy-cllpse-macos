@@ -22,7 +22,8 @@
 #      lsd colours and the tool aliases to .bashrc, git diff pager to git config
 #   7b. restore saved display scaling + text size from display.conf
 #   7c. session environment drop-ins (~/.config/environment.d/)
-#   7d. Chromium scale: device-scale-factor flag + default page zoom
+#   7d. Chromium: device-scale-factor + overlay-scrollbar flags, default page
+#       zoom, and a neutral browser UI (system theme + grayscale)
 #   7e. Figma Desktop's launcher entry (correct Name= and StartupWMClass)
 #   7f. flat app icons for the menu (hand-placed SVGs in icons/fallbacks/)
 #   7f2. post-update repair hook: re-link what an Omarchy update could take out
@@ -568,6 +569,91 @@ else
   skip "Cursor not installed — skipped settings.json merge"
 fi
 
+# Cursor's window layout — NOT settings keys. Both live in
+# ~/.config/Cursor/User/globalStorage/state.vscdb, so the jq merge above cannot
+# reach them, and both get flipped by Cursor updates rolling out a new default.
+#
+#   cursor/unifiedAppLayout          enum `{ Agent: "agent", Editor: "editor" }`,
+#                                    read out of Cursor's own bundle, default
+#                                    Editor. In `agent` the editor tab bar is
+#                                    replaced by the agent pane's own strip. Set
+#                                    here by a migration latched on
+#                                    cursor/migrateEditorMode.forceUnified.
+#
+#   cursor/noTitlebarLayout.visibility
+#                                    `hide` puts `no-titlebar-layout` on <body>
+#                                    and applies a **-35px top inset to the whole
+#                                    workbench** -- exactly one tab-strip height.
+#                                    Cursor's own code:
+#                                      m = stored === "hide" && showTabs !== "none"
+#                                      body.classList.toggle("no-titlebar-layout", m)
+#                                      updateWorkbenchInsets({ top: m ? -35 : 0 })
+#                                    The intent is that the tabs themselves become
+#                                    the titlebar (there is a matching CSS rule
+#                                    giving .tabs-container `-webkit-app-region:
+#                                    drag`), but with our `window.controlsStyle`
+#                                    / `menuBarVisibility` hidden and
+#                                    `layoutControl.enabled` false the titlebar
+#                                    part is already collapsed, so the -35px eats
+#                                    the tab strip instead. Persisted from a
+#                                    `hide_titlebar_default` feature gate.
+#
+# BOTH present as "the tabs disappeared" with `workbench.editor.showTabs` unset
+# (still `multiple`, the registered default) and every `tab.*` colour correct,
+# which sends you to the chrome hook for an hour. Verified by screenshotting the
+# live window, not by reading the config.
+#
+# Each is written only over the one wrong value named below. An absent key is
+# already Cursor's default and is left absent, any other value is somebody's
+# deliberate choice and is left alone, and
+# cursor/migrateEditorMode.forceUnified is NOT cleared -- it reads as "this
+# migration already ran", so clearing it invites the migration to run again.
+#
+# Gated on Cursor being closed, same as the merge above: Cursor holds this DB
+# open and rewrites it from memory. NEITHER `pgrep` form tests for that -- the
+# process NAME is `electron` (/usr/lib/electron42/electron), so `pgrep -x cursor`
+# finds nothing, and `pgrep -f` is the whole-command-line trap in CLAUDE.md.
+cursor_running() {
+  local p exe
+  for p in /proc/[0-9]*; do
+    exe=$(readlink "$p/exe" 2>/dev/null) || continue
+    case "$exe" in */electron*|*/cursor|*/Cursor) ;; *) continue ;; esac
+    grep -qa '/share/cursor/' "$p/cmdline" 2>/dev/null && return 0
+  done
+  return 1
+}
+
+# key | value we want | the ONE value we will overwrite | state file for revert
+cursor_layout_keys=(
+  "cursor/unifiedAppLayout|editor|agent|previous-cursor-layout"
+  "cursor/noTitlebarLayout.visibility|show|hide|previous-cursor-titlebar"
+)
+
+cursor_state=~/.config/Cursor/User/globalStorage/state.vscdb
+if [[ ! -s $cursor_state ]]; then
+  : # no profile yet — nothing to correct, and Cursor starts on both defaults
+elif ! command -v sqlite3 >/dev/null 2>&1; then
+  skip "sqlite3 missing — cannot check Cursor's layout keys (sudo pacman -S sqlite)"
+elif cursor_running; then
+  skip "Cursor is running — left its layout keys alone (it rewrites state.vscdb"
+  skip "  from memory); close Cursor and re-run if its editor tabs are missing"
+else
+  for _spec in "${cursor_layout_keys[@]}"; do
+    IFS='|' read -r _key _want _wrong _file <<<"$_spec"
+    _have="$(sqlite3 "$cursor_state" \
+      "select value from ItemTable where key='$_key';" 2>/dev/null || true)"
+    [[ $_have == "$_wrong" ]] || continue
+    record_prior "$STATE/$_file" "$_have" "$_want"
+    if sqlite3 "$cursor_state" \
+         "update ItemTable set value='$_want' where key='$_key';" 2>/dev/null &&
+       [[ $(sqlite3 "$cursor_state" 'pragma integrity_check;' 2>/dev/null) == ok ]]; then
+      say "Cursor $_key -> $_want (was $_wrong; editor tabs were hidden)"
+    else
+      skip "could not write $_key — left state.vscdb alone"
+    fi
+  done
+fi
+
 sync_fenced ~/.bashrc "$HERE/bash/shell.sh"
 
 # git: route `git diff` through hunk (see git/pager.conf for why it needs no
@@ -676,6 +762,27 @@ if [[ -f "$HERE/chromium/chromium-flags.conf" ]]; then
     skip "dropped a pre-existing --force-device-scale-factor line"
   fi
   sync_fenced ~/.config/chromium-flags.conf "$HERE/chromium/chromium-flags.conf"
+
+  # A repeated --enable-features is not merged: base::CommandLine keys switches
+  # by name, so the last one wins outright and everything an earlier copy named
+  # is dropped (measured both ways round -- see the snippet's own header). Our
+  # block is appended, so it is always the last one, which means it has to
+  # restate whatever Omarchy's stock line asks for. Nothing keeps the two in
+  # step automatically, so compare them and say so rather than silently turning
+  # an Omarchy feature off on the next update.
+  if [[ -f ~/.config/chromium-flags.conf ]]; then
+    _ours="$(grep -m1 '^--enable-features=' "$HERE/chromium/chromium-flags.conf" || true)"
+    _stock="$(sed "/$MARK/,\$d" ~/.config/chromium-flags.conf | grep -m1 '^--enable-features=' || true)"
+    if [[ -n $_ours && -n $_stock ]]; then
+      _missing=""
+      while IFS= read -r _feat; do
+        [[ -n $_feat ]] || continue
+        [[ ",${_ours#*=}," == *",$_feat,"* ]] || _missing+=" $_feat"
+      done < <(tr ',' '\n' <<<"${_stock#*=}")
+      [[ -n $_missing ]] &&
+        skip "Omarchy's --enable-features names${_missing} — add it to chromium/chromium-flags.conf or the last line wins and drops it"
+    fi
+  fi
 fi
 
 # There is no command-line flag for default page zoom — see the script header
@@ -691,6 +798,27 @@ if [[ -x "$HERE/chromium/default-zoom.py" ]]; then
     "$("$HERE/chromium/default-zoom.py" --print 2>/dev/null || true)" "$_zoom"
   say "Chromium default page zoom -> ${_zoom}%"
   "$HERE/chromium/default-zoom.py" "$_zoom" || true
+fi
+
+# The third Chromium setting with no flag and no policy: a neutral browser UI.
+# The seed Omarchy feeds Chromium as BrowserThemeColor cannot give one -- a
+# zero-chroma seed, which both of our themes ship, comes back out of Material's
+# tonal-spot scheme as a faintly cyan palette. Two profile keys are needed and
+# neither is enough alone: the system (GTK) theme for the frame and the menus,
+# grayscale for the accent the GTK theme leaves behind (the omnibox focus ring
+# is a dark teal without it). The script header has the measurements and the
+# two attempts that lose to the policy. Recorded before it is changed, on the
+# same terms as the zoom above.
+if [[ -x "$HERE/chromium/neutral-theme.py" ]]; then
+  # record_prior refuses one value, and this step can leave more than one that
+  # is ours: the grayscale half was added after the system-theme half shipped,
+  # so a machine that ran the earlier version reads back `st=1,gs=` -- half our
+  # own work, which must not be recorded as what the machine came with.
+  _prev_theme="$("$HERE/chromium/neutral-theme.py" --print 2>/dev/null || true)"
+  case "$_prev_theme" in st=1,gs=1|st=1,gs=) _prev_theme="" ;; esac
+  record_prior "$STATE/previous-chromium-theme" "$_prev_theme" ""
+  say "Chromium UI -> neutral (system theme + grayscale), not the policy's cyan"
+  "$HERE/chromium/neutral-theme.py" || true
 fi
 
 # ── 7e. Figma Desktop launcher entry ─────────────────────────────────────────

@@ -3,8 +3,10 @@
 # ~/.local/share/applications/. Edit the template in the repo, not the installed
 # copy; a re-run overwrites it.
 #
-# The app is nickvdp/figma-desktop-linux, an AppImage repack of Figma's own
-# Electron build, run from an extracted directory rather than the .AppImage.
+# The app is IliyaBrook/figma-linux, an AppImage repack of Figma's own Electron
+# build (NOT Figma-Linux/figma-linux, the community web-app wrapper), run from
+# an extracted directory rather than the .AppImage. overrides/install-figma.sh
+# installs and updates it.
 # Two fields here differ from what it writes for itself (AppRun: integrate_desktop),
 # and both are deliberate.
 #

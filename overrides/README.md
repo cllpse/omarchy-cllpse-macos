@@ -10,9 +10,16 @@ so it can't ship inside a theme folder.
 ## Use
 
 ```bash
-./apply.sh     # install everything + apply the theme (keeps light if light is active)
-./revert.sh    # undo everything, restoring what the machine had before
+./apply.sh          # install everything + apply the theme (keeps light if light is active)
+./revert.sh         # undo everything, restoring what the machine had before
+./install-figma.sh  # install or update Figma Desktop, then run apply.sh
 ```
+
+`install-figma.sh` is the odd one out: it is the only script here that reaches
+the network, and the only one that installs an **application** — `apply.sh`
+installs nothing. Figma has no self-updater, so installing and updating are one
+command. `--check` reports installed vs. latest and changes nothing; the rest of
+its flags are in the root [`README.md`](../README.md#figma-desktop--installing-and-updating-it).
 
 `revert.sh` only ever **undoes** — it never picks a font or theme for you. Omarchy
 has no `font reset` / `theme reset`, so `apply.sh` records the font and theme the
@@ -37,7 +44,7 @@ Install these first for a complete result.
 
 | Channel | Install | Needed for |
 |---|---|---|
-| `pacman -S` | `lsd` `bat` `lazygit` `yazi` `lazydocker` `starship` `fzf` `jq` `imagemagick` `ghostty` | theme configs (step 7 / 7a), the Cursor + `shell.json` merges (`jq`), the app-icon hook (`imagemagick`) |
+| `pacman -S` | `lsd` `bat` `lazygit` `yazi` `lazydocker` `starship` `fzf` `jq` `imagemagick` `ghostty` `sqlite` | theme configs (step 7 / 7a), the Cursor + `shell.json` merges (`jq`), the app-icon hook (`imagemagick`), Cursor's layout-mode correction (`sqlite3`, step 7) |
 | `yay -S` (AUR) | `bibata-cursor-theme-bin` | the cursor theme. Genuinely AUR — `pacman -S` will not find it |
 | `pacman -S` (`extra`) | `msedit` | the `edit` alias. Needs no theme config — see *How each app is themed* |
 | `pacman -S` (`omarchy` repo) | `cursor-bin` | the editor step 7 merges `settings.json` into, and the one the *Cursor marketplace* row below extends. Absent, the merge is skipped with a message telling you to merge `cursor/settings.json` by hand |
@@ -127,7 +134,7 @@ Two of those five are worth knowing about beyond the guard:
 | 7\* | Starship prompt colours track the active theme's `accent` (the same hue driving Hyprland's active border) — Starship has no Omarchy-aware theming and no config-import mechanism like Ghostty/Alacritty/foot, so this hooks into `omarchy-hook theme-set` instead of a `themed/*.tpl`; regenerates `~/.config/starship.toml` on every theme switch, and once now so it doesn't wait for the next one. The template also swaps the built-in `git_branch` for a `custom.git_branch` that truncates in the middle (`chromium-scale-and-ghostty-fixes` → `chromium-sc…hostty-fixes`, 24 chars incl. the ellipsis) — Starship only truncates from the head Alongside it, `hunk-colors.sh` bakes the same palette into `~/.config/hunk/config.toml` — hunk is the one tool here that cannot name ANSI slots (hex-only validator, Shiki-only built-ins), so its diff backgrounds are blended over the theme background at 18%/30% and its Shiki `base` follows the `mode` key | `~/.config/omarchy/hooks/theme-set.d/{starship-colors,hunk-colors}.sh` (symlinked), `~/.config/starship.toml`, `~/.config/hunk/config.toml` |
 | 7b | Restore saved display scaling + text size from `display.conf` (skipped if the file is absent; each empty key skipped) | `omarchy display text size`, the two scale variables in `~/.config/hypr/monitors.lua` |
 | 7c | Install session environment drop-ins (Figma → native Wayland) | `~/.config/environment.d/50-cllpse-macos-figma-wayland.conf` |
-| 7d | Chromium scale: `--force-device-scale-factor=1` (browser UI 20% under DP-2's 1.25) + `110%` default page zoom. Page size is the product of the two — 125% would be exactly 1:1 with native | fenced block in `~/.config/chromium-flags.conf` + `partition.default_zoom_level` in each `~/.config/chromium/*/Preferences` |
+| 7d | Chromium: `--force-device-scale-factor=1` (browser UI 20% under DP-2's 1.25) + `110%` default page zoom — page size is the product of the two, and 125% would be exactly 1:1 with native; `--enable-features=…,OverlayScrollbar` for the thin auto-hiding scrollbar (restating Omarchy's own feature, because a repeated `--enable-features` is last-wins rather than merged); and a neutral browser UI — Omarchy's `BrowserThemeColor` policy runs our grey seed through Material's tonal-spot scheme and comes back cyan, which takes both the system (GTK) theme (frame and menus) and grayscale (the accent: the omnibox focus ring is a dark teal without it) | fenced block in `~/.config/chromium-flags.conf` + `partition.default_zoom_level`, `extensions.theme.system_theme` and `browser.theme.is_grayscale2` in each `~/.config/chromium/*/Preferences` |
 | 7e | Figma Desktop's launcher entry. The app regenerates its own entry on every launch (`AppRun: integrate_desktop`) and gets two fields wrong for this desktop: `Name=Figma` (its AppStream `<name>` and `X-AppImage-Name` both say *Figma Desktop*) and `StartupWMClass=Figma` against a live Hyprland class of `figma-desktop` — so nothing that joins an entry to a window through that value lands, including the window switcher's class → entry lookup, which is where its tile label comes from. Rendered from a template (`{{ home }}` expanded), skipped entirely if Figma isn't installed. The regeneration only fires when `Exec` differs from `Exec="${appimage_path}" %u`, which for an extracted directory is `readlink -f "$0"` — a path with no version in it, so the template's Exec matches on every release and the entry is never taken back. The step also **removes a wrapper around `AppRun`** if it finds one: a wrapper displaces the launcher to `AppRun.real`, which is what breaks that path in the first place, and lives inside the app directory where the next extraction deletes it | `~/.local/share/applications/figma-desktop-appimage.desktop`, and `~/Applications/figma-desktop/AppRun` restored if wrapped |
 | 7f | Flat app icons for the menu. The menu renders non-app rows as Nerd Font *text* tinted `foreground` (the flat look) but app rows as a plain `Image` of the vendor's icon with no recolouring — 48 of 52 visible entries here resolve to a full-colour logo. `AppLibrary.qml` checks its own `find`-built index *before* Qt's themed lookup, and `$HOME/.icons` is the first directory in both its svg and png passes, so a file dropped there outranks every installed theme; with no `index.theme` it stays invisible to GTK and Qt. **Nothing is generated** — `icons/fallbacks/` holds hand-placed SVGs, one per desktop-entry `Icon=` value, and an app with no file there simply keeps its vendor icon. Synced by a `theme-set` hook rather than here, because app icons are never recoloured by the shell: a synced file has a fixed colour and must be rewritten per theme, and the shell restart `omarchy theme set` performs is what drops Qt's image cache so the new colour lands. SVG paints are repainted — attribute *and* CSS-block fills, both quote styles, `fill="none"` preserved so outline shapes stay outlines, and a root fill injected when a file carries no paint at all (simple-icons ships bare `<path d>`, which would otherwise render black). PNGs are masked by their alpha. A file that fails to parse is skipped, so a missing icon means a malformed drop-in | `~/.icons/cllpse-flat/apps/`, `~/.config/omarchy/hooks/theme-set.d/app-icons.sh` (symlinked) |
 | 7f2 | Post-update repair hook. Everything `apply.sh` installs is either in a directory that is ours alone (`~/.icons/`, `~/.local/`, `~/.config/hypr/`) or a **symlink inside a directory Omarchy ships and manages** (`~/.config/omarchy/{hooks,themes,plugins}/` — Omarchy's own `config/omarchy/hooks/theme-set.d/` carries `.sample` files, so those paths are its territory). The second group is exposed: a refresh, migration or future install step that repopulates one of them takes our symlink with it and nothing reports the loss — icons would just revert to vendor logos at the next theme change. `omarchy-update` calls `omarchy-hook post-update` (`omarchy-update:49`), so a hook there re-links all of it once per update. Idempotent, so it runs unconditionally rather than trying to detect damage. Deliberately does **not** repair `shell.json` — that file is personal, and rewriting it from a hook mid-update is a worse failure than the one it prevents | `~/.config/omarchy/hooks/post-update.d/cllpse-macos-repair.sh` (symlinked) |
@@ -138,6 +145,32 @@ Two of those five are worth knowing about beyond the guard:
 | 9 | Chromium context-menu declutter: spellcheck, translate, password-save prompt, address/card autofill, Print, Cast, "Create QR Code", and "Add to reading list" off — all eight as enterprise policy, none as a Preferences key. (An earlier version wrote the first five as plain `Preferences` booleans; a bare pref only changes the default, so Settings still showed the toggle as user-changeable, and per Chrome's own docs the bare `translate.enabled` pref doesn't suppress the manual "Translate to…" context-menu entry the way the `TranslateEnabled` policy does — confirmed live, plus four of those five keys have a dot in their real pref name and Chromium nests dotted pref names into nested JSON on write, so a flat key with a literal dot in it is never read back at all.) Needs **sudo** (the only step in this script that does), and only writes into `/etc/chromium/policies/managed/` if that directory already exists — mirroring Omarchy's own guard, so a machine without Chromium doesn't get handed a policy root it didn't have. No relaunch needed if Chromium is running: step 8's `omarchy-theme-set-browser` already calls Chromium's `--refresh-platform-policy` on every theme-set, which reloads this file too, same as Omarchy's own `color.json` | `/etc/chromium/policies/managed/cllpse-macos.json` |
 
 `7\*` is not a separate step in the script — starship, the Cursor chrome repaint, yazi's syntect theme, hunk and ytm-player are all theme-set hooks installed from inside step 7. It is split out here because a hook behaves differently from a config file: it re-runs on every `omarchy theme set`.
+
+Step 7 has two targets that are **not** config files, both in Cursor's
+`~/.config/Cursor/User/globalStorage/state.vscdb`. Neither has a settings key, so
+`cursor/settings.json` cannot carry them, and Cursor updates flip both:
+
+- `cursor/unifiedAppLayout` → `agent` replaces the editor tab bar with the agent
+  pane's own strip (enum `{ Agent: "agent", Editor: "editor" }`, default
+  `editor`).
+- `cursor/noTitlebarLayout.visibility` → `hide` applies a **-35px top inset to the
+  whole workbench**, exactly one tab-strip height, on the assumption that the tabs
+  themselves serve as the titlebar. With this override's `window.controlsStyle` /
+  `menuBarVisibility` hidden the titlebar part is already collapsed, so the inset
+  eats the tab strip instead.
+
+Both present identically as *the tabs have disappeared*, with
+`workbench.editor.showTabs` unset (still `multiple`) and every `tab.*` colour
+correct. `apply.sh` writes the right value over the one wrong value only: an
+absent key is Cursor's default and is left absent, any other value is a
+deliberate choice and is left alone, and the
+`cursor/migrateEditorMode.forceUnified` latch behind the first one is left at
+`true`, because clearing it invites the migration to run again. Prior values go to
+`$STATE/previous-cursor-layout` and `$STATE/previous-cursor-titlebar`, which is
+all `revert.sh` acts on. Both the write and the revert are skipped while Cursor is
+running — it holds that DB open and rewrites it from memory — and the running
+check resolves `/proc/<pid>/exe`, since Cursor's process name is `electron` and
+neither `pgrep -x` nor `pgrep -f` can test for it.
 
 The blur `layer_rule` only opts the shell surfaces *into* blur; the matching
 translucency (`background-alpha`) is the theme's half —
@@ -288,7 +321,7 @@ differences above are the ones to check by hand.
 - **Relaunch running GTK/Qt apps + the bar** to pick up `hintnone`.
 - **Log out / back in** for the `environment.d` drop-ins — the systemd user session reads them at session start.
 - **The flat app icons (7f) appear as soon as the menu next opens** — `AppLibrary.refreshIcons()` rescans when a consumer opens, so no restart is needed to *find* them. Changing their *colour* is different: Qt caches decoded images by URL, and the path does not change between themes, so a re-render only shows up after the shell restart that `omarchy theme set` performs anyway.
-- **Quit Chromium before the step 7d zoom half**, and relaunch after. Chromium rewrites `Preferences` from memory on exit, so a write made while it is running is discarded; the script detects this and skips rather than reporting a change that will not survive. The flag half needs only a relaunch. Sites already zoomed with ctrl+/- keep their own `per_host_zoom_levels` and ignore the default.
+- **Quit Chromium before the step 7d zoom and theme halves**, and relaunch after. Chromium rewrites `Preferences` from memory on exit, so a write made while it is running is discarded; the script detects this and skips rather than reporting a change that will not survive. The flag half needs only a relaunch. Sites already zoomed with ctrl+/- keep their own `per_host_zoom_levels` and ignore the default.
 - **Step 9 (the whole context-menu policy — spellcheck/translate/password/autofill/Print/Cast/QR/reading-list) needs no relaunch** if Chromium is already running: `omarchy-theme-set-browser`, which step 8 always runs, calls `chromium --refresh-platform-policy --no-startup-window` whenever Chromium is running — the same live reload Omarchy uses for its own `color.json` — and that reloads the whole managed-policy directory.
 - **DevTools is deliberately not in the policy.** `DeveloperToolsAvailability: 2` was there originally, as part of the same context-menu declutter, and it was the one key whose blast radius went past the menu — it blocks Inspect *everywhere*, local dev servers included. The key is now dropped rather than set to `1`, so Chromium's own default applies (`0`: available except on force-installed extensions); a managed policy should only assert what we actually have an opinion about. "Inspect" is back in the context menu as a consequence — no lever separates the two.
 - **The `keyd` group grant (8b) needs a reboot, and a relogin is not enough.** `uwsm` starts Hyprland as a unit of the systemd *user manager*, and with logind's stock `KillUserProcesses=no` that manager survives a logout — so every process on the desktop keeps inheriting the group set the manager was created with. Measured: two full graphical logins after the grant, Hyprland's `/proc/<pid>/status` still read the old `Groups:`. The tell is `getent group keyd` listing you while `id` does not. Nothing is broken in the meantime: `cllpse-figma-keyd` falls back to `newgrp`, which is setuid-root and reads `/etc/group` directly, so the remap works in the session that granted it — the reboot just moves it onto the fast path.
@@ -297,7 +330,7 @@ differences above are the ones to check by hand.
 ## Contents
 
 ```
-apply.sh  revert.sh
+apply.sh  revert.sh  install-figma.sh
 starship/starship.toml.tpl    stock starship.toml with {{ accent }} in place of every literal "cyan", plus a custom.git_branch module that middle-truncates long branch names to 24 chars
 hooks/theme-set.d/starship-colors.sh  renders the template above into ~/.config/starship.toml on every theme switch
 fonts/                        20 SF .otf (SF Mono, SF Pro Text, SF Pro Display)
@@ -335,8 +368,11 @@ display.conf                  saved text-size / monitor-scale / gdk-scale
 save-display.sh               capture the live values into display.conf
 environment.d/*.conf          systemd user-session env (Figma native Wayland, FreeType stem darkening on + stronger curve)
 applications/figma-desktop-appimage.desktop.tpl  Figma Desktop's launcher entry -- corrects upstream's Name= and StartupWMClass=
-chromium/chromium-flags.conf  --force-device-scale-factor=1 (fenced into Omarchy's flags file)
+install-figma.sh              installs/updates Figma Desktop from IliyaBrook/figma-linux: reads the installed version from the app's own bundled entry, refuses to extract over a running Figma, swaps the directory only after the extracted AppRun proves to be the real launcher, then runs apply.sh for the entry
+chromium/chromium-flags.conf  --force-device-scale-factor=1 + --enable-features=…,OverlayScrollbar (fenced into Omarchy's flags file)
+chromium/chromium_prefs.py    shared plumbing for the two profile-preference scripts below
 chromium/default-zoom.py      default page zoom -> 110% (no flag exists; it is a profile preference)
+chromium/neutral-theme.py     system (GTK) theme + grayscale -> a neutral browser UI (the theme-colour policy can only give a tinted palette)
 keyd/default.conf             identity config pinned to the Preonic, plus the inert [figma:C] layer the runtime bind activates (installed to /etc with sudo)
 keyd/cllpse-figma-keyd        toggles that layer in the running daemon on Figma focus; diagnoses its own failures, since it is only ever reached through exec_raw
 chromium/policies-managed.json  spellcheck/translate/password/autofill/Print/Cast/QR-code/Reading-list off (managed policy, installed to /etc with sudo). DevTools deliberately absent — see the follow-ups section

@@ -141,6 +141,24 @@ if [[ -x $HERE/chromium/default-zoom.py ]]; then
   fi
 fi
 
+# And the third: the two theme keys apply.sh sets so Chromium's UI is neutral
+# rather than cyan. Same rule again -- restore what was recorded at first apply
+# (`--print`'s own format, which this script hands straight back), and with
+# nothing recorded delete both keys so Chromium's own theme applies rather than
+# this script asserting one. Also skipped while Chromium is running, for the
+# same Preferences-from-memory reason.
+if [[ -x $HERE/chromium/neutral-theme.py ]]; then
+  if [[ -s $STATE/previous-chromium-theme ]]; then
+    prev_browser_theme="$(<"$STATE/previous-chromium-theme")"
+    say "restoring Chromium theme keys: $prev_browser_theme"
+    "$HERE/chromium/neutral-theme.py" "$prev_browser_theme" || true
+    rm -f "$STATE/previous-chromium-theme"
+  else
+    say "clearing Chromium's theme keys (its own theme applies)"
+    "$HERE/chromium/neutral-theme.py" --reset || true
+  fi
+fi
+
 restore ~/.config/bat/config
 restore ~/.config/lazygit/config.yml
 restore ~/.config/lsd/config.yaml
@@ -157,6 +175,51 @@ restore ~/.config/starship.toml
 say "Removing Cursor chrome theme-set hook"
 [[ -L ~/.config/omarchy/hooks/theme-set.d/cursor-chrome.sh ]] && rm -f ~/.config/omarchy/hooks/theme-set.d/cursor-chrome.sh
 # The chrome lives in settings.json, which `restore` below puts back wholesale.
+
+# Cursor's two layout keys are in state.vscdb, not settings.json, so `restore`
+# above does not reach them. Put back only what apply recorded — a recording
+# exists only if apply actually found the wrong value and changed it. Nothing
+# recorded means the machine was already correct and there is nothing to undo.
+# Skipped while Cursor is running, since it rewrites that DB from memory; the
+# process NAME is `electron`, so neither `pgrep -x` nor `pgrep -f` can test for
+# it and /proc/<pid>/exe is resolved instead.
+cursor_running() {
+  local p exe
+  for p in /proc/[0-9]*; do
+    exe=$(readlink "$p/exe" 2>/dev/null) || continue
+    case "$exe" in */electron*|*/cursor|*/Cursor) ;; *) continue ;; esac
+    grep -qa '/share/cursor/' "$p/cmdline" 2>/dev/null && return 0
+  done
+  return 1
+}
+
+# state file | key | the two values this key is allowed to hold
+cursor_layout_keys=(
+  "previous-cursor-layout|cursor/unifiedAppLayout|agent editor"
+  "previous-cursor-titlebar|cursor/noTitlebarLayout.visibility|hide show"
+)
+
+cursor_state=~/.config/Cursor/User/globalStorage/state.vscdb
+if [[ -s $cursor_state ]]; then
+  for _spec in "${cursor_layout_keys[@]}"; do
+    IFS='|' read -r _file _key _valid <<<"$_spec"
+    [[ -s $STATE/$_file ]] || continue
+    _mode="$(cat "$STATE/$_file")"
+    if [[ " $_valid " != *" $_mode "* ]]; then
+      say "$_file holds an unknown value ($_mode) — left state.vscdb alone"
+    elif ! command -v sqlite3 >/dev/null 2>&1; then
+      say "sqlite3 missing — $_key left as-is (recorded: $_mode)"
+    elif cursor_running; then
+      say "Cursor is running — $_key left as-is; close it and re-run to restore $_mode"
+    elif sqlite3 "$cursor_state" \
+           "update ItemTable set value='$_mode' where key='$_key';" 2>/dev/null; then
+      say "Cursor $_key -> $_mode (restored)"
+      rm -f "$STATE/$_file"
+    else
+      say "could not write $_key — left state.vscdb alone"
+    fi
+  done
+fi
 
 say "Removing yazi previewer theme-set hook"
 [[ -L ~/.config/omarchy/hooks/theme-set.d/yazi-syntax.sh ]] && rm -f ~/.config/omarchy/hooks/theme-set.d/yazi-syntax.sh

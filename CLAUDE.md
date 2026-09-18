@@ -93,7 +93,7 @@ own `freetype-load-flags`. Kitty hardcodes light hinting with no override.
   `applyShellValues` — dead keys. A shell-source patch was tried and fully
   reverted.
 - Font *size* is machine-level only: `~/.config/omarchy/shell.toml` `[font]
-  base-size` (**14** at the time of writing, via `omarchy display text size`;
+  base-size` (**13** at the time of writing, via `omarchy display text size`;
   `display.conf` records it for `apply.sh` to restore — and the two have drifted
   apart before, when the live size was changed without re-running
   `save-display.sh`, leaving `apply.sh` primed to undo the change on its next
@@ -119,18 +119,59 @@ btop and Hyprland just render the hex from `colors.toml`.
 which is why window decoration lives in `overrides/hypr/`, not in a theme folder.
 Our themes are symlinked rather than cloned, so nothing is stripped.
 
-**`chromium.theme` is committed, by exception.** Omarchy's template is
+**`chromium.theme` is committed, by exception — but it does NOT fix the cyan,
+and an earlier version of this entry said it did.** Omarchy's template is
 `{{ background_rgb }}`, so the generated seed for the light theme is
-`255,255,255` — pure white. Fed to Chromium as the `BrowserThemeColor` managed
-policy (`/etc/chromium/policies/managed/color.json`, written by
-`omarchy-theme-set-browser` from `~/.local/state/omarchy/current/theme/chromium.theme`),
-a zero-chroma seed leaves menu colour IDs unresolved and Chromium paints
-separators with its placeholder cyan. Each theme folder therefore ships an
-explicit `chromium.theme`: light `236,236,236` (`#ECECEC`, the AppKit
+`255,255,255` — pure white. Each theme folder therefore ships an explicit
+`chromium.theme`: light `236,236,236` (`#ECECEC`, the AppKit
 `NSColor.windowBackgroundColor` catalog value for aqua — BUILD.md §2 reads the
 composited window as `#FFFFFF`, which is the degenerate case), dark `30,30,30`
 (`#1E1E1E`, matches BUILD.md §1). `omarchy-theme-set-templates` skips generation
-when the file already exists in the staged theme.
+when the file already exists in the staged theme. That file is the seed
+`omarchy-theme-set-browser` hands Chromium as the `BrowserThemeColor` managed
+policy (`/etc/chromium/policies/managed/color.json`, written by the
+passwordless-sudo helper `omarchy-theme-set-browser-policy <rrggbb>` — worth
+knowing, since it makes seed-vs-seed testing a no-password loop).
+
+What it cannot do is make the browser neutral. Chromium runs the seed through
+Material's **tonal-spot** scheme, which forces chroma onto the generated
+palette; a zero-chroma seed has no hue of its own to force, so it lands on the
+scheme's default hue and the whole browser comes out faintly cyan. `#ECECEC`
+and `#1E1E1E` are both pure greys, so both hit this exactly — the value that
+was supposed to be the fix is an instance of the bug. Measured on Chromium 152
+in a throwaway profile under the live policy: menu background
+`rgb(248,253,254)`, separators `rgb(200,246,254)`. Pushing `#FF0000` through the
+same policy turns the whole frame pink, which is what pins it on the seed.
+
+**Two profile keys get it back to neutral, and neither is enough alone.** Both
+are written by `overrides/chromium/neutral-theme.py` (apply.sh step 7d), and
+both are profile state with no flag and no policy behind them:
+
+| key | what it reaches |
+|---|---|
+| `extensions.theme.system_theme = 1` | the frame and the **menus** — measured menu `rgb(255,255,255)`, separators `rgb(242,242,242)` |
+| `browser.theme.is_grayscale2 = true` | the **accent** the GTK theme leaves behind — with the system theme alone the omnibox focus ring is still a dark teal, and this puts it back to Chromium's own blue |
+
+`is_grayscale2` is the half that survives the policy, which is the surprise:
+`browser.theme.user_color2` does **not** (measured with a blue one — nothing
+changed), so a profile cannot out-colour the policy but it can opt out of the
+generated palette entirely. The system theme also follows `gsettings
+color-scheme`, the same signal a theme's `mode` key already flips, so light/dark
+still tracks `omarchy theme set` with no hook.
+
+**Fixing it from the seed end makes it worse.** Pushing the theme's own accent
+(`#007AFF`) through the policy paints the tab strip dark blue (active tab
+`rgb(24,92,162)`): a seed with real chroma themes the frame as designed, which
+is the whole point of the policy. The grey seed plus those two keys is the
+combination that leaves the browser neutral.
+
+Two things about measuring this, since it took several passes: the **omnibox
+focus ring and an inactive tab's hover are the tells**, not the separators — the
+system theme fixes the separators on its own, which reads as "done" while the
+accent is still cyan. And a hover needs a real pointer, which
+`hyprctl eval 'hl.dispatch(hl.dsp.cursor.move({ x = …, y = … }))'` provides
+(`hl.dsp.cursor` holds exactly `move` and `move_to_corner`); save
+`hyprctl cursorpos` first and put it back, or you have moved the user's mouse.
 
 **The menu draws icons two different ways, and only one of them is flat.** Rows
 that are not apps render `row.icon` as *text* in a Nerd Font, tinted
@@ -466,13 +507,28 @@ or `omarchy theme set` does.
 
 ---
 
-**The installed Figma is `nickvdp/figma-desktop-linux`, not `figma-linux`.**
-Two unrelated projects, and this file named the wrong one for a while.
-Ours is an AppImage repack of Figma's *own* Electron build
-(`~/Applications/figma-desktop-126.5.6-amd64.AppImage`, extracted to
-`~/Applications/figma-desktop/`, app id
-`io.github.nickvdp.figma-desktop-linux`); `figma-linux` is a community Electron
-wrapper around the web app, with its own settings schema and a `ThemeCreator`.
+**The installed Figma is `IliyaBrook/figma-linux`, not `Figma-Linux/figma-linux`
+— and NOT `nickvdp/figma-desktop-linux`, which does not exist.** This file has
+now named the wrong project twice, so the distinction is worth stating by owner
+rather than by repo name, because the two real projects share the name
+`figma-linux`:
+
+| | what it is |
+|---|---|
+| `IliyaBrook/figma-linux` | **ours.** Extracts the official Figma Desktop *Windows* installer, patches it for Linux and repacks it as an AppImage. The real Electron client — tray icon, `figma://` handler, `.fig` opening, MCP server |
+| `Figma-Linux/figma-linux` | a community Electron wrapper around the **web app**, with its own settings schema and a `ThemeCreator`. Not installed here |
+
+`nickvdp/figma-desktop-linux` was named here for a while on the strength of the
+AppStream component id, which really is `io.github.nickvdp.figma-desktop-linux`
+— but that string is a **hardcoded constant in IliyaBrook's own build script**
+(`scripts/build-appimage.sh`, `component_id=`), inherited from an earlier
+project. The id is real; the repo slug 404s and the GitHub user `nickvdp` has no
+such repo. Don't re-derive the upstream from the app id.
+
+Ours is `~/Applications/figma-desktop-<version>-amd64.AppImage`, extracted to
+`~/Applications/figma-desktop/`. `overrides/install-figma.sh` does the install
+and the update — see the entry under *Conventions* below.
+
 Three names are in play and all three are load-bearing somewhere: the AppStream
 `<name>` and the local `.desktop` `Name=` are **Figma Desktop** (what the
 launcher shows), the bundled `.desktop` `Name=` is `Figma`, and the live
@@ -512,6 +568,36 @@ there is ours and an update has nothing to undo. `apply.sh` step 7e removes a
 wrapper if it finds one, keyed on `integrate_desktop` being present in
 `AppRun.real` and absent from `AppRun`, and clears a stale `AppRun.real` that a
 fresh extraction left orphaned.
+
+**`overrides/install-figma.sh` is the install and the update, and they are the
+same run.** It is the one script here that reaches the network and the only one
+that installs an application at all — `apply.sh` still installs nothing. Five
+things in it are load-bearing rather than convenience:
+
+- *Version comes from the app's own bundled entry*, `$APP_DIR/io.github.nickvdp.figma-desktop-linux.desktop`'s
+  `X-AppImage-Version`, not from a stamp file of ours. Upstream writes that
+  file and every extraction restores it, so it cannot drift from what is on
+  disk the way our own record could. (It is **not** the entry in
+  `~/.local/share/applications/`, which is ours and carries no version.)
+- *The release tag is not the version.* Upstream's tags are inconsistent —
+  `126.5.6` for the latest, `figma-desktop-126.4.11` and
+  `figma-desktop-126.3.12.1` for older ones. The **asset** name is regular
+  (`figma-desktop-<version>-amd64.AppImage`), so both the latest and the
+  `--version` path resolve through the asset and never parse a tag.
+- *It refuses to extract over a running Figma*, by resolving `/proc/<pid>/exe`
+  into the app directory — not `pgrep -f`, which would match this script's own
+  command line (the trap already hit elsewhere in this repo).
+- *Scratch lives in `~/Applications`, not `/tmp`.* `/tmp` is tmpfs here, so a
+  ~500 MB extracted tree would sit in RAM, and the swap would be a cross-device
+  copy rather than a rename.
+- *The swap is gated and reversible.* The old directory is moved aside, not
+  deleted, and the new tree only goes in after `AppRun` is confirmed to contain
+  `integrate_desktop` — the same marker step 7e keys on. A failure leaves the
+  previous install working.
+
+It ends by running `apply.sh`, because step 7e owns the launcher entry and the
+app writes its own wrong one. `--check` reports installed vs. latest and
+changes nothing; `--appimage PATH` skips the download.
 
 **keyd is the one package this repo depends on, and the only reason is Figma.**
 `apply.sh` does not install it — step 8b configures it if present and says so if
@@ -920,10 +1006,63 @@ in-app toggle, which reverts any key that differed from what Cursor had loaded
 closed for the merge to hold — same failure shape as the Chromium `Preferences`
 trap. Panel/UI state that has no settings key (sidebar/panel open-closed, the
 `cursor/unifiedAppLayout` IDE-vs-agent mode) lives in
-`~/.config/Cursor/User/globalStorage/state.vscdb` and can't go in the override at
-all; only the settings-backed toggles (`workbench.statusBar.visible`,
-`workbench.layoutControl.enabled`, `workbench.agentsWindowButton.enabled`,
-`workbench.activityBar.location`, …) can.
+`~/.config/Cursor/User/globalStorage/state.vscdb` and can't go in
+`cursor/settings.json` at all; only the settings-backed toggles
+(`workbench.statusBar.visible`, `workbench.layoutControl.enabled`,
+`workbench.agentsWindowButton.enabled`, `workbench.activityBar.location`, …) can.
+
+**Two things in `state.vscdb` are corrected by `apply.sh` anyway, because Cursor
+updates flip them, and BOTH present as "the tabs have disappeared"** — with
+`workbench.editor.showTabs` unset (so still `multiple`, the registered default,
+checked in the bundle) and every `tab.*` colour correct, which sends you to the
+chrome hook for an hour. Neither is a settings key, so `cursor/settings.json`
+cannot carry either.
+
+- **`cursor/unifiedAppLayout`** — enum `{ Agent: "agent", Editor: "editor" }`,
+  defaulting to `Editor`. In `agent` the editor tab bar is replaced by the agent
+  pane's own strip. Set here by a migration latched on
+  `cursor/migrateEditorMode.forceUnified`.
+- **`cursor/noTitlebarLayout.visibility`** — `hide` puts `no-titlebar-layout` on
+  `<body>` **and applies a -35px top inset to the whole workbench**, which is
+  exactly one tab-strip height. Cursor's own code:
+  `m = stored === "hide" && showTabs !== "none"`, then
+  `body.classList.toggle("no-titlebar-layout", m)` and
+  `updateWorkbenchInsets({ top: m ? -35 : 0 })`. The intent is that the tabs
+  *become* the titlebar — there is a matching CSS rule giving
+  `.tabs-container` `-webkit-app-region: drag` — but with our
+  `window.controlsStyle` / `menuBarVisibility` hidden and
+  `layoutControl.enabled` false the titlebar part is already collapsed, so the
+  -35px eats the tab strip instead. Persisted from a `hide_titlebar_default`
+  feature gate. Corroborating detail worth knowing: the same 35px is
+  compensated in the other direction by
+  `body.no-titlebar-layout .quick-input-widget{transform:translateY(35px)!important}`.
+
+Setting it to `show` restores the tabs **and** brings back Cursor's own title bar
+row — back/forward arrows, the project name, new-tab / comment / settings
+buttons. That row is not the "bare drag strip" the window-frames section
+describes: `window.controlsStyle: "hidden"` suppresses the OS min/max/close, not
+Cursor's own chrome.
+
+Each key is written only over the one wrong value named above. An **absent** key
+is already Cursor's default and is left absent; any **other** value is somebody's
+deliberate choice and is left alone; and the `forceUnified` latch is **not**
+cleared, since it reads as "this migration already ran" and clearing it invites
+the migration to run again. `record_prior "$STATE/previous-cursor-layout"` and
+`previous-cursor-titlebar` are what let `revert.sh` put the old values back.
+
+Both halves are gated on Cursor being closed, for the same reason the merge is:
+Cursor holds that DB open and writes it from memory. **Neither `pgrep` form tests
+for it** — the process *name* is `electron` (`/usr/lib/electron42/electron`), so
+`pgrep -x cursor` finds nothing, and `pgrep -f` is the whole-command-line trap
+below. Both scripts resolve `/proc/<pid>/exe` to an Electron binary and then match
+`/share/cursor/` in that pid's `cmdline`.
+
+**Diagnose this one by screenshotting the window, not by reading the config.**
+Every config surface here reads correct in both failure modes. `grim -g "$(hyprctl
+clients -j | jq -r '.[]|select(.class=="cursor")|"\(.at[0]),\(.at[1]) \(.size[0])x220"')"`
+settles in one shot what an hour of grepping `settings.json` cannot — and note
+`grim` can only capture the **visible** workspace, so a window on an inactive one
+comes back as whatever is actually on screen, with no error.
 
 **ytm-player is split two ways: colours are themed, preferences are not.**
 `themed/ytm-player.toml.tpl` renders per theme and `hooks/theme-set.d/ytm-player.sh`
@@ -1121,6 +1260,25 @@ and the original is kept in prose as provenance. Don't leave the two out of sync
   `custom.git_branch` (middle-truncation, which the built-in can't do — it
   truncates from the head) depends on this to match the built-in's own
   disappear-outside-a-repo behaviour.
+- **A repeated `--enable-features` is last-wins, not merged, and the loser
+  vanishes silently.** `base::CommandLine` keys switches by name, so a second
+  `--enable-features=` line in `~/.config/chromium-flags.conf` replaces the
+  first outright rather than adding to it. Our fenced block is appended, which
+  makes it always the last one, so it has to restate whatever Omarchy's stock
+  line asks for (`TouchpadOverscrollHistoryNavigation` today). Measured both
+  ways round against `OverlayScrollbar`: ours last, the scrollbar overlays;
+  Omarchy's last, it comes back. Nothing keeps the two in step, so apply.sh
+  step 7d diffs the stock line against ours and says so if Omarchy ever adds a
+  feature the block is missing.
+- **A browser setting that lives only in the profile is not a setting this repo
+  has, and its loss leaves nothing behind to explain itself.** Two of them went
+  missing here at once — the overlay-scrollbar `chrome://flags` toggle (which is
+  `browser.enabled_labs_experiments` in `~/.config/chromium/Local State`, and
+  came back as absent, with the running process carrying no `--flag-switches-begin`)
+  and the browser theme. Both had been set by hand, neither was reachable from
+  `apply.sh`, and the symptom was "the fix we made is gone" with no mechanism in
+  sight. Anything set through a browser's own UI belongs in the flags file or in
+  a `Preferences` writer before it counts as fixed.
 - **Chromium ignores `FREETYPE_PROPERTIES`.** The stem darkening this repo used
   to ship as `overrides/environment.d/10-cllpse-macos-font-rendering.conf`
   reached every app on the desktop *except* Chromium, so page text there
