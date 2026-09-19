@@ -896,7 +896,8 @@ produced something visibly wrong:
 |---|---|
 | foreground | preserve the **WCAG contrast ratio** against the background, holding hue and **chroma** |
 | background | mirror the **lightness delta** from the window colour |
-| alpha | keep verbatim — it composites correctly on either polarity |
+| alpha surface | mirror the delta of what it **composites to**, then back-solve the base at the same alpha |
+| alpha text | keep verbatim, unless the composite falls below 2:1 on dark |
 | saturated surface / near-white text | keep verbatim — an accent chip, and the text on it, are not on the page |
 | transparent | keep verbatim, always |
 
@@ -919,6 +920,15 @@ Five traps, all found by reading the output rather than the code:
 - **Text needs a ceiling too**, `#DDDDDD` — this repo's own dark `foreground`.
   21:1 is unreachable on `#1E1E1E`, so preserving contrast saturates near-black
   text to pure white, which is harsher than anything else on the desktop.
+- **A wash is only polarity-free when its base is mid-lightness and chromatic.**
+  "Alpha composites correctly on either background" holds for the teal selection
+  and not for the scrollbar slider, which is `#09131626` -- a near-black at 15%,
+  a grey slider on white at 1.38:1 and 1.02:1 on `#1E1E1E`, i.e. invisible. Alpha
+  SURFACES therefore mirror the lightness delta of their composite and the base
+  is back-solved at the same alpha, `base = (target - (1 - a) * bg) / a`, which
+  put the slider at 1.60:1 (hover 1.91, active 2.73) and measured `#3F3F3F`
+  against the `#1E1E1E` gutter on screen. Where the alpha is too low for the
+  target to be reachable the base clamps to white and the shortfall is taken.
 - **Transparent means OFF, and deriving it turns a feature on.** The light theme
   switches 19 things off with `#00000000` — `contrastBorder`,
   `editorError.border`, the diff text borders — and the first run turned 18 of

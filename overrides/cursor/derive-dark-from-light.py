@@ -46,6 +46,17 @@ Three rules, because one does not fit every kind of colour:
   the light theme deliberately has none. The first run of this did exactly that
   to all 18 of them, which is where the outlines around every tab came from.
 
+  ALPHA SURFACES mirror the delta of what they COMPOSITE TO, then the base
+  colour is back-solved at the same alpha. Leaving them verbatim was the first
+  version of this rule and it is wrong: a wash is only polarity-free when its
+  base is mid-lightness and chromatic, like the teal selection. The scrollbar
+  slider is #09131626 -- a near-black at 15% -- which is a grey slider on white
+  (1.38:1) and nothing at all on #1E1E1E (1.02:1). Composite on light, mirror
+  that composite around the two window colours, rebuild it at the same hue and
+  chroma, and solve base = (target - (1 - a) * bg) / a. Where the alpha is too
+  low for the target to be reachable the base clamps to white and the shortfall
+  is accepted -- still far more visible than the verbatim value.
+
   ALPHA VALUES on text are left as they are ONLY WHERE THAT STILL READS. A wash like #22a5c94d composites against whatever is behind it, so it
   already adapts: 30% teal over white is a pale selection, the same 30% teal over
   #1E1E1E is a dark one. Rewriting them would break a polarity-independence they
@@ -249,6 +260,30 @@ def adapt_surface(value, bg_light=None, bg_dark=None):
     return hexof(*colorsys.hls_to_rgb(h, out, s))
 
 
+def adapt_wash(value, bg_light=None, bg_dark=None):
+    """Alpha surface rule: mirror what it composites to, keep the alpha.
+
+    Returns the same 8-digit form it was given.
+    """
+    bg_light = bg_light or parse(BG_LIGHT)
+    bg_dark = bg_dark or parse(BG_DARK)
+    alpha = parse(value)[3]
+    comp = over(parse(value), bg_light)
+    h, l, s = colorsys.rgb_to_hls(*comp[:3])
+    chroma = s * (1 - abs(2 * l - 1))
+    _, ll, _ = colorsys.rgb_to_hls(*bg_light[:3])
+    _, dl, _ = colorsys.rgb_to_hls(*bg_dark[:3])
+
+    target_l = max(0.0, min(1.0, dl + (ll - l)))
+    room = 1 - abs(2 * target_l - 1)
+    sat = min(1.0, chroma / room) if room > 1e-6 else 0.0
+    target = colorsys.hls_to_rgb(h, target_l, sat)
+
+    base = [max(0.0, min(1.0, (target[i] - (1 - alpha) * bg_dark[i]) / alpha))
+            for i in range(3)]
+    return hexof(*base) + "%02X" % round(alpha * 255)
+
+
 def has_alpha(value):
     return len(value.lstrip("#")) in (4, 8)
 
@@ -360,14 +395,13 @@ def main():
         if alpha == 0:
             colors[key] = val                       # a feature switched OFF
         elif alpha < 1:
-            # Alpha on TEXT keeps its faintness only while the composite still
-            # reads; on a surface or a border it is decoration and stays put.
-            composite = over(parse(val), parse(BG_DARK))
-            if (key.endswith(BG_SUFFIXES)
-                    or contrast(composite, parse(BG_DARK)) >= ALPHA_MIN_RATIO):
-                colors[key] = val
+            if key.endswith(BG_SUFFIXES):
+                colors[key] = adapt_wash(val)       # wash: mirror the composite
+            elif contrast(over(parse(val), parse(BG_DARK)),
+                          parse(BG_DARK)) >= ALPHA_MIN_RATIO:
+                colors[key] = val                   # text, faint by design
             else:
-                colors[key] = adapt(val)[0]
+                colors[key] = adapt(val)[0]         # text, would be invisible
         elif key.endswith(BG_SUFFIXES):
             # An accent surface needs no adaptation; a neutral one mirrors.
             colors[key] = val if sat >= ACCENT_SAT else adapt_surface(val)
