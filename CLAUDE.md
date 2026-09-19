@@ -1239,7 +1239,35 @@ and the original is kept in prose as provenance. Don't leave the two out of sync
   header says a line deleted from the generated file hands that setting back —
   so folding one of its values into this repo is two moves, not one: add it to
   the override *and* delete the line there, or the repo's copy is decorative.
-- **Blur only shows through what a surface leaves translucent.** At
+- **Blur costs area, not passes — and the parameters are not a lever.** Measured
+on Hyprland's own `drm-engine-gfx` (10s samples, medians of three interleaved
+runs, animating scene): `size 28 / passes 2` costs 16.61% against `size 7 /
+passes 4`'s 16.60%, and `xray` changes nothing either. `new_optimizations`
+caches the static background, so what is paid for is the damaged **area** being
+blurred. The only lever is therefore what is translucent: `blur.ignore_opacity`
+is true, so the focused window at `0.99` has a full blur pass rendered under it
+— the largest, most-damaged surface on screen — to show 1% of the wallpaper.
+Making it opaque takes the compositor from 15.1% to 13.0% against a 10.8%
+blur-off floor, i.e. ~60% of the blur bill, for a difference two full-screen
+captures put at 1.3% of pixels (nearly all of it text that scrolled between the
+shots).
+
+  **That was measured, offered and turned down: the `0.99` stays.** The frosted
+  material is meant to be what a window *is* here, not a state it enters when it
+  loses focus, and this machine has the headroom to pay for it. Don't re-propose
+  it as an optimisation, and don't go looking for a cheaper blur kernel either —
+  there isn't one. The same goes for the per-app rules the opacity work touched
+  on the way past (Figma's `1 1`, the browser re-match): those are deliberate and
+  are not tuning surface.
+
+Two things that make this measurable at all: Hyprland's `/proc/<pid>/fdinfo/*`
+carries `drm-engine-gfx` in nanoseconds, which isolates the compositor from
+whatever the apps are rendering (`gpu_busy_percent` is global and useless here);
+and the scene has to be genuinely constant, so interleave the configurations and
+take medians — a first pass over a playing video produced a 0% read and a 48%
+outlier before the scene settled.
+
+**Blur only shows through what a surface leaves translucent.** At
   `background-alpha` 0.92 barely 8% of the backdrop shows, so widening the blur
   radius there is close to invisible; `background-alpha` is the stronger lever.
   Taken to its conclusion: every `shell.*.toml` here now ships

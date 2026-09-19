@@ -63,9 +63,32 @@
 -- stays off -- stacking a darkening pass on top of it muddied the result and
 -- worked against the effect.
 --
+-- That focused 0.99 is the single most expensive thing on this desktop, and it
+-- is kept ANYWAY -- a decision, not an oversight, so don't re-derive it.
+-- Measured on Hyprland's own drm-engine-gfx (10s samples, animating scene,
+-- medians of three interleaved runs):
+--
+--     blur off                    10.8%
+--     blur + focused opaque       13.0%
+--     blur + focused 0.99         15.1%
+--
+-- i.e. the last 1% of translucency is ~60% of the whole blur bill, because
+-- ignore_opacity makes Hyprland render a full blur pass under the largest and
+-- most-damaged surface on screen to show 1% of what is behind it. Two
+-- full-screen captures of the same scene differ by 1.3% of pixels. The look
+-- won: the frosted material is meant to be what a window IS, not a state it
+-- enters when it loses focus.
+--
+-- The blur PARAMETERS are not a lever either, measured the same way: size 28 /
+-- passes 2 costs exactly what size 7 / passes 4 does (16.61% vs 16.60%), and
+-- xray changes nothing. With new_optimizations caching the static background,
+-- the cost is the damaged AREA being blurred, not the kernel. So there is no
+-- cheaper blur to find; the only lever is translucency, and that is the part
+-- being deliberately kept.
+--
 -- 0.99/0.875 currently. Focused was 1.0 (fully opaque), then 0.97, then 0.98,
--- before landing here; unfocused alone went through 0.9 and 0.88 on the way
--- to 0.875.
+-- before landing here, and went briefly back to 1.0 for the measurement above;
+-- unfocused alone went through 0.9 and 0.88 on the way to 0.875.
 o.window({ tag = "default-opacity" }, { opacity = "0.99 0.875" })
 
 -- ── Browser opacity: same unfocused glass as everything else ───────────────

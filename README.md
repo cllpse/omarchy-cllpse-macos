@@ -266,13 +266,24 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   them; it is kept so the effect returns if any alpha is lowered again. The dark/light copies are currently identical
   (same α over each mode's own `background` colour); tune light up if it reads
   washed out.
-- **Focused windows at 0.99, unfocused at 0.875, so the blur renders through both.**
+- **Focused windows at 0.99, unfocused at 0.875, so the blur renders through both
+  — kept deliberately, and it is the most expensive thing on this desktop.**
   Omarchy's `windows.lua` tags every window `+default-opacity`, lets the per-app
   files strip that tag, then applies `0.985 0.96` to whatever still carries it.
   `looknfeel-decoration.lua` repeats that *same tag match* later in load order and
   sets `0.99 0.875` — focused isn't fully opaque either, so it reads as the same
   glass material rather than a flat cutout next to the more translucent unfocused
-  windows. Matching the tag rather than `.*` matters: Omarchy deliberately
+  windows. That last 1% is not free, and the number is recorded so the choice
+  stays an informed one: `blur.ignore_opacity` is true, so it makes Hyprland
+  render a full blur pass under the largest, most-damaged surface on screen.
+  Measured on Hyprland's own `drm-engine-gfx` — blur off 10.8%, focused opaque
+  13.0%, focused `0.99` 15.1% — so it is ~60% of the blur bill for a difference
+  two full-screen captures put at 1.3% of pixels. Kept anyway: the frosted
+  material is what a window *is* here, not a state it enters when it loses focus.
+  The blur *parameters* are not an alternative lever: `size 28 / passes 2`
+  measured 16.61% against `size 7 / passes 4`'s 16.60%, because
+  `new_optimizations` caches the static background and the cost is the damaged
+  area, not the kernel. Matching the tag rather than `.*` matters: Omarchy deliberately
   untags what must not go translucent — DaVinci Resolve, PiP and webcam overlays,
   Steam, QEMU, RetroArch, YouTube/Zoom web apps — and gives browsers their own
   `1.0 0.985`, which the tag match above therefore never touches. Left as-is,
