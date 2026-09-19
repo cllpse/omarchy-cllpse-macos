@@ -839,6 +839,19 @@ so the last-wins note above applies to it too — apply.sh step 7d now checks
 both switches against Omarchy's stock file, which today carries no
 `--disable-features` line at all.
 
+**The profile avatar button, by contrast, cannot be removed at all — there is
+no lever, not even a costly one.** `ToolbarView` creates `AvatarToolbarButton`
+and sets its visibility from `AvatarToolbarButtonInterface::CanShowForProfile`,
+which on non-ChromeOS is `IsIncognitoProfile() || IsGuestSession() ||
+IsRegularProfile()` — i.e. true for every profile anyone browses in (read at
+tag 152.0.7977.82, the version installed here, not just on main). No pref, no
+policy and no feature flag enters that expression; the only gate above it,
+`IsWebUIAvatarButtonEnabled()`, swaps in the WebUI toolbar's own avatar rather
+than dropping it. The media button's trick does not transfer: that one was
+*data*-driven (no media session, no button), while this one is structural.
+`BrowserSignin`, `BrowserAddPersonEnabled` and the other profile policies change
+what the button's menu offers, never whether it is drawn.
+
 **DevTools is deliberately not in that list.** `DeveloperToolsAvailability: 2`
 was, originally, and it is the one key whose blast radius went past the menu —
 it blocks Inspect *everywhere*, local dev servers included. It is now absent
