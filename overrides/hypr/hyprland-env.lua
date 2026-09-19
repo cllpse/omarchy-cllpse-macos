@@ -16,8 +16,13 @@ hl.env("OMARCHY_MENU_FONT", "SFProText Nerd Font Propo")
 -- rather than installing it (no sudo).
 hl.env("XCURSOR_THEME", "Bibata-Modern-Ice")
 hl.env("HYPRCURSOR_THEME", "Bibata-Modern-Ice")
-hl.env("XCURSOR_SIZE", "24")
-hl.env("HYPRCURSOR_SIZE", "24")
+-- 22, against Omarchy's own 24 (default/hypr/envs.lua sets the size and no
+-- theme, so the size is the only half of this we are overriding rather than
+-- adding). Read by clients at LAUNCH, so a change here reaches an app only when
+-- it next starts -- gsettings cursor-size, which apply.sh sets to match, is the
+-- half that GTK apps pick up live.
+hl.env("XCURSOR_SIZE", "22")
+hl.env("HYPRCURSOR_SIZE", "22")
 
 -- Never warp the pointer to a window on focus changes -- the window switcher,
 -- workspace switches, focuswindow dispatches. Keeps the cursor where it was,

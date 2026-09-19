@@ -329,9 +329,9 @@ if [[ ! -d /usr/share/icons/Bibata-Modern-Ice && ! -d ~/.local/share/icons/Bibat
   skip "cursor theme Bibata-Modern-Ice not found — install it with: yay -S bibata-cursor-theme-bin"
   skip "  (AUR, so pacman -S will not find it; the cursor setting below is applied regardless)"
 fi
-say "gsettings: cursor theme -> Bibata-Modern-Ice @ 24"
+say "gsettings: cursor theme -> Bibata-Modern-Ice @ 22"
 gsettings set org.gnome.desktop.interface cursor-theme 'Bibata-Modern-Ice'
-gsettings set org.gnome.desktop.interface cursor-size 24
+gsettings set org.gnome.desktop.interface cursor-size 22
 
 # ── 7. apps Omarchy doesn't theme ───────────────────────────────────────────
 say "bat -> ~/.config/bat/config (--theme=ansi)"
