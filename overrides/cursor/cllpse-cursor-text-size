@@ -1,0 +1,47 @@
+#!/bin/bash
+# Re-derive Cursor's editor.fontSize from `omarchy display text size`.
+#
+# apply.sh already derives it once, during the settings.json merge. This is the
+# other half: it keeps the value tracking a LATER `omarchy display text size`,
+# which is what Ghostty gets for free and Cursor did not.
+#
+# Ghostty is updated by that command directly -- it seds font-size into
+# ~/.config/ghostty/config and signals the running process. It can do that
+# because Ghostty is one of the four terminals the command knows about.
+# Cursor is not, and `omarchy display text size` fires no hook of any kind
+# (checked: zero `hook` references in omarchy-display-text-size, and the hook
+# dirs that exist are battery-low / font-set / post-boot / post-update /
+# pre-refresh-pacman / theme-set -- none for text size). So there is nothing to
+# hang this on at the omarchy end, and the trigger is a systemd path unit on
+# the file the command actually writes: ~/.config/omarchy/shell.toml, whose
+# [font] base-size IS the px knob the other three settings are derived from.
+#
+# editor.fontSize is in px, like that base-size, so this is a straight copy
+# rather than the px * 9/12 the terminals take. Cursor watches settings.json
+# and re-flows live, so no signal is needed at this end.
+set -euo pipefail
+
+SETTINGS="${XDG_CONFIG_HOME:-$HOME/.config}/Cursor/User/settings.json"
+
+[[ -f $SETTINGS ]] || exit 0
+command -v jq >/dev/null 2>&1 || exit 0
+command -v omarchy >/dev/null 2>&1 || exit 0
+
+# Same reading apply.sh takes, from the same command, so the two cannot drift.
+px="$(omarchy display text size 2>/dev/null | sed -n '1s/[^0-9]*\([0-9][0-9]*\).*/\1/p')"
+[[ $px =~ ^[0-9]+$ ]] || exit 0
+(( px >= 6 && px <= 40 )) || exit 0
+
+# Nothing to do is the common case -- the path unit also fires for shell.toml
+# edits that have nothing to do with size -- and rewriting the file anyway would
+# make Cursor reload its settings for no reason.
+current="$(jq -r '."editor.fontSize" // empty' "$SETTINGS" 2>/dev/null || true)"
+[[ $current == "$px" ]] && exit 0
+
+# Written through a temp file and only on success: settings.json is Cursor's
+# own file and a half-written one loses every preference in it, not just ours.
+tmp="$(mktemp)"
+trap 'rm -f "$tmp"' EXIT
+if jq --argjson px "$px" '.["editor.fontSize"] = $px' "$SETTINGS" >"$tmp" 2>/dev/null && [[ -s $tmp ]]; then
+  cat "$tmp" >"$SETTINGS"
+fi

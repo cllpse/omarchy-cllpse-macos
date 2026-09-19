@@ -1,0 +1,8 @@
+# Oneshot companion to cllpse-cursor-text-size.path. Never enabled itself --
+# the .path unit is what gets enabled, and it starts this.
+[Unit]
+Description=Sync Cursor editor.fontSize from Omarchy text size
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/cllpse-cursor-text-size

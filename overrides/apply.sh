@@ -555,6 +555,30 @@ if [[ -x /usr/bin/cursor || -d ${cursor_settings%/*} ]]; then
     if [[ -s $_merged ]]; then
       mv "$_merged" "$cursor_settings"
       say "Cursor -> $cursor_settings (jq merge, editor.fontSize ${_px:-fallback} from display text size)"
+
+      # The derivation above is a one-shot, taken during this merge. Keeping it
+      # tracking a LATER `omarchy display text size` needs a trigger, and
+      # omarchy offers none: that command fires no hook, and none of the hook
+      # dirs it does have (battery-low / font-set / post-boot / post-update /
+      # pre-refresh-pacman / theme-set) covers text size. So the trigger is a
+      # systemd path unit on the file the command writes.
+      #
+      # User units, not system: the target is $HOME/.config/Cursor. The .path
+      # is what gets enabled; it starts the oneshot .service, which is why only
+      # the former is in [Install].
+      mkdir -p ~/.local/bin ~/.config/systemd/user
+      ln -sfn "$HERE/cursor/cllpse-cursor-text-size" ~/.local/bin/cllpse-cursor-text-size
+      _units_changed=0
+      for _u in cllpse-cursor-text-size.path cllpse-cursor-text-size.service; do
+        if ! cmp -s "$HERE/cursor/$_u" ~/.config/systemd/user/"$_u"; then
+          cp "$HERE/cursor/$_u" ~/.config/systemd/user/"$_u"
+          _units_changed=1
+        fi
+      done
+      (( _units_changed )) && systemctl --user daemon-reload >/dev/null 2>&1
+      systemctl --user enable --now cllpse-cursor-text-size.path >/dev/null 2>&1 \
+        && say "Cursor text size -> follows \`omarchy display text size\` (systemd path unit)" \
+        || skip "could not enable cllpse-cursor-text-size.path — editor.fontSize will only update on apply"
     else
       rm -f "$_merged"
       skip "Cursor settings merge produced nothing — left settings.json untouched"

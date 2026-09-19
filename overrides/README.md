@@ -361,6 +361,9 @@ yazi/generate-icons.py        rewrites yazi's ~725 icon rules onto ANSI names, r
 yazi/cllpse-macos.tmTheme.tpl  previewer syntax theme with {{ placeholders }} — Xcode's scope assignment in the macOS palette; hex-only, so generated per theme
 hooks/theme-set.d/yazi-syntax.sh  renders the template above into ~/.config/yazi/cllpse-macos.tmTheme on every theme switch, raising hues to 4.5:1 against the background
 hooks/theme-set.d/cursor-chrome.sh  copies Omarchy's window-chrome colours into Cursor's workbench.colorCustomizations, scoped to the Bearded themes named in cursor/settings.json
+cursor/cllpse-cursor-text-size      re-derives Cursor's editor.fontSize from `omarchy display text size`
+cursor/cllpse-cursor-text-size.path systemd user path unit on ~/.config/omarchy/shell.toml that runs it
+cursor/cllpse-cursor-text-size.service oneshot started by the .path unit above
 gh-dash/theme.yml.tpl         theme.colors as HEX, baked from colors.toml by the theme-set hook and merged into gh-dash's own config.yml
 hunk/config.toml.tpl          hunk's custom theme with {{ placeholders }} — hex only, so it is generated per theme
 hooks/theme-set.d/hunk-colors.sh  renders the template above into ~/.config/hunk/config.toml on every theme switch

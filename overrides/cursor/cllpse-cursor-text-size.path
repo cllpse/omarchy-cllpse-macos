@@ -1,0 +1,15 @@
+# Watches the file `omarchy display text size` writes, so Cursor's
+# editor.fontSize follows that knob the way the terminals' font sizes do.
+#
+# PathChanged (not PathModified): the command rewrites shell.toml through a
+# temp file and renames it into place, so the inode changes and PathModified
+# would miss it.
+[Unit]
+Description=Watch Omarchy text size for Cursor
+
+[Path]
+PathChanged=%h/.config/omarchy/shell.toml
+Unit=cllpse-cursor-text-size.service
+
+[Install]
+WantedBy=default.target
