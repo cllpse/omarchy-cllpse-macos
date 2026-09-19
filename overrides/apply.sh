@@ -35,8 +35,9 @@
 #   8c. hyprctl reload (determinism; autoreload already covers the hypr files)
 #       — after 8b on purpose, so the focus handler's state is seeded against
 #       the keyd that is now running
-#   9. Chromium context-menu declutter: spellcheck/translate/password/autofill/
-#      Print/Cast/QR/Reading-list off (managed policy, sudo)
+#   9. Chromium managed policy (sudo): context-menu declutter (spellcheck/
+#      translate/password/autofill/Print/Cast/QR/Reading-list off) + the two
+#      force-installed extensions (uBlock Origin Lite, Proton Pass)
 #   10. CPU power limits: ryzenadj 52W sustained, reapplied at boot and on
 #       resume by a systemd unit (sudo) — HARDWARE-GATED to the 8745HS in the
 #       Geekom A8, since these are numbers for one thermal design
@@ -1305,7 +1306,7 @@ else
   skip "no running Hyprland — the hypr overrides apply at the next login"
 fi
 
-# ── 9. Chromium context-menu declutter: managed policy (needs sudo) ────────
+# ── 9. Chromium managed policy: declutter + extensions (needs sudo) ───────
 # LAST on purpose. This is the only step that needs sudo, so it runs after
 # everything else rather than stalling a run halfway through on a password
 # prompt. It used to sit between 7f2 and 7h.
@@ -1357,6 +1358,38 @@ fi
 # rather than asserting a value, which is what a managed policy should do for a
 # setting we have no opinion about. "Inspect" comes back in the context menu as
 # a consequence; there is no lever that separates the two.
+#
+# ExtensionInstallForcelist pins two extensions, both by ID against Google's
+# CRX endpoint (the only update URL the Chrome Web Store serves):
+#   ddkjiahejlhfcafbddmgiahcphecmpfh  uBlock Origin Lite
+#   ghmbeldphafepmbegfdlkpapadhbakde  Proton Pass
+# Both IDs verified against the vendors' own listings, not typed from memory —
+# the store has a long tail of copycats trading on these names, and an ID is
+# the only identifier a forcelist entry actually matches on.
+#
+# uBOL rather than uBlock Origin because MV2 is gone: `grep -a` on this
+# machine's chromium binary finds no ExtensionManifestV2Availability at all
+# (Chromium 152), so the policy that used to force MV2 back on no longer
+# exists to set. uBOL installs in its Basic filtering mode and the mode is a
+# per-profile setting with no policy behind it — raise it to Optimal by hand,
+# once, in the extension's own UI. A forcelist entry controls presence, not
+# configuration.
+#
+# Proton Pass is the other half of PasswordManagerEnabled:false above: that key
+# turns off Chromium's built-in manager and save prompts, which leaves nothing
+# offering to store a credential unless something else does.
+#
+# Forced means forced: neither extension can be removed or disabled from
+# chrome://extensions while this file is in place. That is the point (they
+# survive a profile reset), but it is also the usual reason an extension looks
+# stuck — revert.sh removing this file is the supported way out, and Chromium
+# uninstalls both on the next policy refresh once it is gone.
+#
+# Note the interaction with the DevTools paragraph above: Chromium's default 0
+# means "available EXCEPT on force-installed extensions", so from here on there
+# are two extensions whose own pages and service workers cannot be inspected.
+# Pages we did not write, so this costs nothing; worth knowing before it reads
+# as a DevTools bug.
 if [[ -f "$HERE/chromium/policies-managed.json" &&
       -d /etc/chromium/policies/managed && ! -L /etc/chromium/policies/managed ]]; then
   dest=/etc/chromium/policies/managed/cllpse-macos.json

@@ -7,5 +7,9 @@
   "SpellcheckEnabled": false,
   "PasswordManagerEnabled": false,
   "AutofillAddressEnabled": false,
-  "AutofillCreditCardEnabled": false
+  "AutofillCreditCardEnabled": false,
+  "ExtensionInstallForcelist": [
+    "ddkjiahejlhfcafbddmgiahcphecmpfh;https://clients2.google.com/service/update2/crx",
+    "ghmbeldphafepmbegfdlkpapadhbakde;https://clients2.google.com/service/update2/crx"
+  ]
 }

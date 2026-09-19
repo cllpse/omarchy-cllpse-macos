@@ -441,13 +441,17 @@ if [[ -f /etc/systemd/system/ryzen-tdp.service ]]; then
   sudo systemctl daemon-reload
 fi
 
+# Removing this file also un-forces the two extensions it pins (uBlock Origin
+# Lite, Proton Pass): Chromium uninstalls a force-installed extension once it
+# leaves the forcelist, so there is nothing else to clean up here. Anything the
+# extensions stored in the profile goes with them.
 dest=/etc/chromium/policies/managed/cllpse-macos.json
 if [[ -f $dest ]]; then
-  say "Removing Chromium managed policy (needs sudo): $dest"
+  say "Removing Chromium managed policy + forced extensions (needs sudo): $dest"
   sudo rm -f "$dest" || say "  could not remove $dest — remove it yourself: sudo rm -f $dest"
 fi
 
 echo
 say "Done."
 say "Relogin to clear OMARCHY_MENU_FONT and the font-cache changes."
-say "Relaunch Chromium to clear the context-menu policy (or it self-refreshes on the next theme set)."
+say "Relaunch Chromium to clear the context-menu policy and uninstall the forced extensions (or it self-refreshes on the next theme set)."
