@@ -376,50 +376,23 @@ else
   skip "lazydocker not installed — skipped ~/.config/lazydocker/config.yml"
 fi
 
-# gh-dash. MERGED, not copied: its config.yml also holds the user's own
-# prSections / issuesSections / layout, which this repo has no business owning.
-# Only the `theme` key is replaced. PyYAML round-trips the file, so comments and
-# key order in the parts we don't touch are not preserved -- acceptable here
-# because gh-dash generates that file itself, but it is why this is a merge
-# rather than a deep-merge of every key.
+# gh-dash. Installed as a theme-set HOOK rather than merged once here, because
+# gh-dash cannot follow the terminal's ANSI palette: it hands colour strings to
+# termenv, which resolves an index against its own hardcoded table instead of
+# leaving slots 0-15 to the terminal. Measured on v4.25.2 -- "4" came out as
+# ESC[38;2;0;0;128m (xterm navy), not the theme's blue. So the palette is baked
+# from colors.toml on every theme-set, the way hunk and starship are.
+# The hook still MERGES rather than copies: config.yml also holds the user's own
+# prSections / issuesSections / layout, so only theme.colors is replaced.
 _ghdash_dir="${XDG_DATA_HOME:-$HOME/.local/share}/gh/extensions/gh-dash"
-_ghdash_cfg="${XDG_CONFIG_HOME:-$HOME/.config}/gh-dash/config.yml"
-if [[ -d $_ghdash_dir ]] && command -v python3 >/dev/null 2>&1; then
-  mkdir -p "${_ghdash_cfg%/*}"
-  backup "$_ghdash_cfg"
-  if python3 - "$_ghdash_cfg" "$HERE/gh-dash/theme.yml" <<'PYGH'
-import sys, io
-try:
-    import yaml
-except ImportError:
-    sys.exit(3)
-cfg_path, theme_path = sys.argv[1], sys.argv[2]
-try:
-    with io.open(cfg_path, encoding="utf-8") as f:
-        cfg = yaml.safe_load(f) or {}
-except FileNotFoundError:
-    cfg = {}
-if not isinstance(cfg, dict):
-    sys.exit(4)
-with io.open(theme_path, encoding="utf-8") as f:
-    frag = yaml.safe_load(f) or {}
-# Replace only the colors sub-tree, so a `theme.ui` block the user set survives.
-theme = cfg.get("theme")
-if not isinstance(theme, dict):
-    theme = {}
-theme["colors"] = frag["theme"]["colors"]
-cfg["theme"] = theme
-with io.open(cfg_path, "w", encoding="utf-8") as f:
-    yaml.safe_dump(cfg, f, sort_keys=False, default_flow_style=False, allow_unicode=True)
-PYGH
-  then
-    say "gh-dash -> $_ghdash_cfg (ANSI theme, merged)"
-  else
-    skip "gh-dash theme merge failed (PyYAML missing or config unparseable) —"
-    skip "  merge $HERE/gh-dash/theme.yml in by hand"
-  fi
+if [[ -d $_ghdash_dir ]]; then
+  say "gh-dash -> ~/.config/omarchy/hooks/theme-set.d/gh-dash-colors.sh"
+  mkdir -p ~/.config/omarchy/hooks/theme-set.d
+  ln -sfn "$HERE/hooks/theme-set.d/gh-dash-colors.sh" ~/.config/omarchy/hooks/theme-set.d/gh-dash-colors.sh
+  backup "${XDG_CONFIG_HOME:-$HOME/.config}/gh-dash/config.yml"
+  "$HERE/hooks/theme-set.d/gh-dash-colors.sh" || skip "gh-dash-colors.sh produced nothing this run — left config.yml untouched"
 else
-  skip "gh-dash not installed — skipped its theme merge"
+  skip "gh-dash not installed — skipped its theme hook"
 fi
 
 # Starship has no Omarchy-aware theming of its own and no config "import"
