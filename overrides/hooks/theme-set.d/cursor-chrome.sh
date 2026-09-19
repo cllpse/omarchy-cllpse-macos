@@ -107,8 +107,27 @@ EXACT='["editor.background","editorGutter.background"]'
 # is still marked, by wash only, on the gutter too via
 # `editor.renderLineHighlight: "all"` in cursor/settings.json.
 #
-# tab.hoverBackground is deliberately left alone -- only the borders are managed
-# here.
+# tab.border is the SEPARATOR between tabs, and it is the one edge here that is
+# a real CSS border rather than an overlay div. Cursor sets it inline on every
+# tab -- `borderRight = 1px solid ${tab.lastPinnedBorder || tab.border ||
+# contrastBorder}` -- and Omarchy paints it the window colour, which is
+# invisible against an inactive tab and a 1px white notch against a hovered or
+# active one, now that those carry a wash.
+#
+# Transparent, not the tab colour: `.tabs-container > .tab` sets no
+# background-clip, so the default border-box paints the tab's own background
+# under its border, and box-sizing: border-box means the 1px is already inside
+# the tab's width. So zero alpha shows whatever that particular tab is -- white
+# when inactive, the wash when hovered or active -- with nothing to keep in sync
+# and no reflow. Zero alpha rather than DELETING the key, because Cursor falls
+# through to contrastBorder when the colour is undefined; a transparent colour
+# is still defined, so the fallback does not fire.
+#
+# tab.lastPinnedBorder is deliberately left alone -- it marks where the pinned
+# tabs end, which is information, not decoration.
+#
+# The three BOTTOM-edge keys are not here -- they are derived below, from the
+# tab background, rather than pinned to a literal.
 #
 # editorHoverWidget.border is NOT forced here any more -- it follows the border
 # token below, like every other managed edge.
@@ -164,19 +183,21 @@ SHADOW_DARK='#00000059'
 
 # The rest of $FORCE is mode-independent: all three are fully transparent, and
 # zero alpha reads the same on any background.
-FORCE='{"tab.activeBorderTop":"#00000000","tab.unfocusedActiveBorderTop":"#00000000","editor.lineHighlightBorder":"#00000000"}'
+FORCE='{"tab.activeBorderTop":"#00000000","tab.unfocusedActiveBorderTop":"#00000000","tab.border":"#00000000","editor.lineHighlightBorder":"#00000000"}'
 
-# ONE bottom border, shared by the selected and hovered states. Omarchy gives
-# them different values -- tab.activeBorder the full accent (#007AFF),
-# tab.hoverBorder a 25%-alpha wash of it (#007AFF40) -- so a tab's bottom edge
-# changed weight depending on whether it was selected or merely under the
-# pointer. Assigning one from the other makes hover and selection read
-# identically.
+# WHAT MARKS THE ACTIVE TAB, now that no tab has an underline: its background,
+# set to exactly what an inactive tab shows under the pointer. Omarchy paints
+# tab.activeBackground the window colour (#FFFFFF light, #1E1E1E dark) and
+# tab.hoverBackground a 25% wash of muted (#BDBDBD40 / #56565640) -- so before
+# this the selected tab was indistinguishable from the strip it sits in, and
+# only the accent line said which one it was.
 #
-# Derived rather than pinned in $FORCE so it stays whatever accent the active
-# theme paints. tab.unfocusedHoverBorder needs no entry: Cursor's own colour
-# registry defines it as a .5 (dark) / .7 (light) alpha of tab.hoverBorder, so
-# it follows from this.
+# Derived from the hover value rather than pinned in $FORCE so it tracks the
+# theme's own muted, like every other managed value here. The wash composites
+# over editorGroupHeader.tabsBackground, which is the window colour, so the
+# result is byte-identical to what a hovered tab renders. The unfocused pair
+# follows the same way: Omarchy gives the two hover keys the same value, but
+# reading each from its own counterpart keeps them independent if that changes.
 
 # BORDER token -- `muted`, read off textSeparator.foreground (a bare
 # `{{ muted }}` in Omarchy's template) so it tracks the theme instead of being
@@ -207,6 +228,24 @@ fi
 if ! jq --slurpfile t "$THEME" --argjson pre "$CHROME" --argjson exact "$EXACT" --argjson force "$FORCE" \
        --arg shadow_light "$SHADOW_LIGHT" --arg shadow_dark "$SHADOW_DARK" \
        --argjson derived "$derived" '
+      # Hex helpers, for the tab bottom edges below. jq has no printf %02x and
+      # no hex literal parser, so both directions are spelled out.
+      def hx2i: reduce (ascii_downcase | explode[]) as $c
+                  (0; . * 16 + (if $c > 96 then $c - 87 else $c - 48 end));
+      def i2hx: ("0123456789ABCDEF" | explode) as $D
+                | [$D[(. / 16 | floor)], $D[. % 16]] | implode;
+      # "#RRGGBB" or "#RRGGBBAA" -> [r, g, b, a] with a in 0..1.
+      def rgba: ltrimstr("#")
+                | (if length >= 8 then (.[6:8] | hx2i) / 255 else 1 end) as $a
+                | [.[0:2], .[2:4], .[4:6]] | map(hx2i) | . + [$a];
+      # Composite this colour over an opaque one and return the flat result.
+      # Null in, null out, so a palette missing the key leaves the edge alone.
+      def flatten_over($bg): if . == null or $bg == null then null
+                else rgba as $f | ($bg | rgba) as $b
+                  | [range(0; 3)
+                     | (($f[.] * $f[3]) + ($b[.] * (1 - $f[3]))) | round]
+                  | map(i2hx) | "#" + add
+                end;
       . as $set
       | (($t[0].colors // {})["textSeparator.foreground"]) as $muted
       | (if ($t[0].type // "light") == "dark" then $shadow_dark else $shadow_light end) as $shadow
@@ -214,7 +253,19 @@ if ! jq --slurpfile t "$THEME" --argjson pre "$CHROME" --argjson exact "$EXACT" 
          | with_entries(select(.key as $k
              | any($pre[]; . as $p | $k | startswith($p)) or ($exact | index($k) != null)))
          + $force
-         | .["tab.hoverBorder"] = (.["tab.activeBorder"] // .["tab.hoverBorder"])
+         | (.["editorGroupHeader.tabsBackground"] // "#FFFFFF") as $strip
+         | (.["tab.hoverBackground"] // .["tab.activeBackground"]) as $act
+         | (.["tab.unfocusedHoverBackground"]
+            // .["tab.unfocusedActiveBackground"]) as $uact
+         | .["tab.activeBackground"] = ($act // .["tab.activeBackground"])
+         | .["tab.unfocusedActiveBackground"] =
+             ($uact // .["tab.unfocusedActiveBackground"])
+         | .["tab.activeBorder"] =
+             (($act | flatten_over($strip)) // .["tab.activeBorder"])
+         | .["tab.hoverBorder"] =
+             (($act | flatten_over($strip)) // .["tab.hoverBorder"])
+         | .["tab.unfocusedActiveBorder"] =
+             (($uact | flatten_over($strip)) // .["tab.unfocusedActiveBorder"])
          | .["widget.border"] = ($muted // .["widget.border"])
          | .["widget.shadow"] = $shadow) as $chrome
       # Derived editor-area colours go UNDERNEATH: every key the chrome copy

@@ -980,9 +980,8 @@ variant names live in one place. Both scopes get the current palette, which is
 always correct: only one is ever active, and it matches the mode that selected
 it. A `$FORCE` map is applied on top of the copy for keys where Omarchy's own value
 isn't wanted: `tab.activeBorderTop` (the accent line above the active tab), its
-unfocused twin, and `tab.hoverBorder` (the line under a tab while the pointer is
-over it) are set to `#00000000`. `tab.unfocusedHoverBorder` needs no entry — VS
-Code derives it from `tab.hoverBorder`, and neither theme sets it explicitly.
+unfocused twin, and `tab.border` are set to `#00000000`. The three bottom-edge
+keys are not in `$FORCE` — they are derived from the tab background, below.
 `editor.lineHighlightBorder` is zeroed there too — Bearded draws a coloured
 hairline box around the caret line (`#22a5c926` teal light, `#c7910c26` gold
 dark), the one border in the editor that is on screen at all times; with it gone
@@ -1000,16 +999,68 @@ else — so there is no shadow on it to recolour; the workbench hover does have
 one, but it is a soft `0 2px 8px var(--vscode-widget-shadow)`, and that key is
 global, so lighting it would bring back every widget shadow in the app
 (`widget.shadow` also feeds Cursor's whole `--cursor-shadow-*` palette). A `0 0
-0 1px` ring is CSS geometry, not a colour, and out of reach of any setting. The bottom border is
-deliberately **shared** between the selected and hovered states: Omarchy gives
-them different values (`tab.activeBorder` the full accent, `tab.hoverBorder` a
-25%-alpha wash of it), so a tab's bottom edge changed weight depending on which
-state it was in. The hook assigns one from the other — derived, not pinned, so it
-tracks the theme's accent — and `tab.unfocusedHoverBorder` follows for free, since
-Cursor's registry defines it as an alpha of `tab.hoverBorder`. Transparent rather than *deleted* —
+0 1px` ring is CSS geometry, not a colour, and out of reach of any setting.
+
+**With every tab edge gone, the active tab is marked by its BACKGROUND, set to
+exactly what an inactive tab shows under the pointer.** Omarchy paints
+`tab.activeBackground` the window colour and `tab.hoverBackground` a 25% wash of
+`muted` (`#BDBDBD40` light, `#56565640` dark), so zeroing the underline on its
+own would have left the selected tab indistinguishable from the strip it sits
+in. The hook assigns `tab.activeBackground` from `tab.hoverBackground` (and the
+unfocused pair from its own counterpart) — derived, not pinned, so it tracks the
+theme's `muted`. The wash composites over `editorGroupHeader.tabsBackground`,
+which is the window colour, so a selected tab renders byte-identical to a
+hovered one. Transparent rather than *deleted* for the borders —
 `colorCustomizations` only overrides what it names, so dropping a key hands that
 slot back to Bearded instead of clearing it. VS Code reads 8-digit `#RRGGBBAA`,
 which Omarchy's own generated file already relies on for its `#007AFF20` washes.
+
+**A tab's bottom edge is painted the tab's own colour — COMPOSITED, not the
+wash.** `tab.activeBorder` / `tab.unfocusedActiveBorder` / `tab.hoverBorder` are
+derived in the hook as `tab.hoverBackground` flattened over
+`editorGroupHeader.tabsBackground` (`#EEEEEE` light, `#2C2C2C` dark), which is
+why the jq program carries hex parse/format helpers. Assigning the wash itself
+would do the opposite of what it looks like: that edge is not a CSS border on
+the tab but a separate `.tab-border-bottom-container` div at `z-index: 10`
+drawn *over* it, so `#BDBDBD40` would composite a second time and land on
+`#E2E2E2` — a visible 12/255 line. `tab.unfocusedHoverBorder` still needs no
+entry; Cursor derives it as an alpha of `tab.hoverBorder`.
+
+`#00000000` would be equally invisible and was what shipped first. Measured with
+`grim` on a column straight down the active tab: rows 49-93 `#EEEDED`, with
+`#F6F5F5` on row 48 *and* row 94 — the same value both sides, i.e. the
+compositor's 1.25 downscale, not an edge. The derived value is what the repo
+carries because it says "this edge is the tab" rather than "this edge is off",
+and it survives anything later giving the element a colour of its own.
+
+**`tab.border` is the one tab edge that is a REAL CSS border, and it is the 1px
+notch on a hovered tab.** Cursor sets it inline on every tab —
+`borderRight = 1px solid ${tab.lastPinnedBorder || tab.border ||
+contrastBorder}` — and Omarchy paints it the window colour, which is invisible
+against a white inactive tab and a white notch against one carrying the hover
+wash. It is `#00000000` in `$FORCE`, not the tab colour: `.tabs-container > .tab`
+sets no `background-clip`, so the default `border-box` paints the tab's own
+background under its border, and `box-sizing: border-box` means the 1px is
+already inside the tab's width — zero alpha shows whatever that tab happens to
+be, in every state, with no reflow. Zero alpha rather than *deleting* it,
+because an undefined colour falls through to `contrastBorder`; a transparent one
+is still defined. `tab.lastPinnedBorder` is left alone — it marks where the
+pinned tabs end, which is information.
+
+**There is no lever for the edge's HEIGHT, and nothing to gain from one.**
+`.tab-border-bottom-container` is `position: absolute; pointer-events: none;
+height: 1px` — out of flow, so the tab is not 1px taller for it and nothing
+shifts when it is invisible. No `*BorderWidth` or `*BorderSize` key exists in
+the registry.
+
+**Rounded tab corners are unreachable.** No `border-radius` rule touches an
+editor tab in either `workbench.desktop.main.css` or `workbench.glass.main.css`
+(the only `tab`-named matches are the terminal's attention dot and the
+`.tab-key` chip), and the config registry has no radius or corner setting. CSS
+injection is the only route, and `product.json` checksums
+`vs/workbench/workbench.desktop.main.css`, so editing it raises Cursor's
+corrupt-installation banner unless the checksum is rewritten too — on a
+root-owned file that every `cursor-bin` upgrade replaces.
 
 **Edges and shadows are two tokens, because two is all the product exposes.**
 Material 2's elevation scale was the target and is out of reach: a 2dp or 6dp
