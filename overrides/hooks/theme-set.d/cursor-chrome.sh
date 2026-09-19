@@ -39,6 +39,16 @@ SETTINGS="$HOME/.config/Cursor/User/settings.json"
 # Bearded dark variant paints, which is what it did before this existed.
 DERIVED="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../../cursor/bearded-dark-colors.json"
 
+# The active Bearded variant's own JSON, resolved through the extension's
+# package.json (label -> path). It is needed for one thing only: the three
+# colour families Cursor registers that Omarchy has no key for (see the
+# re-tint below), where the alpha has to come from whatever the theme itself
+# painted. Absent -- no extension, a renamed variant, a future layout -- the
+# re-tint is skipped and those families keep their own colours, which is
+# exactly what they did before.
+BEARDED=""
+_bext=$(ls -d "$HOME"/.cursor/extensions/beardedbear.beardedtheme-* 2>/dev/null | sort | tail -1 || true)
+
 [[ -f $THEME ]] || exit 0
 [[ -f $SETTINGS ]] || exit 0
 command -v jq >/dev/null 2>&1 || exit 0
@@ -51,37 +61,71 @@ jq -e . "$SETTINGS" >/dev/null 2>&1 || {
 }
 jq -e . "$THEME" >/dev/null 2>&1 || exit 0
 
-# The last four are the overlay group: the quick input (SUPER+P and
-# SUPER+SHIFT+P are the same widget), the group separator and label inside it,
-# both hover widgets -- `.monaco-hover` in the editor and `.workbench-hover`
-# over tabs and the sidebar read the same editorHoverWidget.* vars -- and the
-# keybinding chips those two surfaces render. An overlay sits over the window
-# and should look like it belongs to it; Bearded paints a tooltip #c9ced2 grey
-# against a #FFFFFF window, with teal keybinding chips.
+# WHAT COMES FROM OMARCHY, AND WHAT STAYS BEARDED.
 #
-# Three neighbours are deliberately NOT here. `list.` would repaint every tree
-# in the workbench for the sake of the picker's rows, and Omarchy's own
-# list.hoverBackground is the window background -- taking it would cost the
-# hover feedback Bearded has. `input.` reaches the find widget, the settings
-# search and the SCM box for a #f9f9fa-vs-#FFFFFF difference inside the picker's
-# own field. `editorSuggestWidget.` is completion, which is syntax-adjacent and
-# belongs with the colours Bearded was chosen for.
-CHROME='["titleBar.","activityBar","sideBar","statusBar","editorGroupHeader.","tab.","panel","menu","commandCenter.","toolbar.","banner.","breadcrumb","quickInput","pickerGroup.","editorHoverWidget.","keybindingLabel."]'
+# The boundary used to be a list of chrome prefixes -- the frame, plus the
+# surfaces that float over it -- with everything else left to Bearded. That
+# left the two palettes meeting inside single widgets, and the seams were
+# visible rather than theoretical: the active sidebar-toggle chip was opaque
+# `muted` while the active editor tab beside it was a 25% wash of the same
+# colour, every text field was Bearded's blue-tinted #202027 against the flat
+# neutral window, and Bearded's cyan/teal/gold turned up in accent roles
+# (badge, button, progress bar, focus ring, list selection, links) on a desktop
+# whose accent is #007AFF everywhere else.
+#
+# So the rule is inverted: EVERY key Omarchy paints is taken, except the editor
+# CANVAS and the things drawn on it, which is what Bearded was chosen for in
+# the first place. $KEEP is that exception list, and it is the only thing to
+# edit when a surface is on the wrong side -- adding a prefix hands it back to
+# Bearded, removing one takes it over.
+#
+# What KEEP holds, and why each entry is canvas rather than chrome:
+#   editor.            the code area itself -- selection, find matches, word
+#                      and range highlights, the current-line wash, folded
+#                      regions. editor.background is pulled back out below.
+#   editorBracket*     bracket pair colours and their guides: syntax.
+#   editorIndentGuide. editorWhitespace. editorRuler. editorCodeLens.
+#   editorLineNumber.  editorGhostText. editorInlayHint. editorLink.
+#   editorUnnecessaryCode. editorHint.   all drawn among the glyphs.
+#   editorCursor. terminalCursor.        the caret pair (their *.background is
+#                      the character drawn ON the cursor, so the pair inverts).
+#   symbolIcon. debugTokenExpression.    token-coloured symbol lists; they read
+#                      as syntax wherever they appear.
+#   editorOverviewRuler. minimap*        the miniature of the canvas -- these
+#                      have to agree with the canvas, not with the frame.
+#
+# Everything else -- inputs, dropdowns, checkboxes, buttons, badges, progress
+# bars, lists and trees, scrollbars, notifications, peek view, settings, the
+# welcome page, git decorations, diff and merge, the integrated terminal's ANSI
+# set, and the whole window frame that was here before -- now comes from
+# Omarchy's generated theme, so it is the same palette the rest of the desktop
+# is painted from.
+#
+# The integrated terminal is the one entry worth re-reading later: its ANSI
+# colours are Omarchy's now, which matches Ghostty, btop and everything else
+# themed here, and differs from the editor's own syntax palette by design. Add
+# "terminal.ansi" to $KEEP to hand it back to Bearded.
+KEEP='["editor.","editorBracket","editorIndentGuide.","editorWhitespace.","editorRuler.","editorCodeLens.","editorLineNumber.","editorCursor.","terminalCursor.","editorGhostText.","editorInlayHint.","editorUnnecessaryCode.","editorLink.","editorHint.","symbolIcon.","debugTokenExpression.","editorOverviewRuler.","minimap"]'
 
-# Whole-key additions, for surfaces that are not chrome but must agree with it.
-# The editor pane is the big one: Bearded paints it #f4f4f4 against the window's
-# #FFFFFF, so the editor sat as a visible panel inside the window instead of
-# being the window. Taking Omarchy's value makes the editor the window colour.
+# Keys taken from Omarchy even though $KEEP covers them.
 #
-# editorGutter.background has to come too -- Bearded sets it explicitly to the
-# same #f4f4f4, so on its own the gutter would stay grey against a white editor.
+# editor.background is the big one: Bearded paints it #f4f4f4 against the
+# window`s #FFFFFF, so the editor sat as a visible panel inside the window
+# instead of being the window.
+#
+# editorGutter.background is no longer needed here -- editorGutter. is not in
+# $KEEP, so the whole group comes from Omarchy with everything else -- but it
+# is left named for the record: it has to agree with editor.background, and
+# Bearded sets it explicitly to the same grey.
+#
 # The neighbouring surfaces (editorPane, editorGroup.emptyBackground,
 # editorStickyScroll) need no entry: Bearded leaves them unset and VS Code
-# derives them from editor.background, which is now ours (checked).
-#
-# Widgets, lists, the terminal and syntax stay Bearded -- this is the editor
-# SURFACE, not the editor's contents.
-EXACT='["editor.background","editorGutter.background"]'
+# derives them from editor.background, which is ours (checked).
+# minimap.background is the third: the minimap strip is part of the canvas, so
+# the group stays in $KEEP for its highlight marks, but Bearded paints the
+# strip itself #25292D -- a blue-grey column against a #1E1E1E editor. Same
+# argument as the gutter: the SURFACE is the editor, the marks on it are not.
+EXACT='["editor.background","editorGutter.background","minimap.background"]'
 
 # Keys forced on top of whatever Omarchy painted, where its value isn't wanted.
 #
@@ -216,18 +260,35 @@ FORCE='{"tab.activeBorderTop":"#00000000","tab.unfocusedActiveBorderTop":"#00000
 # palette and the tooltips share one edge, which they never did before.
 
 
+if [[ -n $_bext && -f $_bext/package.json ]] && command -v jq >/dev/null 2>&1; then
+  _mode=$(jq -r '.type // "light"' "$THEME")
+  _label=$(jq -r --arg m "$_mode" \
+    'if $m == "dark" then .["workbench.preferredDarkColorTheme"]
+     else .["workbench.preferredLightColorTheme"] end // empty' "$SETTINGS")
+  if [[ -n $_label ]]; then
+    _rel=$(jq -r --arg l "$_label" \
+      '.contributes.themes[] | select(.label == $l) | .path' "$_bext/package.json" | head -1)
+    [[ -n $_rel ]] && [[ -f $_bext/${_rel#./} ]] && BEARDED="$_bext/${_rel#./}"
+  fi
+fi
+
 tmp=$(mktemp)
 # Dark only: in light mode the scheme IS Bearded Theme Light, so there is
 # nothing to derive.
 derived='{}'
+# The active Bearded variant's own colors object, for the re-tint's alphas.
+bearded='{}'
+if [[ -n $BEARDED ]] && jq -e . "$BEARDED" >/dev/null 2>&1; then
+  bearded="$(jq -c '.colors // {}' "$BEARDED")"
+fi
 if [[ -f $DERIVED ]] && jq -e . "$DERIVED" >/dev/null 2>&1 &&
    [[ $(jq -r '.type // "light"' "$THEME") == dark ]]; then
   derived="$(<"$DERIVED")"
 fi
 
-if ! jq --slurpfile t "$THEME" --argjson pre "$CHROME" --argjson exact "$EXACT" --argjson force "$FORCE" \
+if ! jq --slurpfile t "$THEME" --argjson keep "$KEEP" --argjson exact "$EXACT" --argjson force "$FORCE" \
        --arg shadow_light "$SHADOW_LIGHT" --arg shadow_dark "$SHADOW_DARK" \
-       --argjson derived "$derived" '
+       --argjson derived "$derived" --argjson bearded "$bearded" '
       # Hex helpers, for the tab bottom edges below. jq has no printf %02x and
       # no hex literal parser, so both directions are spelled out.
       def hx2i: reduce (ascii_downcase | explode[]) as $c
@@ -238,6 +299,18 @@ if ! jq --slurpfile t "$THEME" --argjson pre "$CHROME" --argjson exact "$EXACT" 
       def rgba: ltrimstr("#")
                 | (if length >= 8 then (.[6:8] | hx2i) / 255 else 1 end) as $a
                 | [.[0:2], .[2:4], .[4:6]] | map(hx2i) | . + [$a];
+      # Swap a colour hue for one of ours while KEEPING the alpha the theme
+      # gave it, so a wash stays a wash and a solid stays solid.
+      def retint($src): . as $cur
+                | if $cur == null or $src == null then $cur
+                  else ($src[0:7]
+                        + (if ($cur | ltrimstr("#") | length) >= 8
+                           then ($cur | ltrimstr("#"))[6:8] else "" end))
+                  end;
+      # Alpha byte of "#RRGGBBAA" (255 when the colour is 6-digit).
+      def alpha_of: if . == null then 255
+                    elif (ltrimstr("#") | length) >= 8 then (.[7:9] | hx2i)
+                    else 255 end;
       # Composite this colour over an opaque one and return the flat result.
       # Null in, null out, so a palette missing the key leaves the edge alone.
       def flatten_over($bg): if . == null or $bg == null then null
@@ -251,8 +324,89 @@ if ! jq --slurpfile t "$THEME" --argjson pre "$CHROME" --argjson exact "$EXACT" 
       | (if ($t[0].type // "light") == "dark" then $shadow_dark else $shadow_light end) as $shadow
       | (($t[0].colors // {})
          | with_entries(select(.key as $k
-             | any($pre[]; . as $p | $k | startswith($p)) or ($exact | index($k) != null)))
+             | ((any($keep[]; . as $p | $k | startswith($p))) | not)
+               or ($exact | index($k) != null)))
          + $force
+         # ONE WASH FOR EVERY HOVER/ACTIVE STATE.
+         #
+         # Omarchy paints its state backgrounds three different weights, and
+         # two of them are wrong next to the active tab: `{{ background }}`,
+         # which is the window colour and therefore no feedback at all
+         # (toolbar.hoverBackground, list.hoverBackground,
+         # button.secondaryHoverBackground, settings.rowHoverBackground), and
+         # opaque `{{ muted }}`, which is far heavier than anything else that
+         # marks a selection (toolbar.activeBackground -- the sidebar-toggle
+         # chip -- commandCenter.activeBackground, inputOption.hoverBackground,
+         # statusBarItem.activeBackground and its compact hover).
+         # statusBarItem.hoverBackground is a third weight again, muted at 38%.
+         #
+         # All of them are rewritten to the tab wash, so "this thing is hovered
+         # or active" is one colour across the whole window. The test is
+         # mechanical rather than a key list: a state background is wrong if it
+         # is the window colour, or if it is muted at an alpha ABOVE the wash
+         # -- which catches the opaque case, the 38% case and anything Omarchy
+         # adds later, while leaving alone the states that already sit at the
+         # wash or below it, and every state painted in the accent.
+         #
+         # Five prefixes are excluded, and the reason splits in two.
+         #
+         # tab.* and titleBar.* are surfaces: the tab pair is derived just
+         # below, and tab.inactiveBackground and titleBar.*Background are
+         # supposed to BE the window colour.
+         #
+         # scrollbarSlider., extensionButton. and button. own a solid surface
+         # of their own, so their hover is a relationship to THAT, not to the
+         # window -- and the wash would inverted it. Measured before excluding
+         # them: the slider rests at muted 25% and hovers at 50%, so washing
+         # the hover made hover and rest identical and the feedback vanished;
+         # the extension button rests at opaque muted and hovers at 50%, so the
+         # wash made a hovered button LIGHTER than an idle one.
+         # The one real bug among them is handled on its own below.
+         | (.["tab.hoverBackground"] // "#00000000") as $wash
+         | ($wash | alpha_of) as $washa
+         | (.["editor.background"] // "#000000" | ascii_downcase) as $bgl
+         | ($muted // "#000000" | ascii_downcase) as $mutedl
+         | reduce (keys_unsorted[]
+                   | . as $k
+                   | select($k | test("(?i)(hover|active|selection|focus)background$"))
+                   | select([ "tab.", "titleBar.", "scrollbarSlider.",
+                              "extensionButton.", "button." ]
+                            | any(. as $p | $k | startswith($p)) | not)
+                  ) as $k (.;
+               (.[$k] | ascii_downcase) as $v
+               | if $v == $bgl
+                    or (($v | startswith($mutedl)) and (.[$k] | alpha_of) > $washa)
+                 then .[$k] = $wash else . end)
+         # A secondary button is opaque muted, and Omarchy paints its hover
+         # the window colour -- so hovering one made it vanish into the
+         # background rather than respond. Omarchy own vocabulary for the
+         # hover of a solid surface is that surface at 80% alpha (that is what
+         # statusBarItem.prominentHoverBackground, .errorHoverBackground and
+         # .remoteHoverBackground all are), so the same relationship is used
+         # here rather than a new constant. Conditional, so if Omarchy ever
+         # gives the key a real value, that value is kept.
+         | (if (.["button.secondaryHoverBackground"] // "" | ascii_downcase) == $bgl
+            then .["button.secondaryHoverBackground"] =
+                   ((.["button.secondaryBackground"] // $muted) + "80")
+            else . end)
+         # IDS OMARCHY DOES NOT DEFINE.
+         #
+         # Cursor registers a handful of colours that are in neither palette,
+         # so they fall through to Bearded (or to the dark derivation of it)
+         # and keep their tint no matter what is copied above. Only the ones
+         # that read as chrome are set; the rest -- scmGraph. (git graph
+         # strands), inlineEdit. (Cursor tab-completion diffs) and errorLens.
+         # (an extension) are semantic or syntax-like and are left alone.
+         #
+         # profileBadge is the visible one: a teal dot against a window whose
+         # every other badge is the accent.
+         | .["profileBadge.background"] = (.["badge.background"] // .["profileBadge.background"])
+         | .["profileBadge.foreground"] = (.["badge.foreground"] // .["profileBadge.foreground"])
+         | .["multiDiffEditor.headerBackground"] = (.["editor.background"] // .["multiDiffEditor.headerBackground"])
+         | .["multiDiffEditor.border"] = ($muted // .["multiDiffEditor.border"])
+         | .["diffEditor.border"] = ($muted // .["diffEditor.border"])
+         | .["button.separator"] = ($muted // .["button.separator"])
+         | .["peekViewEditorStickyScroll.background"] = (.["editor.background"] // .["peekViewEditorStickyScroll.background"])
          | (.["editorGroupHeader.tabsBackground"] // "#FFFFFF") as $strip
          | (.["tab.hoverBackground"] // .["tab.activeBackground"]) as $act
          | (.["tab.unfocusedHoverBackground"]
@@ -273,7 +427,74 @@ if ! jq --slurpfile t "$THEME" --argjson pre "$CHROME" --argjson exact "$EXACT" 
       # the chrome does not claim -- editor surfaces, lists, inputs, terminal --
       # comes from the derivation. (No apostrophes in here: the whole jq program
       # is a single-quoted bash string, and one ends it.)
-      | ($derived + $chrome) as $chrome
+      | (($derived + $chrome)
+      # THREE FAMILIES CURSOR REGISTERS THAT OMARCHY HAS NEVER HEARD OF.
+      #
+      # inlineEdit. (Cursor tab-completion diffs), scmGraph. (the git graph
+      # strands and ref chips) and errorLens. (the extension) have no key in
+      # Omarchy generated theme at all, so nothing above touches them and
+      # they keep whatever Bearded or the dark derivation left: pink-red
+      # #EA4D4D deletions, mint #98FFAE insertions, a gold tab indicator, a
+      # teal one, and five graph strands in Bearded own hues.
+      #
+      # They are semantic rather than structural, so they are RE-TINTED
+      # instead of being pinned: each one takes the hue of the matching
+      # Omarchy chart colour and keeps the alpha the theme gave it, so a 15%
+      # wash stays a 15% wash and only the hue moves onto the palette the
+      # rest of the desktop uses. charts.* is the right source row because
+      # it is the palette own set of distinguishable hues, already copied
+      # above, and it tracks colors.toml like everything else here.
+      #
+      # The two indicator foregrounds go to badge.foreground, which is what
+      # Omarchy paints text ON an accent-coloured chip.
+               # The alpha comes from the ACTIVE Bearded variant itself (read above),
+      # falling back to the dark derivation, so a 15% wash stays a 15% wash in
+      # BOTH modes -- these ids are not in Omarchy file, so there is no value
+      # of ours to take the shape from. With neither source readable the key is
+      # left exactly as it was.
+| ({ "inlineEdit.modifiedBackground":            "charts.green",
+   "inlineEdit.modifiedBorder":                "charts.green",
+   "inlineEdit.modifiedChangedLineBackground": "charts.green",
+   "inlineEdit.modifiedChangedTextBackground": "charts.green",
+   "inlineEdit.tabWillAcceptModifiedBorder":   "charts.green",
+   "inlineEdit.originalBackground":            "charts.red",
+   "inlineEdit.originalBorder":                "charts.red",
+   "inlineEdit.originalChangedLineBackground": "charts.red",
+   "inlineEdit.originalChangedTextBackground": "charts.red",
+   "inlineEdit.tabWillAcceptOriginalBorder":   "charts.red",
+   "inlineEdit.gutterIndicator.primaryBackground":     "charts.yellow",
+   "inlineEdit.gutterIndicator.primaryBorder":         "charts.yellow",
+   "inlineEdit.gutterIndicator.secondaryBackground":   "charts.blue",
+   "inlineEdit.gutterIndicator.secondaryBorder":       "charts.blue",
+   "inlineEdit.gutterIndicator.successfulBackground":  "charts.green",
+   "inlineEdit.gutterIndicator.successfulBorder":      "charts.green",
+   "inlineEdit.gutterIndicator.primaryForeground":     "badge.foreground",
+   "inlineEdit.gutterIndicator.secondaryForeground":   "badge.foreground",
+   "inlineEdit.gutterIndicator.successfulForeground":  "badge.foreground",
+   "errorLens.errorForeground":   "charts.red",
+   "errorLens.warningForeground": "charts.yellow",
+   "errorLens.infoForeground":    "charts.blue",
+   "errorLens.hintForeground":    "charts.blue",
+   "scmGraph.foreground1": "charts.blue",
+   "scmGraph.foreground2": "charts.purple",
+   "scmGraph.foreground3": "charts.green",
+   "scmGraph.foreground4": "charts.orange",
+   "scmGraph.foreground5": "charts.red",
+   "scmGraph.historyItemRefColor":       "charts.yellow",
+   "scmGraph.historyItemRemoteRefColor": "charts.blue",
+   "scmGraph.historyItemBaseRefColor":   "charts.purple",
+   "scmGraph.historyItemHoverAdditionsForeground": "charts.green",
+   "scmGraph.historyItemHoverDeletionsForeground": "charts.red",
+   "scmGraph.historyItemHoverLabelForeground":     "charts.foreground",
+   "scmGraph.historyItemHoverDefaultLabelForeground": "charts.foreground",
+   "scmGraph.historyItemHoverDefaultLabelBackground": "charts.lines"
+            }) as $retint      | . as $c
+      | reduce ($retint | keys_unsorted[]) as $k ($c;
+            (($bearded[$k]) // ($derived[$k])) as $cur
+            | if $cur != null and ($c[$retint[$k]] != null)
+              then .[$k] = ($cur | retint($c[$retint[$k]]))
+              else . end)
+        ) as $chrome
       | ( [ $set["workbench.preferredLightColorTheme"],
             $set["workbench.preferredDarkColorTheme"] ] | map(select(type == "string")) ) as $themes
       | if ($themes | length) == 0 or ($chrome | length) == 0 then $set

@@ -237,6 +237,20 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   still follows light/dark (GTK tracks `gsettings color-scheme` like
   everything else the `mode` key flips), and grayscale, which covers the accent
   the first one leaves tinted. Closed-Chromium rule applies to both.
+- **Cursor is Bearded inside the editor and Omarchy everywhere else.** The
+  colour theme is Bearded (picked for its syntax colours), but a theme also
+  paints the frame, the inputs, the lists and every hover state, and Bearded's
+  versions of those are a grey frame, blue-tinted text fields and cyan accents
+  against a desktop that is flat neutral with a `#007AFF` accent.
+  `overrides/hooks/theme-set.d/cursor-chrome.sh` runs on every `omarchy theme
+  set` and copies everything *except* the editor canvas out of Omarchy's own
+  generated VS Code theme into `workbench.colorCustomizations`, which outranks
+  the active theme — 487 of 624 keys. It also gives every hover and active
+  state one wash (the same 25% `muted` the selected tab uses, since Omarchy
+  paints some of them the window colour and others opaque `muted`), and
+  re-tints the three colour families Cursor registers that Omarchy has no key
+  for. Both light and dark follow, because the values are rendered from the
+  theme's own `colors.toml` tokens.
 - **App icons in the menu come from `overrides/icons/fallbacks/` (step 7f).** The
   menu already renders every non-app row as a Nerd Font glyph tinted
   `foreground`; app rows are the exception, drawn as a plain image of the

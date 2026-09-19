@@ -1015,25 +1015,102 @@ Five traps, all found by reading the output rather than the code:
   **unscoped** level and the hook assigns `widget.shadow` itself, and a scoped
   value beats an unscoped one, so anything emitted here would silently undo both.
 
-**Bearded's window chrome is overridden back to Omarchy's.** Bearded steps the
-frame through greys (light variant: titleBar `#d2d2d2`, activityBar/sideBar
-`#ebebeb`, statusBar `#f4f4f4`) while every other window on this desktop sits on
-the theme's flat window background, so the editor reads as a foreign window.
-`hooks/theme-set.d/cursor-chrome.sh` copies the 115 chrome keys out of Omarchy's
-own generated `~/.local/state/omarchy/current/theme/vscode-theme.json` (664 keys,
-rebuilt from `colors.toml` on every theme-set) into
-`workbench.colorCustomizations`, which sits **above** the active theme and is the
-only lever that reaches this short of forking Bearded. Taking the values from
-Omarchy's generated file rather than re-deriving them from `colors.toml` means
-there is no second derivation to drift. Chrome, plus two whole keys in `$EXACT`:
-`editor.background` and `editorGutter.background`, so the editor pane *is* the
-window colour instead of a `#f4f4f4` panel sitting inside a `#FFFFFF` window.
-The gutter must come along — Bearded sets it explicitly to the same grey — while
-`editorPane`, `editorGroup.emptyBackground` and `editorStickyScroll` need no
-entry, since Bearded leaves them unset and VS Code derives them from
-`editor.background` (checked). Lists, inputs, the terminal and all syntax stay
-Bearded; widening further is a matter of adding prefixes to `$CHROME` or names to
-`$EXACT`, since the whole `colors` object is there.
+**Bearded's window chrome is overridden back to Omarchy's, and since the
+alignment pass that is now nearly the whole window.** Bearded steps the frame
+through greys (light variant: titleBar `#d2d2d2`, activityBar/sideBar `#ebebeb`,
+statusBar `#f4f4f4`) while every other window on this desktop sits on the
+theme's flat window background, so the editor read as a foreign window.
+`hooks/theme-set.d/cursor-chrome.sh` copies out of Omarchy's own generated
+`~/.local/state/omarchy/current/theme/vscode-theme.json` (664 keys, rebuilt from
+`colors.toml` on every theme-set) into `workbench.colorCustomizations`, which
+sits **above** the active theme and is the only lever that reaches this short of
+forking Bearded. Taking the values from Omarchy's generated file rather than
+re-deriving them from `colors.toml` means there is no second derivation to
+drift, and because that file is rendered from `{{ token }}` placeholders, every
+value below is correct in **both** modes by construction — light was verified by
+rendering the light `colors.toml` through the same template and running the
+hook's jq against it, which needs no theme switch.
+
+**The boundary is inverted from what it used to be: everything is taken except
+`$KEEP`.** The old rule was a list of chrome prefixes with everything else left
+to Bearded, and it left the two palettes meeting *inside* single widgets. Three
+seams, all found by measuring rather than by reading the code:
+
+- the active sidebar-toggle chip was opaque `muted` (`toolbar.activeBackground`
+  is a bare `{{ muted }}`) while the active editor tab beside it was a 25% wash
+  of that same colour;
+- every text field was Bearded's `#202027` — a blue-tinted panel against the
+  flat neutral `#1E1E1E` window — as were `dropdown`, `editorWidget`,
+  `inputValidation` and the inline-chat input;
+- Bearded's cyan/teal/gold turned up in accent roles on a desktop whose accent
+  is `#007AFF`: `badge` `#22a5c9`, `button` `#54D7FB80`, `progressBar`
+  `#bb9600`, `focusBorder` `#535C65`, `list.activeSelection` `#81AAB533`,
+  `textLink` `#189BBF`, and a second, differently-coloured badge in
+  `profileBadge`.
+
+So `$KEEP` now names the editor **canvas** and nothing else — `editor.`, the
+bracket/indent/whitespace/ruler/line-number/ghost-text/inlay-hint/code-lens
+family, the cursor pair, `symbolIcon.` and `debugTokenExpression.` (both read as
+syntax), and `editorOverviewRuler.` + `minimap*`, which have to agree with the
+canvas rather than the frame. Everything else — inputs, dropdowns, checkboxes,
+buttons, badges, progress bars, lists and trees, scrollbars, notifications, peek
+view, settings, the welcome page, git decorations, diff and merge, **and the
+integrated terminal's ANSI set** — is Omarchy's. Adding a prefix to `$KEEP` hands
+a surface back to Bearded; removing one takes it over. The terminal is the entry
+most likely to be re-litigated: its ANSI colours now match Ghostty and btop and
+differ from the editor's own syntax palette on purpose. `$EXACT` is the escape
+hatch in the other direction — `editor.background`, `editorGutter.background`
+and `minimap.background` are taken *despite* `$KEEP`, because those three are
+surfaces the editor sits on rather than marks drawn on it.
+
+**One wash for every hover and active state.** Omarchy paints its own state
+backgrounds at three weights and two of them are wrong next to the tab
+treatment: `{{ background }}`, which is the window colour and therefore no
+feedback at all (`toolbar.hoverBackground`, `list.hoverBackground`,
+`button.secondaryHoverBackground`, `settings.rowHoverBackground`), and opaque
+`{{ muted }}`, far heavier than anything else marking a selection
+(`toolbar.activeBackground`, `commandCenter.activeBackground`,
+`inputOption.hoverBackground`, `statusBarItem.activeBackground` and its compact
+hover). `statusBarItem.hoverBackground` is a third weight again at 38%. The hook
+rewrites all of them to the tab wash, by a mechanical test rather than a key
+list: a state background is wrong if it is the window colour, or if it is
+`muted` at an alpha **above** the wash's. That catches the opaque case, the 38%
+case and anything Omarchy adds later.
+
+**Five prefixes are excluded from that rule, and two of them were false
+positives caught in verification.** `tab.` and `titleBar.` are surfaces (the tab
+pair is derived separately, and `tab.inactiveBackground` is *supposed* to be the
+window colour). The other three own a solid surface of their own, so their hover
+is a relationship to **that**, not to the window: the scrollbar slider rests at
+`muted` 25% and hovers at 50%, so washing the hover made hover and rest
+identical and the feedback disappeared; the extension button rests at opaque
+`muted` and hovers at 50%, so the wash made a hovered button *lighter* than an
+idle one. `button.` is excluded for the same reason, and its one genuine bug —
+`button.secondaryHoverBackground` being the window colour, i.e. a secondary
+button that vanishes under the pointer — is fixed on its own terms, at the
+surface's own colour plus `80`, which is Omarchy's own vocabulary for the hover
+of a solid fill (`statusBarItem.prominentHoverBackground`, `.errorHoverBackground`
+and `.remoteHoverBackground` are all exactly that).
+
+**Three families Cursor registers that Omarchy has never heard of are
+re-tinted, not pinned.** `inlineEdit.` (tab-completion diffs), `scmGraph.` (git
+graph strands and ref chips) and `errorLens.` (the extension) have no key in the
+generated theme, so nothing the copy does reaches them and they kept Bearded's
+mint `#98FFAE` insertions, pink-red `#EA4D4D` deletions and five graph strands
+in its own hues. Each now takes the **hue** of the matching `charts.*` colour —
+the palette's own row of distinguishable hues, already copied — while keeping
+**the alpha the theme gave it**, so a 15% wash stays a 15% wash and only the hue
+moves. That alpha has to come from the active Bearded variant itself, which the
+hook resolves through the extension's `package.json` (`label` → `path`, keyed on
+the same `preferredLight/DarkColorTheme` names everything else here is keyed on);
+with the extension absent the re-tint is skipped and those families keep their
+own colours, exactly as before. A handful of other unclaimed ids are structural
+rather than semantic and are simply assigned — `profileBadge` (a teal dot in a
+window where every other badge is the accent), `multiDiffEditor`,
+`diffEditor.border`, `peekViewEditorStickyScroll.background`, `button.separator`.
+
+After the pass, exactly one workbench colour is off-palette, and it is `#565656`
+by assignment. 624 keys in each scope, 487 of them straight from Omarchy.
 
 **Anything that floats over the window is chrome too.** `quickInput`,
 `pickerGroup.`, `editorHoverWidget.` and `keybindingLabel.` are in `$CHROME`
