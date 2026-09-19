@@ -117,6 +117,18 @@ command -v msedit >/dev/null 2>&1 && alias edit="msedit"
 # binary, and `command diff a b` does too.
 command -v git >/dev/null 2>&1 && alias diff="git diff"
 
+# `log` -> `hunk log`, the commit browser that pairs with the `diff` alias
+# above: j/k to move, Enter to open a commit's diff, q back to the list, / to
+# search, v + J/K to select a RANGE of commits. Note that this is a separate
+# screen rather than a sidebar beside the diff -- hunk has no commits pane, and
+# `--mode split|unified` is the left/right of the file diff, not a commit rail.
+# lazygit is the one with a persistent commits panel if that is what is wanted.
+#
+# Unlike `diff` this shadows nothing: there is no `log` on PATH (checked), so
+# the guard is only about hunk itself being absent, the way `edit` is. hunk is
+# mise-managed, so `command -v` finds it through the shims path.
+command -v hunk >/dev/null 2>&1 && alias log="hunk log"
+
 # gh-dash TUI as `dash`. gh-dash is a gh EXTENSION, not a binary on PATH, so
 # `command -v` can't see it. Test for the extension directory rather than asking
 # gh: `gh extension list` measured 34ms here, and this runs on every interactive
