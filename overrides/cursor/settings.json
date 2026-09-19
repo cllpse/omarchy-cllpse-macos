@@ -54,6 +54,12 @@
   "editor.fontFamily": "'ComicCode Nerd Font', monospace",
   "editor.fontSize": 14,
   "explorer.compactFolders": false,
+  "explorer.fileNesting.enabled": true,
+  "explorer.fileNesting.expand": false,
+  "explorer.fileNesting.patterns": {
+    "*.ts": "${capture}.js, ${capture}.test.ts, ${capture}.test.tsx, ${capture}.spec.ts, ${capture}.spec.tsx",
+    "*.tsx": "${capture}.ts, ${capture}.test.ts, ${capture}.test.tsx, ${capture}.spec.ts, ${capture}.spec.tsx"
+  },
   "editor.formatOnSave": true,
   "git.openRepositoryInParentFolders": "never",
   "[json]": {

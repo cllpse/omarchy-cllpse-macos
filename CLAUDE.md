@@ -1346,6 +1346,24 @@ since VS Code's `editor.fontSize` is in px like the first of those. The number i
 `cursor/settings.json` is only the fallback for when that reading fails. It stays: it is a user preference with no Omarchy equivalent.
 Only Cursor is handled; VS Code / VSCodium would each need their own merge.
 
+**Test files are nested, not hidden.** `files.exclude` is the obvious lever and
+the wrong one: it is not explorer-scoped, so it also drops the files from quick
+open, global search and the file watcher — there is no explorer-only exclude key
+in the registry. `explorer.fileNesting` collapses a test under the file it tests
+and leaves it fully searchable and openable, so that is what
+`cursor/settings.json` sets (`enabled`, `expand = false`, and patterns for
+`*.ts`/`*.tsx`). Two things about the patterns object: its values are validated
+against the registry's own regex (`^([^,*]*\*?[^,*]*)(, ?[^,*]*\*?[^,*]*)*$`),
+so at most one `*` per comma-separated segment; and the **registered defaults**
+for the keys we name (`*.ts` → `${capture}.js`, `*.tsx` → `${capture}.ts`) are
+restated in our values, which makes the result identical whether VS Code replaces
+an object setting wholesale or merges it per key — so it does not matter which it
+does. A test whose source has no sibling of a named extension simply stays
+unnested; nesting hides nothing that has no parent (measured in `~/Sites/web`:
+494 test files, a handful of them orphans of this kind, e.g. reactors that test a
+behaviour rather than a file). `__snapshots__/*.snap` cannot be nested at all —
+nesting is within one directory.
+
 **Wheel speed is set in three places in Cursor, and NONE of them is set here
 -- deliberately.** `editor.mouseWheelScrollSensitivity`,
 `workbench.list.mouseWheelScrollSensitivity` and
