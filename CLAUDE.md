@@ -1223,6 +1223,29 @@ since VS Code's `editor.fontSize` is in px like the first of those. The number i
 `cursor/settings.json` is only the fallback for when that reading fails. It stays: it is a user preference with no Omarchy equivalent.
 Only Cursor is handled; VS Code / VSCodium would each need their own merge.
 
+**Wheel speed is set in three places in Cursor, and one of them is a trap.**
+`editor.mouseWheelScrollSensitivity`, `workbench.list.mouseWheelScrollSensitivity`
+and `terminal.integrated.mouseWheelScrollSensitivity` are separate settings, all
+registered with a default of `1` — setting only the editor one leaves the file
+tree and the terminal at the old speed, which reads as an inconsistent fix
+rather than as two settings still at their default. The editor one is
+registered as `new Xoe(76, "mouseWheelScrollSensitivity", 1, e => e === 0 ? 1 : e)`,
+so **zero is coerced back to 1** and cannot be used to stop wheel scrolling.
+`editor.fastScrollSensitivity` / `workbench.list.fastScrollSensitivity` are a
+fourth and fifth, but only while Alt is held.
+
+All three are `0.7` here, to cancel `input-tuning.lua`'s `scroll_factor = 1.45`
+(1/1.45 = 0.69). **That rests on an unverified assumption**: that Hyprland's
+`scroll_factor` reaches Electron at all and Cursor's sensitivity then multiplies
+the already-scaled delta. The alternative is that Chromium reads the unscaled
+v120 high-resolution wheel value and ignores `scroll_factor` entirely — in which
+case Cursor was never faster, everything *else* was slower, and `0.7` makes
+Cursor slower than the desktop instead of matching it. It could not be settled
+here, because `hl.dsp` has no pointer-axis dispatcher (see the keyd entry), so a
+scroll event cannot be synthesized to measure against. If Cursor ends up slower
+than a GTK app, the model is backwards and the three keys should come out rather
+than be tuned further.
+
 **Merge into a running Cursor doesn't reliably stick.** Cursor rewrites the whole
 `settings.json` from its in-memory model whenever a setting changes through the
 UI, so a `jq` merge run while Cursor is open survives only until the next
