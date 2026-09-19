@@ -1262,8 +1262,9 @@ so **zero is coerced back to 1** and cannot be used to stop wheel scrolling.
 `editor.fastScrollSensitivity` / `workbench.list.fastScrollSensitivity` are a
 fourth and fifth, but only while Alt is held.
 
-All three are `0.7` here, to cancel `input-tuning.lua`'s `scroll_factor = 1.45`
-(1/1.45 = 0.69). **That rests on an unverified assumption**: that Hyprland's
+All three are `0.67` here, to cancel `input-tuning.lua`'s `scroll_factor = 1.5`
+(1/1.5 = 0.67) -- they are a pair, so moving the wheel factor means moving
+these with it. **That rests on an unverified assumption**: that Hyprland's
 `scroll_factor` reaches Electron at all and Cursor's sensitivity then multiplies
 the already-scaled delta. The alternative is that Chromium reads the unscaled
 v120 high-resolution wheel value and ignores `scroll_factor` entirely — in which
