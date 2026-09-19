@@ -1,10 +1,11 @@
 #!/bin/bash
 # Undo everything overrides/apply.sh did. Idempotent.
-# Sudo is needed by three steps near the end: removing the keyd config apply.sh
+# Sudo is needed by four steps near the end: removing the keyd config apply.sh
 # installed, dropping the CPU power limits back to the firmware's own and
-# removing their unit, and removing the Chromium managed-policy file. Everything
-# else is user-level. Neither keyd nor ryzenadj is ever uninstalled -- this
-# script did not install them.
+# removing their unit, putting /etc/fstab's Btrfs compression level back, and
+# removing the Chromium managed-policy file. Everything else is user-level.
+# Neither keyd nor ryzenadj is ever uninstalled -- this script did not install
+# them.
 # Only ever restores what this machine had before apply.sh first ran; it never
 # picks a font, theme, text size or scale of its own.
 
@@ -393,6 +394,36 @@ fi
 # keyd group for their own reasons, and dropping someone from a group they
 # might rely on is not this script's call. To undo it by hand:
 #   sudo gpasswd -d "$USER" keyd
+
+# Btrfs compression level (apply.sh step 11). Restores the exact token that was
+# recorded at first apply -- usually a bare `compress=zstd`, which is the
+# kernel's level 3 -- rather than asserting a level of its own, and does nothing
+# at all if nothing was recorded. As on the way in, only lines whose FS type is
+# btrfs are touched, and the result is verified before it is left in place.
+#
+# Note this cannot undo the compression of anything written meanwhile: a mount
+# option only decides what happens to new writes, so data written at zstd:1
+# stays at zstd:1 until it is rewritten.
+if [[ -s $STATE/previous-btrfs-compress ]]; then
+  prev_compress="$(<"$STATE/previous-btrfs-compress")"
+  if [[ $prev_compress =~ ^compress=zstd(:[0-9]+)?$ ]]; then
+    say "restoring Btrfs compression in /etc/fstab: $prev_compress (needs sudo)"
+    [[ -e /etc/fstab.pre-cllpse ]] || sudo cp -a /etc/fstab /etc/fstab.pre-revert
+    sudo sed -i -E "/^[^#]*[[:space:]]btrfs[[:space:]]/ s/compress=zstd(:[0-9]+)?/$prev_compress/g" /etc/fstab
+    if findmnt --verify --fstab >/dev/null 2>&1; then
+      while read -r mp; do
+        sudo mount -o "remount,$prev_compress" "$mp" 2>/dev/null ||
+          say "  $mp needs a reboot to pick up $prev_compress"
+      done < <(findmnt -t btrfs -no TARGET)
+      rm -f "$STATE/previous-btrfs-compress"
+    else
+      [[ -e /etc/fstab.pre-cllpse ]] && sudo cp -a /etc/fstab.pre-cllpse /etc/fstab
+      say "  findmnt --verify rejected the rewritten /etc/fstab — restored the backup"
+    fi
+  else
+    say "recorded Btrfs compression $prev_compress is not a compress=zstd value — left alone"
+  fi
+fi
 
 # CPU power limits (apply.sh step 10). Disabling the unit does not put the
 # limits back -- the SMU keeps whatever was last written until something resets

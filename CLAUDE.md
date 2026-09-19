@@ -742,6 +742,35 @@ Two mechanics worth not re-deriving:
 A oneshot unit that has already run reports `inactive (dead)`. That is success.
 Read the SMU, not `systemctl is-active`.
 
+**`/etc/fstab` says `compress=zstd`, not `compress=zstd:3` — and the two are the
+same thing.** A bare `zstd` selects the kernel's default level, which is 3, so
+`findmnt` reports `compress=zstd:3` for a line that contains no number at all.
+Anything grepping for the level it sees mounted will not find it in the file.
+apply.sh step 11 rewrites that to `compress=zstd:1`: level 3 costs roughly 2-3x
+the CPU of level 1 at compression for ~5-10% better ratio, which is the wrong
+trade here twice over -- the disk is 4% full, and the CPU is thermally capped,
+so compressor watts come out of the cores. Reads are unaffected; zstd
+decompression speed is essentially level-independent.
+
+Three things about that step worth keeping:
+
+- **A mount option is not a property of the data.** It decides what happens to
+  incoming writes, so existing extents keep the level they were written at.
+  `btrfs filesystem defragment -r -czstd` would rewrite them and is deliberately
+  not run: on a filesystem with Snapper snapshots it unshares extents and can
+  multiply disk usage.
+- **Only lines whose FS-type field is `btrfs` are rewritten**, which was tested
+  against the cases that would otherwise be silently wrong: a commented-out
+  btrfs line, a `compress-force=zstd:5` (a different, deliberate setting), the
+  same `compress=zstd` string on an ext4 line, and a line already at `:1`. All
+  four come back untouched.
+- **fstab is the one file in this repo whose corruption stops the machine
+  booting**, so the step backs it up to `/etc/fstab.pre-cllpse`, verifies the
+  result with `findmnt --verify --fstab`, and restores the backup if that fails.
+  It also bails out entirely when the machine mounts btrfs at mixed levels --
+  that is a deliberate setup to leave alone, and a mixed reading is not
+  something revert.sh could put back either.
+
 ## Conventions in this repo
 
 **Fenced blocks.** `apply.sh` injects `>>> cllpse-macos overrides >>>` blocks into

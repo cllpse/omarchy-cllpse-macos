@@ -1,9 +1,9 @@
 #!/bin/bash
 # Apply the cllpse-macos theme + every system-level override it needs.
 # Idempotent. Re-run any time. See revert.sh to undo.
-# Sudo is needed by exactly three steps, all near the end: 8b (keyd's config +
-# service + group), 9 (the Chromium managed policy) and 10 (the CPU power
-# limits). Everything else is user-level. keyd and ryzenadj are the two packages
+# Sudo is needed by exactly four steps, all near the end: 8b (keyd's config +
+# service + group), 9 (the Chromium managed policy), 10 (the CPU power limits)
+# and 11 (the Btrfs compression level). Everything else is user-level. keyd and ryzenadj are the two packages
 # this script depends on and it installs NEITHER — each step configures its tool
 # if present and says so if it is not.
 #
@@ -40,6 +40,9 @@
 #   10. CPU power limits: ryzenadj 52W sustained, reapplied at boot and on
 #       resume by a systemd unit (sudo) — HARDWARE-GATED to the 8745HS in the
 #       Geekom A8, since these are numbers for one thermal design
+#   11. Btrfs compression level: compress=zstd (kernel default 3) -> zstd:1 in
+#       /etc/fstab, and remounted live (sudo) — last, and the only step that
+#       edits a file the machine will not boot without
 
 set -euo pipefail
 
@@ -1412,6 +1415,57 @@ print('%.0fW sustained, %.0fW burst' % (f[0], f[2]))" 2>/dev/null || true)"
   fi
 fi
 
+# ── 11. Btrfs compression level (needs sudo) ─────────────────────────────────
+# Btrfs compresses every write, and zstd's level decides how hard it works.
+# Level 3 -- the kernel's default, which is what a bare `compress=zstd` selects
+# -- runs roughly 2-3x slower at compression than level 1 for ~5-10% better
+# ratio on mixed data. On this machine that trade is wrong in both directions:
+# the disk is 4% full, so the ratio buys nothing, and the CPU is thermally
+# capped (step 10), so the watts the compressor takes come straight out of the
+# cores. Reads are unaffected -- zstd decompression speed is essentially
+# level-independent.
+#
+# Worth knowing before changing it back and forth: a mount option is not a
+# property of the data. It says what to do with INCOMING writes, so existing
+# extents keep whatever level they were written at until something rewrites
+# them. `btrfs filesystem defragment -r -czstd` would rewrite them, and is
+# deliberately NOT run here: on a filesystem with Snapper snapshots it unshares
+# extents and can multiply disk usage.
+#
+# fstab is the one file in this script whose corruption stops the machine
+# booting, so: back it up first, rewrite only lines whose FS type field is
+# btrfs, and verify the result with `findmnt --verify` before leaving it in
+# place -- restoring the backup if that fails.
+if [[ -f /etc/fstab ]] && grep -qE '^[^#]*[[:space:]]btrfs[[:space:]].*compress=zstd' /etc/fstab; then
+  # One value across every btrfs line, or nothing is touched: a machine that
+  # deliberately mounts subvolumes at different levels is not one to flatten,
+  # and a mixed reading is also not something revert.sh could put back.
+  _btrfs_now="$(grep -E '^[^#]*[[:space:]]btrfs[[:space:]]' /etc/fstab |
+                grep -oE 'compress=zstd(:[0-9]+)?' | sort -u)"
+  if [[ $(wc -l <<<"$_btrfs_now") -gt 1 ]]; then
+    skip "/etc/fstab mounts btrfs at mixed compression levels ($(paste -sd' ' <<<"$_btrfs_now")) — left alone"
+  elif [[ $_btrfs_now == "compress=zstd:1" ]]; then
+    skip "Btrfs already mounts compress=zstd:1"
+  else
+    record_prior "$STATE/previous-btrfs-compress" "$_btrfs_now" "compress=zstd:1"
+    say "Btrfs compression $_btrfs_now -> compress=zstd:1 in /etc/fstab (sudo)"
+    [[ -e /etc/fstab.pre-cllpse ]] || sudo cp -a /etc/fstab /etc/fstab.pre-cllpse
+    sudo sed -i -E '/^[^#]*[[:space:]]btrfs[[:space:]]/ s/compress=zstd(:[0-9]+)?/compress=zstd:1/g' /etc/fstab
+    if findmnt --verify --fstab >/dev/null 2>&1; then
+      # Live too, so this does not wait for a reboot. Each btrfs mount is its
+      # own subvol mount and takes the option separately.
+      while read -r _mp; do
+        sudo mount -o remount,compress=zstd:1 "$_mp" 2>/dev/null &&
+          skip "remounted $_mp at zstd:1" ||
+          skip "$_mp needs a reboot to pick up zstd:1"
+      done < <(findmnt -t btrfs -no TARGET)
+    else
+      sudo cp -a /etc/fstab.pre-cllpse /etc/fstab
+      skip "findmnt --verify rejected the rewritten /etc/fstab — restored the backup, nothing changed"
+    fi
+  fi
+fi
+
 echo
 say "Done. Follow-ups:"
 echo "    • log out / back in (or reboot) for OMARCHY_MENU_FONT (shell popups)"
@@ -1424,6 +1478,9 @@ echo "      already refreshed live if Chromium was running — no relaunch neede
 echo "    • Figma's Cmd+click / Cmd+scroll work now — the focus hook reaches keyd"
 echo "      through newgrp, since a granted group never reaches a running desktop"
 echo "      (the systemd user manager outlives a logout; only a reboot reseeds it)."
+echo "    • Btrfs zstd:1 (11) applies to NEW writes only — existing extents keep"
+echo "      the level they were written at, and defragmenting to rewrite them"
+echo "      would unshare Snapper's snapshot extents, so it is not done here"
 echo "    • CPU power limits (10) are live now and reapplied at boot and on resume;"
 echo "      systemctl status ryzen-tdp, values in /etc/default/ryzen-tdp"
 echo "    • boot splash / login screen (needs sudo, not run by this script):"
