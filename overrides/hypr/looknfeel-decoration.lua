@@ -17,26 +17,23 @@
 -- both the windows and the bar / menu / notifications.
 --
 -- rounding_power shapes the corner curve (2.0 = plain circular arc, higher =
--- squircle toward Apple's continuous corner). Kept at 2.0: a plain arc, no
--- squircle. 2.2 was tried as "barely off circular" and 3-3.4 as a real
--- squircle, and neither earned its place -- the stronger values pinch at the
--- 45 degree corner because Hyprland's border renderer draws the stroke's outer
--- edge under-curved above ~3, and 2.2 was close enough to circular that it read
--- as an inconsistency against the shell rather than as a curve. The radius
--- ITSELF is unchanged at 18; this is only the shape of the arc.
+-- squircle toward Apple's continuous corner). 2.05: a hair off circular. Two
+-- other values were tried and are on the record -- 3-3.4 as a real squircle,
+-- which pinches at the 45 degree corner because Hyprland's border renderer
+-- draws the stroke's outer edge under-curved above ~3; and 2.2, which was
+-- dropped for reading as an inconsistency against the shell rather than as a
+-- curve; 2.1 halved that deviation and 2.05 halves it again. The radius ITSELF is
+-- unchanged at 18 throughout; this is only the shape of the arc.
 --
--- Set explicitly rather than deleted, the same way dim_inactive and
--- border_part_of_window are: 2.0 is Hyprland's default, and the point is that
--- a plain arc is chosen here rather than merely inherited.
---
--- It was always windows-only -- the shell's Rectangle.radius ignores
--- rounding_power, so the bar and menu were a pure arc throughout. At 2.0 the
--- windows finally agree with them.
+-- It is windows-only -- the shell's Rectangle.radius ignores rounding_power, so
+-- the bar, menu and notifications are a pure arc whatever this says. Any value
+-- above 2.0 is therefore a deliberate hair of disagreement between a window's
+-- corner and the surfaces that mirror its radius.
 --
 -- border_part_of_window = true (the Hyprland default, set explicitly) draws the
 -- border inside each window's tile -- the content shrinks to fit -- rather than
 -- as its own decoration outside it. `false` was used while rounding_power was
--- high (it curved a thin stroke's corner better); at 2.0 there is nothing to
+-- high (it curved a thin stroke's corner better); at 2.05 there is nothing to
 -- gain, and inside is the tidier model in a tiling WM.
 --
 -- border_size is 2 (Omarchy's default). BUILD.md section 5's hairline (1) is
@@ -180,7 +177,7 @@ hl.config({
   decoration = {
     dim_inactive = false,
     rounding = 18,
-    rounding_power = 2.0,
+    rounding_power = 2.05,
     border_part_of_window = true,
     blur = {
       enabled = true,

@@ -188,7 +188,7 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   `~/.config/hypr/looknfeel.lua` (`overrides/hypr/looknfeel-decoration.lua`)
   setting `decoration.rounding = 18` — above the BUILD.md §5 fallback of 12
   (26 is faithful but dramatic on tiled windows); this radius drives the shell
-  surface corners too. `decoration.rounding_power = 2.2` (barely off a circular
+  surface corners too. `decoration.rounding_power = 2.05` (a hair off a circular
   arc — a stronger squircle pinches the border at the corner) with
   `decoration.border_part_of_window = true` (border drawn inside each window's
   tile), enables `decoration.blur` (size 7,
@@ -332,7 +332,7 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   `omarchy theme set`, so bar/menu/launcher/notification/OSD corners follow the
   same 18 — but as a **plain circular arc**: `rounding_power` and `border_size`
   don't reach the shell (its border widths come from generated `shell.toml`
-  tokens). At `rounding_power = 2.2` the windows curve only a hair tighter than
+  tokens). At `rounding_power = 2.05` the windows curve only a hair tighter than
   the bar and menu that mirror their radius. A live
   `hyprctl reload` alone won't update a running shell — `omarchy-restart-shell`
   or `omarchy theme set` does.
