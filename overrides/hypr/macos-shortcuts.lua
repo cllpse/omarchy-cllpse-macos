@@ -153,6 +153,7 @@ o.bind("SUPER + K", "Clear terminal (Cmd+K)", only_in_terminal("CTRL SHIFT", "K"
 o.bind("SUPER + T", "New tab (Cmd+T)", send_shortcut_once("CTRL", "T"))
 o.bind("SUPER + SHIFT + T", "Reopen closed tab (Cmd+Shift+T)", send_shortcut_once("CTRL SHIFT", "T"))
 o.bind("SUPER + R", "Reload (Cmd+R)", send_shortcut_once("CTRL", "R"))
+o.bind("SUPER + SHIFT + R", "Force reload (Cmd+Shift+R)", send_shortcut_once("CTRL SHIFT", "R"))
 o.bind("SUPER + L", "Focus address bar (Cmd+L) / clear terminal", send_shortcut_once("CTRL", "L"))
 o.bind("SUPER + N", "New window (Cmd+N)", send_shortcut_once("CTRL", "N"))
 o.bind("SUPER + P", "Print / Quick Open (Cmd+P)", send_shortcut_once("CTRL", "P"))
