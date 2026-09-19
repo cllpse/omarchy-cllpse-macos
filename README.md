@@ -222,7 +222,15 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   `--enable-features=…,OverlayScrollbar` — the thin, auto-hiding scrollbar
   macOS has, where Chromium otherwise draws a permanent gutter. It restates
   Omarchy's own feature deliberately: a repeated `--enable-features` is
-  last-wins rather than merged, and our block is always last.
+  last-wins rather than merged, and our block is always last. It also carries
+  `--disable-features=MediaSessionService`, which is the only way to be rid of
+  the global-media-controls button — the music-note icon beside the profile
+  avatar while a tab is playing. Chromium exposes no pref, policy or flag for
+  that view (it is created unconditionally on Linux and shown by its
+  controller; its context menu has no hide item), so the lever is the media
+  session behind it. The cost is that the same service exports MPRIS, so
+  hardware media keys and any now-playing widget lose sight of Chromium; page
+  playback controls are untouched.
   `overrides/chromium/neutral-theme.py` then sets the two profile keys that
   get a neutral UI out of a browser whose theme colour is fixed by managed
   policy: the system (GTK) theme, which covers the frame and the menus and

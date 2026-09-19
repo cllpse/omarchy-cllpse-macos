@@ -792,18 +792,23 @@ if [[ -f "$HERE/chromium/chromium-flags.conf" ]]; then
   # restate whatever Omarchy's stock line asks for. Nothing keeps the two in
   # step automatically, so compare them and say so rather than silently turning
   # an Omarchy feature off on the next update.
+  #
+  # --disable-features is the same switch machinery and is checked the same
+  # way: Omarchy ships no such line today, but if it ever adds one, ours would
+  # drop it just as silently.
   if [[ -f ~/.config/chromium-flags.conf ]]; then
-    _ours="$(grep -m1 '^--enable-features=' "$HERE/chromium/chromium-flags.conf" || true)"
-    _stock="$(sed "/$MARK/,\$d" ~/.config/chromium-flags.conf | grep -m1 '^--enable-features=' || true)"
-    if [[ -n $_ours && -n $_stock ]]; then
+    for _switch in --enable-features --disable-features; do
+      _ours="$(grep -m1 "^$_switch=" "$HERE/chromium/chromium-flags.conf" || true)"
+      _stock="$(sed "/$MARK/,\$d" ~/.config/chromium-flags.conf | grep -m1 "^$_switch=" || true)"
+      [[ -n $_stock ]] || continue
       _missing=""
       while IFS= read -r _feat; do
         [[ -n $_feat ]] || continue
         [[ ",${_ours#*=}," == *",$_feat,"* ]] || _missing+=" $_feat"
       done < <(tr ',' '\n' <<<"${_stock#*=}")
       [[ -n $_missing ]] &&
-        skip "Omarchy's --enable-features names${_missing} — add it to chromium/chromium-flags.conf or the last line wins and drops it"
-    fi
+        skip "Omarchy's $_switch names${_missing} — add it to chromium/chromium-flags.conf or the last line wins and drops it"
+    done
   fi
 fi
 

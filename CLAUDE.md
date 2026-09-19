@@ -811,6 +811,34 @@ list" are all off via `overrides/chromium/policies-managed.json`, installed by
 `apply.sh`'s last step (9) with `sudo install`, the one sudo step in the whole
 script — deliberately last, so the single password prompt comes after every
 other change has landed.
+**The global-media-controls button has no pref, no policy and no feature flag
+— the media session behind it is the only lever.** The music-note icon beside
+the profile avatar (shown whenever any tab has an active media session) is
+created unconditionally by `ToolbarView` on Linux — the one gate,
+`IsWebUIMediaButtonEnabled()`, swaps in the WebUI implementation rather than
+removing it — `MediaToolbarButtonView`'s visibility is only ever `Show()`/`Hide()`
+from its controller, and `MediaToolbarButtonContextualMenu` offers exactly two
+items ("show other sessions", "report cast issue"), neither of which hides it.
+Nothing matching `GlobalMediaControls` survives as a feature name in the 152
+binary either; that feature graduated and its flag was removed, so
+`--disable-features=GlobalMediaControls` is inert, not a fix.
+
+What works is `--disable-features=MediaSessionService` in
+`overrides/chromium/chromium-flags.conf`: with no media session there are no
+items for the controller and the button never appears. Measured in a throwaway
+profile playing a looping tone, screenshotted on an empty workspace — icon
+present without the flag, gone with it, rest of the toolbar identical. **It
+takes MPRIS with it**, by construction: the instance drops off the bus (two
+`org.mpris.MediaPlayer2.chromium` names with the service on, one with it off),
+so media keys and any now-playing widget stop seeing Chromium. Page-level
+playback controls are unaffected. That trade was offered and accepted; don't
+re-propose the flag as a bug.
+
+`--disable-features` is keyed by switch name exactly like `--enable-features`,
+so the last-wins note above applies to it too — apply.sh step 7d now checks
+both switches against Omarchy's stock file, which today carries no
+`--disable-features` line at all.
+
 **DevTools is deliberately not in that list.** `DeveloperToolsAvailability: 2`
 was, originally, and it is the one key whose blast radius went past the menu —
 it blocks Inspect *everywhere*, local dev servers included. It is now absent
