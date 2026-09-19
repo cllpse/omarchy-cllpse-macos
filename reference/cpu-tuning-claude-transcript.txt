@@ -1,0 +1,274 @@
+
+Claude finished the response
+I have a AMD Ryzen 7 8745HS mini-PC, specifically the Geekom A8. I've upgraded the memory so it now has an additional stick of 16GB memory. What can I do to increase performance in Omarchy Linux?
+
+Searched the web
+Good machine to tune — the 8745HS is a Zen 4 / Hawk Point part with Radeon 780M graphics, rated 45W by default with a configurable 35–54W range, so most of the available headroom is in power limits, memory bandwidth and thermals rather than software.
+neowin
+
+1. First, verify the RAM upgrade actually did what you want
+This is the single biggest variable for an APU — the 780M shares system memory, so bandwidth directly sets graphics performance.
+
+bash
+sudo dmidecode -t 17 | grep -E 'Locator|Size|Configured Memory Speed|Manufacturer|Part Number'
+Check three things:
+
+Both slots populated. The A8 has two SODIMM slots supporting DDR5-5600. Two sticks = dual channel = roughly double the bandwidth to the iGPU.
+liliputing
+Configured Memory Speed reads 5600 MT/s. If the two sticks have different speed ratings or timings, both drop to the slower one — 4800 is a common fallback and costs you real frame rates.
+Matched capacity. If you ended up with, say, 8GB + 16GB, the platform runs "flex mode": dual-channel across the matched 8+8 portion, single-channel for the remainder. Two identical 16GB sticks is meaningfully better than a mismatched 24GB.
+If the speed is wrong, check for a Geekom BIOS update — memory training on these mini-PCs improves with firmware revisions.
+
+2. Make sure you're on the right CPU scaling driver
+bash
+cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_driver
+You want amd-pstate-epp. If it says acpi-cpufreq, you're leaving responsiveness and efficiency on the table. Omarchy boots via Limine, so add amd_pstate=active to KERNEL_CMDLINE in /etc/default/limine, regenerate with sudo limine-update, reboot, and confirm with cat /proc/cmdline.
+
+Then, since this is a desktop on permanent AC power, there's no reason to sit in the balanced profile:
+
+bash
+powerprofilesctl set performance
+Omarchy ships power-profiles-daemon, so this persists and is also exposed in the Waybar toggle.
+
+3. Raise the power limits — likely your biggest CPU gain
+Geekom runs this chip conservatively in a small chassis, and reviewers consistently note that the A8's BIOS doesn't expose TDP or VRAM controls. Check anyway (Del or F2 at boot) for a "Performance mode" or cTDP setting — firmware varies by revision.
+starryhope
+
+If it isn't there, ryzenadj from the AUR can set the limits from userspace:
+
+bash
+yay -S ryzenadj
+sudo ryzenadj --stapm-limit=54000 --fast-limit=60000 --slow-limit=54000 --tctl-temp=95
+sudo ryzenadj --info
+Values are in milliwatts. Go up in steps and watch temperatures rather than jumping straight to the ceiling. Two caveats: the settings are lost on reboot and on resume from suspend (wrap it in a systemd service if you keep it), and more sustained watts in a 112mm chassis means a louder fan.
+
+4. Check whether you're thermally capped before chasing anything else
+bash
+sudo pacman -S lm_sensors stress-ng
+sudo sensors-detect --auto
+watch -n1 sensors
+Run stress-ng --cpu 16 --timeout 120s and watch k10temp. If Tctl pins at 95°C and clocks sag, no amount of tuning helps — that's a cleaning, airflow or thermal-paste problem. These units accumulate dust in the intake, and a repaste (PTM7950 works well on soldered mobile parts) is worth it on an older unit.
+
+5. Kernel
+Omarchy 4.0.4 is worth being on: it makes the project's own linux-omarchy kernel the default, tuned for desktop responsiveness under load and memory pressure, with gaming compatibility, faster common Btrfs operations and power-management fixes. Update through Omarchy's menu (Update > Omarchy) and confirm with uname -r.
+Linuxiac
+
+6. Hyprland and the iGPU
+Blur is by far the most expensive compositor effect on integrated graphics. In your Hyprland config:
+
+decoration {
+    blur {
+        enabled = false   # or passes = 1, size = 3
+    }
+}
+misc {
+    vrr = 1
+}
+Also pin your monitor's refresh rate explicitly rather than relying on preferred — monitor=DP-1,2560x1440@165,auto,1 — since auto-negotiation sometimes lands on 60Hz.
+
+For games, install gamemode, gamescope and mangohud. Mesa's RADV driver on Arch is current, so there's nothing to add there. The kernel gives the iGPU a GTT allocation of roughly half your RAM by default, so with 32GB you shouldn't need amdgpu.gttsize unless something specifically complains about VRAM.
+
+7. Actually spend the new RAM
+With 32GB you can move AUR builds entirely into tmpfs, which makes a noticeable difference on large packages. In /etc/makepkg.conf:
+
+MAKEFLAGS="-j$(nproc)"
+BUILDDIR=/tmp/makepkg
+COMPRESSZST=(zstd -c -z -q --threads=0 -)
+If zram is active (zramctl will tell you — Omarchy disables zswap in favour of it), the kernel defaults are tuned for disk swap, not compressed RAM. In /etc/sysctl.d/99-zram.conf:
+
+vm.swappiness=180
+vm.watermark_boost_factor=0
+vm.watermark_scale_factor=125
+vm.page-cluster=0
+8. Btrfs
+Omarchy leans on Btrfs with Snapper snapshots. Check your /etc/fstab mount options — noatime,compress=zstd:1 is a good balance; the higher default compression level trades CPU for space you likely don't need on a 1TB drive. For anything with heavy random writes (VM images, container storage, database files), set chattr +C on the directory before creating the files to disable copy-on-write.
+
+If you want a before/after number to judge all this by, sysbench memory run for bandwidth and stress-ng --cpu 16 --metrics-brief for sustained CPU throughput are quick and repeatable. Start with step 1 — if the RAM isn't in dual channel at 5600, that's worth more than everything below it combined.
+
+2: "cpufreq/scaling_driver
+amd-pstate-epp"
+
+3: "sudo ryzenadj --info
+no compatible ryzen_smu kernel module found, fallback to /dev/mem
+CPU Family: Hawk Point
+SMU BIOS Interface Version: 15
+Version: v0.19.0
+Unable to get memory access
+Unable to init power metric table: -5, this does not affect adjustments because it is only needed for monitoring."
+
+Searched the web
+Good — step 2 is already sorted. amd-pstate-epp is the driver you want, so there's nothing to change there beyond making sure the profile is set to performance (powerprofilesctl get).
+
+What the ryzenadj output actually means
+It's less bad than it looks. Read the lines in order:
+
+CPU Family: Hawk Point and SMU BIOS Interface Version: 15 — it did talk to the SMU. That happens over PCI config space via libpci, not /dev/mem. So the mailbox it uses to set limits is working.
+Unable to get memory access — /dev/mem is blocked. That path is only needed to map the power metrics table.
+The tool tells you as much: monitoring is broken, adjustments aren't.
+RyzenAdj tries the ryzen_smu kernel module first and falls back to /dev/mem, and notes that /dev/mem access may be restricted for security reasons by your kernel config. You have neither the module nor /dev/mem.
+
+First: just test whether setting limits works
+Don't fix the monitoring yet — find out if you need to.
+
+bash
+sudo ryzenadj --stapm-limit=50000 --fast-limit=56000 --slow-limit=50000 --tctl-temp=95
+If it prints Successfully set ... for each, the adjustment landed and only your monitoring is blind. If it errors, you need one of the fixes below.
+
+To verify empirically without the PM table, compare sustained all-core clocks before and after:
+
+bash
+# in one terminal
+stress-ng --cpu 16 --cpu-method matrixprod --metrics-brief --timeout 90s
+# in another
+watch -n1 'grep "cpu MHz" /proc/cpuinfo | awk "{s+=\$4} END {print s/NR\" MHz avg\"}"; sensors | grep Tctl'
+At 45W default you'll settle somewhere around 3.3–3.6 GHz all-core. If raising the limit worked, that average goes up and Tctl climbs with it. The bogo-ops number from stress-ng is a decent before/after score too.
+
+Why /dev/mem is blocked, and how to unblock it
+Check which of the two causes you have:
+
+bash
+cat /sys/kernel/security/lockdown
+mokutil --sb-state
+If lockdown shows [integrity] or [confidentiality], or Secure Boot is enabled — that's the cause. Kernel lockdown blocks raw physical memory and PCI access outright. Either turn Secure Boot off in the Geekom BIOS, or install the ryzen_smu module and enroll its signing key. Note that if Secure Boot is on, the module route is your only option, since no kernel parameter will override lockdown.
+
+If lockdown shows [none] — it's CONFIG_STRICT_DEVMEM in the kernel build, and the standard fix is the iomem=relaxed boot parameter. Add it to KERNEL_CMDLINE in /etc/default/limine, run sudo limine-update, reboot, and confirm with cat /proc/cmdline.
+
+The cleaner fix: install ryzen_smu
+This gives you working --info output regardless, and avoids raw memory access entirely. The actively maintained fork is amkillam/ryzen_smu; RyzenAdj requires version 0.1.7 or newer.
+
+Since you're on Omarchy's own kernel, you need its headers first:
+
+bash
+sudo pacman -S linux-omarchy-headers dkms
+git clone https://github.com/amkillam/ryzen_smu
+cd ryzen_smu && sudo make dkms-install
+sudo modprobe ryzen_smu
+sudo ryzenadj --info
+You should get the full table with STAPM LIMIT, PPT LIMIT FAST/SLOW, TCTL and actual values — which is what you want for tuning, since you can then see whether the SMU is honouring your requested limits or quietly clamping them.
+
+One caveat worth setting expectations on
+Geekom doesn't expose TDP or VRAM controls in the A8's BIOS, and some vendors also have the SMU reject limits above the firmware-configured ceiling. If --info eventually shows your STAPM LIMIT snapping back to 45W after you set 54W, the firmware is overriding you and there's no software route around it — at that point the remaining gains are thermal (cleaning, repaste, better airflow) rather than electrical.
+
+Also remember the settings don't survive reboot or resume from suspend. Once you've found values that are stable, a small systemd service with After=suspend.target is the tidy way to reapply them.
+
+That's the thermal wall. THM VALUE CORE at 91.875 against a 92.001 limit is pinned, and PPT VALUE SLOW at 53.05 is now falling short of its 54 target — the chip is pulling back power to stay under temperature. You've swapped a power limit for a thermal one.
+
+Practically, you gained almost nothing over the 50W run. At 50W you were drawing a solid 50.007 with 8°C to spare; at 54W you're drawing 53.05 while throttling. That's 3W more for a couple of percent, bought by running permanently at the cap.
+
+Running pinned at the thermal limit isn't dangerous — 92°C is the firmware's own setpoint and the silicon is rated well above it. But it has real costs: the fan runs at maximum constantly, clocks become erratic as the controller hunts around the limit, and you have zero margin, so a warm room or a dusty intake tips you into harder throttling.
+
+I'd settle at 52W. It keeps most of the gain with a few degrees of headroom:
+
+bash
+sudo ryzenadj --stapm-limit=52000 --slow-limit=52000
+Run the stress test again and check that THM VALUE settles around 88–89 rather than pinning. If it still hits 92, drop to 50 and accept that as the machine's real sustained ceiling.
+
+Then compare the bogo-ops numbers across your three runs. My expectation is that 50, 52 and 54 land within a couple of percent of each other, which would make 50W the sensible choice — same throughput, quieter, cooler.
+
+The honest conclusion is that this chassis, not the silicon, is the constraint. If you want the 54W figure to actually hold, the fix is thermal: clear the intake, give it clearance on all sides, and consider a PTM7950 repaste. That's worth more than any further limit tweaking.
+
+Once you've locked in a value, put it in the systemd unit and move on to the memory check — sudo dmidecode -t 17 is still the largest unopened item, and unlike this it doesn't cost you any heat.
+
+sudo dmidecode -t 17
+# dmidecode 3.7
+Getting SMBIOS data from sysfs.
+SMBIOS 3.5.0 present.
+
+Handle 0x0015, DMI type 17, 92 bytes
+Memory Device
+        Array Handle: 0x0012
+        Error Information Handle: 0x0014
+        Total Width: 64 bits
+        Data Width: 64 bits
+        Size: 16 GiB
+        Form Factor: SODIMM
+        Set: None
+        Locator: DIMM 0
+        Bank Locator: P0 CHANNEL A
+        Type: DDR5
+        Type Detail: Synchronous Unbuffered (Unregistered)
+        Speed: 5600 MT/s
+        Manufacturer: Micron Technology
+        Serial Number: EBF10903
+        Asset Tag: Not Specified
+        Part Number: CT16G56C46S5.C8D
+        Rank: 1
+        Configured Memory Speed: 5600 MT/s
+        Minimum Voltage: 1.1 V
+        Maximum Voltage: 1.1 V
+        Configured Voltage: 1.1 V
+        Memory Technology: DRAM
+        Memory Operating Mode Capability: Volatile memory
+        Firmware Version: Unknown
+        Module Manufacturer ID: Bank 1, Hex 0x2C
+        Module Product ID: Unknown
+        Memory Subsystem Controller Manufacturer ID: Unknown
+        Memory Subsystem Controller Product ID: Unknown
+        Non-Volatile Size: None
+        Volatile Size: 16 GiB
+        Cache Size: None
+        Logical Size: None
+
+Handle 0x0018, DMI type 17, 92 bytes
+Memory Device
+        Array Handle: 0x0012
+        Error Information Handle: 0x0017
+        Total Width: 64 bits
+        Data Width: 64 bits
+        Size: 16 GiB
+        Form Factor: SODIMM
+        Set: None
+        Locator: DIMM 0
+        Bank Locator: P0 CHANNEL B
+        Type: DDR5
+        Type Detail: Synchronous Unbuffered (Unregistered)
+        Speed: 5600 MT/s
+        Manufacturer: Unknown
+        Serial Number: E9521F40
+        Asset Tag: Not Specified
+        Part Number: CT16G56C46S5.M8G1
+        Rank: 1
+        Configured Memory Speed: 5600 MT/s
+        Minimum Voltage: 1.1 V
+        Maximum Voltage: 1.1 V
+        Configured Voltage: 1.1 V
+        Memory Technology: DRAM
+        Memory Operating Mode Capability: Volatile memory
+        Firmware Version: Unknown
+        Module Manufacturer ID: Bank 6, Hex 0x9B
+        Module Product ID: Unknown
+        Memory Subsystem Controller Manufacturer ID: Unknown
+        Memory Subsystem Controller Product ID: Unknown
+        Non-Volatile Size: None
+        Volatile Size: 16 GiB
+        Cache Size: None
+        Logical Size: None
+
+Checking module revisions and confirming other bottlenecks remain.
+This is the ideal result — nothing to fix.
+
+Channel A and Channel B both populated. That's genuine dual channel, not flex mode. Your upgrade took the 780M from one channel to two, roughly doubling its memory bandwidth. That was the single biggest win available on this machine, and it already landed the moment you seated the stick.
+Configured Memory Speed 5600 MT/s on both, matching their rated speed and the platform maximum for the 8745HS. No fallback to 4800.
+Matched 16GB Crucial modules, same SKU, same CL46 timings, same 1.1V.
+Two cosmetic oddities worth explaining so you don't chase them. Both sticks report Locator: DIMM 0 — that's just sloppy SMBIOS strings in Geekom's firmware; the Bank Locator fields are what distinguish the channels and they're correct. And the part number suffixes differ (.C8D vs .M8G1), meaning Crucial sourced different DRAM die for the two revisions, which is why one reports Micron and the other doesn't decode. Since both trained to 5600 at identical timings and voltage, it's a non-issue. If you ever see unexplained instability, a memtest86+ pass would be the thing to rule out, but there's no sign of a problem here.
+
+Both are Rank: 1. Dual-rank modules would give a small bandwidth advantage from rank interleaving, but that's a purchasing decision, not something you can change now, and it's a couple of percent at most.
+
+If you want a number to put against it, sudo pacman -S mbw then mbw -n 10 1024. Dual-channel DDR5-5600 has a theoretical ceiling near 90 GB/s; anything in the 55–70 GB/s range in practice means the memory controller is doing its job.
+
+Where things stand
+Memory: optimal, nothing left. CPU power: at the firmware ceiling and thermally bound at 52–54W. Those were the two big levers and both are now pulled.
+
+What's actually left is modest by comparison:
+
+Thermals — the only thing that would let 54W hold. Dust, clearance, PTM7950 repaste.
+Hyprland blur off — the biggest perceived-responsiveness change still available, and it costs nothing.
+The housekeeping from the first message — BUILDDIR=/tmp/makepkg for AUR builds now that you have the RAM to spare, the zram sysctls, and confirming you're booted on linux-omarchy.
+Don't forget to settle on a final ryzenadj value and write the systemd unit, or all of today's tuning evaporates at the next reboot.
+
+
+
+Write a message…
+
+
+Claude is AI and can make mistakes. Please double-check responses.
