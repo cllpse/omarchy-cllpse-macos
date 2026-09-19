@@ -237,6 +237,44 @@ def adapt(value, bg_light=None, bg_dark=None):
     return hexof(*rgb), contrast(rgb + (1.0,), bg_dark), target
 
 
+def adapt_on(value, bg_light, bg_dark):
+    """Foreground rule for text that is NOT on the page.
+
+    Same as adapt(), with two differences, both because the surface underneath
+    is a chip or a wash rather than the window: the bisection runs towards
+    whichever side of its own background the light text sat on (dark-on-light
+    text must stay dark-on-light), and the window-specific lightness floor and
+    ceiling do not apply -- those exist to keep page text off pure white and out
+    of the unreadable bottom of the dark window, and neither is this.
+    """
+    eff = over(parse(value), bg_light)
+    target = contrast(eff, bg_light)
+    h, l, s = colorsys.rgb_to_hls(*eff[:3])
+    chroma = s * (1 - abs(2 * l - 1))
+
+    def at(light):
+        room = 1 - abs(2 * light - 1)
+        sat = min(1.0, chroma / room) if room > 1e-6 else 0.0
+        return colorsys.hls_to_rgb(h, light, sat)
+
+    # Which side to solve on is decided by the DARK surface, not by which side
+    # the light text sat on. When a surface flips polarity between the modes --
+    # a near-white input field becoming a near-black one -- staying on the light
+    # side means dark text on a dark field. Text goes on the readable side of
+    # the background it will actually be drawn on.
+    _, dl, _ = colorsys.rgb_to_hls(*bg_dark[:3])
+    up = dl < 0.5
+    lo, hi = (dl, 1.0) if up else (0.0, dl)
+    for _ in range(40):
+        mid = (lo + hi) / 2
+        hit = contrast(at(mid) + (1.0,), bg_dark) >= target
+        if up:
+            lo, hi = (lo, mid) if hit else (mid, hi)
+        else:
+            lo, hi = (mid, hi) if hit else (lo, mid)
+    return hexof(*at((lo + hi) / 2))
+
+
 # Surfaces rather than text: these are sat on, not read, so they mirror the
 # lightness DELTA from the window colour instead of preserving contrast.
 BG_SUFFIXES = ("ackground", "Border", "border", "Shadow", "shadow")
@@ -282,6 +320,67 @@ def adapt_wash(value, bg_light=None, bg_dark=None):
     base = [max(0.0, min(1.0, (target[i] - (1 - alpha) * bg_dark[i]) / alpha))
             for i in range(3)]
     return hexof(*base) + "%02X" % round(alpha * 255)
+
+
+# `editorCursor.background` is the colour of the character drawn ON the cursor,
+# not a surface the cursor sits on -- the pair is inverted, so the surface rule
+# below must not claim it. The cursor is page ink and takes the page rule.
+INVERTED_PAIRS = ("editorCursor.", "terminalCursor.")
+
+# How far a surface has to sit from the window before the text on it stops
+# being page text. Measured across every foreground/background pair Bearded
+# Light defines, the split is total: the window's own shades -- input, dropdown,
+# terminal, the suggest widget, peek view, inlay hints -- all land at 1.36 or
+# below, and the first real chip is a button at 3.48, then the inline-edit
+# indicator at 5.15, badges at 5.79 and the gold code chip at 9.76. Nothing
+# falls between 1.36 and 3.48, so this sits in an empty gap rather than on a
+# judgement call. Anything below it keeps the page rule, floor, ceiling and all.
+SURFACE_MIN_RATIO = 2.0
+
+
+def sibling_bg(key, colours):
+    """The `*.background` this foreground is drawn on, or None for page text.
+
+    Only ever consulted for a key that really is a foreground: both spellings
+    occur (`foo.foreground`/`foo.background`, `fooForeground`/`fooBackground`),
+    but a key that is neither -- `minimap.errorHighlight`, say -- would join to
+    its dotted parent by coincidence of naming and get measured against a
+    surface it is not on.
+    """
+    if not key.endswith(("foreground", "Foreground")):
+        return None
+    if key.startswith(INVERTED_PAIRS):
+        return None
+    for cand in ((key[:-len("oreground")] + "ackground"),
+                 key.rsplit(".", 1)[0] + ".background"):
+        if cand != key and cand in colours:
+            return cand
+    return None
+
+
+def same(a, b):
+    """Equal to within a rounding step of 8-bit colour."""
+    return all(abs(x - y) <= 1.0 / 255 for x, y in zip(a[:3], b[:3]))
+
+
+def surface_pair(key, src_colours, dark_colours):
+    """(light, dark) composites of the background this foreground sits on.
+
+    None when it has none. A chrome-owned surface resolves to the window in
+    both modes, because the two the hook owns here -- editor.background and
+    editorGutter.background -- ARE the window colour by construction; that
+    keeps page text on the page rule rather than treating the editor as a chip.
+    """
+    sib = sibling_bg(key, src_colours)
+    if sib is None:
+        return None
+    if sib in CHROME_EXACT:
+        return parse(BG_LIGHT), parse(BG_DARK)
+    dark = dark_colours.get(sib)
+    if dark is None:
+        return None
+    return (over(parse(src_colours[sib]), parse(BG_LIGHT)),
+            over(parse(dark), parse(BG_DARK)))
 
 
 def has_alpha(value):
@@ -383,6 +482,7 @@ def main():
     }
 
     colors = {}
+    deferred = []
     for key, val in src.get("colors", {}).items():
         if not isinstance(val, str) or not val.startswith("#"):
             continue
@@ -405,10 +505,36 @@ def main():
         elif key.endswith(BG_SUFFIXES):
             # An accent surface needs no adaptation; a neutral one mirrors.
             colors[key] = val if sat >= ACCENT_SAT else adapt_surface(val)
-        elif l >= CHIP_TEXT_L:
-            colors[key] = val                       # text on a chip, not the page
         else:
-            colors[key] = adapt(val)[0]             # text/icon: preserve contrast
+            # Opaque text. WHICH SURFACE it sits on decides the rule, and that
+            # is only knowable once every background above has been resolved --
+            # hence the second pass below.
+            deferred.append((key, val, l))
+
+    # Second pass: opaque foregrounds, each measured against the surface it is
+    # actually drawn on. Doing this against the window instead is the bug this
+    # exists for -- textPreformat.foreground is near-BLACK text on a gold chip,
+    # so the near-white CHIP_TEXT_L guard did not catch it, and preserving its
+    # contrast against the window lifted it to #EEE7CC over an unchanged
+    # #DCC488: 10.04:1 in light, 1.38:1 in dark.
+    src_colors = src.get("colors", {})
+    for key, val, l in deferred:
+        pair = surface_pair(key, src_colors, colors)
+        if pair is None:
+            # No background of its own: page text, the original rule.
+            colors[key] = val if l >= CHIP_TEXT_L else adapt(val)[0]
+            continue
+        sl, sd = pair
+        if contrast(sd, parse(BG_DARK)) < SURFACE_MIN_RATIO:
+            # A shade of the window, not a thing sitting on it. Page rule --
+            # which is what keeps terminal, input and notification text off
+            # pure white, since only adapt() carries the #DDDDDD ceiling.
+            colors[key] = val if l >= CHIP_TEXT_L else adapt(val)[0]
+        elif same(sl, sd):
+            # Its surface did not move between the modes, so neither does it.
+            colors[key] = val
+        else:
+            colors[key] = adapt_on(val, sl, sd)
 
     with open(os.path.join(out_dir, "bearded-dark-tokens.json"), "w") as fh:
         json.dump(tokens, fh, indent=2, sort_keys=True)

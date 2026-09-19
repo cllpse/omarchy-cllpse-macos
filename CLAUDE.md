@@ -898,8 +898,42 @@ produced something visibly wrong:
 | background | mirror the **lightness delta** from the window colour |
 | alpha surface | mirror the delta of what it **composites to**, then back-solve the base at the same alpha |
 | alpha text | keep verbatim, unless the composite falls below 2:1 on dark |
-| saturated surface / near-white text | keep verbatim — an accent chip, and the text on it, are not on the page |
+| saturated surface | keep verbatim — an accent chip is not on the page |
+| text on a chip | measured against **that chip**, not the window: verbatim if the chip didn't move, otherwise solved on the chip |
 | transparent | keep verbatim, always |
+
+**Which surface a foreground sits on decides its rule, and getting that from the
+key's own lightness does not work.** The rule used to be "near-white text is on
+a chip, keep it" — which misses `textPreformat.foreground`, near-*black* text on
+a gold chip. Its background was held verbatim by the saturated-surface rule
+while the text was lifted for contrast against the *window*, so light's
+`#221b00` on `#DCC488` (10.04:1) became `#EEE7CC` on the same unchanged
+`#DCC488` — 1.38:1, i.e. unreadable inline `code` in every markdown preview and
+hover. `inlineEdit.gutterIndicator.*Foreground` was the same shape at 5.24:1 →
+2.38:1. The derivation now resolves every background first and measures each
+opaque foreground against its own sibling in a second pass.
+
+Three things that had to be right for that not to break more than it fixed,
+each caught by diffing the generated file:
+
+- **A surface counts as a chip only past a measured distance from the window.**
+  `SURFACE_MIN_RATIO = 2.0`, and it sits in an empty gap rather than on a
+  judgement call: across every pair Bearded Light defines, the window's own
+  shades (input, dropdown, terminal, suggest widget, peek view, inlay hints) all
+  land at ≤ 1.36 against the dark window and the first real chip is a button at
+  3.48, then 5.15, 5.79, 9.76. Below the threshold the page rule applies —
+  which matters because only `adapt()` carries the `#DDDDDD` ceiling, so
+  routing terminal, input and notification text through the chip solve put all
+  of it on pure white.
+- **The solve direction comes from the DARK surface, not from which side the
+  light text sat on.** A near-white input field becomes a near-black one, so
+  "stay on the side you were on" means dark text on a dark field — it sent
+  `input.foreground` to `#000000`.
+- **Only keys that really are foregrounds get a sibling.** `minimap.errorHighlight`
+  joins `minimap.background` by coincidence of naming and is not drawn on it.
+  `editorCursor.` and `terminalCursor.` are excluded outright: their
+  `*.background` is the character drawn **on** the cursor, so the pair is
+  inverted.
 
 Five traps, all found by reading the output rather than the code:
 
