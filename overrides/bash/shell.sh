@@ -110,12 +110,47 @@ export LS_COLORS="${LS_COLORS:+$LS_COLORS:}di=01;34:ln=04;34:ex=01;32:pi=01;36:s
 # Microsoft Edit as `edit`.
 command -v msedit >/dev/null 2>&1 && alias edit="msedit"
 
-# `diff` -> `git diff`, so diffs go through the hunk pager set in
-# ../git/pager.conf. This shadows diffutils' /usr/bin/diff in INTERACTIVE shells
-# only: bash does not expand aliases in non-interactive shells (expand_aliases is
-# off), so apply.sh's own `diff -q` and every other script still reach the real
-# binary, and `command diff a b` does too.
-command -v git >/dev/null 2>&1 && alias diff="git diff"
+# `diff` -> `hunk diff`: a live-reloading working-tree review with the files
+# pane open. Both of those come from ../hunk/config.toml.tpl rather than from
+# flags here -- `sidebar = true` for the pane, and `watch = true` under [vcs]
+# for the reload. Verified that the config key really does carry the watch: with
+# that line present a piped `hunk diff` fails with "`--watch` requires an
+# interactive output terminal" and without it the same command renders, so the
+# flag this alias used to pass was redundant. It stays in [vcs] rather than at
+# top level because a top-level `watch` breaks the pager path below.
+#
+# Both of those are why this can no longer be `git diff`. git hands its output
+# to the pager on a PIPE, and hunk turns piped stdin into pagerMode
+# unconditionally -- `shouldUsePagerMode() = options.pager ||
+# usesPipedPatchInput()`, read out of the 0.22.0 binary. pagerMode hard-closes
+# the files pane before config is consulted, so no key or flag opens it there
+# (measured: `git diff | hunk patch --sidebar` still shows no pane, while
+# `hunk patch <file>` does), and `--watch` does not exist on `hunk pager` at
+# all. Both features therefore require calling `hunk diff` directly instead of
+# routing through ../git/pager.conf, which stays as it is for plain `git diff`.
+#
+# The cost, and it is real: watch refuses a non-terminal stdout outright
+# ("`--watch` requires an interactive output terminal", exit 1) and there is no
+# `--no-watch` to switch it off for one call, so `diff > out.patch` and
+# `diff | grep` now FAIL rather than degrade. Dropping the flag from this alias
+# does not change that -- the config key enables it just the same, which is the
+# whole point. `git diff` is the escape hatch --
+# unchanged, and still painted by the hunk pager. Two further consequences of
+# leaving `git diff` behind: untracked files are now IN the review (hunk's
+# `--exclude-untracked` drops them), and git-only flags are gone -- `diff
+# --stat`, `diff -w` and `diff --name-only` are rejected by hunk's own parser.
+# What survives is what hunk defines: a bare working-tree review,
+# `--staged`/`--cached`, a target ref, two refs, and a `-- <pathspec>` tail.
+#
+# This shadows diffutils' /usr/bin/diff in INTERACTIVE shells only: bash does
+# not expand aliases in non-interactive shells (expand_aliases is off), so
+# apply.sh's own `diff -q` and every other script still reach the real binary,
+# and `command diff a b` does too.
+if command -v hunk >/dev/null 2>&1; then
+  alias diff="hunk diff"
+elif command -v git >/dev/null 2>&1; then
+  alias diff="git diff"
+fi
 
 # `log` -> `hunk log`, the commit browser that pairs with the `diff` alias
 # above: j/k to move, Enter to open a commit's diff, q back to the list, / to
