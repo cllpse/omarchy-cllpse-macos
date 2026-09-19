@@ -151,24 +151,27 @@ EXACT='["editor.background","editorGutter.background","minimap.background"]'
 # is still marked, by wash only, on the gutter too via
 # `editor.renderLineHighlight: "all"` in cursor/settings.json.
 #
-# tab.border is the SEPARATOR between tabs, and it is the one edge here that is
-# a real CSS border rather than an overlay div. Cursor sets it inline on every
-# tab -- `borderRight = 1px solid ${tab.lastPinnedBorder || tab.border ||
-# contrastBorder}` -- and Omarchy paints it the window colour, which is
-# invisible against an inactive tab and a 1px white notch against a hovered or
-# active one, now that those carry a wash.
+# tab.border is no longer forced here. It used to be pinned transparent, which
+# made the tab strip edgeless: Omarchy paints the key the window colour, and
+# that read as a 1px white notch against a hovered or active tab once those
+# carried a wash, so zero alpha was the tidier of the two. Both of those are
+# now beside the point -- the strip is meant to HAVE separators -- so the key
+# is assigned $divider below instead, with the tabs.
 #
-# Transparent, not the tab colour: `.tabs-container > .tab` sets no
-# background-clip, so the default border-box paints the tab's own background
-# under its border, and box-sizing: border-box means the 1px is already inside
-# the tab's width. So zero alpha shows whatever that particular tab is -- white
-# when inactive, the wash when hovered or active -- with nothing to keep in sync
-# and no reflow. Zero alpha rather than DELETING the key, because Cursor falls
-# through to contrastBorder when the colour is undefined; a transparent colour
-# is still defined, so the fallback does not fire.
+# Worth keeping from that older note, because it is what makes a semi-
+# transparent value behave: `.tabs-container > .tab` sets no background-clip,
+# so the default border-box paints the tab's own background under its border,
+# and box-sizing: border-box means the 1px is already inside the tab's width.
+# A 25% muted therefore composites over whatever that particular tab is rather
+# than over one fixed backdrop -- which is why $divider is deliberately light
+# enough that the difference between an inactive tab and a washed one does not
+# read as two different separators.
 #
-# tab.lastPinnedBorder is deliberately left alone -- it marks where the pinned
-# tabs end, which is information, not decoration.
+# tab.lastPinnedBorder is deliberately left alone, and now earns its keep twice
+# over: at full muted it stays a step heavier than the 25% every other tab edge
+# gets, so it still marks where the pinned tabs end -- information, not
+# decoration -- instead of disappearing into a strip that now has edges
+# everywhere.
 #
 # The three BOTTOM-edge keys are not here -- they are derived below, from the
 # tab background, rather than pinned to a literal.
@@ -227,7 +230,7 @@ SHADOW_DARK='#00000059'
 
 # The rest of $FORCE is mode-independent: all three are fully transparent, and
 # zero alpha reads the same on any background.
-FORCE='{"tab.activeBorderTop":"#00000000","tab.unfocusedActiveBorderTop":"#00000000","tab.border":"#00000000","editor.lineHighlightBorder":"#00000000"}'
+FORCE='{"tab.activeBorderTop":"#00000000","tab.unfocusedActiveBorderTop":"#00000000","editorGroupHeader.tabsBorder":"#00000000","editor.lineHighlightBorder":"#00000000"}'
 
 # WHAT MARKS THE ACTIVE TAB, now that no tab has an underline: its background,
 # set to exactly what an inactive tab shows under the pointer. Omarchy paints
@@ -250,6 +253,100 @@ FORCE='{"tab.activeBorderTop":"#00000000","tab.unfocusedActiveBorderTop":"#00000
 # *.border ids are muted and $CHROME copies them -- menu.border, pickerGroup,
 # keybindingLabel, editorHoverWidget and the rest. The one that did NOT is
 # widget.border, assigned below.
+#
+# DIVIDER token -- muted at 25% FLATTENED onto the window background, so the
+# value written is opaque (#2C2C2C dark, #EEEEEE light) rather than a
+# #BDBDBD40 / #56565640 with alpha. It is used for the three structural edges
+# that Omarchy leaves invisible: sideBar.border (the sidebar/editor separator),
+# tab.border (between tabs, every tab, active or not) and
+# editorGroupHeader.border (the line under the tab strip -- see below for why
+# it is that key and not tabsBorder).
+#
+# 25% is the weight, not the value: it is what Omarchy already gives every
+# divider of this class -- editorGroup.border between split editors,
+# panel.border above the terminal, sideBarSectionHeader.border -- so these read
+# as the same kind of line rather than outweighing their neighbours.
+#
+# Flattened rather than left with alpha because these three edges do not all
+# sit on the same backdrop. tab.border in particular is a real CSS border and
+# `.tabs-container > .tab` sets no background-clip, so the default border-box
+# paints each tab's OWN background under it -- meaning a translucent value
+# composites over an inactive tab and over a washed one differently, and the
+# separator changes shade as tabs activate. Opaque removes that: one number,
+# identical on every tab and against the sidebar and the strip alike.
+#
+# It is safe to flatten against one backdrop here because there is only one.
+# editorGroupHeader.tabsBackground, editor.background, sideBar.background and
+# tab.inactiveBackground are all the window colour in this palette, so every
+# edge this token touches sits on the same thing. $dividerbg reads the strip
+# and falls back to the editor, which is that colour by either name.
+#
+# The [0:7] slice is defensive -- it drops any alpha already on $muted before
+# the 25% is appended, so the input to flatten_over cannot be an
+# 11-character string if Omarchy's template ever grows one.
+#
+# The tab strip's bottom edge is editorGroupHeader.border at $divider, and
+# tabsBorder is the one zeroed -- which is the opposite of what it looks like
+# from the key names. Cursor paints two separate 1px rules in the same place,
+# from the product's own CSS:
+#
+#   .tabs-and-actions-container.tabs-border-bottom:after  <- tabsBorder
+#   .title.title-border-bottom:after                      <- editorGroupHeader.border
+#
+# both `bottom: 0; height: 1px; z-index: 9`. `.title` is the PARENT of the tabs
+# container, and a parent's ::after paints after all of its children, so the
+# title rule always lands on top. editorGroupHeader.border is therefore the
+# only one of the two that can be seen while it is opaque, and Omarchy gives it
+# the window colour -- so setting tabsBorder alone draws something that is
+# immediately covered and looks like the key did nothing.
+#
+# Established by probe rather than by reading: with tabsBorder cyan,
+# editorGroupHeader.border orange and the two tab keys magenta/yellow, a
+# full-screen capture had ZERO cyan pixels anywhere and 3050px of orange across
+# the strip. Both keys do paint; only the parent shows.
+#
+# tabsBorder is kept at zero alpha rather than DELETED, for the reason the other
+# $FORCE entries carry: the redraw reads
+# `getColor(id) || getColor(contrastBorder)`, so an undefined colour falls
+# through to contrastBorder. A transparent colour is still defined, so it does
+# not.
+#
+# The edge is strip-WIDE rather than per-tab, and that is not a choice: Cursor
+# registers 29 tab.* colour ids and the only bottom-edge ones among them are
+# tab.activeBorder, tab.hoverBorder and their unfocused pair. There is no
+# tab.inactiveBorder, so an inactive tab's own bottom edge is not themable and
+# a line under every tab can only come from the container. The cost is that
+# `width: 100%` runs it past the last tab across the empty strip.
+#
+# KNOWN, unresolved: this edge measures 2 device rows where the vertical
+# separators measure 1, and it is not the two rules stacking -- the probe above
+# shows only one of them is ever visible. Fractional display scale was the
+# obvious suspect and was ruled out by testing at scale 1, where it is still
+# thicker. Whatever the cause, it is below the colour layer and no key here
+# reaches it.
+#
+# The per-tab bars need no change, and now they are not merely close but the
+# SAME NUMBER, which is worth recording so nobody "fixes" it: tab.activeBorder
+# / hoverBorder / unfocusedActiveBorder are derived just below as
+# flatten_over($strip) -- the hover wash composited onto the strip. That wash is
+# muted at 25% and the strip is $dividerbg, so those keys run the identical
+# computation this token does and land on the identical literal (#2C2C2C dark,
+# #EEEEEE light). The active tab's bar therefore continues the container's line
+# instead of punching a hole in it, and nothing about the "no underline, the
+# background marks the active tab" decision changes.
+#
+# 25% rather than full muted because that is already the weight Omarchy gives
+# every other divider of this class -- editorGroup.border between split
+# editors, panel.border above the terminal, sideBarSectionHeader.border -- all
+# of which arrive as #BDBDBD40 / #56565640 through $CHROME. A full-strength
+# sidebar edge would have sat directly beside a 25% panel edge and outweighed
+# it. Reusing the alpha means these read as the same kind of line, and it
+# tracks the theme for free: $muted is textSeparator.foreground, so light gets
+# #BDBDBD40 and dark #56565640 with nothing pinned.
+#
+# The [0:7] slice is defensive -- it drops any alpha already on $muted before
+# appending, so the value cannot come out as an 11-character string if
+# Omarchy's template ever grows one.
 #
 # widget.border is unclaimed by both themes (registered default null), so
 # Cursor's composites were falling back to their own --cursor-stroke-tertiary.
@@ -321,6 +418,11 @@ if ! jq --slurpfile t "$THEME" --argjson keep "$KEEP" --argjson exact "$EXACT" -
                 end;
       . as $set
       | (($t[0].colors // {})["textSeparator.foreground"]) as $muted
+      | (($t[0].colors // {})["editorGroupHeader.tabsBackground"]
+         // ($t[0].colors // {})["editor.background"]) as $dividerbg
+      | (if $muted and $dividerbg
+         then (($muted[0:7] + "40") | flatten_over($dividerbg))
+         else null end) as $divider
       | (if ($t[0].type // "light") == "dark" then $shadow_dark else $shadow_light end) as $shadow
       | (($t[0].colors // {})
          | with_entries(select(.key as $k
@@ -420,6 +522,9 @@ if ! jq --slurpfile t "$THEME" --argjson keep "$KEEP" --argjson exact "$EXACT" -
              (($act | flatten_over($strip)) // .["tab.hoverBorder"])
          | .["tab.unfocusedActiveBorder"] =
              (($uact | flatten_over($strip)) // .["tab.unfocusedActiveBorder"])
+         | .["editorGroupHeader.border"] = ($divider // .["editorGroupHeader.border"])
+         | .["tab.border"] = ($divider // .["tab.border"])
+         | .["sideBar.border"] = ($divider // .["sideBar.border"])
          | .["widget.border"] = ($muted // .["widget.border"])
          | .["widget.shadow"] = $shadow) as $chrome
       # Derived editor-area colours go UNDERNEATH: every key the chrome copy
