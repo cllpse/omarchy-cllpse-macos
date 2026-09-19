@@ -39,7 +39,7 @@ sidebar = true
 # and is then lost at the next theme switch. Change it in the template, not in
 # the prompt.
 mode = "split"          # always side-by-side, never the responsive collapse
-menu_bar = true         # top application menu bar
+menu_bar = false        # no top application menu bar on diff/log
 line_numbers = true     # old and new line-number columns
 wrap_lines = true       # wrap long lines instead of truncating to one row
 hunk_headers = false    # no @@ metadata rows in the review stream
