@@ -179,11 +179,37 @@ hl.config({
       -- Saturation of the blurred backdrop. BUILD.md section 5 started at 0.20
       -- ("macOS boosts saturation behind glass"); 0.30 pulls more colour
       -- through. Pure shader parameters, no render cost.
+      --
+      -- 0.30 is an ADDITIVE ceiling on HSL saturation, not a multiplier. From
+      -- Hyprland's own blur shader (read out of the binary -- it is on disk
+      -- nowhere):
+      --
+      --   saturation = clamp(hsl[1] + (boostBase * vibrancy) / passes, 0, 1)
+      --
+      -- applied once per downsample pass and divided by the pass count, so the
+      -- boost is independent of `passes` above -- passes change the spread,
+      -- never the colour. boostBase is a smoothstep over the pixel's existing
+      -- saturation and its perceived brightness (0.299/0.587/0.114 through a
+      -- sigmoid), so the effect is selective: the shader guards `hsl[1] > 0.0`,
+      -- which means a NEUTRAL pixel gets exactly nothing, and an already
+      -- saturated one has no headroom left. Worked through at these settings:
+      -- #3B82F6 goes 0.901 -> 1.000, #E11D48 0.778 -> 0.971, a desaturated
+      -- #6E8BA8 only 0.253 -> 0.258, and #ECECEC / #BDBDBD / any grey +0.000.
+      --
+      -- Which is the thing to remember here: both of our palettes are
+      -- near-neutral, so vibrancy does almost nothing to the window backgrounds
+      -- themselves. It only bites where something genuinely colourful sits
+      -- behind an unfocused window -- a photo, a video, a syntax-highlighted
+      -- editor. Don't reach for it to make the CHROME more colourful; it cannot.
       vibrancy = 0.30,
       -- How far vibrancy reaches into dark areas. Hyprland defaults this to 0,
       -- which means dark backdrops get almost no boost -- so the dark theme's
       -- glass read flat next to the light theme's. Matched to vibrancy so both
-      -- themes saturate alike.
+      -- themes saturate alike. Visible in the same shader math: at 0.0 every
+      -- colour at lightness 0.35 gets +0.000 no matter how saturated, while at
+      -- 0.30 the same row starts boosting. It enters as (1 - vibrancy_darkness)
+      -- scaling both the sigmoid's knee and the smoothstep's centre, so raising
+      -- it shifts WHICH colours qualify rather than how much they get.
       vibrancy_darkness = 0.30,
       -- Frosted grain, a touch above Hyprland's 0.0117 default. Worth knowing
       -- how little this shows: measured at the alphas in force at the time --
