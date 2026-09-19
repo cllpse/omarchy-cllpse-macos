@@ -1109,8 +1109,13 @@ rather than semantic and are simply assigned — `profileBadge` (a teal dot in a
 window where every other badge is the accent), `multiDiffEditor`,
 `diffEditor.border`, `peekViewEditorStickyScroll.background`, `button.separator`.
 
-After the pass, exactly one workbench colour is off-palette, and it is `#565656`
-by assignment. 624 keys in each scope, 487 of them straight from Omarchy.
+After the pass **no** workbench colour is off-palette: 624 keys in each scope,
+487 of them straight from Omarchy, the rest either derived from those (the tab
+pair, the washes, the re-tints) or assigned from `muted`. The check that says
+so is worth re-running after a Cursor update, since a new release registers new
+ids and an id neither palette names keeps whatever the theme gave it: list every
+key outside `$KEEP` whose value is not in `colors.toml`. `button.separator` was
+the last one to surface that way, at the derivation's neutral `#6B6B6B`.
 
 **Anything that floats over the window is chrome too.** `quickInput`,
 `pickerGroup.`, `editorHoverWidget.` and `keybindingLabel.` are in `$CHROME`
