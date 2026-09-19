@@ -116,19 +116,47 @@ EXACT='["editor.background","editorGutter.background"]'
 # colour, so the system is one colour for every edge and one for every shadow,
 # with each surface keeping the shadow SHAPE Cursor gave it.
 #
-# SHADOW token -- widget.shadow, black at 14% (Material's own penumbra alpha).
-# A literal, so it belongs in $FORCE. It is the only shadow id not zeroed in
-# cursor/settings.json, and it is worth knowing how far it reaches: Cursor
-# derives --cursor-shadow-primary from this var and secondary/tertiary/workbench
-# from color-mixes of it at 60/30/40%, so every --cursor-box-shadow-* composite
-# takes its colour from here too -- the quick input among them, which Cursor
-# forces onto box-shadow-xl. Two consequences. Material's black is near-invisible
-# on a dark background, which is Material's own behaviour (it uses surface
-# overlays there instead) -- swapping this literal for $muted in the derivation
-# below is the one-line alternative if the dark theme wants a visible shadow.
-# And the editor hover takes nothing from it at all: `.monaco-editor
-# .monaco-hover` has no box-shadow declaration, so its only edge is the border.
-FORCE='{"tab.activeBorderTop":"#00000000","tab.unfocusedActiveBorderTop":"#00000000","editor.lineHighlightBorder":"#00000000","widget.shadow":"#00000024"}'
+# SHADOW token -- widget.shadow, and the ONE value here that cannot be shared
+# between the two modes, because it is a literal rather than a palette entry.
+# It is also the only shadow id not zeroed in cursor/settings.json, and it is
+# worth knowing how far it reaches: Cursor derives --cursor-shadow-primary from
+# this var and secondary/tertiary/workbench from color-mixes of it at 60/30/40%,
+# so every --cursor-box-shadow-* composite takes its colour from here too -- the
+# quick input among them, which Cursor forces onto box-shadow-xl. The editor
+# hover takes nothing from it at all: `.monaco-editor .monaco-hover` has no
+# box-shadow declaration, so its only edge is the border.
+#
+# LIGHT is black at 14%, Material's own penumbra alpha. On the #FFFFFF window
+# that lands at #DBDBDB -- a 36/255 step, clearly readable.
+#
+# DARK cannot use the same number, and cannot be fixed by scaling it either.
+# Against the #1E1E1E window:
+#
+#     14%  -> #1A1A1A   step  4/255   invisible
+#     30%  -> #151515   step  9/255
+#     35%  -> #141414   step 10/255   what ships
+#    100%  -> #000000   step 30/255   the absolute ceiling
+#
+# against the light theme's 14% over #FFFFFF, which is a step of 36/255.
+#
+# A dark shadow simply has 30 levels of headroom where the light one has 255, so
+# it can never carry the light theme's weight -- which is exactly why Material
+# uses surface overlays on dark instead of shadows, and why Omarchy's own
+# generated value for dark (#1E1E1E80, the background at half alpha) is
+# invisible by construction. 35% is the practical floor for "present but not
+# a smear", and matches what VS Code's own Dark Modern uses (#0000005c).
+# Bearded's dark variants sit lower still, at #11100f30 and #00000033.
+#
+# The mode comes from the generated theme's own `type` key -- the same field
+# Omarchy writes from the theme's `mode`, so it is the identical signal that
+# picks which of the two Bearded variants is active in the first place. No
+# second source of truth.
+SHADOW_LIGHT='#00000024'
+SHADOW_DARK='#00000059'
+
+# The rest of $FORCE is mode-independent: all three are fully transparent, and
+# zero alpha reads the same on any background.
+FORCE='{"tab.activeBorderTop":"#00000000","tab.unfocusedActiveBorderTop":"#00000000","editor.lineHighlightBorder":"#00000000"}'
 
 # ONE bottom border, shared by the selected and hovered states. Omarchy gives
 # them different values -- tab.activeBorder the full accent (#007AFF),
@@ -160,15 +188,18 @@ FORCE='{"tab.activeBorderTop":"#00000000","tab.unfocusedActiveBorderTop":"#00000
 
 
 tmp=$(mktemp)
-if ! jq --slurpfile t "$THEME" --argjson pre "$CHROME" --argjson exact "$EXACT" --argjson force "$FORCE" '
+if ! jq --slurpfile t "$THEME" --argjson pre "$CHROME" --argjson exact "$EXACT" --argjson force "$FORCE" \
+       --arg shadow_light "$SHADOW_LIGHT" --arg shadow_dark "$SHADOW_DARK" '
       . as $set
       | (($t[0].colors // {})["textSeparator.foreground"]) as $muted
+      | (if ($t[0].type // "light") == "dark" then $shadow_dark else $shadow_light end) as $shadow
       | (($t[0].colors // {})
          | with_entries(select(.key as $k
              | any($pre[]; . as $p | $k | startswith($p)) or ($exact | index($k) != null)))
          + $force
          | .["tab.hoverBorder"] = (.["tab.activeBorder"] // .["tab.hoverBorder"])
-         | .["widget.border"] = ($muted // .["widget.border"])) as $chrome
+         | .["widget.border"] = ($muted // .["widget.border"])
+         | .["widget.shadow"] = $shadow) as $chrome
       | ( [ $set["workbench.preferredLightColorTheme"],
             $set["workbench.preferredDarkColorTheme"] ] | map(select(type == "string")) ) as $themes
       | if ($themes | length) == 0 or ($chrome | length) == 0 then $set

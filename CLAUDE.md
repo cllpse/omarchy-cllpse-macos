@@ -971,8 +971,14 @@ the **quick input** — plus the find widget's side borders, `simple-find-part`,
 the marketplace menus, the announcement modal and the feedback pane. Assigning
 it is what makes the command palette and the tooltips share one edge.
 
-*Shadow token* — `widget.shadow`, black at 14% (`#00000024`, Material's own
-penumbra alpha). A literal, so it sits in `$FORCE`. `cursor/settings.json`
+*Shadow token* — `widget.shadow`, and **the one value in the whole hook that
+cannot be shared between light and dark**, because it is a literal rather than a
+palette entry. Light is black at 14% (`#00000024`, Material's own penumbra
+alpha); dark is black at 35% (`#00000059`). It is therefore not in `$FORCE` with
+the others but picked in the jq from the generated theme's own `type` key —
+which is the same field Omarchy writes from the theme's `mode`, so it is the
+identical signal that chooses which Bearded variant is active. No second source
+of truth. `cursor/settings.json`
 zeroes the other six shadow ids this build registers — `scrollbar.shadow`,
 `editorStickyScroll.shadow`, `sideBarStickyScroll.shadow`,
 `panelStickyScroll.shadow`, `listFilterWidget.shadow`,
@@ -989,10 +995,16 @@ so those rules are already inert.
 `widget.shadow` reaches further than its name suggests: Cursor derives
 `--cursor-shadow-primary` from it and `--cursor-shadow-secondary/tertiary/workbench`
 from `color-mix`es at 60/30/40%, so every `--cursor-box-shadow-*` composite
-takes its colour from there too. Two consequences. Material's black is
-near-invisible on a dark background — Material's own behaviour, it uses surface
-overlays instead — and swapping the literal for `$muted` in the hook's
-derivation is the one-line alternative if the dark theme wants a visible shadow.
+takes its colour from there too. Two consequences. **A dark shadow can never
+carry the light one's weight, and no alpha fixes it** — against the `#1E1E1E`
+window, 14% lands at `#1A1A1A` (a 4/255 step, invisible), 35% at `#141414`
+(10/255, what ships), and even pure black only reaches 30/255, against the light
+theme's 36/255 at 14% over `#FFFFFF`. There are 30 levels of headroom where
+light has 255. That is exactly why Material uses surface overlays on dark rather
+than shadows, and why Omarchy's own generated dark value (`#1E1E1E80`, the
+background at half alpha) is invisible by construction. For reference, Bearded's
+own dark variants sit lower still at `#11100f30` / `#00000033`, and VS Code's
+Dark Modern uses `#0000005c` — which is what the 35% here matches.
 And **the editor hover takes nothing from it**: `.monaco-editor .monaco-hover`
 has no `box-shadow` declaration at all (background, border, radius, colour,
 nothing else), so on that surface the border token is the only edge there is.
