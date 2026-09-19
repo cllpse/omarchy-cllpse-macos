@@ -1251,29 +1251,37 @@ since VS Code's `editor.fontSize` is in px like the first of those. The number i
 `cursor/settings.json` is only the fallback for when that reading fails. It stays: it is a user preference with no Omarchy equivalent.
 Only Cursor is handled; VS Code / VSCodium would each need their own merge.
 
-**Wheel speed is set in three places in Cursor, and one of them is a trap.**
-`editor.mouseWheelScrollSensitivity`, `workbench.list.mouseWheelScrollSensitivity`
-and `terminal.integrated.mouseWheelScrollSensitivity` are separate settings, all
-registered with a default of `1` — setting only the editor one leaves the file
-tree and the terminal at the old speed, which reads as an inconsistent fix
-rather than as two settings still at their default. The editor one is
+**Wheel speed is set in three places in Cursor, and NONE of them is set here
+-- deliberately.** `editor.mouseWheelScrollSensitivity`,
+`workbench.list.mouseWheelScrollSensitivity` and
+`terminal.integrated.mouseWheelScrollSensitivity` are separate settings, all
+registered with a default of `1`, so setting only the editor one leaves the
+file tree and the terminal at the old speed -- which reads as an inconsistent
+fix rather than as two settings still at their default. The editor one is
 registered as `new Xoe(76, "mouseWheelScrollSensitivity", 1, e => e === 0 ? 1 : e)`,
 so **zero is coerced back to 1** and cannot be used to stop wheel scrolling.
 `editor.fastScrollSensitivity` / `workbench.list.fastScrollSensitivity` are a
 fourth and fifth, but only while Alt is held.
 
-All three are `0.67` here, to cancel `input-tuning.lua`'s `scroll_factor = 1.5`
-(1/1.5 = 0.67) -- they are a pair, so moving the wheel factor means moving
-these with it. **That rests on an unverified assumption**: that Hyprland's
-`scroll_factor` reaches Electron at all and Cursor's sensitivity then multiplies
-the already-scaled delta. The alternative is that Chromium reads the unscaled
-v120 high-resolution wheel value and ignores `scroll_factor` entirely — in which
-case Cursor was never faster, everything *else* was slower, and `0.7` makes
-Cursor slower than the desktop instead of matching it. It could not be settled
-here, because `hl.dsp` has no pointer-axis dispatcher (see the keyd entry), so a
-scroll event cannot be synthesized to measure against. If Cursor ends up slower
-than a GTK app, the model is backwards and the three keys should come out rather
-than be tuned further.
+All three were carried at `0.7`, then `0.67`, to cancel `input-tuning.lua`'s
+`scroll_factor` (1/1.45, then 1/1.5). **They have been removed**: Cursor should
+take whatever delta the compositor hands it and apply no gain of its own, so
+one knob -- `input.scroll_factor` -- governs wheel speed everywhere on this
+desktop, and raising it no longer means editing a second file to keep Cursor in
+step. A machine that was applied before this needs the three keys deleted from
+its live `settings.json` by hand: the `jq` merge only adds keys, so dropping
+them from `cursor/settings.json` does not remove an already-installed copy.
+
+Don't re-add them to compensate for the compositor. The model that would
+justify it -- that `scroll_factor` reaches Electron and Cursor's sensitivity
+then multiplies the already-scaled delta -- was never verified, because
+`hl.dsp` has no pointer-axis dispatcher (see the keyd entry) and a scroll event
+cannot be synthesized to measure against. If Cursor's wheel ever needs to
+differ from the desktop's, measure the delta a client actually receives first
+(a `wl_pointer.axis` logger, a fixed notch count, `scroll_factor` at two
+values), because the alternative model -- Chromium reading the unscaled v120
+high-resolution value and ignoring `scroll_factor` outright -- predicts the
+opposite sign of correction.
 
 **Merge into a running Cursor doesn't reliably stick.** Cursor rewrites the whole
 `settings.json` from its in-memory model whenever a setting changes through the
