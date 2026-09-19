@@ -253,22 +253,38 @@ def has_alpha(value):
     return len(value.lstrip("#")) in (4, 8)
 
 
-def token_colours(src):
-    """Every distinct OPAQUE foreground in tokenColors + semanticTokenColors.
+def keep_alpha(value):
+    """True when an alpha colour still reads once composited on the dark bg.
 
-    Colours carrying alpha are excluded: they are kept verbatim, see the header.
+    Token colours get the SAME legibility test as text in the colours map, which
+    an earlier version applied to the colours only. Measured on this theme, two
+    of its four alpha token colours fail it: #09131666 is a near-black at 40%,
+    a soft grey on white (2.62:1) and 1.06:1 on #1E1E1E -- gone -- and #3e5414cc
+    lands at 1.70:1. Keeping alpha is for colours that are faint BY DESIGN, not
+    for ones that merely happen to be dark.
+    """
+    if not has_alpha(value):
+        return False
+    composite = over(parse(value), parse(BG_DARK))
+    return contrast(composite, parse(BG_DARK)) >= ALPHA_MIN_RATIO
+
+
+def token_colours(src):
+    """Every distinct foreground that needs mapping.
+
+    Opaque ones always; alpha ones only when keeping them would leave the token
+    illegible on the dark background.
     """
     seen = {}
+
+    def note(fg):
+        if isinstance(fg, str) and fg.startswith("#") and not keep_alpha(fg):
+            seen[fg] = seen.get(fg, 0) + 1
+
     for rule in src.get("tokenColors", []):
-        fg = rule.get("settings", {}).get("foreground")
-        if fg and not has_alpha(fg):
-            seen.setdefault(fg, 0)
-            seen[fg] += 1
+        note(rule.get("settings", {}).get("foreground"))
     for val in src.get("semanticTokenColors", {}).values():
-        fg = val.get("foreground") if isinstance(val, dict) else val
-        if isinstance(fg, str) and not has_alpha(fg):
-            seen.setdefault(fg, 0)
-            seen[fg] += 1
+        note(val.get("foreground") if isinstance(val, dict) else val)
     return seen
 
 

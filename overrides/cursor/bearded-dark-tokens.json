@@ -337,7 +337,7 @@
             "meta.tag.attributes.js keyword.operator.assignment.js"
           ],
           "settings": {
-            "foreground": "#09131666"
+            "foreground": "#696C6E"
           }
         },
         {
@@ -445,7 +445,7 @@
             "punctuation.definition.string.end.python"
           ],
           "settings": {
-            "foreground": "#3e5414cc"
+            "foreground": "#81935F"
           }
         },
         {
