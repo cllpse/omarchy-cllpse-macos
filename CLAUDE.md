@@ -1595,7 +1595,10 @@ outlier before the scene settled.
   ways round against `OverlayScrollbar`: ours last, the scrollbar overlays;
   Omarchy's last, it comes back. Nothing keeps the two in step, so apply.sh
   step 7d diffs the stock line against ours and says so if Omarchy ever adds a
-  feature the block is missing.
+  feature the block is missing — for `--disable-features` as well, since it is
+  the same switch machinery and our block carries one of those too
+  (`MediaSessionService`). Omarchy ships no `--disable-features` line today, so
+  that half of the check is a tripwire rather than a live comparison.
 - **A browser setting that lives only in the profile is not a setting this repo
   has, and its loss leaves nothing behind to explain itself.** Two of them went
   missing here at once — the overlay-scrollbar `chrome://flags` toggle (which is
@@ -1907,3 +1910,10 @@ clean install ended up identical.
 
 - `revert.sh`'s restore paths have unit-tested helpers but have never been run
   end-to-end; that needs a spare machine or VM, not this one.
+- Whether Hyprland's `input.scroll_factor` reaches an Electron client at all is
+  still unverified — it decides whether a Chromium-based app needs a
+  counter-gain or none. Nothing depends on the answer today (Cursor now sets no
+  sensitivity of its own), but it is the measurement to take before anyone
+  re-adds one: log `wl_pointer.axis` deltas for a fixed notch count at two
+  values of `scroll_factor`. `hl.dsp` has no pointer-axis dispatcher, so the
+  scroll has to be a real one.

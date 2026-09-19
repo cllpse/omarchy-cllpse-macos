@@ -218,7 +218,7 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   preference `partition.default_zoom_level`, stored as `ln(factor)/ln(1.2)` —
   and Chromium must be closed when it is written, since it rewrites
   `Preferences` from memory on exit.
-- **Two more Chromium settings, same step.** The flags file also carries
+- **Three more Chromium settings, same step.** The flags file also carries
   `--enable-features=…,OverlayScrollbar` — the thin, auto-hiding scrollbar
   macOS has, where Chromium otherwise draws a permanent gutter. It restates
   Omarchy's own feature deliberately: a repeated `--enable-features` is
@@ -369,43 +369,67 @@ comm -23 <(pacman -Qqe | sort -u) \
 ```
 
 That prints every explicitly-installed package Omarchy's own lists do not
-contain — 20 here. Nine of them are this repo's dependencies and are covered in
-[`overrides/README.md`](overrides/README.md); the other eleven are the two
-groups below. Anything that turns up in the command's output and not in this
-section is either new or was never wanted.
+contain — 23 here. Ten of them are this repo's dependencies and are covered in
+[`overrides/README.md`](overrides/README.md) (`bibata-cursor-theme-bin`,
+`cursor-bin`, `ghostty`, `keyd`, `lsd`, `msedit`, `python-secretstorage`,
+`ryzenadj`, `yazi`, `ytm-player`); the other thirteen are the groups below.
+Anything that turns up in the command's output and not in this section is
+either new or was never wanted.
 
-**Keyboard firmware toolchain** — `pacman -S qmk avrdude avr-gcc avr-libc`.
-Not used by anything in this repo, but two of its features exist *because* of
-the keyboard it flashes: step 5c's `us-danish-letters` xkb layout, and
-`window-management-mod.lua` moving window navigation from `SUPER` to `CTRL+ALT`
-because the Preonic's firmware intercepts `SUPER` on the keys those binds used.
-Read that as provenance for two otherwise-arbitrary decisions.
+**Measurement tools for step 10** — `pacman -S stress-ng dmidecode`. `stress-ng`
+is what the CPU power limits were measured with (a 90s all-core `matrixprod`
+run: 11379 bogo ops/s at 52W sustained, 4474 MHz, 88.5 °C peak), and
+`dmidecode` is how the machine was identified while writing the step's guard.
+Neither is needed to *run* anything — `apply.sh` reads `/sys/class/dmi/id/`
+directly and never shells out to `dmidecode`, and the live limits are read back
+from `ryzen_smu`'s world-readable `pm_table`. They are provenance for the
+numbers in step 10, not dependencies of it.
 
-**Helium** — `~/Applications/helium-<version>-x86_64.AppImage`, a Chromium
-fork, and not a package, so it does not appear in the command's output at all.
-`Hud.qml` buckets it with the browser family for its switcher glyph and names
-it, but nothing here installs or requires it — the switcher simply recognises
-the window if it is there. Same relationship as Figma Desktop, minus the
-launcher entry.
+**Unrelated to this repo** — `mongodb-compass-bin`, `ngrok` and
+`capitaine-cursors`. The first two are the author's own tools; the third is a
+second cursor theme that nothing here selects (`apply.sh` sets Bibata). Listed
+only so the command's output reconciles.
 
-**Audio workaround** — `~/.local/bin/force-analog-sink`, run by
-`~/.config/systemd/user/force-analog-sink.service`. The onboard Realtek ALC897
-rear line-out does not report jack presence, so WirePlumber marks the analog
-route unavailable and refuses to restore the analog sink on every login. Neither
-the script nor the unit is in this repo — hardware-specific, and nothing here
-touches audio.
+**Keyboard firmware toolchain — no longer installed.** `qmk`, `avrdude`,
+`avr-gcc` and `avr-libc` were here and have since been removed, so they no
+longer appear in the command's output. The provenance survives them, because
+two features exist *because* of the keyboard they flashed: step 5c's
+`us-danish-letters` xkb layout, and `window-management-mod.lua` moving window
+navigation from `SUPER` to `CTRL+ALT`, since the Preonic's firmware intercepts
+`SUPER` on the keys those binds used. The keyboard is also what `keyd`'s
+`[ids]` line is pinned to. Read that as provenance for otherwise-arbitrary
+decisions; reinstall the toolchain only if the firmware needs reflashing.
+
+**Helium — not currently installed.** It was an AppImage in `~/Applications/`
+(a Chromium fork, never a package, so it never appeared in the command's output
+either), and that directory now holds only `figma-desktop/`. `Hud.qml` still
+buckets it with the browser family for its switcher glyph and names it, which
+costs nothing and means the switcher recognises the window if it comes back.
+Nothing here installs or requires it.
+
+**Audio workaround — also gone.** `~/.local/bin/force-analog-sink` and
+`~/.config/systemd/user/force-analog-sink.service` are both absent now. What
+they were for is worth keeping: the onboard Realtek ALC897 rear line-out does
+not report jack presence, so WirePlumber marks the analog route unavailable and
+refuses to restore the analog sink on login. If that returns after a login, it
+is the thing to rebuild. Neither was ever in this repo — hardware-specific, and
+nothing here touches audio.
 
 **CLI tools that install themselves** — `~/.local/bin/` holds a set of one-line
-wrappers (`copilot`, `crush`, `cursor-agent`, `gemini`, `ghui`, `grok`,
-`hermes`, `muse`, `omp`, `opencode`, `pi`, `playwright`) that each `mise use -g`
-their own tool on first run and then exec it. They need no install step and
-appear in no package list. `herdr`, `claude`, `codex`, `gh` and `hunk` come from
-`mise` proper (`~/.config/mise/config.toml`); only `hunk` and `gh` matter to this
-repo.
+wrappers (`claude`, `codex`, `copilot`, `crush`, `cursor-agent`, `gemini`, `gh`,
+`ghui`, `grok`, `hermes`, `hunk`, `muse`, `omp`, `opencode`, `pi`, `playwright`)
+that each `mise use -g` their own tool on first run and then exec it. They need
+no install step and appear in no package list. Four of them — `claude`, `codex`,
+`gh`, `hunk` — are *also* pinned in `~/.config/mise/config.toml` (with `node`),
+so they are installed whether or not their wrapper ever runs; only `hunk` and
+`gh` matter to this repo. The two `cllpse-*` entries beside them
+(`cllpse-figma-keyd`, `cllpse-ytm-signin`) are this repo's, installed by
+`apply.sh`.
 
-**Arch and Omarchy base** — `efibootmgr`, `intel-ucode`, `mkinitcpio`, `sudo`,
-`omarchy`, `omarchy-keyring`, `omarchy-settings`. Listed only so that running
-the command above and diffing it against this section comes out empty.
+**Arch and Omarchy base** — `amd-ucode`, `efibootmgr`, `fwupd`, `mkinitcpio`,
+`sudo`, `omarchy`, `omarchy-keyring`, `omarchy-settings`. Listed only so that
+running the command above and diffing it against this section comes out empty.
+Note `amd-ucode`, not `intel-ucode`: this is the Ryzen box step 10 is gated on.
 
 ### Figma Desktop — installing and updating it
 

@@ -379,8 +379,7 @@ install-figma.sh              installs/updates Figma Desktop from IliyaBrook/fig
 cursor/derive-dark-from-light.py  generates the dark scheme FROM Bearded Theme Light: contrast-preserving for text, delta-mirroring for surfaces, verbatim for alpha/accents/transparent. Re-run after a Bearded update
 cursor/bearded-dark-colors.json   GENERATED -- 318 workbench colours, merged by the theme hook under the chrome copy (dark mode only)
 cursor/bearded-dark-tokens.json   GENERATED -- 55 textMate + 10 semantic rules, merged into settings.json by apply.sh, scoped to the dark variant so light mode is untouched
-chromium/chromium-flags.conf  --force-device-scale-factor=1 + --enable-features=…,OverlayScrollbar
-                             + --disable-features=MediaSessionService (fenced into Omarchy's flags file)
+chromium/chromium-flags.conf  --force-device-scale-factor=1 + --enable-features=…,OverlayScrollbar + --disable-features=MediaSessionService (fenced into Omarchy's flags file)
 chromium/chromium_prefs.py    shared plumbing for the two profile-preference scripts below
 chromium/default-zoom.py      default page zoom -> 110% (no flag exists; it is a profile preference)
 chromium/neutral-theme.py     system (GTK) theme + grayscale -> a neutral browser UI (the theme-colour policy can only give a tinted palette)
