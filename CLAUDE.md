@@ -878,6 +878,58 @@ own backgrounds — Black & Gold Soft's `#221F1D` is ΔE 2.2 from `#1E1E1E` and 
 only near-neutral dark in the set (chroma 2.1 against the palette's 0), the rest
 carrying a visible blue cast.
 
+**Dark mode is the LIGHT scheme, derived — not a second Bearded variant.**
+`workbench.preferredDarkColorTheme` still names Black & Gold Soft, but almost
+nothing of it survives: `overrides/cursor/derive-dark-from-light.py` reads
+Bearded Theme Light and emits two generated, committed artifacts —
+`cursor/bearded-dark-colors.json` (318 workbench colours, merged by the theme
+hook UNDERNEATH the chrome copy, so the frame stays Omarchy's) and
+`cursor/bearded-dark-tokens.json` (55 textMate rules + 10 semantic, merged into
+`settings.json` by apply.sh and scoped to the dark variant by name, so light
+mode is untouched). Re-run it after a Bearded update; the scope name is read
+from `cursor/settings.json`, so the variant is still named in one place.
+
+The mapping is five rules, and each one exists because the simpler version
+produced something visibly wrong:
+
+| kind | rule |
+|---|---|
+| foreground | preserve the **WCAG contrast ratio** against the background, holding hue and **chroma** |
+| background | mirror the **lightness delta** from the window colour |
+| alpha | keep verbatim — it composites correctly on either polarity |
+| saturated surface / near-white text | keep verbatim — an accent chip, and the text on it, are not on the page |
+| transparent | keep verbatim, always |
+
+Five traps, all found by reading the output rather than the code:
+
+- **An unconstrained contrast solve answers on the wrong side.** Contrast rises
+  in both directions from a background, so the keyword gold came back as
+  `#796100` — a correct 2.81:1, and invisible. The search has to start above the
+  background's lightness.
+- **Contrast preservation alone is not enough at the bottom**, because the ratio
+  is not perceptually symmetric: dark-on-dark reads worse than dark-on-light at
+  the same number. Hence a lightness floor of 0.42 — which is where Bearded's own
+  dark variants put the same hues by hand (`#c7910c` is L 0.41), so it is not an
+  invented figure.
+- **HSL saturation is the wrong thing to preserve.** A near-black like the editor
+  text `#091316` has saturation 0.42 while looking neutral, and carrying that up
+  to a light value paints the editor pale cyan (`#CFE5EB`). Carry absolute
+  chroma instead (`S * (1 - |2L - 1|)`, recomputed at each candidate lightness)
+  and it stays the near-grey it looks like (`#D7E1E4`).
+- **Text needs a ceiling too**, `#DDDDDD` — this repo's own dark `foreground`.
+  21:1 is unreachable on `#1E1E1E`, so preserving contrast saturates near-black
+  text to pure white, which is harsher than anything else on the desktop.
+- **Transparent means OFF, and deriving it turns a feature on.** The light theme
+  switches 19 things off with `#00000000` — `contrastBorder`,
+  `editorError.border`, the diff text borders — and the first run turned 18 of
+  them into opaque `#6B6B6B`. That is where outlines around every tab came from.
+  The same run resurrected the scroll shadow under the tab bar, because a faint
+  wash (`scrollbar.shadow` at 20%) failed a legibility test meant for text and
+  was "fixed" into a solid grey bar. Shadows are now excluded from the
+  derivation outright: `cursor/settings.json` zeroes six of them at the
+  **unscoped** level and the hook assigns `widget.shadow` itself, and a scoped
+  value beats an unscoped one, so anything emitted here would silently undo both.
+
 **Bearded's window chrome is overridden back to Omarchy's.** Bearded steps the
 frame through greys (light variant: titleBar `#d2d2d2`, activityBar/sideBar
 `#ebebeb`, statusBar `#f4f4f4`) while every other window on this desktop sits on

@@ -374,6 +374,9 @@ save-display.sh               capture the live values into display.conf
 environment.d/*.conf          systemd user-session env (Figma native Wayland, FreeType stem darkening on + stronger curve)
 applications/figma-desktop-appimage.desktop.tpl  Figma Desktop's launcher entry -- corrects upstream's Name= and StartupWMClass=
 install-figma.sh              installs/updates Figma Desktop from IliyaBrook/figma-linux: reads the installed version from the app's own bundled entry, refuses to extract over a running Figma, swaps the directory only after the extracted AppRun proves to be the real launcher, then runs apply.sh for the entry
+cursor/derive-dark-from-light.py  generates the dark scheme FROM Bearded Theme Light: contrast-preserving for text, delta-mirroring for surfaces, verbatim for alpha/accents/transparent. Re-run after a Bearded update
+cursor/bearded-dark-colors.json   GENERATED -- 318 workbench colours, merged by the theme hook under the chrome copy (dark mode only)
+cursor/bearded-dark-tokens.json   GENERATED -- 55 textMate + 10 semantic rules, merged into settings.json by apply.sh, scoped to the dark variant so light mode is untouched
 chromium/chromium-flags.conf  --force-device-scale-factor=1 + --enable-features=…,OverlayScrollbar (fenced into Omarchy's flags file)
 chromium/chromium_prefs.py    shared plumbing for the two profile-preference scripts below
 chromium/default-zoom.py      default page zoom -> 110% (no flag exists; it is a profile preference)

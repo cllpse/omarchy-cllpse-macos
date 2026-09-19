@@ -31,6 +31,14 @@ set -euo pipefail
 THEME="$HOME/.local/state/omarchy/current/theme/vscode-theme.json"
 SETTINGS="$HOME/.config/Cursor/User/settings.json"
 
+# The dark counterpart of Bearded Theme Light, derived by
+# cursor/derive-dark-from-light.py -- the editor-area colours only, since the
+# chrome is taken from Omarchy below and wins over these. Resolved through this
+# script's own symlink, because a hook runs from ~/.config/omarchy/hooks/.
+# Absent (or an older checkout) simply means dark mode keeps whatever the
+# Bearded dark variant paints, which is what it did before this existed.
+DERIVED="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../../cursor/bearded-dark-colors.json"
+
 [[ -f $THEME ]] || exit 0
 [[ -f $SETTINGS ]] || exit 0
 command -v jq >/dev/null 2>&1 || exit 0
@@ -188,8 +196,17 @@ FORCE='{"tab.activeBorderTop":"#00000000","tab.unfocusedActiveBorderTop":"#00000
 
 
 tmp=$(mktemp)
+# Dark only: in light mode the scheme IS Bearded Theme Light, so there is
+# nothing to derive.
+derived='{}'
+if [[ -f $DERIVED ]] && jq -e . "$DERIVED" >/dev/null 2>&1 &&
+   [[ $(jq -r '.type // "light"' "$THEME") == dark ]]; then
+  derived="$(<"$DERIVED")"
+fi
+
 if ! jq --slurpfile t "$THEME" --argjson pre "$CHROME" --argjson exact "$EXACT" --argjson force "$FORCE" \
-       --arg shadow_light "$SHADOW_LIGHT" --arg shadow_dark "$SHADOW_DARK" '
+       --arg shadow_light "$SHADOW_LIGHT" --arg shadow_dark "$SHADOW_DARK" \
+       --argjson derived "$derived" '
       . as $set
       | (($t[0].colors // {})["textSeparator.foreground"]) as $muted
       | (if ($t[0].type // "light") == "dark" then $shadow_dark else $shadow_light end) as $shadow
@@ -200,6 +217,12 @@ if ! jq --slurpfile t "$THEME" --argjson pre "$CHROME" --argjson exact "$EXACT" 
          | .["tab.hoverBorder"] = (.["tab.activeBorder"] // .["tab.hoverBorder"])
          | .["widget.border"] = ($muted // .["widget.border"])
          | .["widget.shadow"] = $shadow) as $chrome
+      # Derived editor-area colours go UNDERNEATH: every key the chrome copy
+      # names wins, so the frame stays whatever Omarchy painted, and only what
+      # the chrome does not claim -- editor surfaces, lists, inputs, terminal --
+      # comes from the derivation. (No apostrophes in here: the whole jq program
+      # is a single-quoted bash string, and one ends it.)
+      | ($derived + $chrome) as $chrome
       | ( [ $set["workbench.preferredLightColorTheme"],
             $set["workbench.preferredDarkColorTheme"] ] | map(select(type == "string")) ) as $themes
       | if ($themes | length) == 0 or ($chrome | length) == 0 then $set

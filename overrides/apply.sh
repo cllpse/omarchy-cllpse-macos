@@ -538,10 +538,25 @@ if [[ -x /usr/bin/cursor || -d ${cursor_settings%/*} ]]; then
   else
     backup "$cursor_settings"
     _merged=$(mktemp)
+    # cursor/bearded-dark-tokens.json is the third input: the syntax colours for
+    # dark mode, derived from Bearded Theme Light by
+    # cursor/derive-dark-from-light.py and scoped to the dark variant by name,
+    # so light mode is untouched. jq's `*` merges objects recursively and takes
+    # the right-hand side for arrays, which is what the textMateRules list wants.
+    _tokens="$HERE/cursor/bearded-dark-tokens.json"
+    [[ -f $_tokens ]] && jq -e . "$_tokens" >/dev/null 2>&1 || _tokens="/dev/null"
     if [[ -s $cursor_settings ]]; then
-      jq -s '.[0] * .[1]' "$cursor_settings" "$HERE/cursor/settings.json" >"$_merged" 2>/dev/null || true
+      if [[ $_tokens == /dev/null ]]; then
+        jq -s '.[0] * .[1]' "$cursor_settings" "$HERE/cursor/settings.json" >"$_merged" 2>/dev/null || true
+      else
+        jq -s '.[0] * .[1] * .[2]' "$cursor_settings" "$HERE/cursor/settings.json" "$_tokens" >"$_merged" 2>/dev/null || true
+      fi
     else
-      jq . "$HERE/cursor/settings.json" >"$_merged" 2>/dev/null || true
+      if [[ $_tokens == /dev/null ]]; then
+        jq . "$HERE/cursor/settings.json" >"$_merged" 2>/dev/null || true
+      else
+        jq -s '.[0] * .[1]' "$HERE/cursor/settings.json" "$_tokens" >"$_merged" 2>/dev/null || true
+      fi
     fi
     # editor.fontSize is DERIVED, not pinned. `omarchy display text size` is the
     # one knob for apparent text size across the desktop -- it already drives the
