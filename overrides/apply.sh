@@ -1,10 +1,11 @@
 #!/bin/bash
 # Apply the cllpse-macos theme + every system-level override it needs.
 # Idempotent. Re-run any time. See revert.sh to undo.
-# Sudo is needed by exactly two steps, both near the end: 8b (keyd's config +
-# service + group) and 9 (the Chromium managed policy). Everything else is
-# user-level. keyd is the one package this script depends on and it does NOT
-# install it — step 8b configures keyd if present and says so if it is not.
+# Sudo is needed by exactly three steps, all near the end: 8b (keyd's config +
+# service + group), 9 (the Chromium managed policy) and 10 (the CPU power
+# limits). Everything else is user-level. keyd and ryzenadj are the two packages
+# this script depends on and it installs NEITHER — each step configures its tool
+# if present and says so if it is not.
 #
 #   0. record the pre-existing font and theme, for revert.sh to restore
 #   1. symlink both themes + the window-switcher plugin into ~/.config/omarchy/
@@ -35,8 +36,10 @@
 #       — after 8b on purpose, so the focus handler's state is seeded against
 #       the keyd that is now running
 #   9. Chromium context-menu declutter: spellcheck/translate/password/autofill/
-#      Print/Cast/QR/Reading-list off (managed policy, sudo) — last, so the one
-#      password prompt in the script comes after all the other work is done
+#      Print/Cast/QR/Reading-list off (managed policy, sudo)
+#   10. CPU power limits: ryzenadj 52W sustained, reapplied at boot and on
+#       resume by a systemd unit (sudo) — HARDWARE-GATED to the 8745HS in the
+#       Geekom A8, since these are numbers for one thermal design
 
 set -euo pipefail
 
@@ -1351,6 +1354,64 @@ if [[ -f "$HERE/chromium/policies-managed.json" &&
   fi
 fi
 
+# ── 10. CPU power limits (needs sudo) ────────────────────────────────────────
+# ryzenadj sets the SMU's sustained/burst power limits at runtime and NOTHING
+# persists them: they are lost on every reboot and on every resume from suspend.
+# A machine tuned by hand is therefore back at the firmware's 45W the next
+# morning, with nothing on it to say so -- which is exactly what had happened
+# here. The unit is wanted by the sleep targets as well as multi-user for that
+# second half; a plain WantedBy=multi-user.target survives a reboot and not a
+# suspend.
+#
+# Gated on the machine, not just on the tool. 52W sustained is a number for this
+# CPU in this chassis, and pushing it onto different hardware is a thermal
+# decision made by accident -- so the model and the DMI product have to match
+# before anything is written. Everything else in this repo is cosmetic if it
+# lands somewhere unexpected; this is not.
+#
+# Verification needs no root: ryzen_smu exposes the live limits as world-
+# readable floats at /sys/kernel/ryzen_smu_drv/pm_table (STAPM limit first,
+# then its value, then PPT fast, then PPT slow), which is a far better check
+# than `ryzenadj --info` since it can be read after the fact, by anything.
+_ryzen_cpu="$(grep -m1 'model name' /proc/cpuinfo || true)"
+_ryzen_product="$(cat /sys/class/dmi/id/product_name 2>/dev/null || true)"
+_ryzen_vendor="$(cat /sys/class/dmi/id/sys_vendor 2>/dev/null || true)"
+if [[ $_ryzen_cpu != *8745HS* || $_ryzen_vendor != GEEKOM || $_ryzen_product != A8 ]]; then
+  skip "CPU power limits skipped — tuned for a Ryzen 7 8745HS in a Geekom A8, this is${_ryzen_cpu:+ ${_ryzen_cpu#*: }}"
+elif ! command -v ryzenadj >/dev/null 2>&1; then
+  skip "ryzenadj missing — CPU stays at the firmware's 45W (yay -S ryzenadj, then re-run)"
+else
+  _tdp_changed=0
+  for _pair in "ryzen/ryzen-tdp.env:/etc/default/ryzen-tdp" \
+               "ryzen/ryzen-tdp.service:/etc/systemd/system/ryzen-tdp.service"; do
+    _src="$HERE/${_pair%%:*}"; _dst="${_pair#*:}"
+    if [[ -f $_dst ]] && cmp -s "$_src" "$_dst"; then
+      skip "$(basename "$_dst") already current"
+    else
+      say "CPU power limits -> $_dst (sudo)"
+      sudo install -m644 -o root -g root "$_src" "$_dst"
+      _tdp_changed=1
+    fi
+  done
+
+  (( _tdp_changed )) && sudo systemctl daemon-reload
+
+  # `enable --now` is idempotent and also starts it, so the limits land in this
+  # session rather than at the next boot. A oneshot that has already run reports
+  # inactive (dead), which is success -- so the limits are read back from the
+  # SMU instead of from systemctl.
+  sudo systemctl enable --now ryzen-tdp.service >/dev/null 2>&1 || true
+  if [[ -r /sys/kernel/ryzen_smu_drv/pm_table ]]; then
+    _tdp_live="$(python3 -c "
+import struct
+f = struct.unpack('<6f', open('/sys/kernel/ryzen_smu_drv/pm_table','rb').read()[:24])
+print('%.0fW sustained, %.0fW burst' % (f[0], f[2]))" 2>/dev/null || true)"
+    [[ -n $_tdp_live ]] && skip "SMU reports ${_tdp_live}"
+  else
+    skip "ryzen_smu not loaded — limits set, but nothing to read them back from"
+  fi
+fi
+
 echo
 say "Done. Follow-ups:"
 echo "    • log out / back in (or reboot) for OMARCHY_MENU_FONT (shell popups)"
@@ -1363,5 +1424,7 @@ echo "      already refreshed live if Chromium was running — no relaunch neede
 echo "    • Figma's Cmd+click / Cmd+scroll work now — the focus hook reaches keyd"
 echo "      through newgrp, since a granted group never reaches a running desktop"
 echo "      (the systemd user manager outlives a logout; only a reboot reseeds it)."
+echo "    • CPU power limits (10) are live now and reapplied at boot and on resume;"
+echo "      systemctl status ryzen-tdp, values in /etc/default/ryzen-tdp"
 echo "    • boot splash / login screen (needs sudo, not run by this script):"
 echo "        omarchy plymouth set by theme omarchy-cllpse-theme-dark   # or -light"

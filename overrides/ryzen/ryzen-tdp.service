@@ -1,0 +1,17 @@
+[Unit]
+Description=Apply Ryzen power limits with ryzenadj
+Documentation=https://github.com/FlyGoat/RyzenAdj
+# ryzenadj writes to the SMU at runtime and nothing persists it: the limits are
+# lost on every reboot AND on every resume from suspend, which is why this unit
+# is wanted by the sleep targets as well as by boot.
+After=multi-user.target suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target
+ConditionPathExists=/usr/bin/ryzenadj
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/default/ryzen-tdp
+# Unbraced $VAR so systemd splits it into separate arguments.
+ExecStart=/usr/bin/ryzenadj $RYZENADJ_ARGS
+
+[Install]
+WantedBy=multi-user.target suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target

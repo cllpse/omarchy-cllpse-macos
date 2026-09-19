@@ -705,6 +705,43 @@ management still work and are the way out. Corollary worth knowing: in Figma,
 `SUPER + ALT` emits Ctrl+Alt and therefore fires the WM_MOD binds.
 
 
+**CPU power limits are the one hardware decision in this repo, and the trap is
+that nothing persists them.** `ryzenadj` writes the SMU's STAPM/PPT limits at
+runtime; they are lost on every reboot **and on every resume from suspend**, so
+a machine tuned by hand is silently back at the firmware's 45W the next morning
+with nothing on it to explain the lost performance — which is exactly what had
+happened here between one session and the next. `apply.sh` step 10 installs
+`ryzen-tdp.service`, whose `WantedBy` lists the sleep targets as well as
+`multi-user.target`; a unit wanted only by the latter covers the reboot half and
+silently misses the other.
+
+The measured numbers, for the Ryzen 7 8745HS in the Geekom A8: 52W sustained /
+58W burst gives 11379 bogo ops/s under a 90s all-core `stress-ng matrixprod`,
+4474 MHz steady, 88.5 °C peak, with `PPT SLOW` drawing its full 52.00 — power-
+limited, with ~3.5 °C of headroom. An earlier session measured the same chip
+pinning at 92 °C and pulling *back* to 53W when asked for 54W, so the margin is
+thin and ambient-dependent: the chassis is the constraint, not the silicon. No
+`--tctl-temp` override is set, deliberately.
+
+Two mechanics worth not re-deriving:
+
+- **The live limits are world-readable, so verification needs no root.** With
+  the `ryzen_smu` DKMS module loaded, `/sys/kernel/ryzen_smu_drv/pm_table` is
+  `-r--r--r--` and begins with little-endian floats in the order STAPM limit,
+  STAPM value, PPT fast limit, PPT fast value, PPT slow limit, PPT slow value.
+  `ryzenadj --info` needs root and a live invocation; this can be read
+  afterwards, by anything, which is what makes it the right check in a script.
+  (It is also how a claim that "the tuning is applied" gets tested rather than
+  believed.)
+- **The step is gated on the machine, not just on the tool.** `/proc/cpuinfo`
+  must read 8745HS and DMI must read `GEEKOM`/`A8` before anything is written.
+  Everything else in this repo is cosmetic if it lands somewhere unexpected;
+  pushing a 52W sustained limit onto different hardware is a thermal decision
+  made by accident.
+
+A oneshot unit that has already run reports `inactive (dead)`. That is success.
+Read the SMU, not `systemctl is-active`.
+
 ## Conventions in this repo
 
 **Fenced blocks.** `apply.sh` injects `>>> cllpse-macos overrides >>>` blocks into
@@ -1570,7 +1607,9 @@ and the original is kept in prose as provenance. Don't leave the two out of sync
 
 `apply.sh` is deterministic and idempotent for what it controls, but it is not a
 full machine build — it installs no packages, no third-party plugins,
-and `display.conf` carries values tuned for one specific display. Several
+`display.conf` carries values tuned for one specific display, and step 10's CPU
+power limits are measured for one CPU in one chassis (gated on both, so they are
+inert elsewhere rather than wrong elsewhere). Several
 settings only take effect after a relogin. `overrides/README.md` has the full
 list under *What apply.sh does and does not guarantee*; read it before assuming a
 clean install ended up identical.

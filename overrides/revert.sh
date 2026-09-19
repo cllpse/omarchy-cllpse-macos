@@ -1,8 +1,10 @@
 #!/bin/bash
 # Undo everything overrides/apply.sh did. Idempotent.
-# Sudo is needed by two steps near the end: removing the keyd config apply.sh
-# installed, and removing the Chromium managed-policy file. Everything else is
-# user-level. keyd itself is never uninstalled -- this script did not install it.
+# Sudo is needed by three steps near the end: removing the keyd config apply.sh
+# installed, dropping the CPU power limits back to the firmware's own and
+# removing their unit, and removing the Chromium managed-policy file. Everything
+# else is user-level. Neither keyd nor ryzenadj is ever uninstalled -- this
+# script did not install them.
 # Only ever restores what this machine had before apply.sh first ran; it never
 # picks a font, theme, text size or scale of its own.
 
@@ -391,6 +393,22 @@ fi
 # keyd group for their own reasons, and dropping someone from a group they
 # might rely on is not this script's call. To undo it by hand:
 #   sudo gpasswd -d "$USER" keyd
+
+# CPU power limits (apply.sh step 10). Disabling the unit does not put the
+# limits back -- the SMU keeps whatever was last written until something resets
+# it -- so this asks ryzenadj for the firmware's own 45W before removing the
+# files. A reboot would do the same thing, but revert.sh should not depend on
+# one.
+if [[ -f /etc/systemd/system/ryzen-tdp.service ]]; then
+  say "Removing the CPU power-limit unit (needs sudo)"
+  sudo systemctl disable --now ryzen-tdp.service >/dev/null 2>&1 || true
+  if command -v ryzenadj >/dev/null 2>&1; then
+    say "restoring the firmware's 45W sustained limit"
+    sudo ryzenadj --stapm-limit=45000 --slow-limit=45000 --fast-limit=54000 >/dev/null 2>&1 || true
+  fi
+  sudo rm -f /etc/systemd/system/ryzen-tdp.service /etc/default/ryzen-tdp
+  sudo systemctl daemon-reload
+fi
 
 dest=/etc/chromium/policies/managed/cllpse-macos.json
 if [[ -f $dest ]]; then
