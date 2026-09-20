@@ -116,8 +116,8 @@ behind, still overriding. See *Also on the author's machine* below.
 ./overrides/revert.sh     # undo it
 ```
 
-**Then log out and back in.** The `environment.d` drop-ins (Figma → native
-Wayland, FreeType stem darkening) and `OMARCHY_MENU_FONT` are read at session
+**Then log out and back in.** The `environment.d` drop-in (Figma → native
+Wayland) and `OMARCHY_MENU_FONT` are read at session
 start, so the desktop is not in its final state until you do.
 
 `overrides/README.md` has the full list of what is and isn't guaranteed under

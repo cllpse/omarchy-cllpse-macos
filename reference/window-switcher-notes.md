@@ -511,10 +511,12 @@ Worth knowing about `glyphFor`, which is still the default for every tile:
   - `tldr` lost only its full-canvas navy rect; the rounded terminal mark and
     its gradients are the logo and stay.
   - `hunk` lost its cream box, which left an `#16140F` glyph against a
-    `#1E1E1E` card — a contrast ratio of about 1.05, i.e. invisible. So it moved
-    from the colour set to `fallbacks/`, where the theme supplies the colour. A
-    monochrome mark that only reads against its own background belongs in the
-    repainted set; that is what the set is for.
+    `#1E1E1E` card — a contrast ratio of about 1.05, i.e. invisible. It was
+    restored from backup and **kept its box**, staying in the colour set, because
+    the box is part of the logo. The alternative was dropping the background and
+    moving it to `fallbacks/` where the theme supplies the colour — the rule for
+    a monochrome mark that only reads against its own background, and not what
+    was done here.
 - **A drop-in renders at exactly the size its own ink fills its `viewBox`.**
   The Image draws at `iconDrawn` with `PreserveAspectFit`, so a mark padded
   inside its canvas is scaled to that canvas and comes out small — there is no

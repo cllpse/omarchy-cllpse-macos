@@ -14,13 +14,19 @@ lost its background box once already.
 ## Who consumes these
 
 Three consumers, keyed three different ways. Get the key wrong and the file is
-simply never found — nothing errors.
+simply never found — nothing errors. Only the first is served from **this**
+directory; the other two read the submodule's `icons/`, so the example column
+says where each file actually lives.
 
-| consumer | key | example |
+| consumer | key | example (and where it lives) |
 |---|---|---|
-| Omarchy menu (app rows) | the desktop entry's `Icon=` | `co.anysphere.cursor.svg` |
-| Switcher tile | the **window class** | `cursor.svg` |
-| Switcher terminal icon | the **command name**, after the switcher's alias file | `hunk.svg` |
+| Omarchy menu (app rows) | the desktop entry's `Icon=` | `org.gnome.DiskUtility.svg` — `fallbacks/`, here |
+| Switcher tile | the **window class** | `cursor.svg` — the submodule's `icons/` |
+| Switcher terminal icon | the **command name**, after the switcher's alias file | `hunk.svg` — the submodule's `icons/` |
+
+A mark in `fallbacks/` also reaches the switcher, through the optional
+`~/.icons/cllpse-flat/apps/` root it reads; `btop.svg` and `gh.svg` here are
+what that looks like in practice.
 
 The menu is the consumer that **only** we can serve: it draws a plain image and
 cannot recolour anything, so it needs the repainted copies `app-icons.sh` writes

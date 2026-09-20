@@ -966,16 +966,25 @@ fi
 # caches them by URL, and the switcher indexes them once at launch) is app-
 # icons.sh's own, fired from its EXIT trap and only when a file actually
 # changed.
+# The hook is installed and run UNCONDITIONALLY, because it has two independent
+# halves and icons/fallbacks/ only governs one of them. Its colour pass copies
+# the switcher submodule's icons/ into ~/.icons/cllpse-color/apps/ for the menu,
+# which has nothing to do with this directory -- gating the whole hook on
+# icons/fallbacks/ existing would mean deleting that directory silently cost the
+# menu 75 full-colour marks as well. The hook already keeps the two halves
+# independent internally; doing otherwise here would put the coupling back at
+# the call site.
+mkdir -p ~/.config/omarchy/hooks/theme-set.d
+ln -sfn "$HERE/hooks/theme-set.d/app-icons.sh" ~/.config/omarchy/hooks/theme-set.d/app-icons.sh
 if [[ -d "$HERE/icons/fallbacks" ]]; then
   _n=$(find "$HERE/icons/fallbacks" -maxdepth 1 \( -name '*.svg' -o -name '*.png' \) | wc -l)
-  say "app icons -> ~/.icons/cllpse-flat/apps/ ($_n hand-placed)"
-  mkdir -p ~/.config/omarchy/hooks/theme-set.d
-  ln -sfn "$HERE/hooks/theme-set.d/app-icons.sh" ~/.config/omarchy/hooks/theme-set.d/app-icons.sh
-  "$HERE/hooks/theme-set.d/app-icons.sh" || skip "app-icons.sh produced nothing this run"
-  (( _n == 0 )) && skip "icons/fallbacks/ is empty — every app keeps its vendor icon"
+  say "app icons -> ~/.icons/cllpse-flat/apps/ ($_n hand-placed) + ~/.icons/cllpse-color/apps/ (from the switcher submodule)"
 else
-  skip "no icons/fallbacks/ — skipped the app icons"
+  _n=0
+  skip "no icons/fallbacks/ — the repainted half has nothing to sync"
 fi
+"$HERE/hooks/theme-set.d/app-icons.sh" || skip "app-icons.sh produced nothing this run"
+(( _n == 0 )) && skip "icons/fallbacks/ is empty — every app keeps its vendor icon"
 
 # ── 7f2. Post-update repair hook ─────────────────────────────────────────────
 # Everything this script installs lives either in directories that are ours
