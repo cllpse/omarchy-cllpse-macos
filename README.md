@@ -165,6 +165,9 @@ system (GTK) theme and grayscale.
 ```
 omarchy-cllpse-theme/     the two themes (above), as omarchy-cllpse-theme-{dark,light}/
 overrides/                everything that lives outside a theme folder + apply.sh / revert.sh
+overrides/icons/          the app/CLI mark overrides: color/ verbatim, fallbacks/ repainted.
+                          AGENTS.md is how to add one, fallbacks/README.md is what a
+                          file must look like
 omarchy-cllpse-switcher/  SUBMODULE -> cllpse/omarchy-window-switcher. The macOS-style
                           window-switcher HUD plugin (id cllpse.window-switcher),
                           published to the Omarchy plugin marketplace on its own.
@@ -267,16 +270,18 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   re-tints the three colour families Cursor registers that Omarchy has no key
   for. Both light and dark follow, because the values are rendered from the
   theme's own `colors.toml` tokens.
-- **App icons in the menu come from `overrides/icons/fallbacks/` (step 7f).** The
-  menu already renders every non-app row as a Nerd Font glyph tinted
-  `foreground`; app rows are the exception, drawn as a plain image of the
-  vendor's logo with no recolouring, so 48 of the 52 visible entries here were
-  full colour. Drop an SVG named for the desktop entry's `Icon=` value into
-  `overrides/icons/fallbacks/` and a `theme-set` hook syncs it into
-  `~/.icons/cllpse-flat/apps/`, repainted in the active theme's `foreground` —
-  `$HOME/.icons` is the first directory Omarchy's icon index scans, and carries
-  no `index.theme`, so the override reaches the shell without touching GTK or
-  Qt. Nothing is generated: an app with no file there keeps its vendor icon.
+- **App rows in the menu are the one thing Omarchy does not tint.** Every other
+  row is a Nerd Font glyph in `foreground`; an app row is a plain image of the
+  vendor's logo, so 48 of the 52 visible entries here were full colour. The fix
+  is a file, not a setting: `$HOME/.icons` is the first directory Omarchy's icon
+  index scans and carries no `index.theme`, so a drop-in reaches the shell
+  without touching GTK or Qt, and an app with no file keeps its vendor icon.
+  `overrides/icons/` holds those marks — `color/` synced verbatim, `fallbacks/`
+  repainted to the theme — and the switcher's tiles and terminal badges resolve
+  against the same files. **Adding or updating one:
+  [`overrides/icons/AGENTS.md`](overrides/icons/AGENTS.md)** for the workflow,
+  [`overrides/icons/fallbacks/README.md`](overrides/icons/fallbacks/README.md)
+  for what a file must contain.
 - **Shell-surface translucency lives in the theme, per section.** A theme-shipped
   `shell.<section>.toml` is spliced into the generated `shell.toml` by
   `omarchy-theme-set-templates`, *replacing that whole `[section]`*. Each theme
