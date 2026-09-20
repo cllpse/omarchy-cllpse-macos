@@ -92,15 +92,15 @@ on one while it is being dragged.
 ## Drag to arrange
 
 Press a tile, move past the drag threshold, release over a workspace's group:
-the window moves there, landing at the **start or the end** of that workspace
-depending on which half of the group you let go over. Dropping on its own group
-is allowed and is how you send a window to the front or the back of where it
-already is. Press and release without travelling, and it is still a click, and
-still focuses.
+the window moves there, landing **at the boundary you let go over** — before its
+first window, after its last, or between any two. Dropping on its own group is
+allowed and is how a workspace of three gets its last window moved to the
+middle. Press and release without travelling, and it is still a click, and still
+focuses.
 
-Start and end, and nothing between. A strip of tiles is not a layout tree, and a
-workspace that mixes horizontal and vertical splits has no "third position" that
-one row of tiles could point at.
+One row or one column. A workspace that mixes horizontal and vertical splits has
+no ordering that a single strip of tiles could point at, and none is invented —
+see the walk below, which stops as soon as the layout declines to move.
 
 Ordinary press / move / release — no `Drag`/`DropArea`, because there is nothing
 for a `DropArea` to *be*. The drop targets are workspace groups, and a group is
@@ -149,12 +149,48 @@ hover already use.
   there are more windows than fit, and the group you most want to drop on is
   then exactly the one off the end.
 
-### Placing it at an end
+### Placing it in the slot
 
 There is no "insert at index" to dispatch — Hyprland moves a window one
-neighbour at a time — so the distance is counted and issued as exactly that many
-steps in a single `hyprctl --batch`.
+neighbour at a time — and **the distance cannot be sent at once.**
 
+Measured on a three-window workspace: two `r` steps in a single
+`hyprctl --batch` advanced the window *one* position, not two. A dwindle
+workspace is a tree and every step reshapes it — the widths change, not just the
+order — so the second dispatch in a batch resolves against a layout the first
+has already invalidated. Sent one at a time, each step moves exactly one place,
+every time:
+
+| step | result |
+|---|---|
+| start | `A@26  B@1550  C@2306` |
+| `r` on `B` | `A@26  C@1550  B@2306` |
+| `l` on `B` | `A@26  B@1550  C@2306` |
+| `l` on `B` | `A@26(w740)  B@794  C@1550(w1496)` — reshaped |
+
+- **One step per rebuild.** Each step is resolved against the list the refresh
+  just read back from the compositor, so it cannot be resolved against a layout
+  an earlier step has already invalidated. The cost is a round trip per step,
+  ~75ms, which no drag notices.
+- **The walk steps off the computed list, not off the model, and the model is
+  held back until the walk is over.** Assigning the model resets the `ListView`
+  and takes every delegate with it — measured on a nine-tile strip, one reorder
+  is create 9 / destroy 9 — and a walk paid that *per step*. Measured on a real
+  two-step walk: **36 / 36 before, 9 / 9 after**, i.e. one assignment instead of
+  four. The walk never needed the model, only a current list, which is exactly
+  what `_rebuild` has just computed and not yet assigned. So the strip updates
+  once, at the end, showing where the window came to rest rather than blinking
+  the whole strip at every step.
+- **Silence ends the walk, not an unchanged reading** (with a hard cap of 8
+  besides). A step Hyprland declines emits no `movewindow`, so no refresh and no
+  rebuild follow it — a refusal arrives as an *absence*, and `placeSettle` is
+  that absence made concrete. Conflating the two cost a real bug: a stale
+  snapshot reads identically to a refusal, so a two-step walk gave up after
+  gaining one place. Confirmed by hand — the step the walk had written off moved
+  the window perfectly well when it was re-sent with a second to settle. The
+  unchanged reading is still tested for, but it means "wait", not "stop":
+  stepping again on a stale read would send a second step for one place of need
+  and overshoot.
 - **`movewindow` takes a `window` argument; `swapwindow` does not.** That is
   what lets a window be shuffled on a workspace nobody is looking at without
   touching focus — verified on this machine, including that the active window on
@@ -162,22 +198,21 @@ steps in a single `hyprctl --batch`.
   being inherently edge-safe ("No window to swap with in that direction" at the
   end of a run), but it ignores `window` and acts on the active one, which here
   is never the window in the hand.
-- **Counted, not repeated-until-it-stops.** Two reasons, and the second is the
-  one that matters: it is one process rather than a round trip per step, and an
-  overshoot is not harmless. `binds:window_direction_monitor_fallback` defaults
-  on, so a step past the last window hands it to the next *monitor* rather than
-  doing nothing — inert on this single-monitor machine, not in general.
+- **A slot is not an index.** They differ by one whenever the window is already
+  in the group and is moving to the *right* of where it sits: taking it out
+  shifts everything after it down a place, so the boundary it was aimed at moved
+  too. Dropping into a group it is not yet part of has no such shift.
 - **The placement is deferred, not sent with the workspace move.**
   `movetoworkspacesilent` puts the window wherever the layout decides, and only
   once that has landed does the strip know how far from the requested end it
   came to rest. So the drop records the intent and the first rebuild that sees
-  the window on the workspace it asked for counts the distance and closes it.
-  The 600ms unfreeze covers that round trip (measured chain: ~75ms) and is
-  restarted by the placement so the strip shows where the steps left it.
-- **One row or one column**, decided from the group's own `at` coordinates. A
-  workspace split top-and-bottom sorts by y in the strip, so "start" there means
-  the top and stepping it left would do nothing at all — the drop would look
-  broken. That is the whole of the layout-awareness here, deliberately.
+  the window on the workspace it asked for starts the walk. The strip then shows
+  the result in one update when the walk finishes, not step by step — see below.
+- **One row or one column**, decided from the group's own `at` coordinates and
+  re-read every step, because a step reshapes the tree. A workspace split
+  top-and-bottom sorts by y in the strip, so "earlier" there means the top and
+  stepping it left would do nothing at all. That is the whole of the
+  layout-awareness here, deliberately.
 - **The caret marks the end**, drawn over the tiles in the selection accent and
   hugging the group's outer edge rather than sitting mid-gap where the group
   rules are, so a rule and a caret never read as the same thing. It is sized to
@@ -190,6 +225,10 @@ steps in a single `hyprctl --batch`.
   rather than the card's radius token. It is clamped into the viewport, which is
   what covers the first and last groups: their outer edge is the card's own
   padding, with no gap to sit in.
+- **The caret marks a boundary, not an end.** Within a group the tiles are one
+  `gap` apart and nothing else, so half a gap back from a tile's left edge *is*
+  the boundary in front of it — the same arithmetic at both ends and in between,
+  with no special case.
 - **No caret when there is nothing to arrange against.** A workspace has to hold
   a window other than the one in the hand before start-or-end is a choice:
   dropping onto an empty desktop, or back onto a group whose only window is the
@@ -346,6 +385,92 @@ not their icon name, and Chromium's is the literal unsubstituted
 the menu but not the switcher; drop a second copy named for the class to cover
 both.
 
+### Terminal badges
+
+A terminal tile carries a second mark for **what is running inside it** —
+two-thirds the size of the terminal's own icon, flush into its bottom-right
+corner.
+
+**The title is the only signal there is**, and that took measuring to establish.
+Ghostty runs `--gtk-single-instance=true`, so every one of its windows reports
+the *same* pid — measured here, four windows all `pid=3242`. The compositor
+cannot say which process belongs to which window, and no process-tree walk
+recovers it: the shells are all children of that one pid with nothing tying a
+child back to a surface.
+
+The title turns out to be the better signal anyway. Ghostty's shell integration
+sets it to the command **as typed**, so an alias arrives as itself and
+`windowtitle`/`windowtitlev2` are already in `refreshEvents` — a badge follows
+the foreground command live with no new machinery. Verified against the live
+window set:
+
+| title | reads as |
+|---|---|
+| `◑ Switcher plugin drag to workspace` | `claude` |
+| `✳ App and TUI logo fetcher` | `claude` |
+| `diff` | `hunk` (alias, `shell.sh:150`) |
+| `~/Sites/omarchy-cllpse-macos/logos` | idle shell — no badge |
+| `btop` | `btop` |
+
+- **Aliases are the join, for two separate reasons.** The title carries what was
+  *typed*, so `diff` and `log` map back to `hunk`, `dash` to `gh`, `edit` to
+  `msedit`, `ls` to `lsd` — each carrying the `shell.sh` line it comes from. And
+  the drop-ins are named for a desktop entry's `Icon=` rather than for anything
+  you would run, so `claude` maps to `claude-code`, `node` to `nodejs`, `psql`
+  to `postgresql`, `ytm` to `youtube-music` and so on — a mark is named for the
+  app or the service, never for the command that happens to start it. Everything unlisted resolves by its own name, which
+  is most of the set — `bat`, `curl`, `docker`, `fd`, `ffmpeg`, `git`,
+  `mongosh`, `npm`, `nvim`, `python`, `ruby`, `sqlite`, `starship`, `tmux`,
+  `uv`, `zoxide`. **Alias after the branches, never inside one**: the table sat
+  in the last branch once, so a claude session — recognised by its marker and
+  never by a command name — skipped it entirely, looked for `claude`, found
+  nothing and drew no badge while every other program badged correctly.
+- **Claude Code is recognised by its status marker.** It overwrites the title
+  with `<marker> <what it is working on>`; the markers seen here are U+25D0,
+  U+25D1 and U+2733, and the rest of that family is included rather than waiting
+  to be surprised. There is a looser fallback — a leading symbol followed by a
+  space — which is the one guess in the file, on the grounds that nothing else
+  on this machine titles itself that way. If something starts, tighten that line.
+- **The marks come from `../icons/color/`** — the verbatim set, the one the
+  Figma logo lives in. `app-icons.sh` syncs it to `~/.icons/cllpse-color/apps/`,
+  which the plugin's vendor sweep already covers, and because that path is *not*
+  under `flatIconDir` the badge is drawn in its own colours rather than
+  repainted. That is the whole point of that directory, and it is why a Claude
+  mark badges orange beside a repainted `btop` that badges in the theme
+  foreground. Resolution goes through the same two indexes a window class does,
+  in the same order, so a terminal badge and an app tile can never disagree
+  about what a program looks like. **No glyph fallback**: at badge size a Nerd
+  Font glyph is a smudge, and "no icon for this" reads better as no badge than
+  as a mark nobody can identify.
+- **Nothing sits behind the badge.** Two separation layers were tried and both
+  were worse than nothing. A filled rounded rect in the tile's background colour
+  is a *box*, and it is visible as a box the moment the theme stops matching the
+  art — invisible on light, then punching a dark square through the ghost on the
+  first dark theme, which made a Claude mark look like it had a backdrop it does
+  not have. A `MultiEffect` shadow at zero offset in the same colour fits the
+  shape rather than a rectangle, which is the right idea and still failed on the
+  mark that matters most: Claude's logo is a sparse radial burst, so a
+  silhouette blurred and scaled 18% up has more area than the rays casting it
+  and pools into a smudge between them, landing on the ghost's white body at
+  maximum contrast. It read cleanly on solid marks like `btop`'s, which is
+  exactly why it survived a first look. The badge hangs mostly *outside* the
+  icon at the current offset, so it needs less separation than either attempt
+  assumed. If some future mark does need it, fit it to that mark — don't
+  reintroduce a global one.
+- **One `MultiEffect` serves both kinds of badge.** That arrived with the
+  shadow and is worth keeping on its own: colorization is switched off for a
+  vendor mark so its own colours reach the screen, and on for a flat drop-in.
+- **Behind a `Loader`**, active on the cached `hasBadge`, so a tile without one
+  pays for no `Image` and no effect. Keyed on the index and never on
+  `Image.status`, for the reason `iconFor()` sets out at length.
+- **The badge is only as good as what has been synced.** A name that resolves to
+  no file draws nothing at all, and the sync is the usual reason: the live
+  `~/.icons/cllpse-color/apps/` was holding 4 of the repo's 74 when this was
+  written, so `claude-code` and `hunk` both existed and neither appeared.
+  `overrides/hooks/theme-set.d/app-icons.sh` is what publishes both directories,
+  and it runs on every theme-set and after an `omarchy update` — but not when a
+  file is merely added to the repo.
+
 ### Spacing
 
 The icon/title gap is one named knob on `card`:
@@ -366,6 +491,58 @@ with the padding. Raising the padding without raising `rowH` clips the stack.
 
 Worth knowing about `glyphFor`, which is still the default for every tile:
 
+- **A mark carries no container of its own.** The switcher draws icons against
+  a tile whose colour follows the theme, so a background baked into the file is
+  a square of the wrong colour the moment the theme moves — which is what made
+  a Claude badge look like it had a backdrop it does not have. Audited by alpha
+  across all 99 files: exactly three had a full-canvas background (`hunk`,
+  `tldr`, `grok`); everything else is a shaped mark with transparent edges, and
+  a high opaque fraction on its own means nothing — Ghostty is 88% opaque
+  because the ghost is a solid shape, not because it sits on anything.
+  - `grok` was already broken and nobody had noticed: it lives in the
+    **repainted** set, so its black background rect and its white slash were
+    both rewritten to the theme foreground and the file rendered as a solid
+    block. Dropping the rect is the whole fix.
+  - `tldr` lost only its full-canvas navy rect; the rounded terminal mark and
+    its gradients are the logo and stay.
+  - `hunk` lost its cream box, which left an `#16140F` glyph against a
+    `#1E1E1E` card — a contrast ratio of about 1.05, i.e. invisible. So it moved
+    from `color/` to `fallbacks/`, where the theme supplies the colour. A
+    monochrome mark that only reads against its own background belongs in the
+    repainted set; that is what the set is for.
+- **A drop-in renders at exactly the size its own ink fills its `viewBox`.**
+  The Image draws at `iconDrawn` with `PreserveAspectFit`, so a mark padded
+  inside its canvas is scaled to that canvas and comes out small — there is no
+  compensation for it and deliberately shouldn't be, since a ratio baked into
+  the drawing code is what caused the 256/200 mess this file already records.
+  Measured across both icon directories: Ghostty filled 99% x 100% of its box
+  while Figma filled 52% x 78% and hunk 42% x 67%, which is precisely how much
+  smaller they looked. 29 of 99 files were under 99% on their long axis; each
+  had its `viewBox` retightened to its ink bounding box (with `width`/`height`
+  brought along, or rsvg reintroduces the old aspect and undoes it).
+  **Measure the alpha extent, never a colour trim.** `magick -trim` trims
+  whatever colour the corner pixel is, so on the three icons with a full-bleed
+  background rect — `hunk`, `tldr`, `grok` — it ate the background and reported
+  the inner mark as the ink. Retightening to that cropped hunk's cream box down
+  to sit behind its own glyph, which is how the box "disappeared". An icon with
+  nothing transparent in it is already edge-to-edge by definition and wants
+  leaving alone. That is
+  compliance with the contract in `../overrides/icons/fallbacks/README.md`, not
+  a new rule: edge-to-edge in the file is what makes every tile agree on size.
+  When a mark still looks small, measure its ink before touching anything in
+  the QML.
+- **The vendor sweep dedupes in the subprocess, not in QML.** It walks ~34k
+  files and used to hand back 9106 paths, of which `_applyVendorIndex` kept
+  1364 — first hit wins, so 85% of what it parsed was discarded on arrival.
+  Measured: 544KB and 9ms of main-thread parse, against 79KB and 4ms once one
+  `awk` collapses it to a line per name. Ranking is untouched, and that was
+  verified rather than assumed: awk keeps the first path per name walking the
+  stream in emission order, so the svg pass still outranks the png pass and
+  `$HOME/.icons` still outranks every installed theme — both indexes were built
+  and compared key by key, 1364 names each, identical mapping. The awk uses
+  `[.]` rather than an escaped dot, because a backslash in that QML string is
+  eaten by the JS lexer before bash sees it; `sub(/.[^.]*$/…)` would strip from
+  the first character rather than the last dot, silently.
 - `glyphFor` must use `String.fromCodePoint`, never `fromCharCode` — the latter
   is 16-bit and silently truncates the Material Design range this map now uses
   (`0xf0219` → U+219, `0xf082e` → U+82E), rendering unrelated glyphs with no
@@ -408,12 +585,18 @@ Worth knowing about `glyphFor`, which is still the default for every tile:
 - The fallback is `status !== Image.Ready`, so on a machine where `apply.sh`
   step 7f never ran — no `~/.icons/cllpse-flat/` at all — every tile simply
   stays a glyph and nothing breaks.
-- The image box is `iconSize * 256/200`, not `iconSize`. `app-icons.sh` centres
-  each mark in 200 of 256 px, but a text glyph at `pixelSize` N fills close to
-  N — so drawing the PNG into a plain `iconSize` box renders it visibly smaller
-  than the glyph beside it, and downscales the 256px master harder. Measured on
-  screen before the fix: 27px of ink against the Chromium glyph's 33; after,
-  35 against 33. Match the **ink**, not the canvas.
+- The image box is `iconDrawn` — `iconSize * 0.9`, a small optical trim — with
+  **no** 256/200 ink-ratio compensation on top of it. It was
+  `iconSize * 256/200` while drop-ins were rasters: `app-icons.sh` trimmed each
+  mark and re-padded it into 200 of 256 px, so a PNG's ink really was 78% of its
+  canvas, while a text glyph at `pixelSize` N fills close to N — drawing one
+  into a plain box rendered it visibly smaller than the glyph beside it
+  (measured on screen: 27px of ink against the Chromium glyph's 33, 35 against
+  33 after). The SVG branch never had that padding, so the same factor drew
+  every vector 28% oversized, clipping top and bottom. Dropping the rasters left
+  one convention — every drop-in is an edge-to-edge SVG in a square `viewBox` —
+  and `iconDrawn` is the whole of the sizing. Match the **ink**; fix it in the
+  file, not with a factor at draw time.
 - `sourceSize` is **set**, and for a reason that differs by format. On a raster
   it picks the decode resolution, and leaving it unset merely uses the file's
   own — which is why it was deliberately unset while drop-ins were PNGs

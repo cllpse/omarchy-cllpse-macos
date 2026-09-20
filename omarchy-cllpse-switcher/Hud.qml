@@ -73,11 +73,12 @@ Item {
   // The workspace under the pointer, or -1 when the pointer has left the card.
   property int dropWsId: -1
 
-  // Which END of that workspace's group the window would land on: the half of
-  // the group the pointer is in. Start or end and nothing between -- a drop
-  // decides where in the workspace the window goes, not where among its
-  // siblings, and a strip of tiles is not a layout tree.
-  property bool dropAtEnd: false
+  // WHERE in that workspace's group the window would land, as an insertion slot:
+  // 0 before the group's first tile, m after its last, and every boundary
+  // between. Counted as "tiles whose centre the pointer has passed", which is
+  // the same rule any reorderable list uses and needs no special case at either
+  // end.
+  property int dropSlot: 0
 
   // Whether letting go here would do anything at all: a live drag, over a
   // group. The workspace is deliberately NOT required to differ -- dropping a
@@ -116,8 +117,15 @@ Item {
   // records the intent here, and the first rebuild that sees the window on the
   // workspace it asked for works out the distance and closes it.
   property bool dropPlacePending: false
-  property bool dropPlaceEnd: false
   property int dropPlaceWs: -1
+  // Where in the group it should end up, 0-based, once it is there.
+  property int dropPlaceIndex: -1
+  // Where it was when the last step was sent, and how many have gone out. A
+  // step that changes nothing means the layout cannot express what was asked --
+  // a workspace mixing horizontal and vertical splits, most likely -- and the
+  // walk stops rather than spinning.
+  property int dropPlaceLastAt: -1
+  property int dropPlaceSteps: 0
 
   // ── Most-recently-used, for back-and-forth ──────────────────────────────────
   //
@@ -425,7 +433,7 @@ Item {
     command: ["bash", "-c",
       'dirs="$HOME/.icons $HOME/.local/share/icons"; '
       + 'IFS=":"; for d in ${XDG_DATA_DIRS:-/usr/local/share:/usr/share}; do dirs="$dirs $d/icons"; done; unset IFS; '
-      + 'for ext in svg png; do '
+      + '{ for ext in svg png; do '
       + '  for base in $dirs; do '
       // Two plain finds rather than one \( -o \) group: inside a QML string
       // the backslash is eaten by the JS lexer, so the parens reach bash bare
@@ -435,7 +443,25 @@ Item {
       + '    [ -d "$base" ] && find "$base" -path "*/devices/*" -name "*.$ext" 2>/dev/null; '
       + '  done; '
       + '  find /usr/share/pixmaps -maxdepth 1 -name "*.$ext" 2>/dev/null; '
-      + 'done']
+      + 'done; }'
+      // Collapse to one line per NAME before any of it crosses into QML.
+      //
+      // The sweep walks ~34k files and hands back 9106 paths, of which
+      // _applyVendorIndex keeps 1364 -- first hit wins, so 85% of what it
+      // parsed was discarded the moment it arrived. Measured: 544KB and 9ms of
+      // main-thread parse to build an index that 79KB and ~1ms produces.
+      //
+      // Semantics are unchanged, and that was verified rather than assumed:
+      // awk keeps the FIRST path per name, walking the stream in the same order
+      // the loops emit it, so the svg pass still outranks the png pass and
+      // $HOME/.icons still outranks every installed theme. Both indexes were
+      // built and compared key by key -- 1364 names each, identical mapping.
+      //
+      // `[.]` rather than an escaped dot, deliberately. A backslash in this
+      // string is eaten by the JS lexer before bash ever sees it -- the same
+      // trap the two plain finds above exist for -- and `sub(/.[^.]*$/...)`
+      // would silently strip from the FIRST character rather than the last dot.
+      + " | awk -F/ '{ f=$NF; sub(/[.][^.]*$/, \"\", f); if (!(f in seen)) { seen[f]=1; print } }'"]
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: root._applyVendorIndex(text)
@@ -595,6 +621,125 @@ Item {
       idx[f.substring(0, dot)] = "file://" + root.flatIconDir + f
     }
     root.iconIndex = idx
+  }
+
+  // ── What is RUNNING in a terminal ───────────────────────────────────────────
+  //
+  // The window title is the only signal there is, and it took measuring to be
+  // sure of that. Ghostty runs --gtk-single-instance=true, so every one of its
+  // windows reports the SAME pid -- measured here, four windows all pid 3242 --
+  // and the compositor cannot say which process belongs to which window. No
+  // process-tree walk recovers it either: the shells are all children of that
+  // one pid, and nothing ties a child back to a surface.
+  //
+  // The title turns out to be the better signal anyway. Ghostty's shell
+  // integration sets it to the command AS TYPED, so an alias arrives as itself
+  // -- `diff`, not `hunk diff` -- an idle shell shows its cwd, and Claude Code
+  // overwrites it with its own status line. windowtitle/windowtitlev2 are
+  // already in refreshEvents, so a badge follows the foreground command live
+  // with no new machinery at all.
+
+  // Command name -> icon name, for the cases where the two differ.
+  //
+  // Two separate reasons they do, and both land here. ../bash/shell.sh aliases
+  // some commands, and the title carries what was TYPED -- `diff`, never
+  // `hunk diff`. And the drop-ins are named for a desktop entry's `Icon=`, not
+  // for anything you would run: the file behind a claude session is
+  // `claude-code.svg`, and no amount of looking up "claude" finds it.
+  //
+  // Everything not listed resolves by its own name, which is most of the set --
+  // bat, curl, docker, fd, ffmpeg, git, mongosh, npm, nvim, python, ruby,
+  // sqlite, starship, tmux, uv, zoxide and the rest all match directly.
+  readonly property var badgeAliases: ({
+    // Aliased by the shell
+    diff: "hunk",           // shell.sh:150
+    log: "hunk",            // shell.sh:165
+    dash: "gh",             // shell.sh:172, `gh dash`
+    edit: "msedit",         // shell.sh:111
+    ls: "lsd",              // shell.sh:80
+    // Named for `Icon=` rather than for the command
+    claude: "claude-code",
+    node: "nodejs",
+    python3: "python",
+    sqlite3: "sqlite",
+    psql: "postgresql",
+    "redis-cli": "redis",
+    ffprobe: "ffmpeg",
+    magick: "imagemagick",
+    convert: "imagemagick",
+    ytm: "youtube-music"
+  })
+
+  // Claude Code announces itself by overwriting the title with
+  // "<status marker> <what it is working on>". Measured on this machine across
+  // sessions: U+25D0, U+25D1 and U+2733. The marker tracks session state and
+  // only the states seen so far are known, so the rest of the family is
+  // included rather than waiting to be surprised by one.
+  readonly property string claudeMarkers:
+    "\u2733\u2722\u273B\u273D\u2736\u2739\u25D0\u25D1\u25D2\u25D3\u23FA"
+
+  function _isTerminal(cls) {
+    var c = String(cls || "").toLowerCase()
+    return c.indexOf("ghostty") !== -1 || c.indexOf("alacritty") !== -1
+      || c.indexOf("kitty") !== -1 || c.indexOf("foot") !== -1
+      || c.indexOf("wezterm") !== -1 || c.indexOf("xterm") !== -1
+      || c.indexOf("konsole") !== -1 || c.indexOf("terminal") !== -1
+  }
+
+  // The icon for whatever is running in this terminal window, or "" for none.
+  //
+  // Resolved through the SAME two indexes a window class goes through, in the
+  // same order -- a flat drop-in wins, everything the vendor sweep found
+  // answers otherwise -- so a terminal badge and an app tile can never disagree
+  // about what a given program looks like.
+  //
+  // In practice the second index is what answers most of these, and it is the
+  // right one to land on. ../icons/color/ is where a mark that only reads in
+  // its OWN colours lives -- the Figma logo, and every CLI and agent mark
+  // beside it -- and app-icons.sh syncs it to ~/.icons/cllpse-color/apps/,
+  // which the vendor sweep already covers. Because that path is not under
+  // flatIconDir, badgeIsFlat is false and the badge is drawn verbatim rather
+  // than repainted, which is the whole point of that directory.
+  //
+  // No glyph fallback: at badge size a Nerd Font glyph is a smudge, and "no icon
+  // for this" is better read as no badge than as a mark nobody can identify.
+  function badgeFor(cls, title) {
+    if (!root._isTerminal(cls)) return ""
+    var t = String(title || "").trim()
+    if (t.length === 0) return ""
+    // An idle shell is titled with its working directory, and a directory is
+    // not a program.
+    if (t.charAt(0) === "~" || t.charAt(0) === "/") return ""
+
+    var name = ""
+    if (root.claudeMarkers.indexOf(t.charAt(0)) !== -1) {
+      name = "claude"
+    } else if (t.charCodeAt(0) > 0x2000 && t.charAt(1) === " ") {
+      // A marker this does not know yet, in the shape Claude Code uses. Loose
+      // on purpose and the one guess in here: nothing else on this machine
+      // titles itself with a leading symbol and a space. If something starts,
+      // it will wear the wrong badge and this is the line to tighten.
+      name = "claude"
+    } else {
+      name = t.split(/\s+/)[0].toLowerCase()
+      // A path-qualified command still names itself in its last segment.
+      var slash = name.lastIndexOf("/")
+      if (slash >= 0) name = name.substring(slash + 1)
+    }
+    if (name.length === 0) return ""
+
+    // Aliased AFTER the branches, not inside one of them. It was inside the
+    // last one to begin with, which meant a claude session -- recognised by its
+    // marker and never by a command name -- skipped the table entirely and went
+    // looking for "claude". The file is claude-code.svg, so it found nothing
+    // and the tile drew no badge while every other program badged correctly.
+    var aliased = root.badgeAliases[name]
+    if (aliased !== undefined) name = aliased
+
+    var flat = root.iconIndex[name]
+    if (flat !== undefined) return flat
+    var v = root.vendorIndex[name]
+    return v === undefined ? "" : v
   }
 
   // Friendly app name for the class, shown ahead of the window title as
@@ -853,7 +998,7 @@ Item {
     return t.indexOf("0x") === 0 ? t.substring(2) : t
   }
 
-  function _rebuild() {
+  function _rebuild(force) {
     // Frozen while the strip is on screen: a macOS Cmd-Tab list does not
     // reshuffle under the hand holding it, and re-assigning the model mid-open
     // is exactly what made the icons flicker.
@@ -864,7 +1009,7 @@ Item {
     // rather than a single rebuild because the move is a hyprctl process: the
     // debounced refresh can beat it, see the list unchanged and stop there, and
     // the movewindow event that follows would then find the freeze back on.
-    if (root.opened && !dropUnfreeze.running) return
+    if (root.opened && !force && !dropUnfreeze.running) return
 
     var vs = Hyprland.toplevels.values
     var mapped = []
@@ -947,6 +1092,21 @@ Item {
       return a.y - b.y
     })
 
+    // A placement walk steps off THIS list, and the model is deliberately left
+    // alone until the walk is over.
+    //
+    // Assigning it resets the ListView and takes every delegate with it --
+    // measured on a nine-tile strip, one reorder is create 9 / destroy 9 -- and
+    // a walk would pay that once per step, so a three-place move would blink
+    // the whole strip three times while the user watches it rearrange. The walk
+    // does not need the model to do its work, only a current list, which is
+    // exactly what `out` is. So it steps off `out` and the strip updates once,
+    // at the end, showing where the window came to rest.
+    if (root.dropPlacePending) {
+      root._placeStep(out)
+      if (root.dropPlacePending) return
+    }
+
     // The whole point: only touch the model when something actually changed.
     // An unchanged assignment resets the ListView and churns delegates.
     if (!root._sameWins(out, root.wins)) root.wins = out
@@ -958,9 +1118,6 @@ Item {
       for (var f = 0; f < root.wins.length; f++) {
         if (root._addr(root.wins[f].address) !== root.dropFollowAddr) continue
         root.index = f
-        // The move has landed and the strip has re-sorted, so the distance to
-        // the requested end is finally a thing that can be counted.
-        root._placeDropped(f)
         break
       }
     }
@@ -1195,11 +1352,14 @@ Item {
   // [first, last] tile index of a workspace's group, or [-1, -1]. The list is
   // sorted by workspace, so a group is always one contiguous run -- which is
   // what lets the drop-target highlight be a single rectangle.
-  function _groupRange(wsId) {
+  // `arr` defaults to the model, but the placement walk passes the list a
+  // rebuild has just computed and NOT yet assigned -- see _rebuild.
+  function _groupRange(wsId, arr) {
+    var w = arr || root.wins
     var first = -1
     var last = -1
-    for (var i = 0; i < root.wins.length; i++) {
-      if (root.wins[i].wsId !== wsId) continue
+    for (var i = 0; i < w.length; i++) {
+      if (w[i].wsId !== wsId) continue
       if (first < 0) first = i
       last = i
     }
@@ -1221,14 +1381,18 @@ Item {
     root.dragY = cy
     var inCard = cx >= 0 && cy >= 0 && cx <= card.width && cy <= card.height
     root.dropWsId = inCard ? root._wsAt(lx) : -1
-    // Which half of the group the pointer is in. The midpoint of the whole
-    // run, not of the tile under the cursor: the offer is about the group's
-    // two ends, so it should flip once, in the middle, however many tiles the
-    // group happens to have.
+    // Which boundary within the group the pointer is offering: one slot per gap
+    // between its tiles, plus one at each end. Counting the tile centres the
+    // pointer has passed gives all of them with no special case -- 0 when it is
+    // left of everything, m when it is right of everything.
     if (root.dropWsId > 0) {
       var r = root._groupRange(root.dropWsId)
-      if (r[0] >= 0)
-        root.dropAtEnd = lx >= (root._cellX(r[0]) + root._cellX(r[1]) + card.cellW) / 2
+      var j = 0
+      if (r[0] >= 0 && root.wins[r[0]].kind === "window") {
+        for (var t = r[0]; t <= r[1]; t++)
+          if (lx >= root._cellX(t) + card.cellW / 2) j++
+      }
+      root.dropSlot = j
     }
     idleTimer.restart()
   }
@@ -1244,13 +1408,25 @@ Item {
     var i = root.dragIndex
     var w = root.wins[i]
     var ws = root.dropWsId
-    var atEnd = root.dropAtEnd
+    var slot = root.dropSlot
     root._dragCancel()
     if (w.kind !== "window" || !w.address) return
 
+    // Slot -> final index. The two differ by one whenever the window is already
+    // in this group and is being moved to the RIGHT of where it sits: taking it
+    // out shifts everything after it down a place, so the boundary it was aimed
+    // at has moved too. Dropping into a group it is not yet part of has no such
+    // shift, and the slot is the index.
+    var gr = root._groupRange(ws)
+    var occupied = gr[0] >= 0 && root.wins[gr[0]].kind === "window"
+    var m = occupied ? (gr[1] - gr[0] + 1) : 0
+    var j = Math.max(0, Math.min(m, slot))
+    root.dropPlaceIndex = (ws === w.wsId && occupied && j > (i - gr[0])) ? j - 1 : j
+
     root.dropPlacePending = true
-    root.dropPlaceEnd = atEnd
     root.dropPlaceWs = ws
+    root.dropPlaceLastAt = -1
+    root.dropPlaceSteps = 0
     root.dropFollowAddr = root._addr(w.address)
     dropUnfreeze.restart()
 
@@ -1258,7 +1434,7 @@ Item {
       // Already on the workspace it was dropped on: nothing to move BETWEEN
       // workspaces, so this is a pure re-arrange and the strip in front of us
       // is already the arrangement to measure against.
-      root._placeDropped(i)
+      root._placeStep(root.wins)
       return
     }
 
@@ -1278,56 +1454,82 @@ Item {
     refreshDebounce.restart()
   }
 
-  // Walk the dropped window to the end of its group it asked for.
+  // Walk the dropped window to the slot it was dropped on, ONE STEP PER REBUILD,
+  // reading the list the rebuild computed rather than the model itself.
   //
   // There is no "insert at index" to dispatch -- Hyprland moves a window one
-  // neighbour at a time -- so the distance is counted first and issued as
-  // exactly that many steps in ONE hyprctl --batch. Counted rather than
-  // repeated-until-it-stops for two reasons: it is a single process instead of
-  // one round trip per step, and a move that overshoots the edge is not
-  // harmless. `binds:window_direction_monitor_fallback` is on by default, so a
-  // step past the last window would hand it to the next MONITOR rather than do
-  // nothing (inert on this single-monitor machine, not in general).
+  // neighbour at a time -- and the whole distance cannot be sent at once.
+  // Measured on a three-window workspace: two `r` steps in a single
+  // `hyprctl --batch` advanced the window ONE position, not two. A dwindle
+  // workspace is a tree and every step reshapes it (the widths change, not just
+  // the order), so the second dispatch in a batch is resolved against a layout
+  // the first has already invalidated.
   //
-  // `window` is what makes this work at all: the dispatcher acts on the named
+  // Stepping on the rebuild fixes that by construction: each step is resolved
+  // against the arrangement the strip is actually showing, because that is the
+  // same arrangement the refresh just read back from the compositor. It is also
+  // self-limiting -- a step that moves nothing ends the walk -- which is what
+  // keeps a layout this cannot express from spinning. The cost is a round trip
+  // per step, about 75ms, which no drag is going to notice.
+  //
+  // `window` is what makes any of it work: the dispatcher acts on the named
   // window, on a workspace nobody is looking at, leaving focus alone --
   // verified. `swapwindow` looks like the better primitive, being inherently
   // edge-safe, but it ignores `window` and acts on the active one.
-  function _placeDropped(i) {
+  function _placeStep(arr) {
     if (!root.dropPlacePending) return
-    if (i < 0 || i >= root.wins.length) return
-    var w = root.wins[i]
-    if (w.kind !== "window" || !w.address) return
+    var i = -1
+    for (var k = 0; k < arr.length; k++) {
+      if (root._addr(arr[k].address) === root.dropFollowAddr) { i = k; break }
+    }
+    if (i < 0) return
+    var w = arr[i]
+    if (w.kind !== "window" || !w.address) { root.dropPlacePending = false; return }
     // Until the window is actually ON the workspace it was dropped on, this is
     // still looking at the arrangement it is leaving.
     if (w.wsId !== root.dropPlaceWs) return
 
-    root.dropPlacePending = false
-    var r = root._groupRange(w.wsId)
-    if (r[0] < 0) return
-    var steps = root.dropPlaceEnd ? (r[1] - i) : (i - r[0])
-    if (steps <= 0) return // already at that end
+    var r = root._groupRange(w.wsId, arr)
+    if (r[0] < 0) { root.dropPlacePending = false; return }
+    var at = i - r[0]
+    var want = Math.max(0, Math.min(r[1] - r[0], root.dropPlaceIndex))
 
-    // Which axis the group is laid out on. A workspace split top-and-bottom
-    // sorts by y in the strip, and "start" there means the top -- stepping it
-    // left would do nothing at all and the drop would look broken. This is the
-    // whole of the layout-awareness here: one row, or one column. A workspace
-    // mixing the two is not something a strip of tiles can express, and no
-    // attempt is made to.
-    var column = root.wins[r[0]].x === root.wins[r[1]].x
-      && root.wins[r[0]].y !== root.wins[r[1]].y
-    var dir = column ? (root.dropPlaceEnd ? "d" : "u")
-                     : (root.dropPlaceEnd ? "r" : "l")
+    if (at === want) { root.dropPlacePending = false; return }   // arrived
 
-    var cmds = []
-    for (var k = 0; k < steps; k++)
-      cmds.push('dispatch hl.dsp.window.move({ direction = "' + dir
-        + '", window = "address:' + w.address + '" })')
-    placeProc.command = ["hyprctl", "--batch", cmds.join(" ; ")]
+    // Same position the last step was sent from: the refresh has not caught up
+    // yet, so wait for one that has.
+    //
+    // This deliberately does NOT read as "the layout refused". A refusal emits
+    // no movewindow at all and so arrives as SILENCE -- placeSettle below is
+    // what ends the walk on it. Conflating the two cost a real bug: a stale
+    // snapshot looked identical to a refusal, and a two-step walk gave up after
+    // gaining one place. Measured, then confirmed by hand: the step the walk
+    // had written off moved the window perfectly well when it was re-sent.
+    //
+    // Stepping again on a stale read is the other half of why this has to be
+    // here: it would send a second step for one place of need, and overshoot.
+    if (root.dropPlaceSteps > 0 && at === root.dropPlaceLastAt) return
+    if (root.dropPlaceSteps >= 8) { root.dropPlacePending = false; return }
+    root.dropPlaceLastAt = at
+    root.dropPlaceSteps++
+    placeSettle.restart()
+
+    // Which axis the group is laid out on, re-read every step because a step
+    // reshapes the tree. A workspace split top-and-bottom sorts by y in the
+    // strip, so "earlier" there means the top and stepping it left would do
+    // nothing at all. One row or one column is the whole of the
+    // layout-awareness here; a workspace mixing the two is not something a
+    // strip of tiles can express, and no attempt is made to.
+    var column = arr[r[0]].x === arr[r[1]].x && arr[r[0]].y !== arr[r[1]].y
+    var forward = want > at
+    var dir = column ? (forward ? "d" : "u") : (forward ? "r" : "l")
+
+    placeProc.command = ["hyprctl", "dispatch",
+      'hl.dsp.window.move({ direction = "' + dir + '", window = "address:'
+        + w.address + '" })']
     placeProc.running = true
 
-    // Each step emits its own movewindow, so hold the list open long enough to
-    // show where they left it.
+    // Hold the list open for the next step, and for the one after that.
     dropUnfreeze.restart()
     refreshDebounce.restart()
   }
@@ -1363,6 +1565,27 @@ Item {
     }
   }
 
+  // Silence ends the walk.
+  //
+  // A step Hyprland declines emits no movewindow, so no refresh and no rebuild
+  // follow it -- there is nothing to observe, only an absence. This is that
+  // absence made concrete: restarted by every step, so it only ever fires when
+  // one produced nothing. Generous against the measured ~64ms refresh chain,
+  // because firing early would cut a walk short exactly the way the old
+  // unchanged-reading test did.
+  //
+  // It forces the rebuild it ends on, because the model has been held back for
+  // the length of the walk and a refused step leaves no event to flush it.
+  Timer {
+    id: placeSettle
+    interval: 300
+    repeat: false
+    onTriggered: {
+      root.dropPlacePending = false
+      root._rebuild(true)
+    }
+  }
+
   // How long the list stays unfrozen after a drop -- long enough for the
   // hyprctl process, the toplevel refresh and the rebuild behind it to land.
   Timer {
@@ -1373,8 +1596,11 @@ Item {
       root.dropFollowAddr = ""
       // A placement still pending here never saw its window reach the
       // workspace -- dropped onto one it could not move to, or the move
-      // failed. Drop it rather than let it fire against some later drag.
+      // failed. Drop it rather than let it fire against some later drag, and
+      // flush the model, which the walk has been holding back.
+      var wasPending = root.dropPlacePending
       root.dropPlacePending = false
+      if (wasPending) root._rebuild(true)
     }
   }
 
@@ -1520,6 +1746,23 @@ Item {
       // xs and the title tops the rest up with topPadding. Step this along
       // Style.spacing (xs 3 / sm 4 / md 6 / lg 8 / xl 10) to retune; rowH and
       // the padding both derive from it, so there is one place to change.
+      // The running-program badge, as two knobs on the same ladder
+      // (xxs 2 / xs 3 / sm 4 / md 6 / lg 8 / xl 10).
+      //
+      // Its size is stated as how much SMALLER than the icon it sits on it is,
+      // rather than as a fraction of it, so that stepping it means the same
+      // thing as stepping anything else here -- a bigger inset is a smaller
+      // badge. It was a 3/4 ratio, which had no step to take.
+      //
+      // The two move together. What is actually being tuned is neither number
+      // but the sliver of terminal icon left showing at the top left, which is
+      // `badgeInset + badgeOffset` wide -- 8px here. Raise the offset with the
+      // size and that sliver holds; raise it alone and more of the terminal
+      // shows; lower it alone and the badge swallows the icon, which is what
+      // full size did.
+      readonly property int badgeInset: Style.spacing.xxs
+      readonly property int badgeSize: Math.max(1, card.iconDrawn - card.badgeInset)
+      readonly property int badgeOffset: Style.spacing.md
       readonly property int iconTitleGap: Style.spacing.lg
       readonly property int iconTitleTopUp: Math.max(0, card.iconTitleGap - Style.spacing.xs)
 
@@ -1737,6 +1980,18 @@ Item {
                   && mark.iconUrl.indexOf("file://" + root.flatIconDir) === 0
                 readonly property bool isWorkspace: modelData.kind === "workspace"
 
+                // What is running inside this terminal, if anything an icon
+                // index can name. Cached exactly as iconUrl is, and for exactly
+                // the same reason: the badge owns an item tree, and item
+                // structure keyed on Image.status is what aborted the shell
+                // four times -- see iconFor() above. This comes from the index
+                // and cannot move while Qt walks the tree.
+                readonly property string badgeUrl:
+                  root.badgeFor(modelData.cls, modelData.title)
+                readonly property bool hasBadge: mark.badgeUrl.length > 0
+                readonly property bool badgeIsFlat: mark.hasBadge
+                  && mark.badgeUrl.indexOf("file://" + root.flatIconDir) === 0
+
                 // Match the INK, not the canvas -- but only where there IS
                 // canvas, which is the half of this that was wrong.
                 //
@@ -1835,8 +2090,7 @@ Item {
                   color: cell.sel ? Color.menu.selectedText : Color.menu.text
                 }
 
-                // Empty-workspace mark: a dashed box with rounded corners,
-                // U+F0489.
+                // Empty-workspace mark: a DOTTED box, U+F0485.
                 //
                 // Picked by RENDERING candidates, not by name -- this font's
                 // name-to-codepoint mapping does not match the Nerd Font
@@ -1846,17 +2100,116 @@ Item {
                 // font rather than tofu: an absent box and a blank slot look
                 // identical, so name-guessing fails silently.
                 //
-                // F0485 was the first fit and is the same idea with square
-                // corners; F0489 rounds them, which sits closer to the rest of
-                // the strip. F14FC is rounded but solid, so it reads as a
-                // container rather than an absence.
+                // F0489, which this was for a while, is the DASHED one: fewer,
+                // longer segments, rounded corners. F0485 is dotted -- measured
+                // by connected components at a 96px render, 16 separate 4x4
+                // pieces of identical size evenly spaced around the perimeter.
+                // Worth stating because the two are easy to confuse by eye at
+                // tile size, and this file previously described F0485 as
+                // "the same idea with square corners", which undersold it: it
+                // is a different texture, not the same one squared off. Dotted
+                // is the lighter, quieter mark, which is what an absence wants.
+                //
+                // Nothing else in the face competes. All 6895 glyphs in the
+                // Material Design range were rendered and filtered to square-ish
+                // hollow outlines (265), then ranked by how many disconnected
+                // pieces of ink they contain: every other many-piece hit is a
+                // dotted CIRCLE (F0D32, F0F22), or a dashed square carrying a
+                // pin, a plus or an inner square (F0562, F055D, F1280, F0A6D).
+                // F14FC is rounded but solid, so it reads as a container rather
+                // than an absence.
                 //
                 // pixelSize is iconSize, the same as the app glyph below, so it
                 // lands on the shared ink ratio with no extra arithmetic.
+                // The badge: the running program's mark, a shade under the
+                // size of the terminal's own and hanging past its bottom-right
+                // corner. Both numbers are card.badge* knobs -- see there.
+                //
+                // Full size was tried and read as a replacement rather than an
+                // overlay: at the same size, no offset small enough to look
+                // deliberate leaves enough of the terminal icon to recognise,
+                // and the tile stops saying "a terminal running this" and
+                // starts saying "this". Three-quarters keeps the program
+                // dominant -- it is the thing you are looking for -- while the
+                // whole top-left of the terminal's mark stays clear.
+                //
+                // Behind a Loader so a tile that has no badge -- every app
+                // window, every idle shell -- pays for no Image and no effect
+                // at all. `active` keys off the cached bool above, never off a
+                // load status.
+                //
+                // Positioned against the DRAWN icon box rather than against
+                // `mark`, whose height is the glyph's line height and so taller
+                // than the art it contains. Anchoring to the item would float
+                // the badge below the corner it is meant to sit in.
+                Loader {
+                  id: badge
+                  active: mark.hasBadge
+                  width: card.badgeSize
+                  height: badge.width
+                  // The icon box's bottom-right corner, then one step past it.
+                  // The box is centred in `mark`, whose height is the glyph's
+                  // line height rather than the art's -- hence the arithmetic
+                  // instead of an anchor.
+                  x: (mark.width + card.iconDrawn) / 2 - badge.width + card.badgeOffset
+                  y: (mark.height + card.iconDrawn) / 2 - badge.height + card.badgeOffset
+
+                  sourceComponent: Item {
+                    // No separation layer behind the badge, deliberately.
+                    //
+                    // Two have been tried here and both were worse than
+                    // nothing. A filled rounded rect in the tile's background
+                    // colour is a BOX, and it is visible as a box the moment
+                    // the theme stops matching the art -- invisible on light,
+                    // then punching a dark square through the ghost on the
+                    // first dark theme. A MultiEffect shadow at zero offset in
+                    // the same colour fits the shape rather than a rectangle,
+                    // which is the right idea and still failed on the mark that
+                    // matters most: Claude's logo is a sparse radial burst, so
+                    // a silhouette blurred and scaled 18% up has far more area
+                    // than the rays casting it and pools into a smudge between
+                    // them -- landing on the ghost's white body, at maximum
+                    // contrast. It read cleanly on solid marks like btop's,
+                    // which is exactly why it survived a first look.
+                    //
+                    // The badge hangs mostly outside the icon at the current
+                    // offset, so it needs less separation than either attempt
+                    // assumed. If a mark ever does need it, fit it to that
+                    // mark; do not reintroduce a global one.
+                    //
+                    // One MultiEffect still serves both kinds of badge. That
+                    // arrived with the shadow but is worth keeping on its own:
+                    // colorization is switched off for a vendor mark so its own
+                    // colours reach the screen, and on for a flat drop-in.
+                    Image {
+                      id: badgeImage
+                      anchors.fill: parent
+                      source: mark.badgeUrl
+                      sourceSize.width: Math.ceil(badge.width * Screen.devicePixelRatio)
+                      sourceSize.height: Math.ceil(badge.width * Screen.devicePixelRatio)
+                      fillMode: Image.PreserveAspectFit
+                      asynchronous: true
+                      // Sampled as a texture, never drawn directly. Same shape
+                      // the tile's own mark uses for its flat branch, and keyed
+                      // on nothing that can move while Qt walks the item tree.
+                      visible: false
+                      layer.enabled: true
+                    }
+
+                    MultiEffect {
+                      anchors.fill: badgeImage
+                      source: badgeImage
+                      colorization: mark.badgeIsFlat ? 1.0 : 0.0
+                      colorizationColor: cell.sel ? Color.menu.selectedText
+                                                  : Color.menu.text
+                    }
+                  }
+                }
+
                 Text {
                   visible: mark.isWorkspace
                   anchors.centerIn: parent
-                  text: String.fromCodePoint(0xF0489)
+                  text: String.fromCodePoint(0xF0485)
                   textFormat: Text.PlainText
                   font.family: Style.font.menuFamily
                   font.pixelSize: card.iconSize
@@ -2059,10 +2412,17 @@ Item {
           // a cap on a stroke, not a rounded box, so it follows the stroke.
           radius: caret.width / 2
           x: {
-            if (dropCaret.range[0] < 0) return -caret.width
-            var edge = root.dropAtEnd
-              ? root._cellX(dropCaret.range[1]) + card.cellW + card.gap / 2
-              : root._cellX(dropCaret.range[0]) - card.gap / 2
+            var r = dropCaret.range
+            if (r[0] < 0) return -caret.width
+            var m = r[1] - r[0] + 1
+            var j = Math.max(0, Math.min(m, root.dropSlot))
+            // The boundary in front of tile j, or past the last tile when j is
+            // the whole group. Within a group the tiles are one `gap` apart and
+            // nothing else, so half a gap back from a tile's left edge IS the
+            // boundary -- the same arithmetic at both ends and in between.
+            var edge = (j < m)
+              ? root._cellX(r[0] + j) - card.gap / 2
+              : root._cellX(r[1]) + card.cellW + card.gap / 2
             var vx = edge - (list.contentX - list.originX) - caret.width / 2
             return root._snapPx(Math.max(0, Math.min(list.width - caret.width, vx)))
           }
