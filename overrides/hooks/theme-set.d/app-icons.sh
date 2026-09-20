@@ -36,18 +36,22 @@ set -euo pipefail
 
 HERE="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 FALLBACKS="$HERE/../../icons/fallbacks"
-# Drop-ins that keep their own colours. Separate directory rather than a naming
-# convention, because the flat pass below repaints every file it walks and a
-# multi-hue vendor logo does not survive that. The repaint is keyed on the
-# DIRECTORY, not on anything inside the file, so a second output directory is
-# the whole mechanism.
+# Marks that keep their own colours. These live in the SWITCHER SUBMODULE, not
+# in this repo: the plugin ships the full set to render its own tiles, this
+# script copies the same files out for the menu, and one directory is easier to
+# keep honest than two copies of 75 identical files that drift apart silently.
 #
-# This used to have a second reason: the switcher decided at draw time whether
-# to colorize a mark, from the path it resolved (anything under cllpse-flat was
-# flat by definition). The switcher no longer recolours anything -- it ships its
-# own copy of icons/color/ and draws every icon exactly as authored -- so the
-# split now serves this script and the MENU, and is nothing to the switcher.
-COLOR_IN="$HERE/../../icons/color"
+# The menu is the only reason this pass exists. It draws a plain Image out of
+# $HOME/.icons and cannot recolour anything (Menu.qml:1253), so a verbatim mark
+# can only reach it as a file here. The switcher reads its own icons/ directly
+# and would not notice if this pass never ran.
+#
+# Copied verbatim -- the flat pass below repaints every file it walks, and a
+# multi-hue vendor logo does not survive that. The repaint is keyed on the
+# DIRECTORY, not on anything in the file, so a second output directory is the
+# whole mechanism.
+SWITCHER="$HERE/../../../omarchy-cllpse-switcher"
+COLOR_IN="$SWITCHER/icons"
 COLOR_OUT="$HOME/.icons/cllpse-color/apps"
 COLORS="$HOME/.local/state/omarchy/current/theme/colors.toml"
 OUT="$HOME/.icons/cllpse-flat/apps"
@@ -111,25 +115,40 @@ trap _restart_shell_if_changed EXIT
 # exactly like a vendor icon -- which is the point: it IS one, just ours.
 #
 # The sweep is OUTSIDE the `-d $COLOR_IN` test on purpose. Inside it, removing
-# icons/color/ from the repo altogether left ~/.icons/cllpse-color/apps/ serving
-# files nothing backed any more -- the one case where a stale icon is certain
-# rather than merely possible. With COLOR_IN gone, wantedColor is empty and the
-# sweep clears the directory, which is what "delete a drop-in to hand that app
-# back" has to mean.
-declare -A wantedColor=()
-if [[ -d $COLOR_IN ]]; then
-  mkdir -p "$COLOR_OUT"
-  for f in "$COLOR_IN"/*.svg; do
+# the source altogether left ~/.icons/cllpse-color/apps/ serving files nothing
+# backed any more -- the one case where a stale icon is certain rather than
+# merely possible. With COLOR_IN gone, wantedColor is empty and the sweep clears
+# the directory, which is what "delete a drop-in to hand that app back" means.
+#
+# That is exactly why an UNCHECKED-OUT SUBMODULE has to bail before the sweep
+# rather than fall through it. Since the source moved into the submodule, a
+# missing COLOR_IN has two meanings: marks were deliberately deleted (clear
+# them), or `git submodule update --init` has not been run (a clone that would
+# otherwise wipe 75 working icons for a reason that has nothing to do with
+# them). manifest.json is what tells the two apart -- present means the
+# submodule is really there and an empty icons/ is a real answer.
+# Skipping is NOT exiting: the flat pass below is a different icon set out of a
+# different directory, and taking it down over a missing submodule would rebuild
+# the coupling the paragraph above describes getting rid of.
+if [[ -f $SWITCHER/manifest.json ]]; then
+  declare -A wantedColor=()
+  if [[ -d $COLOR_IN ]]; then
+    mkdir -p "$COLOR_OUT"
+    for f in "$COLOR_IN"/*.svg; do
+      b=$(basename "$f")
+      wantedColor[${b%.*}]="$b"
+      cp -f "$f" "$COLOR_OUT/$b"
+    done
+  fi
+  for f in "$COLOR_OUT"/*.svg; do
     b=$(basename "$f")
-    wantedColor[${b%.*}]="$b"
-    cp -f "$f" "$COLOR_OUT/$b"
+    [[ ${wantedColor[${b%.*}]:-} == "$b" ]] || rm -f "$f"
   done
+  rmdir "$COLOR_OUT" "$(dirname "$COLOR_OUT")" 2>/dev/null || true
+else
+  echo "app-icons: omarchy-cllpse-switcher/ is not checked out -- leaving" \
+       "$COLOR_OUT alone (run: git submodule update --init --recursive)" >&2
 fi
-for f in "$COLOR_OUT"/*.svg; do
-  b=$(basename "$f")
-  [[ ${wantedColor[${b%.*}]:-} == "$b" ]] || rm -f "$f"
-done
-rmdir "$COLOR_OUT" "$(dirname "$COLOR_OUT")" 2>/dev/null || true
 
 # ── Flat pass ───────────────────────────────────────────────────────────────
 # Repainting needs the active palette, so this half -- and only this half --

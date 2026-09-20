@@ -432,7 +432,8 @@ window set:
   space — which is the one guess in the file, on the grounds that nothing else
   on this machine titles itself that way. If something starts, tighten that line.
 - **The marks came from `../icons/color/`** — the verbatim set, the one the
-  Figma logo lives in — reached through `app-icons.sh`'s sync to
+  Figma logo lives in; it lives in the plugin repo now, and `app-icons.sh` reads
+  it from there — reached through that sync to
   `~/.icons/cllpse-color/apps/`, which the plugin's vendor sweep already covers.
   The path mattered then: it was *not* under `flatIconDir`, so the icon was
   drawn in its own colours rather than repainted, and that was the whole point
@@ -511,7 +512,7 @@ Worth knowing about `glyphFor`, which is still the default for every tile:
     its gradients are the logo and stay.
   - `hunk` lost its cream box, which left an `#16140F` glyph against a
     `#1E1E1E` card — a contrast ratio of about 1.05, i.e. invisible. So it moved
-    from `color/` to `fallbacks/`, where the theme supplies the colour. A
+    from the colour set to `fallbacks/`, where the theme supplies the colour. A
     monochrome mark that only reads against its own background belongs in the
     repainted set; that is what the set is for.
 - **A drop-in renders at exactly the size its own ink fills its `viewBox`.**

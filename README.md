@@ -139,7 +139,7 @@ self-contained Omarchy theme:
 | `colors.toml` | The palette + `mode`. Drives every generated config, including the shell bar/menus/notifications. |
 | `shell.{bar,menu,launcher,notifications}.toml` | Per-section overrides spliced into the generated `shell.toml` — surface `background-alpha` (BUILD.md §6) for the blur set up in `overrides/`. |
 | `icons.theme` | dark → `Yaru-dark`, light → `Yaru-blue`. Fed to `gsettings icon-theme` by `omarchy-theme-set-gnome`. |
-| `backgrounds/` | Wallpapers — macOS stock (Big Sur → Sequoia) plus macOS-styled community art; 17 dark / 15 light. The `00-` prefix on `00-umeda_wallpaper_desktop*.png` is what makes it each theme's default: Omarchy has no default-background key and simply takes the sort-first file when switching into a theme. Not redistributable, see [`THIRD-PARTY.md`](THIRD-PARTY.md). |
+| `backgrounds/` | Wallpapers — macOS stock (Big Sur → Sequoia) plus macOS-styled community art; 17 dark / 15 light. The `00-` prefix on `00-umeda_wallpaper_desktop*.png` is what makes it each theme's default: Omarchy has no default-background key and simply takes the sort-first file when switching into a theme. |
 | `unlock.png`, `preview-unlock.png` | Boot-splash (Plymouth) / SDDM login-screen logo, and its `omarchy plymouth switcher` picker thumbnail — a fixed multi-colour "OMARCHY" wordmark, hand-tuned per theme (close but not pixel-identical between dark/light). Applied separately from `omarchy theme set`: `omarchy plymouth set by theme <name>` (needs sudo). |
 | `unlock.svg` | Vector source for `unlock.png` — not read by Omarchy itself (Plymouth/SDDM only take the PNG), kept for editing/rescaling. Exact rect-per-pixel trace, not a smoothed vectorisation — see below. Regenerate after editing `unlock.png`; it does not stay in sync on its own. |
 | `preview.png` | Desktop-screenshot thumbnail for Omarchy's *main* theme picker — now distinct per theme. |
@@ -165,7 +165,7 @@ system (GTK) theme and grayscale.
 ```
 omarchy-cllpse-theme/     the two themes (above), as omarchy-cllpse-theme-{dark,light}/
 overrides/                everything that lives outside a theme folder + apply.sh / revert.sh
-overrides/icons/          the app/CLI mark overrides: color/ verbatim, fallbacks/ repainted.
+overrides/icons/          app/CLI marks repainted to the theme (fallbacks/); the verbatim ones live in the switcher submodule.
                           AGENTS.md is how to add one, fallbacks/README.md is what a
                           file must look like
 omarchy-cllpse-switcher/  SUBMODULE -> cllpse/omarchy-window-switcher. The macOS-style
@@ -174,7 +174,6 @@ omarchy-cllpse-switcher/  SUBMODULE -> cllpse/omarchy-window-switcher. The macOS
                           apply.sh symlinks it into ~/.config/omarchy/plugins/
 reference/                BUILD.md (the spec) + window-switcher-notes.md (the plugin's
                           design log) + fonts.conf (BUILD's original, superseded)
-THIRD-PARTY.md            what this repo redistributes and does not own
 CLAUDE.md                 Omarchy's own mechanics and the traps already hit — written for
                           an agent working in here, but it is the densest reference in the
                           repo and worth reading before changing anything
@@ -276,13 +275,12 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   is a file, not a setting: `$HOME/.icons` is the first directory Omarchy's icon
   index scans and carries no `index.theme`, so a drop-in reaches the shell
   without touching GTK or Qt, and an app with no file keeps its vendor icon.
-  `overrides/icons/` holds those marks — `color/` synced verbatim, `fallbacks/`
-  repainted to the theme. The window switcher reads them too, so a mark added
-  here shows up in both places, but it is no longer fed by them: it ships its
-  own copy of all 75 `color/` marks and has its own drop-in directory outside
-  this repo. The menu is the consumer that can only be served from here, because
-  it draws a plain image and cannot recolour anything — which is now the whole
-  reason `color/` is still in this repository. **Adding or updating one:
+  `overrides/icons/fallbacks/` holds the marks repainted to the theme. The
+  full-colour ones are **not here**: they live in the switcher submodule, which
+  ships all 75 and is what `app-icons.sh` copies verbatim into
+  `~/.icons/cllpse-color/apps/` for the menu — one set of files, both surfaces.
+  The menu is the consumer that can only be served this way, because it draws a
+  plain image and cannot recolour anything. **Adding or updating one:
   [`overrides/icons/AGENTS.md`](overrides/icons/AGENTS.md)** for the workflow,
   [`overrides/icons/fallbacks/README.md`](overrides/icons/fallbacks/README.md)
   for what a file must contain.

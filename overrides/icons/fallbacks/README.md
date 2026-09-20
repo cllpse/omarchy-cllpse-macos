@@ -3,12 +3,14 @@
 This directory is one of the two sources of app icons for the Omarchy menu —
 the **repainted** one. Nothing is generated: each file here is one you placed by
 hand, gets recoloured to the active theme on every theme-set, and an app with no
-file here (or in `../color/`) simply keeps its own vendor icon, in full colour,
-unchanged.
+file here simply keeps its own vendor icon, in full colour, unchanged.
 
-Its sibling `../color/` is the same idea without the repaint: files there are
-copied verbatim, for marks that only read in their own colours. A name in either
-directory takes that app over; do not put the same name in both.
+The other source is the same idea without the repaint — marks that only read in
+their own colours, copied verbatim — and it is **not in this repository**. It is
+`omarchy-cllpse-switcher/icons/`, the switcher submodule, which the plugin draws
+from directly and `app-icons.sh` copies into `~/.icons/cllpse-color/apps/` for
+the menu. A name in either source takes that app over; do not put the same name
+in both.
 
 Add a file to take an app over; delete it to hand that app back.
 
@@ -93,8 +95,8 @@ draw time — but both halves are gone with the rasters. `Hud.qml` now draws the
 `iconDrawn` — a flat `iconSize * 0.9` — with no ink-ratio compensation in it, so
 a file padded to 78% renders about a fifth *smaller* than its neighbours rather
 than correctly. Edge-to-edge inside a square canvas is the whole
-contract, and it is what every file in this directory and in `../color/`
-already follows.
+contract, and it is what every file in this directory and in the switcher's
+`icons/` already follows.
 
 **Strip export artefacts.** Design tools emit invisible bounding rectangles —
 `<rect … fill-opacity="0">` spanning the canvas. They draw nothing today, but

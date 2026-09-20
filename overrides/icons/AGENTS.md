@@ -5,8 +5,9 @@ contract — what a file must look like, and which directory it belongs in. This
 file is how you find out *which* files are worth adding, and how to make a new
 one sit correctly beside the ones already here.
 
-**Ship the set as it is.** The 99 marks in `color/` and `fallbacks/` are aligned
-and committed. Do not run a bulk pass over them. Everything below applies to
+**Ship the set as it is.** The 24 marks in `fallbacks/` — and the 75 full-colour
+ones in the switcher submodule — are aligned and committed. Do not run a bulk
+pass over either. Everything below applies to
 marks you are **adding**; a sweep that "fixes" the existing set is how `hunk`
 lost its background box once already.
 
@@ -22,22 +23,22 @@ simply never found — nothing errors.
 | Switcher terminal icon | the **command name**, after the switcher's alias file | `hunk.svg` |
 
 The menu is the consumer that **only** we can serve: it draws a plain image and
-cannot recolour anything, so it needs both what `app-icons.sh` repaints out of
-`fallbacks/` and what it copies verbatim out of `color/`. Serving the menu is
-now the entire reason `color/` exists — the switcher would not miss it.
+cannot recolour anything, so it needs the repainted copies `app-icons.sh` writes
+out of `fallbacks/`.
 
-The switcher is not ours to feed any more. It ships **all 75 marks of `color/`**
-itself (the same files, `viewBox` rescaled, nothing else touched) and has its own
-user directory at `~/.config/omarchy/cllpse.window-switcher/icons/`, which
-nothing here creates or manages. It still reads `~/.icons/cllpse-flat/apps/` as
-an optional integration, so a mark added to `fallbacks/` does reach both
-surfaces — but emptying this directory no longer leaves the switcher with
-nothing, and it draws every icon exactly as authored, so nothing here has to
-care any more whether a mark is flat or full-colour.
+**The full-colour marks are not in this repository any more.** They live in the
+switcher submodule, `omarchy-cllpse-switcher/icons/` — all 75 of them. The
+plugin draws them directly, and `app-icons.sh` copies the same files verbatim
+into `~/.icons/cllpse-color/apps/` so the menu gets them too. `overrides/icons/
+color/` used to hold a second copy; it was deleted, because two copies of
+identical artwork in two repos drift. Add a colour mark **there**, and both
+surfaces have it from one file. That repo's `AGENTS.md` is the contract for
+fitting one.
 
-**A mark both surfaces should show has to be added twice** — here, and in the
-plugin repo. That repo's `AGENTS.md` is the contract for fitting one; this file
-is only about the copies the menu reads.
+So this directory is now only about the repainted set. The switcher still reads
+`~/.icons/cllpse-flat/apps/` as an optional integration, so a mark added to
+`fallbacks/` does reach both surfaces — but it draws every icon exactly as
+authored, so nothing here has to care whether a mark is flat or full-colour.
 
 Its alias table moved too: command-to-icon mappings now live in
 `icon-aliases.json` at the plugin root, not in `Hud.qml`. Adding a mark here
@@ -91,7 +92,7 @@ python3 - <<'PY'
 import os, glob, re, subprocess, collections, shutil
 HOME = os.path.expanduser("~")
 override = {os.path.basename(p)[:-4]
-            for p in glob.glob("overrides/icons/color/*.svg")
+            for p in glob.glob("omarchy-cllpse-switcher/icons/*.svg")
                    + glob.glob("overrides/icons/fallbacks/*.svg")}
 # Exactly the sweep Hud.qml's vendorScan runs, so "already covered" means the
 # same thing here as it does at runtime.
@@ -149,19 +150,22 @@ name is a suggestion, not a task.
 
 ## 3. Choose the directory
 
-- **`color/`** — the mark only reads in its own colours (`figma-desktop`,
-  `claude-code`, `youtube-music`). Synced verbatim.
-- **`fallbacks/`** — a silhouette; the theme supplies the colour. Synced
-  repainted to the theme `foreground`.
+Two destinations, and they are in **different repositories** now.
+
+- **`fallbacks/`, here** — a silhouette; the theme supplies the colour. Synced
+  repainted to the theme `foreground`. Only ever about the menu.
+- **`omarchy-cllpse-switcher/icons/`, the submodule** — the mark only reads in
+  its own colours (`figma-desktop`, `claude-code`, `youtube-music`). Synced
+  verbatim, and read directly by the plugin, so one file serves both surfaces.
 
 One name, one directory, never both — the switcher checks the repainted index
 first, so a duplicate silently wins there and the colour copy is dead.
 
 **A monochrome mark whose only contrast comes from its own background belongs in
-`fallbacks/`, not `color/`.** `hunk` is dark-on-cream: strip its box and put it
-in `color/` and you get a `#16140F` glyph on a `#1E1E1E` card, contrast 1.05,
-invisible. Either keep the background and stay in `color/`, or drop the
-background and move to `fallbacks/`.
+`fallbacks/`, not with the colour set.** `hunk` is dark-on-cream: strip its box
+and treat it as a colour mark and you get a `#16140F` glyph on a `#1E1E1E` card,
+contrast 1.05, invisible. Either keep the background and stay with the colour
+set, or drop the background and move to `fallbacks/`.
 
 Conversely, a file in `fallbacks/` with a background rect is **broken**: the
 repaint rewrites the rect and the mark to the same colour and it renders as a

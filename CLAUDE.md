@@ -213,17 +213,30 @@ step 7f and `overrides/icons/`. Nothing there is generated: each icon is a
 hand-placed SVG named for a desktop entry's `Icon=` value, and an app without
 one keeps its vendor icon.
 
-**There are two drop-in directories, not one, and they differ in exactly one
-respect.** `icons/fallbacks/` is **repainted** to the active palette by
-`app-icons.sh` and lands in `~/.icons/cllpse-flat/apps/`; `icons/color/` is
-copied **verbatim** — no ImageMagick, no palette — and lands in
-`~/.icons/cllpse-color/apps/`. Both sit under `*/apps/*` in the sweep, so both
-outrank every installed theme, and a name present in either takes that app over.
-Use `color/` for a mark that only reads in its own colours (a multi-hue vendor
-logo) and `fallbacks/` for anything that should track light/dark. The split is
-**for this script and for the menu** — the switcher ships its own copy of
-`color/` and recolours nothing, so it no longer cares which directory a mark
-came from. The colour
+**There are two drop-in sources, and only one of them is in this repo.**
+`icons/fallbacks/` is **repainted** to the active palette by `app-icons.sh` and
+lands in `~/.icons/cllpse-flat/apps/`. The verbatim set is the switcher
+submodule's `omarchy-cllpse-switcher/icons/`, copied unchanged — no ImageMagick,
+no palette — into `~/.icons/cllpse-color/apps/` by the same script. Both land
+under `*/apps/*` in the sweep, so both outrank every installed theme, and a name
+present in either takes that app over. Use the submodule for a mark that only
+reads in its own colours (a multi-hue vendor logo) and `fallbacks/` for anything
+that should track light/dark.
+
+`overrides/icons/color/` used to hold that verbatim set here, and was deleted
+once the plugin shipped the same 75 files: two copies of identical artwork in
+two repositories is drift waiting to happen, and the plugin's is the copy with
+the rescaled `viewBox`es. **The menu is the only consumer of the colour pass** —
+it draws a plain `Image` out of `$HOME/.icons` and cannot recolour, so a
+verbatim mark reaches it no other way, while the switcher reads its own `icons/`
+directly. One file now serves both surfaces.
+
+That makes a missing source ambiguous, so the script tests `manifest.json` and
+not just the directory: absent means the submodule is **not checked out** and
+the colour pass is skipped, while a checked-out submodule with an emptied
+`icons/` genuinely means "delete a drop-in to hand that app back" and the sweep
+clears. Skipping is not exiting — the flat pass reads a different set out of a
+different directory and still runs. The colour
 pass runs **first** and outside the flat pass's guards, on purpose: it needs
 neither the palette nor a readable `colors.toml`, and coupling them once meant
 emptying `fallbacks/` silently stopped syncing `color/` too. An earlier version generated the whole set
@@ -259,19 +272,16 @@ plugin's own user directory (`~/.config/omarchy/cllpse.window-switcher/icons/`,
 which nothing here creates or manages), then `~/.icons/cllpse-flat/apps/` —
 ours, and read by the plugin as a documented *optional integration* rather than
 a dependency — then everything the `*/apps/*` sweep finds including
-`~/.icons/cllpse-color/apps/`, and finally the 75 marks the plugin ships itself
-— a copy of `icons/color/` with the `viewBox` rescaled and nothing else touched.
-Emptying `overrides/icons/` therefore no longer leaves the switcher short of
-anything: its own set already covers the whole of `color/`.
+`~/.icons/cllpse-color/apps/` — which `app-icons.sh` fills **from the plugin's
+own `icons/`**, so that source and the last one are the same 75 files — and
+finally those marks as the plugin reads them directly. Emptying
+`overrides/icons/` therefore cannot leave the switcher short of anything.
 
-**Which leaves `icons/color/` with exactly one consumer that requires it: the
-menu.** The menu draws a plain `Image` from `$HOME/.icons` and cannot recolour,
-so a verbatim mark can only reach it from here; the switcher would be unaffected
-if this directory vanished. Keep both — the two sets are the same 75 marks and
-drift is the risk, so a mark added to one belongs in the other — or collapse
-them by pointing `COLOR_IN` at the submodule's `icons/`, which trades the
-duplication for a menu that depends on the plugin being checked out and for the
-plugin's rescaled `viewBox`es changing how the menu sizes those marks.
+**The duplication that used to sit here is gone.** `icons/color/` was a second
+copy of those 75 marks kept for the menu's sake; `COLOR_IN` points at the
+submodule instead. Two costs, both accepted deliberately: the menu now depends
+on the submodule being checked out (guarded above), and it sizes those marks by
+the plugin's rescaled `viewBox`es rather than the originals'.
 
 The switcher's *label* closed that gap rather than widening it. `nameFor` used
 to be a curated class→name chain ending in a title-cased class, which is a
@@ -1680,8 +1690,6 @@ outlier before the scene settled.
   rule is kept because it is the whole cost of re-enabling glass later; the
   number to watch when doing that is its `ignore_alpha = 0.6`, which splits
   cards (above) from scrims (below, currently 0.25).
-- The repo carries ~229 MB of Apple fonts and wallpapers it does not own, on a
-  public remote. See [`THIRD-PARTY.md`](THIRD-PARTY.md) before adding more.
 - **`macos-*` Ghostty keys are no-ops on Linux.** `macos-titlebar-style`,
   `macos-window-buttons`, `macos-icon` and friends are read only on macOS. A
   config full of them looks configured and does nothing.
