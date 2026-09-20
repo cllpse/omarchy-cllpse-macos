@@ -19,7 +19,20 @@ simply never found — nothing errors.
 |---|---|---|
 | Omarchy menu (app rows) | the desktop entry's `Icon=` | `co.anysphere.cursor.svg` |
 | Switcher tile | the **window class** | `cursor.svg` |
-| Switcher terminal badge | the **command name**, after `badgeAliases` | `hunk.svg` |
+| Switcher terminal badge | the **command name**, after the switcher's alias file | `hunk.svg` |
+
+The menu is the consumer that **only** we can serve: it draws a plain image and
+cannot recolour anything, so it needs the repainted copies `app-icons.sh` writes.
+The switcher is not ours to feed any more — it ships eleven marks of its own and
+has its own user directory at
+`~/.config/omarchy/cllpse.window-switcher/icons/`, which nothing here creates or
+manages. It reads `~/.icons/cllpse-flat/apps/` as an optional integration, which
+is why a mark added here still shows up in both places, but emptying this
+directory no longer leaves the switcher with nothing.
+
+Its alias table moved too: command-to-icon mappings now live in
+`badge-aliases.json` at the plugin root, not in `Hud.qml`. Adding a mark here
+whose command name differs from its filename means adding the alias **there**.
 
 A class and an `Icon=` often differ, so an app can need two copies under two
 names. Check a live window with `hyprctl clients -j | grep '"class"'`.
@@ -87,8 +100,9 @@ NOISE = set("""cd ls cat rm cp mv mkdir rmdir echo pwd touch chmod chown ln head
 grep sed awk sort uniq wc cut tr find xargs which sudo su exit source export set unset
 alias unalias history clear kill sleep watch test true false printf read time env df du
 ps top man less more tee basename dirname realpath stat date seq yes""".split())
-# Keep in step with badgeAliases in Hud.qml, or you will "discover" a name the
-# switcher never looks up.
+# Keep in step with the switcher's badge-aliases.json, or you will "discover" a
+# name it never looks up. That file is the source now; this is a copy for the
+# gap analysis only.
 ALIAS = {"diff":"hunk","log":"hunk","dash":"gh","edit":"msedit","ls":"lsd",
          "claude":"claude-code","node":"nodejs","python3":"python","sqlite3":"sqlite",
          "psql":"postgresql","ytm":"youtube-music"}

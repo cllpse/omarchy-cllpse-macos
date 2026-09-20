@@ -236,12 +236,29 @@ entry's `Icon=`; the switcher's `Hud.qml` `glyphFor` (in the submodule) is keyed
 window class, because a switcher has nothing else. A single shared key does not
 exist — measured here, 5 of the 24 entries declaring `StartupWMClass` use a
 class that is not their icon name, and Chromium's is the literal unsubstituted
-`@@startup_wm_class`. So the switcher probes `~/.icons/cllpse-flat/apps/<class>`
-(`.svg` first, then `.png`) and falls back to its own glyph on anything that is
-not `Image.Ready` — which covers a missing file, an empty `fallbacks/`, a
-machine where step 7f never ran, and a name mismatch, with no stat() per tile.
-A drop-in whose filename differs from the window class reaches the menu but not
-the switcher; a second copy named for the class covers both.
+`@@startup_wm_class`. So the switcher looks the class up in an index it builds
+once at launch, and falls back to its own glyph when nothing answers — which
+covers a missing file, an empty `fallbacks/`, a machine where step 7f never ran,
+and a name mismatch alike. A drop-in whose filename differs from the window
+class reaches the menu but not the switcher; a second copy named for the class
+covers both.
+
+**It is an index, not a probe, and that distinction is load-bearing.** It used
+to test existence per tile with two `Image`s per mark, `.svg` then `.png`,
+whichever reported `Image.Ready` winning. That made the delegate's *structure*
+depend on `Image.status` — and `QQuickImageBase::itemChange` reloads an `Image`
+on any device-pixel-ratio change, delivered by recursing the item tree, so
+anything bound to `status` that owned child items tore them down mid-walk. It
+aborted the shell four times. Do not reintroduce a per-tile existence test.
+
+**The switcher reads four sources now, and only two are ours.** In order: the
+plugin's own user directory (`~/.config/omarchy/cllpse.window-switcher/icons/`,
+which nothing here creates or manages), then `~/.icons/cllpse-flat/apps/` —
+ours, and read by the plugin as a documented *optional integration* rather than
+a dependency — then everything the `*/apps/*` sweep finds including
+`~/.icons/cllpse-color/apps/`, and finally the eleven marks the plugin ships
+itself. Emptying `overrides/icons/` therefore no longer leaves the switcher with
+nothing: it falls back to its own set. The menu still has only ours.
 
 The switcher's *label* closed that gap rather than widening it. `nameFor` used
 to be a curated class→name chain ending in a title-cased class, which is a

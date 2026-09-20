@@ -264,6 +264,10 @@ say "Removing app icon drop-ins + their theme-set hook"
 # drop-ins go on overriding vendor icons forever, and with the repo reverted
 # there is nothing left on the machine to explain why. It also silently defeated
 # the rmdir below, which cannot remove a non-empty ~/.icons.
+# Not listed here, deliberately: ~/.config/omarchy/cllpse.window-switcher/icons/,
+# where the window-switcher plugin lets a user drop marks of their own. apply.sh
+# never creates it and nothing here writes to it, so it is not ours to remove --
+# the same rule the keyd config below is left alone under.
 for d in ~/.icons/cllpse-flat ~/.icons/cllpse-color; do
   [[ -d $d ]] || continue
   rm -rf "$d"
