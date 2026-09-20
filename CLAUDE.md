@@ -76,7 +76,7 @@ wallpaper** — which is why `apply.sh` step 8 records the current background by
 name and puts it back. `OMARCHY_THEME_SKIP_BACKGROUND=1` is the supported way
 to re-publish a theme without touching the wallpaper at all (line 306/310), and
 is what to use after editing a theme folder. Ours pin a default by filename:
-`00-umeda_wallpaper_desktop*.png`, `00-` chosen because digits sort ahead of
+`00-umeda_wallpaper_desktop*.webp`, `00-` chosen because digits sort ahead of
 letters in both C and the live `en_US.UTF-8` collation (checked, not assumed —
 `sort` is locale-sensitive, and the existing `11-`/`12-`/`14-`/`15-` macOS
 version prefixes would otherwise win). The user-level directory is the other
