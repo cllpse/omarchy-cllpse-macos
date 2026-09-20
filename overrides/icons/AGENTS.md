@@ -22,13 +22,22 @@ simply never found — nothing errors.
 | Switcher terminal icon | the **command name**, after the switcher's alias file | `hunk.svg` |
 
 The menu is the consumer that **only** we can serve: it draws a plain image and
-cannot recolour anything, so it needs the repainted copies `app-icons.sh` writes.
-The switcher is not ours to feed any more — it ships eleven marks of its own and
-has its own user directory at
-`~/.config/omarchy/cllpse.window-switcher/icons/`, which nothing here creates or
-manages. It reads `~/.icons/cllpse-flat/apps/` as an optional integration, which
-is why a mark added here still shows up in both places, but emptying this
-directory no longer leaves the switcher with nothing.
+cannot recolour anything, so it needs both what `app-icons.sh` repaints out of
+`fallbacks/` and what it copies verbatim out of `color/`. Serving the menu is
+now the entire reason `color/` exists — the switcher would not miss it.
+
+The switcher is not ours to feed any more. It ships **all 75 marks of `color/`**
+itself (the same files, `viewBox` rescaled, nothing else touched) and has its own
+user directory at `~/.config/omarchy/cllpse.window-switcher/icons/`, which
+nothing here creates or manages. It still reads `~/.icons/cllpse-flat/apps/` as
+an optional integration, so a mark added to `fallbacks/` does reach both
+surfaces — but emptying this directory no longer leaves the switcher with
+nothing, and it draws every icon exactly as authored, so nothing here has to
+care any more whether a mark is flat or full-colour.
+
+**A mark both surfaces should show has to be added twice** — here, and in the
+plugin repo. That repo's `AGENTS.md` is the contract for fitting one; this file
+is only about the copies the menu reads.
 
 Its alias table moved too: command-to-icon mappings now live in
 `icon-aliases.json` at the plugin root, not in `Hud.qml`. Adding a mark here

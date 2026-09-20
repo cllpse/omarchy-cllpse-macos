@@ -37,10 +37,16 @@ set -euo pipefail
 HERE="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 FALLBACKS="$HERE/../../icons/fallbacks"
 # Drop-ins that keep their own colours. Separate directory rather than a naming
-# convention, because two different things have to leave them alone: this script
-# must not repaint the file, and the switcher must not colorize it at draw time
-# -- and the switcher decides that from the PATH (anything under cllpse-flat is
-# flat by definition). A second output directory settles both at once.
+# convention, because the flat pass below repaints every file it walks and a
+# multi-hue vendor logo does not survive that. The repaint is keyed on the
+# DIRECTORY, not on anything inside the file, so a second output directory is
+# the whole mechanism.
+#
+# This used to have a second reason: the switcher decided at draw time whether
+# to colorize a mark, from the path it resolved (anything under cllpse-flat was
+# flat by definition). The switcher no longer recolours anything -- it ships its
+# own copy of icons/color/ and draws every icon exactly as authored -- so the
+# split now serves this script and the MENU, and is nothing to the switcher.
 COLOR_IN="$HERE/../../icons/color"
 COLOR_OUT="$HOME/.icons/cllpse-color/apps"
 COLORS="$HOME/.local/state/omarchy/current/theme/colors.toml"

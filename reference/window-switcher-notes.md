@@ -431,13 +431,15 @@ window set:
   to be surprised. There is a looser fallback — a leading symbol followed by a
   space — which is the one guess in the file, on the grounds that nothing else
   on this machine titles itself that way. If something starts, tighten that line.
-- **The marks come from `../icons/color/`** — the verbatim set, the one the
-  Figma logo lives in. `app-icons.sh` syncs it to `~/.icons/cllpse-color/apps/`,
-  which the plugin's vendor sweep already covers, and because that path is *not*
-  under `flatIconDir` the icon is drawn in its own colours rather than
-  repainted. That is the whole point of that directory, and it is why a Claude
-  mark shows orange beside a repainted `btop` that takes the theme
-  foreground. Resolution goes through the same two indexes a window class does,
+- **The marks came from `../icons/color/`** — the verbatim set, the one the
+  Figma logo lives in — reached through `app-icons.sh`'s sync to
+  `~/.icons/cllpse-color/apps/`, which the plugin's vendor sweep already covers.
+  The path mattered then: it was *not* under `flatIconDir`, so the icon was
+  drawn in its own colours rather than repainted, and that was the whole point
+  of that directory. **Both halves of that are gone now.** The plugin ships all
+  75 of those marks itself, and it recolours nothing at all, so a mark is drawn
+  as authored wherever it resolves from and the directory it came from decides
+  nothing. Resolution still goes through the same indexes a window class does,
   in the same order, so a terminal icon and an app tile can never disagree
   about what a program looks like. **No glyph fallback**: at that size a Nerd
   Font glyph is a smudge, and "no icon for this" reads better as none than
@@ -457,11 +459,13 @@ window set:
   icon at the current offset, so it needs less separation than either attempt
   assumed. If some future mark does need it, fit it to that mark — don't
   reintroduce a global one.
-- **One `MultiEffect` serves both kinds of icon.** That arrived with the
-  shadow and is worth keeping on its own: colorization is switched off for a
-  vendor mark so its own colours reach the screen, and on for a flat drop-in.
-- **Behind a `Loader`**, active on the cached `hasBadge`, so a tile without one
-  pays for no `Image` and no effect. Keyed on the index and never on
+- **One `MultiEffect` used to serve both kinds of icon** — colorization off for
+  a vendor mark so its own colours reached the screen, on for a flat drop-in. It
+  arrived with the shadow, outlived it, and then went the same way: an icon is
+  the source of truth now and nothing here paints over one. The effect, the
+  flat/colour split it keyed on and the `QtQuick.Effects` import are all gone.
+- **Behind a `Loader`**, active on the cached `hasProcessIcon`, so a tile
+  without one pays for no `Image`. Keyed on the index and never on
   `Image.status`, for the reason `iconFor()` sets out at length.
 - **The icon is only as good as what has been synced.** A name that resolves to
   no file draws nothing at all, and the sync is the usual reason: the live
@@ -577,11 +581,16 @@ Worth knowing about `glyphFor`, which is still the default for every tile:
   declaring `StartupWMClass` differ), so a drop-in whose name differs from the
   class keeps its glyph here — drop a second copy named for the class to cover
   both.
-- That image is recoloured through `MultiEffect`, not blitted. The PNG is baked
-  at the theme `foreground`, but a selected tile draws in `selected-text`
-  (`#007AFF` in both our themes) — so a plain `Image` would leave the *focused*
-  tile showing a grey icon under a blue label. Same technique Omarchy uses to
-  tint symbolic tray icons (`Tray.qml:789`), measured at ~0.002 ms per icon.
+- That image *was* recoloured through `MultiEffect`, not blitted. The PNG is
+  baked at the theme `foreground`, but a selected tile draws in `selected-text`
+  (`#007AFF` in both our themes) — so a plain `Image` left the *focused* tile
+  showing a grey icon under a blue label. Same technique Omarchy uses to tint
+  symbolic tray icons (`Tray.qml:789`), measured at ~0.002 ms per icon.
+  **Removed since.** The plugin draws every icon exactly as authored, so a flat
+  drop-in under a selected tile now keeps the theme foreground instead of
+  following the label. That is the accepted cost of "the icon is the source of
+  truth", and it is why the plugin ships full-colour marks rather than flat
+  ones.
 - The fallback is `status !== Image.Ready`, so on a machine where `apply.sh`
   step 7f never ran — no `~/.icons/cllpse-flat/` at all — every tile simply
   stays a glyph and nothing breaks.

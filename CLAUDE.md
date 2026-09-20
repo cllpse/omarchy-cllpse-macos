@@ -220,7 +220,10 @@ copied **verbatim** — no ImageMagick, no palette — and lands in
 `~/.icons/cllpse-color/apps/`. Both sit under `*/apps/*` in the sweep, so both
 outrank every installed theme, and a name present in either takes that app over.
 Use `color/` for a mark that only reads in its own colours (a multi-hue vendor
-logo) and `fallbacks/` for anything that should track light/dark. The colour
+logo) and `fallbacks/` for anything that should track light/dark. The split is
+**for this script and for the menu** — the switcher ships its own copy of
+`color/` and recolours nothing, so it no longer cares which directory a mark
+came from. The colour
 pass runs **first** and outside the flat pass's guards, on purpose: it needs
 neither the palette nor a readable `colors.toml`, and coupling them once meant
 emptying `fallbacks/` silently stopped syncing `color/` too. An earlier version generated the whole set
@@ -256,9 +259,19 @@ plugin's own user directory (`~/.config/omarchy/cllpse.window-switcher/icons/`,
 which nothing here creates or manages), then `~/.icons/cllpse-flat/apps/` —
 ours, and read by the plugin as a documented *optional integration* rather than
 a dependency — then everything the `*/apps/*` sweep finds including
-`~/.icons/cllpse-color/apps/`, and finally the eleven marks the plugin ships
-itself. Emptying `overrides/icons/` therefore no longer leaves the switcher with
-nothing: it falls back to its own set. The menu still has only ours.
+`~/.icons/cllpse-color/apps/`, and finally the 75 marks the plugin ships itself
+— a copy of `icons/color/` with the `viewBox` rescaled and nothing else touched.
+Emptying `overrides/icons/` therefore no longer leaves the switcher short of
+anything: its own set already covers the whole of `color/`.
+
+**Which leaves `icons/color/` with exactly one consumer that requires it: the
+menu.** The menu draws a plain `Image` from `$HOME/.icons` and cannot recolour,
+so a verbatim mark can only reach it from here; the switcher would be unaffected
+if this directory vanished. Keep both — the two sets are the same 75 marks and
+drift is the risk, so a mark added to one belongs in the other — or collapse
+them by pointing `COLOR_IN` at the submodule's `icons/`, which trades the
+duplication for a menu that depends on the plugin being checked out and for the
+plugin's rescaled `viewBox`es changing how the menu sizes those marks.
 
 The switcher's *label* closed that gap rather than widening it. `nameFor` used
 to be a curated class→name chain ending in a title-cased class, which is a

@@ -90,6 +90,12 @@ active palette on every theme-set; `color/` is copied verbatim. Neither is
 generated from anything, so deleting a file simply hands that app back to its
 own icon — which is also the cheapest way to stop redistributing one.
 
+**The window switcher ships a second copy of the `color/` set**, in its own
+repository (`omarchy-cllpse-switcher/icons/`, a submodule here) — the same
+files with rescaled `viewBox`es. That repository is published separately and
+carries the same carve-out in its README: the plugin is MIT, the marks in it are
+not. Deleting a mark here does **not** delete it there.
+
 ## Yaru icon themes
 
 `icons.theme` references `Yaru-dark` / `Yaru-blue`, which are packaged

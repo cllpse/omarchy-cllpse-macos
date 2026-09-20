@@ -278,10 +278,11 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   without touching GTK or Qt, and an app with no file keeps its vendor icon.
   `overrides/icons/` holds those marks — `color/` synced verbatim, `fallbacks/`
   repainted to the theme. The window switcher reads them too, so a mark added
-  here shows up in both places, but it is no longer fed by them: it ships marks
-  of its own and has its own drop-in directory outside this repo. The menu is
-  the consumer that can only be served from here, because it draws a plain image
-  and cannot recolour anything. **Adding or updating one:
+  here shows up in both places, but it is no longer fed by them: it ships its
+  own copy of all 75 `color/` marks and has its own drop-in directory outside
+  this repo. The menu is the consumer that can only be served from here, because
+  it draws a plain image and cannot recolour anything — which is now the whole
+  reason `color/` is still in this repository. **Adding or updating one:
   [`overrides/icons/AGENTS.md`](overrides/icons/AGENTS.md)** for the workflow,
   [`overrides/icons/fallbacks/README.md`](overrides/icons/fallbacks/README.md)
   for what a file must contain.

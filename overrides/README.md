@@ -406,7 +406,7 @@ ryzen/ryzen-tdp.service       reapplies them at boot AND on resume -- ryzenadj's
 chromium/policies-managed.json  spellcheck/translate/password/autofill/Print/Cast/QR-code/Reading-list off, plus ExtensionInstallForcelist pinning uBlock Origin Lite + Proton Pass (managed policy, installed to /etc with sudo). DevTools deliberately absent — see the follow-ups section
 omarchy/shell-bar.json        the recorded bar: widget layout, centerAnchor, disabledPlugins (jq-written into shell.json by step 7h)
 icons/fallbacks/              app icons REPAINTED to the theme: <Icon=>.svg (or .png) placed by hand; see its README for the naming + silhouette contract
-icons/color/                  app icons copied VERBATIM, for marks that only read in their own colours (vendor logos); same naming, no repaint
+icons/color/                  app icons copied VERBATIM, for marks that only read in their own colours (vendor logos); same naming, no repaint. Here FOR THE MENU -- the switcher ships its own copy of this set and no longer reads it
 hooks/post-update.d/cllpse-macos-repair.sh  re-links our hooks/themes/plugin after an omarchy update, then re-syncs the icons
 hooks/theme-set.d/app-icons.sh  syncs icons/fallbacks/ into ~/.icons/cllpse-flat/apps/ in the active theme's foreground, on every theme switch
 ```
