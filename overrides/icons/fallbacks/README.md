@@ -66,26 +66,35 @@ without you keeping two copies.
 
 ## Preparing a file you sourced
 
-Two things are worth checking before dropping a file in, because neither is done
+Three things are worth checking before dropping a file in, because none is done
 for you.
 
-**Size the mark to ~78% of a square canvas** — a 200px mark in a 256px box, or
-the equivalent in user units. Logos are usually distributed edge-to-edge: the
-official Figma mark is `viewBox="0 0 288 432"` with no padding, and dropped in
-raw it renders visibly taller than every neighbour. Rewrap it:
+**Make the `viewBox` square** — by padding it, never by stretching. A logo is
+usually distributed to its own bounds, and a non-square canvas is what actually
+goes wrong: the official Figma mark is `viewBox="0 0 288 432"`, and dropped in
+raw it renders visibly taller than every neighbour, because the box it is drawn
+into is square and the art is not. Widen the short axis, re-centre, and leave
+the shapes alone:
 
 ```
-<svg viewBox="0 0 256 256">
-  <g transform="translate(TX,TY) scale(S)">  <!-- S = 200 / max(w,h) -->
-    …the original shapes…
-  </g>
+<!-- 288x432 -> side 432, so x shifts by (432 - 288) / 2 = 72 -->
+<svg viewBox="-72 0 432 432" width="432" height="432">
+  …the original shapes, untouched…
 </svg>
 ```
 
-Centre on the **shapes' own bounds**, not the viewBox — exports often pad the
-canvas, and centring on the viewBox leaves the mark fractionally off. The
-switcher compensates for exactly the 200/256 ratio when lining icon ink up
-against font glyphs, so a full-bleed file renders oversized there.
+`width` and `height` have to agree with the new canvas, or rsvg reintroduces the
+original aspect and the padding is undone.
+
+**Do not inset the mark.** An earlier revision of this file asked for a 200px
+mark on a 256px canvas. That was real once — `app-icons.sh` trimmed each raster
+and re-padded it to exactly that ratio, and the switcher undid the 200/256 at
+draw time — but both halves are gone with the rasters. `Hud.qml` now draws the Image at
+`iconDrawn` — a flat `iconSize * 0.9` — with no ink-ratio compensation in it, so
+a file padded to 78% renders about a fifth *smaller* than its neighbours rather
+than correctly. Edge-to-edge inside a square canvas is the whole
+contract, and it is what every file in this directory and in `../color/`
+already follows.
 
 **Strip export artefacts.** Design tools emit invisible bounding rectangles —
 `<rect … fill-opacity="0">` spanning the canvas. They draw nothing today, but

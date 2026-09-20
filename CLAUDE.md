@@ -1830,13 +1830,19 @@ outlier before the scene settled.
   Note also that `Window` is an attached property of an **Item**: reading
   `Window.window` from a `Timer` or other non-Item throws, and in a
   `console.log` argument that means the whole line silently prints nothing.
-- **An icon drawn from a file will not match a glyph beside it at the same
-  nominal size.** A text glyph at `pixelSize` N fills close to N; a PNG whose
-  mark sits in 200 of 256 px fills 78% of whatever box it is given. Matching the
-  *canvas* leaves the image looking small and softer than its neighbours —
-  match the **ink** instead (scale the box by the padding ratio). Measured in
-  the switcher: 27px of ink versus a glyph's 33, fixed by an `iconSize * 256/200`
-  box.
+- **An icon drawn from a file matches a glyph beside it only when the two agree
+  where the ink stops — and the fix belongs in the FILE, not in a ratio at draw
+  time.** A text glyph at `pixelSize` N fills close to N. While drop-ins were
+  rasters, `app-icons.sh` trimmed each mark into 200 of 256 px, so it filled 78%
+  of whatever box it was given, and the switcher compensated with an
+  `iconSize * 256/200` box (measured: 27px of ink against a glyph's 33, 35
+  after). That factor was right for a PNG and wrong for an SVG — the vector
+  branch only recoloured, so a simple-icons source arrived edge-to-edge and the
+  same compensation drew it 28% oversized, overflowing and clipping. Both halves
+  are gone: `fallbacks/` is SVG-only, every drop-in is edge-to-edge in a **square
+  `viewBox`**, and `Hud.qml` draws the Image at `iconDrawn` — `iconSize * 0.9`, a
+  flat optical trim with no ratio in it. Don't re-add a compensation factor;
+  square the file's viewBox instead.
 - **`String.fromCharCode` is 16-bit and silently truncates.** The switcher's
   `glyphFor` builds its glyph from a hex codepoint, which was fine while every
   entry sat in the Font Awesome PUA (≤ U+FFFF), but the Material Design range
