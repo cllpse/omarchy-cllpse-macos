@@ -19,7 +19,7 @@ simply never found — nothing errors.
 |---|---|---|
 | Omarchy menu (app rows) | the desktop entry's `Icon=` | `co.anysphere.cursor.svg` |
 | Switcher tile | the **window class** | `cursor.svg` |
-| Switcher terminal badge | the **command name**, after the switcher's alias file | `hunk.svg` |
+| Switcher terminal icon | the **command name**, after the switcher's alias file | `hunk.svg` |
 
 The menu is the consumer that **only** we can serve: it draws a plain image and
 cannot recolour anything, so it needs the repainted copies `app-icons.sh` writes.
@@ -31,7 +31,7 @@ is why a mark added here still shows up in both places, but emptying this
 directory no longer leaves the switcher with nothing.
 
 Its alias table moved too: command-to-icon mappings now live in
-`badge-aliases.json` at the plugin root, not in `Hud.qml`. Adding a mark here
+`icon-aliases.json` at the plugin root, not in `Hud.qml`. Adding a mark here
 whose command name differs from its filename means adding the alias **there**.
 
 A class and an `Icon=` often differ, so an app can need two copies under two
@@ -58,7 +58,7 @@ PY
 ```
 
 **TUIs and CLIs you actually run** — shell history, ranked. This is the useful
-one for badges: an installed binary you never invoke does not need a mark.
+one for terminal icons: an installed binary you never invoke does not need a mark.
 
 ```bash
 awk '{print $1}' ~/.bash_history | sort | uniq -c | sort -rn | head -40
@@ -95,12 +95,12 @@ done; find /usr/share/pixmaps -maxdepth 1 -name "*.$ext" 2>/dev/null; done; }'''
 vendor = {os.path.basename(l).rsplit(".", 1)[0]
           for l in subprocess.run(["bash","-c",sweep],capture_output=True,text=True).stdout.split()}
 # Builtins and coreutils never take over a terminal, so they can never be what a
-# badge is for. Without this the list is mostly `cd`, `cat` and `rm`.
+# a terminal icon is for. Without this the list is mostly `cd`, `cat` and `rm`.
 NOISE = set("""cd ls cat rm cp mv mkdir rmdir echo pwd touch chmod chown ln head tail
 grep sed awk sort uniq wc cut tr find xargs which sudo su exit source export set unset
 alias unalias history clear kill sleep watch test true false printf read time env df du
 ps top man less more tee basename dirname realpath stat date seq yes""".split())
-# Keep in step with the switcher's badge-aliases.json, or you will "discover" a
+# Keep in step with the switcher's icon-aliases.json, or you will "discover" a
 # name it never looks up. That file is the source now; this is a copy for the
 # gap analysis only.
 ALIAS = {"diff":"hunk","log":"hunk","dash":"gh","edit":"msedit","ls":"lsd",

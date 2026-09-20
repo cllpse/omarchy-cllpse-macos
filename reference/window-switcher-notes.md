@@ -385,7 +385,7 @@ not their icon name, and Chromium's is the literal unsubstituted
 the menu but not the switcher; drop a second copy named for the class to cover
 both.
 
-### Terminal badges
+### Terminal icons
 
 A terminal tile carries a second mark for **what is running inside it** —
 two-thirds the size of the terminal's own icon, flush into its bottom-right
@@ -400,7 +400,7 @@ child back to a surface.
 
 The title turns out to be the better signal anyway. Ghostty's shell integration
 sets it to the command **as typed**, so an alias arrives as itself and
-`windowtitle`/`windowtitlev2` are already in `refreshEvents` — a badge follows
+`windowtitle`/`windowtitlev2` are already in `refreshEvents` — an icon follows
 the foreground command live with no new machinery. Verified against the live
 window set:
 
@@ -409,7 +409,7 @@ window set:
 | `◑ Switcher plugin drag to workspace` | `claude` |
 | `✳ App and TUI logo fetcher` | `claude` |
 | `diff` | `hunk` (alias, `shell.sh:150`) |
-| `~/Sites/omarchy-cllpse-macos/logos` | idle shell — no badge |
+| `~/Sites/omarchy-cllpse-macos/logos` | idle shell — no icon |
 | `btop` | `btop` |
 
 - **Aliases are the join, for two separate reasons.** The title carries what was
@@ -424,7 +424,7 @@ window set:
   `uv`, `zoxide`. **Alias after the branches, never inside one**: the table sat
   in the last branch once, so a claude session — recognised by its marker and
   never by a command name — skipped it entirely, looked for `claude`, found
-  nothing and drew no badge while every other program badged correctly.
+  nothing and drew no icon while every other program resolved correctly.
 - **Claude Code is recognised by its status marker.** It overwrites the title
   with `<marker> <what it is working on>`; the markers seen here are U+25D0,
   U+25D1 and U+2733, and the rest of that family is included rather than waiting
@@ -434,15 +434,15 @@ window set:
 - **The marks come from `../icons/color/`** — the verbatim set, the one the
   Figma logo lives in. `app-icons.sh` syncs it to `~/.icons/cllpse-color/apps/`,
   which the plugin's vendor sweep already covers, and because that path is *not*
-  under `flatIconDir` the badge is drawn in its own colours rather than
+  under `flatIconDir` the icon is drawn in its own colours rather than
   repainted. That is the whole point of that directory, and it is why a Claude
-  mark badges orange beside a repainted `btop` that badges in the theme
+  mark shows orange beside a repainted `btop` that takes the theme
   foreground. Resolution goes through the same two indexes a window class does,
-  in the same order, so a terminal badge and an app tile can never disagree
-  about what a program looks like. **No glyph fallback**: at badge size a Nerd
-  Font glyph is a smudge, and "no icon for this" reads better as no badge than
+  in the same order, so a terminal icon and an app tile can never disagree
+  about what a program looks like. **No glyph fallback**: at that size a Nerd
+  Font glyph is a smudge, and "no icon for this" reads better as none than
   as a mark nobody can identify.
-- **Nothing sits behind the badge.** Two separation layers were tried and both
+- **Nothing sits behind the icon.** Two separation layers were tried and both
   were worse than nothing. A filled rounded rect in the tile's background colour
   is a *box*, and it is visible as a box the moment the theme stops matching the
   art — invisible on light, then punching a dark square through the ghost on the
@@ -453,17 +453,17 @@ window set:
   silhouette blurred and scaled 18% up has more area than the rays casting it
   and pools into a smudge between them, landing on the ghost's white body at
   maximum contrast. It read cleanly on solid marks like `btop`'s, which is
-  exactly why it survived a first look. The badge hangs mostly *outside* the
+  exactly why it survived a first look. The icon hangs mostly *outside* the
   icon at the current offset, so it needs less separation than either attempt
   assumed. If some future mark does need it, fit it to that mark — don't
   reintroduce a global one.
-- **One `MultiEffect` serves both kinds of badge.** That arrived with the
+- **One `MultiEffect` serves both kinds of icon.** That arrived with the
   shadow and is worth keeping on its own: colorization is switched off for a
   vendor mark so its own colours reach the screen, and on for a flat drop-in.
 - **Behind a `Loader`**, active on the cached `hasBadge`, so a tile without one
   pays for no `Image` and no effect. Keyed on the index and never on
   `Image.status`, for the reason `iconFor()` sets out at length.
-- **The badge is only as good as what has been synced.** A name that resolves to
+- **The icon is only as good as what has been synced.** A name that resolves to
   no file draws nothing at all, and the sync is the usual reason: the live
   `~/.icons/cllpse-color/apps/` was holding 4 of the repo's 74 when this was
   written, so `claude-code` and `hunk` both existed and neither appeared.
@@ -494,7 +494,7 @@ Worth knowing about `glyphFor`, which is still the default for every tile:
 - **A mark carries no container of its own.** The switcher draws icons against
   a tile whose colour follows the theme, so a background baked into the file is
   a square of the wrong colour the moment the theme moves — which is what made
-  a Claude badge look like it had a backdrop it does not have. Audited by alpha
+  a Claude icon look like it had a backdrop it does not have. Audited by alpha
   across all 99 files: exactly three had a full-canvas background (`hunk`,
   `tldr`, `grok`); everything else is a shaped mark with transparent edges, and
   a high opaque fraction on its own means nothing — Ghostty is 88% opaque
