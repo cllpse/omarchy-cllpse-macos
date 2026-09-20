@@ -167,6 +167,18 @@ if [[ -L ~/.config/omarchy/plugins/io.eject.window-switcher ]]; then
   rm -f ~/.config/omarchy/plugins/io.eject.window-switcher
   skip "removed the legacy io.eject.window-switcher plugin link"
 fi
+# The plugin is a SUBMODULE (github.com/cllpse/omarchy-window-switcher), so it
+# is published to the Omarchy marketplace as a repository of its own. A plain
+# `git clone` of this repo leaves that directory empty, and the symlink below
+# would then point a registered plugin id at nothing: the shell finds no
+# manifest, loads no HUD, and says so nowhere. Checked rather than assumed,
+# because the failure is silent and the fix is one command.
+if [[ ! -f "$REPO/omarchy-cllpse-switcher/manifest.json" ]]; then
+  printf '\033[31m✗\033[0m %s\n' \
+    "omarchy-cllpse-switcher/ is empty — the window-switcher plugin is a submodule." >&2
+  printf '  %s\n' "Run: git -C \"$REPO\" submodule update --init --recursive" >&2
+  exit 1
+fi
 ln -sfn "$REPO/omarchy-cllpse-switcher" ~/.config/omarchy/plugins/cllpse.window-switcher
 
 # ── 2. fonts ─────────────────────────────────────────────────────────────────

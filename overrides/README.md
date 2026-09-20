@@ -131,7 +131,7 @@ Two of those five are worth knowing about beyond the guard:
 | # | Action | Target |
 |---|---|---|
 | 0 | Record the font and theme the machine had *before* the first apply, so `revert.sh` has something true to restore. Written once; values already ours are refused | `~/.local/state/cllpse-macos/previous-{font,theme}` |
-| 1 | Symlink both `omarchy-cllpse-theme/` folders as themes, and `omarchy-cllpse-switcher/` as a plugin | `~/.config/omarchy/themes/omarchy-cllpse-theme-{dark,light}`, `~/.config/omarchy/plugins/cllpse.window-switcher` |
+| 1 | Symlink both `omarchy-cllpse-theme/` folders as themes, and `omarchy-cllpse-switcher/` as a plugin. The plugin is a **submodule** ([cllpse/omarchy-window-switcher](https://github.com/cllpse/omarchy-window-switcher)), so the step first refuses outright if that directory is empty — a plain `git clone` leaves it so, and symlinking a registered plugin id at nothing fails silently in the shell | `~/.config/omarchy/themes/omarchy-cllpse-theme-{dark,light}`, `~/.config/omarchy/plugins/cllpse.window-switcher` |
 | 2 | Install SF fonts + fontconfig drop-ins (UI font + hintnone) | `~/.local/share/fonts/SF/`, `~/.config/fontconfig/conf.d/{99-cllpse-macos-ui-font,11-cllpse-macos-hinting}.conf` |
 | 3 | Monospace → SF Mono (Omarchy's own knob) | `omarchy font set` → terminal configs + `fonts.conf` |
 | 4 | GTK/GNOME fonts → SF Pro / SF Mono | `gsettings org.gnome.desktop.interface` |
@@ -371,7 +371,10 @@ lsd/config.yaml               color.theme: custom (opts into colors.yaml below)
 lsd/colors.yaml               user/group/size/date/etc. remapped from lsd's fixed 256-colour defaults onto basic ANSI; filetype colours (directory/executable/symlink/etc.) are LS_COLORS instead, in bash/shell.sh
 cursor/settings.json          Cursor editor prefs, jq-merged in; omits workbench.colorTheme (Omarchy's) + extension-dependent keys
 hypr/hyprland-env.lua         OMARCHY_MENU_FONT + cursor theme/size + no_warps + kb layout
-hypr/window-switcher-bindings.lua  SUPER+TAB keybinds driving the switcher plugin
+hypr/window-switcher-bindings.lua  SUPER+TAB keybinds driving the switcher plugin.
+                                   The plugin repo ships a GENERIC copy for other
+                                   people; this one is the local variant, and carries
+                                   the keyd/Figma carve-out that only matters here
 hypr/keybind-scan.lua         sandboxes hyprland.lua to enumerate every live bind (dump/unbinds modes)
 hypr/keybind-allowlist.conf   seeded once from that scan, then user-owned -- delete a line to unbind it
 hypr/keybind-unbinds.lua      generated every apply from the allowlist (gitignored)

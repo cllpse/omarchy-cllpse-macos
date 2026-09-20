@@ -8,6 +8,18 @@ for what `apply.sh` touches, and [`reference/BUILD.md`](reference/BUILD.md) for 
 spec. This file is only for what those don't say: how Omarchy itself behaves, and
 the traps that have already cost time.
 
+**`omarchy-cllpse-switcher/` is a submodule**, not a directory —
+[cllpse/omarchy-window-switcher](https://github.com/cllpse/omarchy-window-switcher),
+published to the Omarchy plugin marketplace on its own. Clone this repo with
+`--recurse-submodules` or run `git submodule update --init --recursive`; a plain
+clone leaves it empty and `apply.sh` step 1 stops rather than symlinking a
+registered plugin id at nothing. Edits to `Hud.qml` are commits in **that**
+repo and have to be pushed there and then have the submodule pointer bumped
+here — two commits, not one. The plugin's design log stayed behind as
+[`reference/window-switcher-notes.md`](reference/window-switcher-notes.md),
+deliberately: the published repo carries a user-facing README, and its history
+was started fresh so the log is not in it.
+
 Target is **Omarchy 4.0.2** (`quattro`). The `master` branch is stale at 3.8.5 and
 documents an incompatible theme format — don't read it.
 
@@ -220,7 +232,7 @@ legitimately solid marks — a filled circle scores 0.785, the same range as rea
 ones).
 
 **Two keyspaces, one rule.** `overrides/icons/fallbacks/` is named for a desktop
-entry's `Icon=`; `omarchy-cllpse-switcher/Hud.qml`'s `glyphFor` is keyed on the
+entry's `Icon=`; the switcher's `Hud.qml` `glyphFor` (in the submodule) is keyed on the
 window class, because a switcher has nothing else. A single shared key does not
 exist — measured here, 5 of the 24 entries declaring `StartupWMClass` use a
 class that is not their icon name, and Chromium's is the literal unsubstituted

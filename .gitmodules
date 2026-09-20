@@ -1,0 +1,4 @@
+[submodule "omarchy-cllpse-switcher"]
+	path = omarchy-cllpse-switcher
+	url = git@github.com:cllpse/omarchy-window-switcher.git
+	branch = main

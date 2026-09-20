@@ -24,10 +24,23 @@ sudo (keyd, the Chromium managed policy, those power limits, and the Btrfs
 compression level in `/etc/fstab`) and everything else is user-level. Six things to settle first; everything after
 them can be handed to an agent.
 
-**1. Clone it where it will live.** `apply.sh` symlinks the two theme folders
-into `~/.config/omarchy/themes/` and the window-switcher plugin into
-`~/.config/omarchy/plugins/`, all pointing at this checkout. Moving or deleting
-the clone later breaks the themes and the switcher.
+**1. Clone it where it will live — with submodules.** The window-switcher plugin
+is a submodule ([cllpse/omarchy-window-switcher](https://github.com/cllpse/omarchy-window-switcher)),
+because it is published to the Omarchy plugin marketplace as a repository of its
+own:
+
+```bash
+git clone --recurse-submodules git@github.com:cllpse/omarchy-cllpse-macos.git
+# already cloned without it:
+git submodule update --init --recursive
+```
+
+A plain clone leaves `omarchy-cllpse-switcher/` empty, and `apply.sh` stops with
+that instruction rather than symlinking a registered plugin id at nothing.
+
+`apply.sh` symlinks the two theme folders into `~/.config/omarchy/themes/` and
+the plugin into `~/.config/omarchy/plugins/`, all pointing at this checkout.
+Moving or deleting the clone later breaks the themes and the switcher.
 
 **2. Install what `apply.sh` can't.** It installs nothing at all — no packages,
 no `gh` extensions, no `mise` tools. These are the ones a stock Omarchy box does
@@ -152,9 +165,12 @@ system (GTK) theme and grayscale.
 ```
 omarchy-cllpse-theme/     the two themes (above), as omarchy-cllpse-theme-{dark,light}/
 overrides/                everything that lives outside a theme folder + apply.sh / revert.sh
-omarchy-cllpse-switcher/  macOS-style window-switcher HUD plugin (id cllpse.window-switcher);
+omarchy-cllpse-switcher/  SUBMODULE -> cllpse/omarchy-window-switcher. The macOS-style
+                          window-switcher HUD plugin (id cllpse.window-switcher),
+                          published to the Omarchy plugin marketplace on its own.
                           apply.sh symlinks it into ~/.config/omarchy/plugins/
-reference/                BUILD.md (the spec) + fonts.conf (BUILD's original, superseded)
+reference/                BUILD.md (the spec) + window-switcher-notes.md (the plugin's
+                          design log) + fonts.conf (BUILD's original, superseded)
 THIRD-PARTY.md            what this repo redistributes and does not own
 CLAUDE.md                 Omarchy's own mechanics and the traps already hit — written for
                           an agent working in here, but it is the densest reference in the
