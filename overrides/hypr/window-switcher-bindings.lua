@@ -28,6 +28,35 @@ end
 
 local ws_watching = false
 
+-- While the strip is up, SUPER + left-click belongs to the HUD.
+--
+-- Hyprland resolves mouse BINDS before handing a button to a layer surface, so
+-- with "Move window" bound to SUPER + mouse:272 the HUD's input region never
+-- sees the press at all -- verified on this machine: the press started a window
+-- drag (default/hypr/bindings/tiling.lua:70) and the tile was never hit. A mask
+-- does not change that; the bind is resolved first.
+--
+-- That used to be worked around by making the bind itself know about the strip
+-- and dispatch a "click" into the plugin. It could not go further: a bind
+-- reports a press and nothing else, and a DRAG needs press, motion and release.
+--
+-- So the bind stands down for exactly as long as the strip is on screen. With
+-- nothing matching, the compositor forwards the button to the surface under the
+-- cursor -- the HUD -- and the plugin gets ordinary Qt press / move / release
+-- events, doing click-to-focus and drag-to-workspace itself.
+--
+-- hl.bind returns the keybind and set_enabled toggles it in place, so this
+-- unbinds and rebinds nothing per gesture. Resize (mouse:273) is left alone.
+hl.unbind("SUPER + mouse:272")
+local ws_drag_bind = hl.bind("SUPER + mouse:272", hl.dsp.window.drag(), {
+  mouse = true,
+  description = "Move window",
+})
+
+local function ws_hud_takes_clicks(taking)
+  ws_drag_bind:set_enabled(not taking)
+end
+
 -- Which physical modifier the strip is actually being held open by.
 --
 -- Normally that is SUPER. But while Figma has focus, keyd has rewritten
@@ -71,6 +100,7 @@ local function ws_watch()
     hl.timer(ws_watch, { timeout = 30, type = "oneshot" })
   else
     ws_watching = false
+    ws_hud_takes_clicks(false)
     ws_exec("commit") -- SUPER let go -> focus the highlighted window
   end
 end
@@ -85,6 +115,7 @@ local function ws_step(action)
       -- sampling it later would race the commit, which changes focus.
       ws_ctrl_mode = ws_figma_focused()
       ws_watching = true
+      ws_hud_takes_clicks(true)
       hl.timer(ws_watch, { timeout = 30, type = "oneshot" })
     end
   end
@@ -94,50 +125,3 @@ hl.unbind("SUPER + TAB")
 hl.unbind("SUPER + SHIFT + TAB")
 o.bind("SUPER + TAB", "Window switcher: next", ws_step("next"))
 o.bind("SUPER + SHIFT + TAB", "Window switcher: previous", ws_step("prev"))
-
--- Click a tile to focus it.
---
--- This cannot be done in the plugin. Hyprland resolves mouse BINDS before
--- handing the button to a layer surface, so the HUD's own input region never
--- sees the press -- verified on this machine: SUPER + left-click over the card
--- started a window drag (SUPER + mouse:272 is Omarchy's "Move window",
--- default/hypr/bindings/tiling.lua:70) and the tile was never hit. Giving the
--- surface a mask does not change that; the bind wins first.
---
--- So the bind itself has to know about the strip. While it is up, SUPER +
--- left-click commits instead of dragging; otherwise it drags exactly as stock.
--- The HUD's own hover handler has already moved the highlight to whatever tile
--- the cursor is over, so committing focuses the tile that was clicked.
---
--- ws_watching is the same flag the key-release poll uses, so this is true for
--- precisely as long as the strip is on screen.
-hl.unbind("SUPER + mouse:272")
-o.bind("SUPER + mouse:272", "Window switcher: focus tile, else move window", function()
-  if ws_watching then
-    -- "click", not "commit": the plugin decides which it was.
-    --
-    -- The bind cannot tell a press on a tile from one beside the strip -- it
-    -- has no idea where the card is -- and committing on both meant clicking
-    -- away navigated instead of closing. Motion is not intercepted the way the
-    -- button is, so the HUD tracks the pointer itself and answers this with
-    -- commit over the card, dismiss outside it.
-    ws_exec("click")
-
-    -- The strip is down either way: BOTH branches the plugin can take here end
-    -- in dismiss() (commit() calls it too). So stop watching now rather than
-    -- waiting for SUPER to come up.
-    --
-    -- Leaving it true was a real bug: this flag is the only thing the bind has
-    -- to decide click-vs-drag, so after clicking away with SUPER still held,
-    -- every further SUPER + left-click kept dispatching "click" to a closed HUD
-    -- -- which ignores it -- and the stock "Move window" drag never ran. It
-    -- also stops the release poll firing a pointless "commit" at a strip that
-    -- has already gone.
-    ws_watching = false
-  else
-    -- Built per press rather than cached at load: a dispatcher value held
-    -- across invocations is one more thing that has to be re-entrant, and the
-    -- stock bind (tiling.lua:70) constructs it at bind time for a single use.
-    hl.dispatch(hl.dsp.window.drag())
-  end
-end, { mouse = true })

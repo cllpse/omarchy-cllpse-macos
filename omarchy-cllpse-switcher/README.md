@@ -43,49 +43,160 @@ tests drive, and what any other caller would use.
 
 ## Input
 
+The surface is a full-screen layer surface with **no mask**, so it takes every
+click while it is up: one on a tile focuses that window, one beside the card
+dismisses the strip. Eating clicks is only a hazard for a surface that is up
+when you are not looking at it, and `visible: root.opened` means this one never
+is. (It was masked to the card once — `mask: Region { item: card }`, the idiom
+Omarchy uses for notification toasts. Toasts are passive and long-lived; a
+switcher is modal for the moment it is on screen.)
 
-The surface is **click-through everywhere except the card**
-(`mask: Region { item: card }`). A full-screen layer surface with no mask would
-eat every click on the desktop behind it; one with an empty mask (what this
-started as) can never be clicked at all. The masked-to-one-item form is the same
-idiom Omarchy uses for notification toasts (`notifications/Service.qml`: Overlay
-layer, `keyboardFocus: None`, `mask: Region { item: popupColumn }`).
+**Getting the press here at all took a change on the compositor side.**
+Hyprland resolves mouse *binds* before handing a button to a layer surface, so
+while `SUPER + mouse:272` was bound the HUD's input region never saw the press —
+confirmed on this machine: it started a window drag (`SUPER + mouse:272` is
+Omarchy's "Move window", `default/hypr/bindings/tiling.lua:70`) and the tile was
+never hit. A mask cannot win that race; the bind is resolved first.
 
-Clicking a tile focuses that window and dismisses the strip. The click handler
-and the hover handler share one hit-test (`_cellAt`), so they cannot disagree
-about which tile is under the cursor.
+That was first worked around by making the bind itself know about the strip:
+while it was up, `SUPER + left-click` dispatched a `click` shortcut into the
+plugin instead of dragging, and the plugin decided what it meant (over the card,
+commit; outside it, dismiss). It could not go further than that. **A bind reports
+a press and nothing else**, and drag-and-drop needs press, motion *and* release.
 
-**The click is delivered by a keybind, not by this surface.** Hyprland resolves
-mouse *binds* before handing the button to a layer surface, so the input region
-above never sees a `SUPER + left-click` -- confirmed on this machine: the press
-started a window drag (`SUPER + mouse:272` is Omarchy's "Move window",
-`default/hypr/bindings/tiling.lua:70`) and the tile was never hit. A mask cannot
-win that race; the bind is resolved first.
+So `overrides/hypr/window-switcher-bindings.lua` now keeps a handle to that bind
+and **switches it off for exactly as long as the strip is on screen** (the same
+`ws_watching` flag the key-release poll uses). With nothing matching, the
+compositor forwards the button to the surface under the cursor — the HUD — and
+the plugin gets ordinary Qt press / move / release events. `hl.bind` returns the
+keybind and `set_enabled` toggles it in place, so nothing is unbound and rebound
+per gesture. Resize (`mouse:273`) is left alone.
 
-So `overrides/hypr/window-switcher-bindings.lua` rebinds `SUPER + mouse:272`:
-while the strip is up (the same `ws_watching` flag the key-release poll uses) it
-summons `commit`, and otherwise it drags exactly as stock. Hover has already
-moved the highlight to the tile under the cursor, so committing focuses the
-tile that was clicked. Resize (`mouse:273`) is left alone.
+One consequence worth knowing: if you dismiss the strip by clicking beside it
+and keep holding SUPER, the drag bind stays off until SUPER comes up, because
+the plugin has no way to tell the Lua side it closed. `SUPER + drag` to move a
+window is inert for those few hundred milliseconds. It re-arms on release.
 
 The `MouseArea` also supplies **hover**, which used to be a poll. Because the
 surface was click-through it received no Qt pointer events at all, so hover was
 done by running `hyprctl cursorpos -j` on a 40ms timer — 25 process spawns a
-second, ~3–4ms each, for the entire time the strip was on screen. Masking the
-surface to the card gave it a real input region, so `hoverEnabled` now covers
-it for free. Measured shell CPU with the strip open: **1.0% → 0.0%**.
-`onPositionChanged` only fires on actual movement, which also replaced the old
-`hoverBase` distance threshold that existed to stop a resting cursor yanking the
-keyboard's selection.
+second, ~3–4ms each, for the entire time the strip was on screen. A real input
+region gave it `hoverEnabled` for free. Measured shell CPU with the strip open:
+**1.0% → 0.0%**. `onPositionChanged` only fires on actual movement, which also
+replaced the old `hoverBase` distance threshold that existed to stop a resting
+cursor yanking the keyboard's selection.
 
-The `MouseArea` carries `cursorShape: Qt.PointingHandCursor`, so the tiles read
-as clickable. Pointer *motion* reaches the surface normally -- it is only the
-button press that the bind takes first -- so the shape applies even though the
-click itself is delivered by the keybind.
+The `MouseArea` carries `cursorShape`: a pointing hand over the tiles, closing
+on one while it is being dragged.
 
-The mask and `MouseArea` above are still what handle a plain, unmodified click
-on the card -- reachable when the strip is up without SUPER held, which happens
-only via the 30s idle path. They are not what makes SUPER+click work.
+## Drag to arrange
+
+Press a tile, move past the drag threshold, release over a workspace's group:
+the window moves there, landing at the **start or the end** of that workspace
+depending on which half of the group you let go over. Dropping on its own group
+is allowed and is how you send a window to the front or the back of where it
+already is. Press and release without travelling, and it is still a click, and
+still focuses.
+
+Start and end, and nothing between. A strip of tiles is not a layout tree, and a
+workspace that mixes horizontal and vertical splits has no "third position" that
+one row of tiles could point at.
+
+Ordinary press / move / release — no `Drag`/`DropArea`, because there is nothing
+for a `DropArea` to *be*. The drop targets are workspace groups, and a group is
+not an item: it is a run of tiles inside one `ListView`, drawn as a group by the
+gap in front of it. So the hit-test is the same arithmetic the rules and the
+hover already use.
+
+- **The target is a workspace, not a tile.** `_wsAt` takes the nearest tile
+  centre, so the gap between two groups belongs to whichever side is closer and
+  every x over the card resolves to exactly one workspace. A drop can miss the
+  card, but it cannot fall between two groups and quietly do nothing.
+- **The threshold is `Qt.styleHints.startDragDistance`** (8px here), so the
+  strip agrees with everything else on the desktop about where a click stops
+  being a click.
+- **The highlight follows the tile in the hand** for the whole gesture, not the
+  pointer. Releasing SUPER has to focus what you were dragging, not whatever it
+  passed over.
+- **`follow = false`** — the same dispatcher `SUPER + SHIFT + ALT + <n>` uses
+  (`default/hypr/bindings/tiling.lua:24`), with `window` naming the dragged tile
+  rather than the focused window. The HUD never takes focus, so the active
+  window is emphatically not the one in the hand.
+- **The list unfreezes for the drop.** It is otherwise frozen while the strip is
+  up — see below — but a drop changed the list *itself*, and freezing it out
+  would leave the tile sitting in the group it was just dragged out of. The
+  exception is a 600ms window rather than a single rebuild, because the move is
+  a `hyprctl` process: the debounced refresh can beat it, see nothing changed,
+  and the `movewindow` event that follows would then find the freeze back on.
+  The highlight is re-homed by address, so it lands on the moved tile wherever
+  the re-sort put it.
+- **Releasing SUPER mid-drag drops and stops there** rather than also
+  committing. The move is a process and so is the focus; if the focus won that
+  race Hyprland would send you to the workspace the window is about to leave.
+- **The ghost is a reduced copy of the tile, not the tile.** A `ListView`
+  delegate cannot leave its viewport, and taking the real item out of the model
+  for the length of a gesture is a far larger change than a drag ghost is worth.
+  The tile it came from fades to a hole in the strip so the two never read as
+  two copies of the same window.
+- **The ghost rounds like a menu row.** `radius: Style.cornerRadius` — the same
+  token a SUPER+SPACE menu row binds (`Menu.qml:1222` → `Menu.qml:98`), which is
+  `decoration:rounding`, 18 here. Bound rather than copied as a number, so the
+  chip, the tiles and the card all round alike and a change to the compositor's
+  rounding carries every one of them. The proportions line up as well as the
+  number does: measured 48px tall against a menu row's 54 (`baseRowHeight`,
+  `Menu.qml:102`).
+- **The strip auto-scrolls at the edges.** It is wider than the card as soon as
+  there are more windows than fit, and the group you most want to drop on is
+  then exactly the one off the end.
+
+### Placing it at an end
+
+There is no "insert at index" to dispatch — Hyprland moves a window one
+neighbour at a time — so the distance is counted and issued as exactly that many
+steps in a single `hyprctl --batch`.
+
+- **`movewindow` takes a `window` argument; `swapwindow` does not.** That is
+  what lets a window be shuffled on a workspace nobody is looking at without
+  touching focus — verified on this machine, including that the active window on
+  another workspace stayed put. `swapwindow` looks like the better primitive,
+  being inherently edge-safe ("No window to swap with in that direction" at the
+  end of a run), but it ignores `window` and acts on the active one, which here
+  is never the window in the hand.
+- **Counted, not repeated-until-it-stops.** Two reasons, and the second is the
+  one that matters: it is one process rather than a round trip per step, and an
+  overshoot is not harmless. `binds:window_direction_monitor_fallback` defaults
+  on, so a step past the last window hands it to the next *monitor* rather than
+  doing nothing — inert on this single-monitor machine, not in general.
+- **The placement is deferred, not sent with the workspace move.**
+  `movetoworkspacesilent` puts the window wherever the layout decides, and only
+  once that has landed does the strip know how far from the requested end it
+  came to rest. So the drop records the intent and the first rebuild that sees
+  the window on the workspace it asked for counts the distance and closes it.
+  The 600ms unfreeze covers that round trip (measured chain: ~75ms) and is
+  restarted by the placement so the strip shows where the steps left it.
+- **One row or one column**, decided from the group's own `at` coordinates. A
+  workspace split top-and-bottom sorts by y in the strip, so "start" there means
+  the top and stepping it left would do nothing at all — the drop would look
+  broken. That is the whole of the layout-awareness here, deliberately.
+- **The caret marks the end**, drawn over the tiles in the selection accent and
+  hugging the group's outer edge rather than sitting mid-gap where the group
+  rules are, so a rule and a caret never read as the same thing. It is sized to
+  the ROW rather than the card, which is the other half of that distinction: the
+  group rules are the card's own divisions and run its full height, while this
+  is a mark on the tiles and takes the tiles' box — the same `list` geometry the
+  group highlight and every cell use, inset top and bottom by the card's own
+  padding so it sits within a tile rather than running its full height, with ends
+  rounded to half its own width — a cap on a stroke, so it follows the stroke
+  rather than the card's radius token. It is clamped into the viewport, which is
+  what covers the first and last groups: their outer edge is the card's own
+  padding, with no gap to sit in.
+- **No caret when there is nothing to arrange against.** A workspace has to hold
+  a window other than the one in the hand before start-or-end is a choice:
+  dropping onto an empty desktop, or back onto a group whose only window is the
+  one being dragged, has one outcome however it is aimed. The group highlight
+  still shows — that is the drop target, and an empty workspace is a perfectly
+  good one — but the caret stays down rather than pointing at a choice that does
+  not exist.
 
 ## Back-and-forth
 

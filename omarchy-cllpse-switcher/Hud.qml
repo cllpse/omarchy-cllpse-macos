@@ -52,28 +52,72 @@ Item {
   // loaded"; this flag can.
   property bool listLoaded: false
 
-  // Whether the pointer is currently over the card.
+  // ── Drag a tile to another workspace ────────────────────────────────────────
   //
-  // The click itself never reaches this surface: Hyprland resolves mouse binds
-  // before handing a button to a layer surface, so SUPER + left-click is taken
-  // by the bind in window-switcher-bindings.lua and the HUD's own input region
-  // never sees the press. Motion is not intercepted, though -- which is the
-  // whole reason hover works at all -- so the plugin can know WHERE the pointer
-  // is even though it cannot know that it was clicked.
+  // Ordinary press / move / release, which the surface only gets because the
+  // "Move window" bind stands down while the strip is up -- see
+  // overrides/hypr/window-switcher-bindings.lua. Hyprland resolves mouse binds
+  // before handing a button to a layer surface, so for as long as SUPER +
+  // mouse:272 was bound the HUD could be told a click HAPPENED (by the bind
+  // dispatching into it) but never got the press itself, and a drag needs all
+  // three events.
   //
-  // The bind asks for "click" and this decides what that means: over the card,
-  // commit; outside it, dismiss.
+  // What the pointer is carrying: an index into `wins`, which is stable for the
+  // life of a drag because the list is frozen while the strip is open.
+  property int dragIndex: -1
+  // Past the drag threshold, i.e. this is a drag and no longer a click.
+  property bool dragging: false
+  // Pointer position in CARD coordinates, for the ghost to follow.
+  property real dragX: 0
+  property real dragY: 0
+  // The workspace under the pointer, or -1 when the pointer has left the card.
+  property int dropWsId: -1
+
+  // Which END of that workspace's group the window would land on: the half of
+  // the group the pointer is in. Start or end and nothing between -- a drop
+  // decides where in the workspace the window goes, not where among its
+  // siblings, and a strip of tiles is not a layout tree.
+  property bool dropAtEnd: false
+
+  // Whether letting go here would do anything at all: a live drag, over a
+  // group. The workspace is deliberately NOT required to differ -- dropping a
+  // tile on its own group is how you send a window to the front or the back of
+  // where it already is. The drop-target highlight, the caret and the drop
+  // itself all share this, so what is drawn and what happens cannot disagree.
+  readonly property bool dropReady: root.dragging && root.dropWsId > 0
+    && root.dragIndex >= 0 && root.dragIndex < root.wins.length
+
+  // Whether the start/end offer means anything. A workspace has to hold a window
+  // OTHER than the one in the hand before there is an order to join: dropping
+  // onto an empty desktop, or back onto a group whose only window is the one
+  // being dragged, has exactly one outcome however it is aimed. The caret is
+  // hidden in that case rather than pointing at a choice that does not exist.
+  readonly property bool dropArrangeReady: {
+    if (!root.dropReady) return false
+    for (var i = 0; i < root.wins.length; i++) {
+      if (i === root.dragIndex) continue
+      if (root.wins[i].wsId !== root.dropWsId) continue
+      if (root.wins[i].kind === "window") return true
+    }
+    return false
+  }
+
+  // The window a drop just moved, so the highlight can follow it into its new
+  // group -- releasing SUPER has to still focus the thing you were dragging,
+  // wherever the re-sort put it.
+  property string dropFollowAddr: ""
+
+  // Placement, deferred.
   //
-  // Kept honest across opens, which needs three writers rather than one.
-  // onPositionChanged alone is not enough because it only fires on MOTION: a
-  // strip that maps under a cursor already resting on the card would still read
-  // false and dismiss on a click aimed at a tile, and a `true` left over from a
-  // previous open survives every pointer move made while the surface was
-  // unmapped (`visible: root.opened` means no events are delivered then), so
-  // the next open could commit to a tile the pointer is nowhere near. Hence:
-  // cleared on every open in _openStepped(), recomputed from mouseX/mouseY the
-  // moment the pointer enters, and tracked by motion after that.
-  property bool pointerInCard: false
+  // Where a window lands inside a workspace cannot be asked for in the same
+  // breath as the workspace itself: `movetoworkspacesilent` puts it wherever
+  // the layout decides, and only once that has happened does the strip know
+  // how far from the requested end it actually came to rest. So the drop
+  // records the intent here, and the first rebuild that sees the window on the
+  // workspace it asked for works out the distance and closes it.
+  property bool dropPlacePending: false
+  property bool dropPlaceEnd: false
+  property int dropPlaceWs: -1
 
   // ── Most-recently-used, for back-and-forth ──────────────────────────────────
   //
@@ -137,17 +181,6 @@ Item {
     name: "prev"
     description: "Window switcher: previous"
     onPressed: root.open('{"action":"prev"}')
-  }
-
-  GlobalShortcut {
-    appid: root.shortcutAppid
-    name: "click"
-    description: "Window switcher: click -- focus a tile, or close if outside"
-    onPressed: {
-      if (!root.opened) return
-      if (root.pointerInCard) root.commit()
-      else root.dismiss()
-    }
   }
 
   GlobalShortcut {
@@ -220,12 +253,14 @@ Item {
   // Called by omarchy-shell when it hides the panel.
   function close() {
     root.opened = false
+    root._dragCancel()
     idleTimer.stop()
     root._rebuild() // unfreeze: catch anything that changed while it was up
   }
 
   function dismiss() {
     root.opened = false
+    root._dragCancel()
     root.pendingSteps = 0
     root.pendingCommit = false
     idleTimer.stop()
@@ -235,6 +270,11 @@ Item {
   }
 
   function commit() {
+    // SUPER released mid-drag. Drop what is in the hand and stop there rather
+    // than also focusing: the move is a hyprctl process and so is the focus,
+    // and if the focus won that race Hyprland would send you to the workspace
+    // the window is about to LEAVE. A drag is not a selection anyway.
+    if (root.dragging) { root._dragDrop(); root.dismiss(); return }
     idleTimer.stop()
     if (root.opened && root.index >= 0 && root.index < root.wins.length) {
       var sel = root.wins[root.index]
@@ -702,6 +742,8 @@ Item {
   }
 
   Process { id: focusProc }
+  Process { id: moveProc }
+  Process { id: placeProc }
 
 
   // ── Window list ─────────────────────────────────────────────────────────────
@@ -815,7 +857,14 @@ Item {
     // Frozen while the strip is on screen: a macOS Cmd-Tab list does not
     // reshuffle under the hand holding it, and re-assigning the model mid-open
     // is exactly what made the icons flicker.
-    if (root.opened) return
+    //
+    // A drop is the one thing that has to get through. It changed the list
+    // ITSELF, deliberately, and freezing it out would leave the tile sitting in
+    // the group it was just dragged out of. The exception is a WINDOW of time
+    // rather than a single rebuild because the move is a hyprctl process: the
+    // debounced refresh can beat it, see the list unchanged and stop there, and
+    // the movewindow event that follows would then find the freeze back on.
+    if (root.opened && !dropUnfreeze.running) return
 
     var vs = Hyprland.toplevels.values
     var mapped = []
@@ -901,6 +950,20 @@ Item {
     // The whole point: only touch the model when something actually changed.
     // An unchanged assignment resets the ListView and churns delegates.
     if (!root._sameWins(out, root.wins)) root.wins = out
+
+    // A drop moved a window; the sort has just put it somewhere else in the
+    // strip. Carry the highlight with it, or releasing SUPER focuses whatever
+    // slid into the index the dragged tile used to occupy.
+    if (root.dropFollowAddr !== "") {
+      for (var f = 0; f < root.wins.length; f++) {
+        if (root._addr(root.wins[f].address) !== root.dropFollowAddr) continue
+        root.index = f
+        // The move has landed and the strip has re-sorted, so the distance to
+        // the requested end is finally a thing that can be counted.
+        root._placeDropped(f)
+        break
+      }
+    }
 
     if (!root.listPending) return
     root.listPending = false
@@ -988,10 +1051,10 @@ Item {
 
   // Open the strip `step` places from whatever is focused right now.
   function _openStepped(step) {
-    // Never inherit the last open's pointer state -- see pointerInCard. The
-    // enter handler below re-establishes it before any click can arrive, so
-    // clearing here costs nothing and a stale `true` cannot survive.
-    root.pointerInCard = false
+    // Never inherit the last open's drag. Nothing should be able to leave one
+    // hanging, but a stale dragIndex would dim a tile of the NEW list and let a
+    // stray release drop a window somewhere nobody asked for.
+    root._dragCancel()
     var n = root.wins.length
     if (n < 2) return
     var cur = root._activeIndex()
@@ -1102,6 +1165,219 @@ Item {
     return -1
   }
 
+  // --- Drag and drop ----------------------------------------------------------
+  //
+  // Press a tile, move past the drag threshold, release over another
+  // workspace's group: the window is moved there, silently, and the strip stays
+  // up with the highlight following it. Released anywhere else -- over its own
+  // group, or off the card entirely -- nothing happens, which is what a drop on
+  // no target normally means.
+  //
+  // A press that never travels far enough is still a click, and still focuses.
+
+  // Which workspace the pointer is offering to drop on.
+  //
+  // Per GROUP, not per tile, because the thing being dropped on is a workspace
+  // -- the strip already draws one as a run of tiles with a rule down the side.
+  // Nearest tile centre, so the gap between two groups belongs to whichever is
+  // closer and every x resolves to exactly one workspace: a drop can miss the
+  // card, but it cannot fall between two groups and quietly do nothing.
+  function _wsAt(lx) {
+    var best = -1
+    var bestD = -1
+    for (var i = 0; i < root.wins.length; i++) {
+      var d = Math.abs(lx - (root._cellX(i) + card.cellW / 2))
+      if (bestD < 0 || d < bestD) { bestD = d; best = i }
+    }
+    return best < 0 ? -1 : root.wins[best].wsId
+  }
+
+  // [first, last] tile index of a workspace's group, or [-1, -1]. The list is
+  // sorted by workspace, so a group is always one contiguous run -- which is
+  // what lets the drop-target highlight be a single rectangle.
+  function _groupRange(wsId) {
+    var first = -1
+    var last = -1
+    for (var i = 0; i < root.wins.length; i++) {
+      if (root.wins[i].wsId !== wsId) continue
+      if (first < 0) first = i
+      last = i
+    }
+    return [first, last]
+  }
+
+  function _dragStart(i) {
+    root.dragIndex = i
+    root.dragging = true
+    // The dragged tile is what the highlight means for the rest of the gesture:
+    // it is the thing in the hand, and releasing SUPER has to focus it rather
+    // than whatever the pointer happened to pass over on the way.
+    root.index = i
+  }
+
+  // lx is in ListView CONTENT coordinates; cx/cy in card coordinates.
+  function _dragTo(lx, cx, cy) {
+    root.dragX = cx
+    root.dragY = cy
+    var inCard = cx >= 0 && cy >= 0 && cx <= card.width && cy <= card.height
+    root.dropWsId = inCard ? root._wsAt(lx) : -1
+    // Which half of the group the pointer is in. The midpoint of the whole
+    // run, not of the tile under the cursor: the offer is about the group's
+    // two ends, so it should flip once, in the middle, however many tiles the
+    // group happens to have.
+    if (root.dropWsId > 0) {
+      var r = root._groupRange(root.dropWsId)
+      if (r[0] >= 0)
+        root.dropAtEnd = lx >= (root._cellX(r[0]) + root._cellX(r[1]) + card.cellW) / 2
+    }
+    idleTimer.restart()
+  }
+
+  function _dragCancel() {
+    root.dragIndex = -1
+    root.dragging = false
+    root.dropWsId = -1
+  }
+
+  function _dragDrop() {
+    if (!root.dropReady) { root._dragCancel(); return }
+    var i = root.dragIndex
+    var w = root.wins[i]
+    var ws = root.dropWsId
+    var atEnd = root.dropAtEnd
+    root._dragCancel()
+    if (w.kind !== "window" || !w.address) return
+
+    root.dropPlacePending = true
+    root.dropPlaceEnd = atEnd
+    root.dropPlaceWs = ws
+    root.dropFollowAddr = root._addr(w.address)
+    dropUnfreeze.restart()
+
+    if (ws === w.wsId) {
+      // Already on the workspace it was dropped on: nothing to move BETWEEN
+      // workspaces, so this is a pure re-arrange and the strip in front of us
+      // is already the arrangement to measure against.
+      root._placeDropped(i)
+      return
+    }
+
+    // follow = false: this is organising, not navigating. The same dispatcher
+    // SUPER + SHIFT + ALT + <n> uses (default/hypr/bindings/tiling.lua:24),
+    // with `window` naming the tile that was dragged rather than whatever
+    // happens to be focused -- the HUD never takes focus, so the active window
+    // is emphatically not the one in the hand.
+    moveProc.command = ["hyprctl", "dispatch",
+      "hl.dsp.window.move({ workspace = \"" + ws + "\", window = \"address:"
+        + w.address + "\", follow = false })"]
+    moveProc.running = true
+
+    // A nudge, not the mechanism: movewindow lands on the event socket and
+    // restarts this anyway. It only matters if the compositor were to move the
+    // window without saying so.
+    refreshDebounce.restart()
+  }
+
+  // Walk the dropped window to the end of its group it asked for.
+  //
+  // There is no "insert at index" to dispatch -- Hyprland moves a window one
+  // neighbour at a time -- so the distance is counted first and issued as
+  // exactly that many steps in ONE hyprctl --batch. Counted rather than
+  // repeated-until-it-stops for two reasons: it is a single process instead of
+  // one round trip per step, and a move that overshoots the edge is not
+  // harmless. `binds:window_direction_monitor_fallback` is on by default, so a
+  // step past the last window would hand it to the next MONITOR rather than do
+  // nothing (inert on this single-monitor machine, not in general).
+  //
+  // `window` is what makes this work at all: the dispatcher acts on the named
+  // window, on a workspace nobody is looking at, leaving focus alone --
+  // verified. `swapwindow` looks like the better primitive, being inherently
+  // edge-safe, but it ignores `window` and acts on the active one.
+  function _placeDropped(i) {
+    if (!root.dropPlacePending) return
+    if (i < 0 || i >= root.wins.length) return
+    var w = root.wins[i]
+    if (w.kind !== "window" || !w.address) return
+    // Until the window is actually ON the workspace it was dropped on, this is
+    // still looking at the arrangement it is leaving.
+    if (w.wsId !== root.dropPlaceWs) return
+
+    root.dropPlacePending = false
+    var r = root._groupRange(w.wsId)
+    if (r[0] < 0) return
+    var steps = root.dropPlaceEnd ? (r[1] - i) : (i - r[0])
+    if (steps <= 0) return // already at that end
+
+    // Which axis the group is laid out on. A workspace split top-and-bottom
+    // sorts by y in the strip, and "start" there means the top -- stepping it
+    // left would do nothing at all and the drop would look broken. This is the
+    // whole of the layout-awareness here: one row, or one column. A workspace
+    // mixing the two is not something a strip of tiles can express, and no
+    // attempt is made to.
+    var column = root.wins[r[0]].x === root.wins[r[1]].x
+      && root.wins[r[0]].y !== root.wins[r[1]].y
+    var dir = column ? (root.dropPlaceEnd ? "d" : "u")
+                     : (root.dropPlaceEnd ? "r" : "l")
+
+    var cmds = []
+    for (var k = 0; k < steps; k++)
+      cmds.push('dispatch hl.dsp.window.move({ direction = "' + dir
+        + '", window = "address:' + w.address + '" })')
+    placeProc.command = ["hyprctl", "--batch", cmds.join(" ; ")]
+    placeProc.running = true
+
+    // Each step emits its own movewindow, so hold the list open long enough to
+    // show where they left it.
+    dropUnfreeze.restart()
+    refreshDebounce.restart()
+  }
+
+  // Auto-scroll while dragging against an edge.
+  //
+  // The strip is wider than the card as soon as there are more windows than
+  // fit, and the group you most want to drop on is then exactly the one off the
+  // end -- without this the drag cannot reach it and the feature quietly fails
+  // on the busy desktop it is most useful on. The ListView is
+  // `interactive: false`, so contentX is ours to move; speed ramps with how far
+  // into the edge zone the pointer is, the way a drag-scroll normally does.
+  Timer {
+    id: dragScroll
+    interval: 16
+    repeat: true
+    running: root.dragging
+    onTriggered: {
+      if (root.dropWsId < 0) return          // pointer is off the card entirely
+      if (list.contentWidth <= list.width) return
+      var lx = root.dragX - list.x           // pointer, in VIEWPORT coordinates
+      var edge = card.cellW / 2
+      var step = 0
+      if (lx < edge) step = -Math.round((edge - lx) / 4)
+      else if (lx > list.width - edge) step = Math.round((lx - (list.width - edge)) / 4)
+      if (step === 0) return
+      var max = list.originX + list.contentWidth - list.width
+      var next = Math.max(list.originX, Math.min(max, list.contentX + step))
+      if (next === list.contentX) return
+      list.contentX = next
+      // The strip moved under a pointer that did not, so the offer changed.
+      root.dropWsId = root._wsAt(lx + list.contentX - list.originX)
+    }
+  }
+
+  // How long the list stays unfrozen after a drop -- long enough for the
+  // hyprctl process, the toplevel refresh and the rebuild behind it to land.
+  Timer {
+    id: dropUnfreeze
+    interval: 600
+    repeat: false
+    onTriggered: {
+      root.dropFollowAddr = ""
+      // A placement still pending here never saw its window reach the
+      // workspace -- dropped onto one it could not move to, or the move
+      // failed. Drop it rather than let it fire against some later drag.
+      root.dropPlacePending = false
+    }
+  }
+
   Timer {
     id: idleTimer
     interval: root.idleTimeoutMs
@@ -1134,32 +1410,21 @@ Item {
     // the card that missed a tile -- the padding, the gaps between groups -- is
     // ignored rather than treated as "outside", or clicking the card's own
     // margin would close the thing you are aiming at.
+    //
+    // This is a real press now, not a keybind reporting one. It used to be
+    // unreachable with SUPER held, because SUPER + mouse:272 was bound and the
+    // bind consumed the button before the surface ever saw it; the bind now
+    // stands down for as long as the strip is up.
     MouseArea {
       id: clickAway
       anchors.fill: parent
       acceptedButtons: Qt.LeftButton
-      // Hover only, in practice. The click handler below fires just for a press
-      // that actually reaches the surface -- which SUPER + left-click never
-      // does, since the bind takes it first. It stays for the case where the
-      // strip is up without SUPER held.
-      hoverEnabled: true
 
-      // One hit-test, three callers, so "inside the card" cannot mean two
-      // different things depending on which handler asked.
       function inCard(x, y) {
         var p = mapToItem(card, x, y)
         return p.x >= 0 && p.y >= 0 && p.x <= card.width && p.y <= card.height
       }
 
-      // Entering is its OWN signal and carries no position argument, which is
-      // exactly why this cannot be left to onPositionChanged: a surface that
-      // maps under a stationary cursor emits enter and no motion at all.
-      // mouseX/mouseY are valid here because hoverEnabled is on.
-      onEntered: root.pointerInCard = clickAway.inCard(clickAway.mouseX, clickAway.mouseY)
-      onPositionChanged: function (mouse) {
-        root.pointerInCard = clickAway.inCard(mouse.x, mouse.y)
-      }
-      onExited: root.pointerInCard = false
       onClicked: function (mouse) {
         if (clickAway.inCard(mouse.x, mouse.y)) return
         root.dismiss()   // close, never switch -- see dismiss() vs commit()
@@ -1326,6 +1591,44 @@ Item {
                       card.contentLeftInset + card.contentRightInset + stripW)
       height: card.contentTopInset + card.contentBottomInset + rowH
 
+      // Drop target: the workspace group the pointer is offering to drop on.
+      //
+      // Declared before the ListView so it renders BENEATH the tiles -- a drop
+      // target is a place things land on, and a translucent sheet over the
+      // labels would only mute the group it is meant to be offering. Same
+      // scroll-tracking, clipped-wrapper shape as the group rules further down,
+      // for the same reason: the rectangle belongs to the content, not to the
+      // viewport it is seen through.
+      Item {
+        id: dropTarget
+        x: list.x
+        y: list.y
+        width: list.width
+        height: list.height
+        clip: true
+        visible: root.dropReady
+
+        readonly property var range: root.dropReady ? root._groupRange(root.dropWsId) : [-1, -1]
+
+        BorderSurface {
+          visible: dropTarget.range[0] >= 0
+          // Out to the middle of the gap on each side, so the highlight covers
+          // the whole run and not just the tiles in it.
+          x: root._cellX(dropTarget.range[0]) - (list.contentX - list.originX) - card.gap / 2
+          width: root._cellX(dropTarget.range[1]) - root._cellX(dropTarget.range[0])
+            + card.cellW + card.gap
+          height: parent.height
+          radius: Style.cornerRadius
+          // The cursor cell's own fill and border. There is no separate
+          // drop-target role in the palette, and inventing a colour here would
+          // be the one thing in this file that does not come from the theme --
+          // "the place the selection is about to go" is close enough to "the
+          // selection" to borrow its treatment.
+          color: Color.menu.selectedBackground
+          borderSpec: card.selectedBorderSpec
+        }
+      }
+
       ListView {
         id: list
         x: card.contentLeftInset
@@ -1384,6 +1687,11 @@ Item {
             readonly property bool sel: index === root.index
             color: sel ? Color.menu.selectedBackground : "transparent"
             borderSpec: sel ? card.selectedBorderSpec : Border.none()
+            // Lifted. The tile being dragged fades back to a hole in the strip
+            // while the ghost under the cursor carries it, which is how a
+            // dragged item normally reads -- and it keeps the two from looking
+            // like two copies of the same window.
+            opacity: (root.dragging && index === root.dragIndex) ? 0.3 : 1
 
             Column {
               anchors.centerIn: parent
@@ -1700,38 +2008,153 @@ Item {
       }
 
 
-      // Click a tile to focus that window. Placed after the ListView so it sits
-      // above it; the list is `interactive: false`, so nothing below competes
-      // for the press. Geometry is copied from the list rather than anchored to
-      // it, so `mouse.x` arrives already in list coordinates and the same
-      // _cellAt() hit-test serves both the click and the hover below.
+      // Insertion caret: WHICH END of the target group the window would land on.
+      //
+      // Drawn over the tiles, unlike the group highlight beneath them, because
+      // it has to be legible against that highlight -- and it hugs the group's
+      // outer edge rather than sitting mid-gap where the group rules are, so
+      // the two read as different things at a glance: a rule divides, a caret
+      // points at a slot.
+      //
+      // Sized to the ROW, not to the card, which is the other half of that
+      // distinction. The group rules deliberately run the full card height --
+      // they are the card's own divisions, and are drawn against `card.height`
+      // inside their own wrapper for exactly that reason. This is a mark on the
+      // tiles, so it takes the tiles' box: `list` geometry, the same the group
+      // highlight and every cell already use.
+      //
+      // Clamped into the viewport, which is what covers the first and last
+      // groups: their outer edge is the card's own padding, with no gap to sit
+      // in, so without this the caret would be clipped away exactly where the
+      // strip most needs to show it.
+      Item {
+        id: dropCaret
+        x: list.x
+        y: list.y
+        width: list.width
+        height: list.height
+        clip: true
+        visible: root.dropArrangeReady
+
+        readonly property var range: root.dropArrangeReady ? root._groupRange(root.dropWsId) : [-1, -1]
+
+        Rectangle {
+          id: caret
+          // Same weight as a group rule: this is a boundary too.
+          readonly property real stroke: Math.max(1, Style.normalBorderWidth) * 3
+          visible: dropCaret.range[0] >= 0
+          width: root._snapPx(caret.stroke)
+          // Inset from the row by the card's own padding, top and bottom, so
+          // the caret sits within the tiles rather than running their full
+          // height. Read as topPadding/bottomPadding rather than as `padding`
+          // doubled: BorderSurface carries the four separately and a theme may
+          // set them apart, the same reason groupRules reads its border widths
+          // per edge.
+          y: card.topPadding
+          height: Math.max(1, parent.height - card.topPadding - card.bottomPadding)
+          // Fully rounded ends. Half the width is the only radius that reads as
+          // finished on a bar this thin -- anything less leaves a visible flat,
+          // and Style.cornerRadius (18 against a ~3px bar) would clamp to the
+          // same pill anyway. Deliberately NOT the card's radius token: this is
+          // a cap on a stroke, not a rounded box, so it follows the stroke.
+          radius: caret.width / 2
+          x: {
+            if (dropCaret.range[0] < 0) return -caret.width
+            var edge = root.dropAtEnd
+              ? root._cellX(dropCaret.range[1]) + card.cellW + card.gap / 2
+              : root._cellX(dropCaret.range[0]) - card.gap / 2
+            var vx = edge - (list.contentX - list.originX) - caret.width / 2
+            return root._snapPx(Math.max(0, Math.min(list.width - caret.width, vx)))
+          }
+          // The selection accent, not the group rules' surface step. This marks
+          // an active target, and the group highlight underneath it already IS
+          // selected-background -- a step off the surface would vanish into it.
+          color: Color.menu.selectedText
+        }
+      }
+
+      // Click a tile to focus that window; drag one onto another workspace's
+      // group to move it there. Placed after the ListView so it sits above it;
+      // the list is `interactive: false`, so nothing below competes for the
+      // press. Geometry is copied from the list rather than anchored to it, so
+      // `mouse.x` arrives already in list coordinates and the same _cellAt()
+      // hit-test serves the press, the hover and the release alike.
       MouseArea {
+        id: tiles
         x: list.x
         y: list.y
         width: list.width
         height: list.height
         acceptedButtons: Qt.LeftButton
-        // A hand over the tiles, the way any other clickable row reads. Pointer
-        // MOTION reaches the surface normally -- it is only the button press
-        // that the SUPER + mouse:272 bind takes first -- so the shape applies
-        // even though the click itself is delivered by the keybind.
-        cursorShape: Qt.PointingHandCursor
+        // A hand over the tiles, closing on one while it is being carried --
+        // the pair every other draggable thing on the desktop uses.
+        cursorShape: root.dragging ? Qt.ClosedHandCursor : Qt.PointingHandCursor
         // Moving the pointer over a cell makes it the highlight; releasing
         // SUPER then focuses it, same as with the keyboard.
         hoverEnabled: true
+
+        // The tile under the press, if it is one that can be dragged at all --
+        // a workspace tile is a destination, never cargo. -1 means this press
+        // can only ever end up a click.
+        property int dragCandidate: -1
+        property real pressX: 0
+        property real pressY: 0
+
+        // ListView content coordinates: the list scrolls, _cellAt does not.
+        function lx(x) { return x + list.contentX - list.originX }
+
+        onPressed: function (mouse) {
+          tiles.pressX = mouse.x
+          tiles.pressY = mouse.y
+          var i = root._cellAt(tiles.lx(mouse.x))
+          tiles.dragCandidate =
+            (i >= 0 && root.wins[i].kind === "window") ? i : -1
+        }
+
         onPositionChanged: function (mouse) {
           if (!root.opened || root.wins.length < 2) return
-          var idx = root._cellAt(mouse.x + list.contentX - list.originX)
+
+          if (root.dragging) {
+            root._dragTo(tiles.lx(mouse.x), mouse.x + list.x, mouse.y + list.y)
+            return
+          }
+
+          if (tiles.dragCandidate >= 0 && (mouse.buttons & Qt.LeftButton)) {
+            // Qt's own threshold rather than a number of our own, so the strip
+            // agrees with everything else on this desktop about where a click
+            // stops being a click. 8px here.
+            var dx = mouse.x - tiles.pressX
+            var dy = mouse.y - tiles.pressY
+            if (Math.sqrt(dx * dx + dy * dy) < Qt.styleHints.startDragDistance) return
+            root._dragStart(tiles.dragCandidate)
+            root._dragTo(tiles.lx(mouse.x), mouse.x + list.x, mouse.y + list.y)
+            return
+          }
+
+          // Plain hover. Deliberately after the drag branches: the highlight
+          // belongs to the tile in the hand for the whole of a drag, and must
+          // not follow the pointer across the tiles it passes over.
+          var idx = root._cellAt(tiles.lx(mouse.x))
           if (idx < 0) return
-          root.pointerInCard = true
           root.index = idx
         }
-        onClicked: function (mouse) {
-          var idx = root._cellAt(mouse.x + list.contentX - list.originX)
+
+        // Released, not clicked, because a drag has to be able to end here
+        // without also counting as a click on whatever it ended over -- a
+        // MouseArea emits `clicked` on release however far the pointer
+        // travelled in between.
+        onReleased: function (mouse) {
+          tiles.dragCandidate = -1
+          if (root.dragging) { root._dragDrop(); return }
+          var idx = root._cellAt(tiles.lx(mouse.x))
           if (idx < 0) return
           root.index = idx
           root.commit()
         }
+
+        // The grab can be taken away -- the surface unmapping under a held
+        // button, for one. Nothing in the hand then, and nothing dropped.
+        onCanceled: { tiles.dragCandidate = -1; root._dragCancel() }
       }
 
       // Overflow scrims, same idiom as the SUPER+SPACE menu's scroll scrims
@@ -1769,6 +2192,122 @@ Item {
           orientation: Gradient.Horizontal
           GradientStop { position: 0; color: Util.alpha(Color.menu.background, 0) }
           GradientStop { position: 1; color: Color.menu.background }
+        }
+      }
+    }
+
+    // The thing in the hand: a chip under the cursor carrying the window being
+    // dragged. Sibling of the card rather than a child of it, so it can be over
+    // the card's own border and outside its bounds -- a drag that leaves the
+    // card has to stay visible, or letting go somewhere harmless looks like the
+    // window was dropped into nothing.
+    //
+    // A reduced copy of the tile, not the tile itself. A ListView delegate
+    // cannot leave its viewport, and taking the real item out of the model for
+    // the length of a gesture is a much larger change than a drag ghost is
+    // worth -- so the mark and the name are drawn again here, and the tile it
+    // came from fades to a hole in the strip.
+    BorderSurface {
+      id: ghost
+
+      // Guarded rather than read straight out of `wins`: this is bound while
+      // the drag is being torn down too, and dragIndex is -1 by then.
+      readonly property var win:
+        (root.dragging && root.dragIndex >= 0 && root.dragIndex < root.wins.length)
+          ? root.wins[root.dragIndex] : null
+
+      visible: ghost.win !== null
+      opacity: 0.92
+
+      // The same radius a SUPER+SPACE menu row draws with -- bound to the same
+      // token rather than copied as a number. `Menu.qml:1222` is
+      // `root.cornerRadius` and `Menu.qml:98` defines that as
+      // `Style.cornerRadius`, which is `decoration:rounding`, 18 here.
+      //
+      // The proportions line up as well as the number does: measured 48px tall
+      // against a menu row's 54 (`baseRowHeight`, `Menu.qml:102`). So the chip,
+      // the tiles and the card all round alike, and a change to the
+      // compositor's rounding carries every one of them.
+      radius: Style.cornerRadius
+      color: Color.menu.selectedBackground
+      borderSpec: card.selectedBorderSpec
+      padding: Style.spacing.rowPaddingX
+
+      width: ghost.contentLeftInset + ghost.contentRightInset + ghostRow.width
+      height: ghost.contentTopInset + ghost.contentBottomInset + ghostRow.height
+      // Centred on the pointer. dragX/dragY are card coordinates, which is what
+      // the drag handler has to work in anyway -- the card is the only thing
+      // either of them is measured against.
+      x: card.x + root.dragX - ghost.width / 2
+      y: card.y + root.dragY - ghost.height / 2
+
+      Row {
+        id: ghostRow
+        x: ghost.contentLeftInset
+        y: ghost.contentTopInset
+        spacing: Style.spacing.sm
+
+        // Same three-way mark as the tile -- drop-in svg recoloured, vendor
+        // icon as-is, Nerd Font glyph otherwise -- and keyed the same way, off
+        // the cached index rather than off Image.status. That is not a detail:
+        // binding item structure to an Image's status is what aborted the shell
+        // four times over, see iconFor() above.
+        Item {
+          id: ghostMark
+          width: card.iconSize
+          height: card.iconSize
+          anchors.verticalCenter: parent.verticalCenter
+
+          readonly property string url: ghost.win ? root.iconFor(ghost.win.cls) : ""
+          readonly property bool isFlat:
+            ghostMark.url.indexOf("file://" + root.flatIconDir) === 0
+
+          Image {
+            id: ghostImage
+            anchors.centerIn: parent
+            width: card.iconDrawn
+            height: width
+            source: ghostMark.url
+            sourceSize.width: Math.ceil(card.iconDrawn * Screen.devicePixelRatio)
+            sourceSize.height: Math.ceil(card.iconDrawn * Screen.devicePixelRatio)
+            fillMode: Image.PreserveAspectFit
+            asynchronous: true
+            visible: ghostMark.url.length > 0 && !ghostMark.isFlat
+            layer.enabled: ghostMark.isFlat
+          }
+
+          MultiEffect {
+            anchors.fill: ghostImage
+            source: ghostImage
+            visible: ghostMark.isFlat
+            colorization: 1.0
+            colorizationColor: Color.menu.selectedText
+          }
+
+          Text {
+            anchors.centerIn: parent
+            visible: ghostMark.url.length === 0
+            text: ghost.win ? root.glyphFor(ghost.win.cls) : ""
+            textFormat: Text.PlainText
+            font.family: Style.font.menuFamily
+            font.pixelSize: card.iconSize
+            color: Color.menu.selectedText
+          }
+        }
+
+        Text {
+          anchors.verticalCenter: parent.verticalCenter
+          // The name only. The title line the tile carries is the one thing
+          // that would make this chip wide enough to hide the group it is being
+          // dropped on.
+          text: ghost.win
+            ? (root.nameFor(ghost.win.cls) || root.sanitizeTitle(ghost.win.title))
+            : ""
+          textFormat: Text.PlainText
+          font.family: Style.font.menuFamily
+          font.pixelSize: Style.font.heading
+          font.weight: Font.Medium
+          color: Color.menu.selectedText
         }
       }
     }
