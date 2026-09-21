@@ -277,6 +277,103 @@ own `icons/`**, so that source and the last one are the same 75 files — and
 finally those marks as the plugin reads them directly. Emptying
 `overrides/icons/` therefore cannot leave the switcher short of anything.
 
+**A fifth source now feeds the switcher and it is not an icon at all: a
+browser tile's badge is the site's favicon, read out of the browser's own
+profile.** The terminal trick does not transfer -- a terminal's title *is* the
+command, because shell integration writes it, while a browser's is the page's
+own. There is no URL anywhere on the toplevel, so the only join is title ->
+the browser's history DB -> URL -> its favicon DB. **That means the plugin has
+read access to a browsing-history database**, which is the thing to weigh
+before anything else here; it is narrowed by the code (only the titles on
+screen, `mode=ro&immutable=1`, nothing written) and by nothing else.
+
+**Nothing in Omarchy or Quickshell offers this.** Enumerated, not assumed:
+Quickshell's whole `Io` module is `FileView`, `Process`, `Socket`,
+`SocketServer`, `DataStream`, `IpcHandler`, `JsonAdapter`, `StdioCollector`,
+`SplitParser` -- **no SQL type**, so a helper is the only route.
+`QtQuick.LocalStorage` is a red herring: one method, `openDatabaseSync`, which
+keys a DB by an **md5 of its identifier** under the engine's own path and opens
+it **read-write**. No path form; don't re-try it. Omarchy's `fetch_site_icon`
+(in `omarchy-webapp-install`) is URL-driven and network-based -- apple-touch-icon,
+then `<origin>/apple-touch-icon.png`, then Google's `s2/favicons?...&sz=256`.
+Worth knowing only because **that path yields 256px where Chromium's cache tops
+out at 32**; it cannot tell you which site a window is on, which is the hard half.
+
+Findings worth not re-deriving:
+
+- **A live profile DB reads fine in ~2ms** at `mode=ro&immutable=1`. The
+  `immutable=1` does the work -- without it a readonly connection against a hot
+  journal can fail outright. Cost: a read racing a write comes back
+  inconsistent, which lands as a miss.
+- **QML's `Image` takes a `data:` URL** -- verified against a `file://` control,
+  same `sourceSize`, both `Ready`. That is what keeps "writes no files" true.
+- **Sniff the media type, never assume it.** Chromium re-encodes every favicon
+  to PNG; Firefox stores what the site served, so ICO and SVG turn up. A `data:`
+  URL that lies about its type is refused by Qt with nothing in the log.
+- **The ambiguity figure is a trap.** 28% of recent titles resolve to a
+  *different host* than their own page, which reads like a 28% error rate and is
+  not one: of 200 pages, 145 gave the byte-identical favicon and all 55 misses
+  were one CDN session sharing titles with its origin. Measure the **icon**, not
+  the host.
+- **`urls.title` has no index** (only `urls_url_index`), so every lookup is a
+  full scan: 0.02ms at 730 rows, 5.2ms at 100k, 25.5ms at 500k, per title.
+  Nothing fixable from outside, so the defence is not asking -- the refresh only
+  queries titles it has **no answer for**, which is safe because the title *is*
+  the key.
+- **Page titles are arbitrary web content**, so an index keyed on one needs
+  `typeof x === "string"`, not `!== undefined`: a page titled `constructor`
+  returns the inherited `Object.prototype` member.
+
+**Generality made it faster, which is the opposite of the usual trade.**
+Identifying a profile by its two database files (rather than a path per
+browser) covers every Chromium and Firefox fork, but the sweep must reach
+`~/.mozilla`, `~/.librewolf`, `~/.zen` -- 10.5ms against 1.6ms for
+`~/.config` alone, taking the run 25.6 -> 31.2ms. Hoisting the sweep out of the query
+brought it to **17.2ms**: a third faster than the Chromium-only version, and
+covering both families. It runs **once per session, on first sight of a browser
+window** -- not in `Component.onCompleted` like the plugin's other three index
+scans, so a session with no browser open never pays the 28ms and never has its
+`$HOME` walked. For scale, `vendorScan` already spends **247ms** at every shell
+start, which is why caching the result to disk across restarts is not worth the
+staleness or the loss of "writes no files". Four titles cost the same, because the SQL is noise beside the spawn.
+Two mechanics behind it: **one `scandir` per directory, reused for the marker
+test and the descent** (10.5ms vs 23.4ms for the version that stats then lists
+again), and **only hidden top-level dirs of `$HOME`, to depth 2** -- every native
+install, while a flatpak profile at `~/.var/app/<id>/.mozilla/...` is deeper and
+deliberately missed, since depth 4 costs 4x (27 -> 98ms).
+
+**Where the 17.2ms goes, and why it stops there.** The SQL is 0.43ms; the rest
+is Python: 7.9ms interpreter floor, ~6.5ms of stdlib imports, ~2ms compiling the
+script (a `__main__` script is never cached, only imported modules are).
+`-S` halved the startup and dropping `import glob` saved 7.5ms -- both are in.
+What remains was measured and **rejected**: swapping every import for its C
+module (`posix`, `binascii`, `_sqlite3`) saves 2.1ms but trades documented APIs
+for private ones whose signatures move between releases. The `sqlite3` CLI
+starts in 1ms and this build even has `base64()` (it wraps at 72 chars;
+`replace(base64(x), char(10), '')` undoes that, and `ATTACH` joins both DBs in
+one query) -- rejected on **safety, not speed**: it cannot bind a parameter, and
+every value here is a window title a remote page chose, going into a shell that
+has `writefile()`. A **persistent helper** answers in 0.40ms (0.70 for four),
+roughly 46x, and costs **13.8MB resident for the life of the shell**; declined,
+since the spawn is rare, debounced and off the critical path. Numbers are here
+if that ever looks different.
+
+**The plugin's own files can be two versions at runtime.** `omarchy plugin
+update` replaces `favicons.py` on disk while `Hud.qml` stays in the running
+shell. Seen for real: a 2-field parser reading 3-field output built
+`data:image/png;base64,image/png<TAB>iVBOR...` and Qt logged one "Unsupported
+image format" per frame. The parser now validates the media-type field against
+`^[a-z]+/[a-z0-9.+-]+$` and drops the line, so skew is silent like every other
+failure. Applies to any QML-plus-helper protocol here.
+
+**A test that aborts early reports zero failures.** The QML harness lifts
+functions verbatim out of `Hud.qml`; one called `faviconDebounce.restart()`,
+which the harness does not define, so `Component.onCompleted` threw there and
+every later assertion never ran -- with `fails` still 0, which reads exactly
+like a pass. It now sets a `finished` flag as its last statement and the
+watchdog exits non-zero if it is unset. Any harness lifting code out of a larger
+component needs that tripwire, or its silence means nothing.
+
 **The duplication that used to sit here is gone.** `icons/color/` was a second
 copy of those 75 marks kept for the menu's sake; `COLOR_IN` points at the
 submodule instead. Two costs, both accepted deliberately: the menu now depends
