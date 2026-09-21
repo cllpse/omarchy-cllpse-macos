@@ -501,11 +501,11 @@ choose_steps() {
   local top
 
   if command -v gum >/dev/null 2>&1; then
-    top=$(gum choose --header "What would you like to do?" "$LOOK" "$EVERY" "$FIGMA" "$PICK" || true)
+    top=$(gum choose --header "What would you like to do?" "$LOOK" "$FIGMA" "$EVERY" "$PICK" || true)
   else
-    printf '  1) %s\n  2) %s\n  3) %s\n  4) %s\n' "$LOOK" "$EVERY" "$FIGMA" "$PICK" >&2
+    printf '  1) %s\n  2) %s\n  3) %s\n  4) %s\n' "$LOOK" "$FIGMA" "$EVERY" "$PICK" >&2
     local n; read -rp "> " n || true
-    case "$n" in 1) top="$LOOK" ;; 2) top="$EVERY" ;; 3) top="$FIGMA" ;; 4) top="$PICK" ;; *) top="" ;; esac
+    case "$n" in 1) top="$LOOK" ;; 2) top="$FIGMA" ;; 3) top="$EVERY" ;; 4) top="$PICK" ;; *) top="" ;; esac
   fi
 
   case "$top" in
@@ -527,8 +527,11 @@ choose_steps() {
 
   local picked=()
   if command -v gum >/dev/null 2>&1; then
+    # Explicit prefixes: the defaults are easy to miss, and with nothing
+    # visibly ticked a multi-select reads as a single-choice list.
     mapfile -t picked < <(gum choose --no-limit --height 20 \
-      --header "Space ticks, Enter runs. Order is fixed regardless of what you tick." \
+      --cursor-prefix "☐ " --unselected-prefix "☐ " --selected-prefix "☑ " \
+      --header "Tick as many as you like — SPACE toggles, ENTER runs the batch. Order is fixed." \
       "${menu[@]}" || true)
   else
     local i=1 m
@@ -624,6 +627,17 @@ _dedupe
 # Always in STEPS order, never the order they were picked in: several steps only
 # work after an earlier one (8c reloads Hyprland against the keyd 8b restarted),
 # and letting a menu reorder them would be a silent way to break a run.
+# Say what the batch is before running it, in the order it will run, so a
+# multi-select that was misread is obvious before anything is written.
+if (( ${#SELECTED[@]} != ${#STEPS[@]} )); then
+  _plan=()
+  for s in "${STEPS[@]}"; do
+    IFS='|' read -r id _ _ _ _ <<<"$s"
+    _want "$id" && _plan+=("$id")
+  done
+  say "running ${#_plan[@]} step(s): ${_plan[*]}"
+fi
+
 _ran=0
 for s in "${STEPS[@]}"; do
   IFS='|' read -r id sudo label action needs <<<"$s"

@@ -28,10 +28,12 @@ themselves when they get there. `lib.sh` refuses outright if `EUID` is 0.
 **Selection is by step, not by folder** — the inline steps (gsettings, the theme
 apply, `hyprctl reload`, Btrfs) are selectable too, so `--all` is exactly the
 old behaviour. Picking is two stages. The first is a single choice — **Look and feel only**,
-**Run everything**, **Install or update Figma Desktop**, or **Choose specific
+**Install or update Figma Desktop**, **Run everything**, or **Choose specific
 steps…** — so
-Enter acts on whatever is highlighted, no Space needed. Only the third
-opens the checklist, where Space ticks and Enter runs. One flat list cannot
+Enter acts on whatever is highlighted, no Space needed. Only the last
+opens the checklist, which is a **batch**: Space toggles as many as you like,
+Enter runs them all. Ticked rows show `☑`, unticked `☐`. Whatever you pick,
+the run prints the batch in execution order before it writes anything. One flat list cannot
 express this: "run everything" has to win over anything ticked beside it,
 so as a checkbox it either short-circuits the rest or is itself ignored.
 
