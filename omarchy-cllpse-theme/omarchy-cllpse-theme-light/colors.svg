@@ -85,31 +85,31 @@
 <rect x="1326" y="654" width="172" height="84" rx="10" fill="none" stroke="#d1d1d6"/>
 <text x="1326" y="754" font-family="monospace" font-size="11" font-weight="bold" fill="#1d1d1f">brown</text>
 <text x="1326" y="768" font-family="monospace" font-size="10" fill="#6e6e73">#AC7F5E</text>
-<text x="24" y="824" font-family="monospace" font-size="15" font-weight="bold" fill="#6e6e73">System Hues — Dark Aqua</text>
-<rect x="24" y="838" width="172" height="84" rx="10" fill="#FF383C" fill-opacity="1.000"/>
+<text x="24" y="824" font-family="monospace" font-size="15" font-weight="bold" fill="#6e6e73">System Hues — Bright (derived)</text>
+<rect x="24" y="838" width="172" height="84" rx="10" fill="#E80005" fill-opacity="1.000"/>
 <rect x="24" y="838" width="172" height="84" rx="10" fill="none" stroke="#d1d1d6"/>
 <text x="24" y="938" font-family="monospace" font-size="11" font-weight="bold" fill="#1d1d1f">bright_red</text>
-<text x="24" y="952" font-family="monospace" font-size="10" fill="#6e6e73">#FF383C</text>
-<rect x="210" y="838" width="172" height="84" rx="10" fill="#FFCC00" fill-opacity="1.000"/>
+<text x="24" y="952" font-family="monospace" font-size="10" fill="#6e6e73">#E80005</text>
+<rect x="210" y="838" width="172" height="84" rx="10" fill="#907300" fill-opacity="1.000"/>
 <rect x="210" y="838" width="172" height="84" rx="10" fill="none" stroke="#d1d1d6"/>
 <text x="210" y="938" font-family="monospace" font-size="11" font-weight="bold" fill="#1d1d1f">bright_yellow</text>
-<text x="210" y="952" font-family="monospace" font-size="10" fill="#6e6e73">#FFCC00</text>
-<rect x="396" y="838" width="172" height="84" rx="10" fill="#34C759" fill-opacity="1.000"/>
+<text x="210" y="952" font-family="monospace" font-size="10" fill="#6e6e73">#907300</text>
+<rect x="396" y="838" width="172" height="84" rx="10" fill="#23883D" fill-opacity="1.000"/>
 <rect x="396" y="838" width="172" height="84" rx="10" fill="none" stroke="#d1d1d6"/>
 <text x="396" y="938" font-family="monospace" font-size="11" font-weight="bold" fill="#1d1d1f">bright_green</text>
-<text x="396" y="952" font-family="monospace" font-size="10" fill="#6e6e73">#34C759</text>
-<rect x="582" y="838" width="172" height="84" rx="10" fill="#00C0E8" fill-opacity="1.000"/>
+<text x="396" y="952" font-family="monospace" font-size="10" fill="#6e6e73">#23883D</text>
+<rect x="582" y="838" width="172" height="84" rx="10" fill="#00819C" fill-opacity="1.000"/>
 <rect x="582" y="838" width="172" height="84" rx="10" fill="none" stroke="#d1d1d6"/>
 <text x="582" y="938" font-family="monospace" font-size="11" font-weight="bold" fill="#1d1d1f">bright_cyan</text>
-<text x="582" y="952" font-family="monospace" font-size="10" fill="#6e6e73">#00C0E8</text>
-<rect x="768" y="838" width="172" height="84" rx="10" fill="#0088FF" fill-opacity="1.000"/>
+<text x="582" y="952" font-family="monospace" font-size="10" fill="#6e6e73">#00819C</text>
+<rect x="768" y="838" width="172" height="84" rx="10" fill="#0074D9" fill-opacity="1.000"/>
 <rect x="768" y="838" width="172" height="84" rx="10" fill="none" stroke="#d1d1d6"/>
 <text x="768" y="938" font-family="monospace" font-size="11" font-weight="bold" fill="#1d1d1f">bright_blue</text>
-<text x="768" y="952" font-family="monospace" font-size="10" fill="#6e6e73">#0088FF</text>
-<rect x="954" y="838" width="172" height="84" rx="10" fill="#CB30E0" fill-opacity="1.000"/>
+<text x="768" y="952" font-family="monospace" font-size="10" fill="#6e6e73">#0074D9</text>
+<rect x="954" y="838" width="172" height="84" rx="10" fill="#B01DC4" fill-opacity="1.000"/>
 <rect x="954" y="838" width="172" height="84" rx="10" fill="none" stroke="#d1d1d6"/>
 <text x="954" y="938" font-family="monospace" font-size="11" font-weight="bold" fill="#1d1d1f">bright_magenta</text>
-<text x="954" y="952" font-family="monospace" font-size="10" fill="#6e6e73">#CB30E0</text>
+<text x="954" y="952" font-family="monospace" font-size="10" fill="#6e6e73">#B01DC4</text>
 <text x="24" y="1008" font-family="monospace" font-size="15" font-weight="bold" fill="#6e6e73">Hyprland Borders</text>
 <defs><linearGradient id="g0_0_Hyprland" x1="0%" y1="100%" x2="100%" y2="0%"><stop offset="0%" stop-color="#007AFF" stop-opacity="0.933"/><stop offset="100%" stop-color="#0091FF" stop-opacity="0.933"/></linearGradient></defs>
 <rect x="24" y="1022" width="172" height="84" rx="10" fill="url(#g0_0_Hyprland)"/>

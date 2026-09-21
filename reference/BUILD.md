@@ -100,19 +100,30 @@ blue = "#0088FF"                   # systemBlue       aqua
 magenta = "#CB30E0"                # systemPurple     aqua
 brown = "#AC7F5E"                  # systemBrown      aqua
 
-bright_red = "#FF383C"             # systemRed        aqua
-bright_yellow = "#FFCC00"          # systemYellow     aqua
-bright_green = "#34C759"           # systemGreen      aqua
-bright_cyan = "#00C0E8"            # systemCyan       aqua
-bright_blue = "#0088FF"            # systemBlue       aqua
-bright_magenta = "#CB30E0"         # systemPurple     aqua
+bright_red = "#E80005"             # derived  [not a system colour]
+bright_yellow = "#907300"          # derived  [not a system colour]
+bright_green = "#23883D"           # derived  [not a system colour]
+bright_cyan = "#00819C"            # derived  [not a system colour]
+bright_blue = "#0074D9"            # derived  [not a system colour]
+bright_magenta = "#B01DC4"         # derived  [not a system colour]
 ```
 
 In the light appearance macOS uses the `aqua` hues; the `darkAqua` variants are
-lighter and belong to dark mode. The bright row therefore carries the same
-values as the normal row. White is the lightest surface macOS has, so
-`background` and `lighter_background` are both `windowBackgroundColor`, and
-`light_foreground` and `bright_foreground` are both `textColor`.
+lighter and belong to dark mode, so **there is no system source for a light
+bright row**. White is the lightest surface macOS has, so `background` and
+`lighter_background` are both `windowBackgroundColor`, and `light_foreground`
+and `bright_foreground` are both `textColor`.
+
+The bright row above is therefore the one **derived** set in this spec, and the
+only place the light theme departs from "ship what macOS reports". It used to
+duplicate the normal row exactly, which made ANSI 1/9, 2/10, 3/11, 4/12, 5/13
+and 6/14 identical — half the palette unusable in a terminal. Each value is its
+normal-row colour with the **hue angle held exactly** and lightness reduced
+until it clears both a 30% luminance drop (§7 note 1's 25–40% convention) and
+4.5:1 on `#FFFFFF`. Holding hue is what keeps the palette mapping by name: all
+six still measure inside their own hue window, identical to the normal row —
+359° red, 135° green, 48° yellow, 208° blue, 293° magenta, 190° cyan. Darker,
+not lighter, is what "bright" has to mean against white.
 
 ## 3. Reserve hues
 
@@ -380,7 +391,12 @@ shipped 16 — and cannot be set apart.
    ship it as given.
 2. **Light-appearance hues are low-contrast on white**: yellow 1.51:1, cyan
    2.16:1, green 2.22:1, orange 2.31:1. macOS uses them as fills behind dark
-   text rather than as text itself. Use them the same way; do not darken them.
+   text rather than as text itself. Use them the same way; do not darken them —
+   this applies to the **normal** row, which stays as measured. A terminal has
+   no such option, since it renders the palette as text, which is exactly what
+   the derived light bright row in §2 is for: the readable tier those four hues
+   otherwise have nowhere to come from. Never let that reasoning migrate back
+   into the normal row.
 3. **`omarchy-font-set` destroys this typography.** It is monospace-only and
    rewrites `fonts.conf` wholesale. Style ▸ Font in the Omarchy menu runs it.
 4. **SF Pro Text has no Light; SF Pro Display has no Medium.** fontconfig falls

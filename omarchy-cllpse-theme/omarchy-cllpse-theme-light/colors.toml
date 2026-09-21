@@ -22,8 +22,8 @@ bright_foreground  = "#000000"  # textColor
 selection_foreground = "#000000"
 
 # In the light appearance macOS uses the aqua hues; the darkAqua variants are
-# lighter and belong to dark mode. So the bright row carries the SAME values
-# as the normal row here (BUILD.md §2).
+# lighter and belong to dark mode, so there is no system source for a bright
+# row here. The normal row below is unchanged and still authoritative.
 red     = "#FF383C"   # systemRed      aqua
 yellow  = "#FFCC00"   # systemYellow   aqua
 orange  = "#FF8D28"   # systemOrange   aqua
@@ -33,12 +33,29 @@ blue    = "#0088FF"   # systemBlue     aqua
 magenta = "#CB30E0"   # systemPurple   aqua
 brown   = "#AC7F5E"   # systemBrown    aqua
 
-bright_red     = "#FF383C"
-bright_yellow  = "#FFCC00"
-bright_green   = "#34C759"
-bright_cyan    = "#00C0E8"
-bright_blue    = "#0088FF"
-bright_magenta = "#CB30E0"
+# DERIVED, not measured -- the only values in this file that macOS did not
+# supply. The bright row used to duplicate the normal row exactly, which left
+# ANSI 1/9, 2/10, 3/11, 4/12, 5/13 and 6/14 indistinguishable, and left the
+# terminal unable to use half its palette.
+#
+# Each is its normal-row colour with the **hue angle held exactly** and only
+# lightness reduced, under two constraints:
+#   - at least a 30% luminance drop, so the two rows are actually telling apart
+#     (BUILD.md §7 note 1 puts terminal convention at 25-40%);
+#   - at least 4.5:1 against #FFFFFF, because a terminal renders these as TEXT.
+#     The normal row is not built for that -- on white it measures yellow
+#     1.51:1, cyan 2.16:1, green 2.22:1 (§7 note 2), which is unreadable.
+# Darker rather than lighter is what "bright" has to mean on a white ground.
+#
+# Hue is held so the palette still maps by name: every one of these still
+# measures inside its own hue window (48 deg yellow, 135 green, 190 cyan,
+# 208 blue, 293 magenta, 359 red) -- identical to the normal row's.
+bright_red     = "#E80005"   # derived from red     -30% luminance, 4.74:1
+bright_yellow  = "#907300"   # derived from yellow  -72% luminance, 4.53:1
+bright_green   = "#23883D"   # derived from green   -57% luminance, 4.51:1
+bright_cyan    = "#00819C"   # derived from cyan    -58% luminance, 4.55:1
+bright_blue    = "#0074D9"   # derived from blue    -30% luminance, 4.67:1
+bright_magenta = "#B01DC4"   # derived from magenta -30% luminance, 5.50:1
 
 # Active border carries the system accent (see dark/colors.toml for rationale).
 # Inactive border is `muted` above at full opacity -- the two are not linked, so
