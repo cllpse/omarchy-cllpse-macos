@@ -297,7 +297,7 @@ hl.config({
 --
 -- blur_popups extends blur to child dropdowns (bar module menus, panel flyouts).
 --
--- window-switcher-hud is our own plugin (omarchy-cllpse-switcher/, symlinked to
+-- window-switcher-hud is our own plugin (omarchy-cllpse-plugin-switcher/, symlinked to
 -- ~/.config/omarchy/plugins/cllpse.window-switcher). Its card already binds
 -- Color.menu.background / .scrim, so it tracks the menu either way: opaque
 -- while the menu is opaque, frosted the moment the menu frosts.

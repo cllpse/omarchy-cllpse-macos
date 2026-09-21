@@ -8,7 +8,7 @@ for what `apply.sh` touches, and [`reference/BUILD.md`](reference/BUILD.md) for 
 spec. This file is only for what those don't say: how Omarchy itself behaves, and
 the traps that have already cost time.
 
-**`omarchy-cllpse-switcher/` is a submodule**, not a directory —
+**`omarchy-cllpse-plugin-switcher/` is a submodule**, not a directory —
 [cllpse/omarchy-cllpse-plugin-switcher](https://github.com/cllpse/omarchy-cllpse-plugin-switcher),
 published to the Omarchy plugin marketplace on its own. Clone this repo with
 `--recurse-submodules` or run `git submodule update --init --recursive`; a plain
@@ -2190,7 +2190,7 @@ outlier before the scene settled.
 
 ## Extracting a plugin into its own repo
 
-The window switcher moved to `omarchy-cllpse-switcher/` — a submodule here, a
+The window switcher moved to `omarchy-cllpse-plugin-switcher/` — a submodule here, a
 public repository of its own — and was prepared for release. Most of what
 follows was not *introduced* by that split; the split is what made it visible.
 

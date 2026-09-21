@@ -25,7 +25,7 @@ keyed on the DIRECTORY, never on anything inside a file, so a multi-hue logo in
 
 `verbatim/` is a copy of the plugin's `icons/`, which carries the same 99 for
 its own tiles. **Both repos hold the full set, so a new mark goes in both** —
-see [`../../omarchy-cllpse-switcher/AGENTS.md`](../../omarchy-cllpse-switcher/AGENTS.md)
+see [`../../omarchy-cllpse-plugin-switcher/AGENTS.md`](../../omarchy-cllpse-plugin-switcher/AGENTS.md)
 for the rule the verbatim half follows: an icon is the source of truth for its
 own appearance, and only its `viewBox` is ever changed.
 

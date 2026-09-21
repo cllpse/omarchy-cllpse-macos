@@ -131,13 +131,13 @@ fi
 # would then point a registered plugin id at nothing: the shell finds no
 # manifest, loads no HUD, and says so nowhere. Checked rather than assumed,
 # because the failure is silent and the fix is one command.
-if [[ ! -f "$REPO/omarchy-cllpse-switcher/manifest.json" ]]; then
+if [[ ! -f "$REPO/omarchy-cllpse-plugin-switcher/manifest.json" ]]; then
   printf '\033[31m✗\033[0m %s\n' \
-    "omarchy-cllpse-switcher/ is empty — the window-switcher plugin is a submodule." >&2
+    "omarchy-cllpse-plugin-switcher/ is empty — the window-switcher plugin is a submodule." >&2
   printf '  %s\n' "Run: git -C \"$REPO\" submodule update --init --recursive" >&2
   exit 1
 fi
-ln -sfn "$REPO/omarchy-cllpse-switcher" ~/.config/omarchy/plugins/cllpse.window-switcher
+ln -sfn "$REPO/omarchy-cllpse-plugin-switcher" ~/.config/omarchy/plugins/cllpse.window-switcher
 
 
 }

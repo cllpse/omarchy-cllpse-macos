@@ -44,7 +44,7 @@ link "$OVERRIDES/hooks/post-update.d/cllpse-macos-repair.sh" \
      "$HOME/.config/omarchy/hooks/post-update.d/cllpse-macos-repair.sh"
 link "$REPO/omarchy-cllpse-theme/omarchy-cllpse-theme-dark"  "$HOME/.config/omarchy/themes/omarchy-cllpse-theme-dark"
 link "$REPO/omarchy-cllpse-theme/omarchy-cllpse-theme-light" "$HOME/.config/omarchy/themes/omarchy-cllpse-theme-light"
-link "$REPO/omarchy-cllpse-switcher"                          "$HOME/.config/omarchy/plugins/cllpse.window-switcher"
+link "$REPO/omarchy-cllpse-plugin-switcher"                          "$HOME/.config/omarchy/plugins/cllpse.window-switcher"
 
 # An update can also land a new Omarchy whose icons differ, so re-sync rather
 # than assuming ~/.icons/ is still current. Cheap: no ImageMagick for the SVGs.

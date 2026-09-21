@@ -36,7 +36,7 @@ git clone --recurse-submodules git@github.com:cllpse/omarchy-cllpse-macos.git
 git submodule update --init --recursive
 ```
 
-A plain clone leaves `omarchy-cllpse-switcher/` empty, and `apply.sh` stops with
+A plain clone leaves `omarchy-cllpse-plugin-switcher/` empty, and `apply.sh` stops with
 that instruction rather than symlinking a registered plugin id at nothing.
 
 `apply.sh` symlinks the two theme folders into `~/.config/omarchy/themes/` and
@@ -185,7 +185,7 @@ overrides/<name>/         one directory per override, each owning BOTH its scrip
 overrides/icons/          all 99 app/CLI marks: icons/icons/ repainted to the theme, icons/verbatim/ untouched.
                           AGENTS.md is how to add one, icons/README.md is what a
                           file must look like
-omarchy-cllpse-switcher/  SUBMODULE -> cllpse/omarchy-cllpse-plugin-switcher. The macOS-style
+omarchy-cllpse-plugin-switcher/  SUBMODULE -> cllpse/omarchy-cllpse-plugin-switcher. The macOS-style
                           window-switcher HUD plugin (id cllpse.window-switcher),
                           published to the Omarchy plugin marketplace on its own.
                           apply.sh symlinks it into ~/.config/omarchy/plugins/

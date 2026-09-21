@@ -229,7 +229,7 @@ script works the same whether you run it by hand or `apply.sh` calls it.
 | # | Action | Target |
 |---|---|---|
 | 0 | Record the font and theme the machine had *before* the first apply, so `revert.sh` has something true to restore. Written once; values already ours are refused | `~/.local/state/cllpse-macos/previous-{font,theme}` |
-| 1 | Symlink both `omarchy-cllpse-theme/` folders as themes, and `omarchy-cllpse-switcher/` as a plugin. All three are **submodules** ([dark](https://github.com/cllpse/omarchy-cllpse-theme-dark), [light](https://github.com/cllpse/omarchy-cllpse-theme-light), [switcher](https://github.com/cllpse/omarchy-cllpse-plugin-switcher)), so the step first refuses outright if any of those directories is empty — a plain `git clone` leaves it so, and symlinking a registered plugin id at nothing fails silently in the shell | `~/.config/omarchy/themes/omarchy-cllpse-theme-{dark,light}`, `~/.config/omarchy/plugins/cllpse.window-switcher` |
+| 1 | Symlink both `omarchy-cllpse-theme/` folders as themes, and `omarchy-cllpse-plugin-switcher/` as a plugin. All three are **submodules** ([dark](https://github.com/cllpse/omarchy-cllpse-theme-dark), [light](https://github.com/cllpse/omarchy-cllpse-theme-light), [switcher](https://github.com/cllpse/omarchy-cllpse-plugin-switcher)), so the step first refuses outright if any of those directories is empty — a plain `git clone` leaves it so, and symlinking a registered plugin id at nothing fails silently in the shell | `~/.config/omarchy/themes/omarchy-cllpse-theme-{dark,light}`, `~/.config/omarchy/plugins/cllpse.window-switcher` |
 | 2 | Install SF fonts + fontconfig drop-ins (UI font + hintnone)<br>**Per-override detail: [`fonts/`](fonts/README.md), [`fontconfig/`](fontconfig/README.md)** | `~/.local/share/fonts/SF/`, `~/.config/fontconfig/conf.d/{99-cllpse-macos-ui-font,11-cllpse-macos-hinting}.conf` |
 | 3 | Monospace → SF Mono (Omarchy's own knob) | `omarchy font set` → terminal configs + `fonts.conf` |
 | 4 | GTK/GNOME fonts → SF Pro / SF Mono | `gsettings org.gnome.desktop.interface` |
@@ -286,7 +286,7 @@ The blur `layer_rule` only opts the shell surfaces *into* blur; the matching
 translucency (`background-alpha`) is the theme's half —
 `omarchy-cllpse-theme/*/shell.*.toml`. Blur shows nothing until both are in place. The rule's
 namespace match also covers `omarchy-window-switcher-hud`, so the
-`omarchy-cllpse-switcher/` plugin (symlinked in step 1) blurs like the menu.
+`omarchy-cllpse-plugin-switcher/` plugin (symlinked in step 1) blurs like the menu.
 
 A second `layer_rule` re-enables Hyprland's layer fade (measured ~100ms) for the
 keyboard-driven panels — menu, clipboard, emojis, image-selector,

@@ -24,7 +24,7 @@ Check before trusting either:
 
 ```bash
 for f in overrides/icons/*/*.svg; do
-  cmp -s "$f" "omarchy-cllpse-switcher/icons/$(basename "$f")" \
+  cmp -s "$f" "omarchy-cllpse-plugin-switcher/icons/$(basename "$f")" \
     || echo "DRIFTED: $(basename "$f")"
 done
 ```
@@ -36,7 +36,7 @@ contract; copy it back here afterwards.
 
 Three consumers, keyed three different ways. Get the key wrong and the file is
 simply never found — nothing errors. Only the first is served from **this**
-directory; the other two read the **plugin's** `omarchy-cllpse-switcher/icons/`, so the example column
+directory; the other two read the **plugin's** `omarchy-cllpse-plugin-switcher/icons/`, so the example column
 says where each file actually lives.
 
 | consumer | key | example (and where it lives) |
@@ -54,7 +54,7 @@ cannot recolour anything, so it needs the repainted copies `app-icons.sh` writes
 out of `icons/`.
 
 **The full-colour marks are not in this repository any more.** They live in the
-switcher submodule, `omarchy-cllpse-switcher/icons/` — all 75 of them. The
+switcher submodule, `omarchy-cllpse-plugin-switcher/icons/` — all 75 of them. The
 plugin draws them directly, and `app-icons.sh` copies the same files verbatim
 into `~/.icons/cllpse-color/apps/` so the menu gets them too. `overrides/icons/
 color/` used to hold a second copy; it was deleted, because two copies of
@@ -119,7 +119,7 @@ python3 - <<'PY'
 import os, glob, re, subprocess, collections, shutil
 HOME = os.path.expanduser("~")
 override = {os.path.basename(p)[:-4]
-            for p in glob.glob("omarchy-cllpse-switcher/icons/*.svg")
+            for p in glob.glob("omarchy-cllpse-plugin-switcher/icons/*.svg")
                    + glob.glob("overrides/icons/icons/*.svg")}
 # Exactly the sweep Hud.qml's vendorScan runs, so "already covered" means the
 # same thing here as it does at runtime.
@@ -181,7 +181,7 @@ Two destinations, and they are in **different repositories** now.
 
 - **`icons/`, here** — a silhouette; the theme supplies the colour. Synced
   repainted to the theme `foreground`. Only ever about the menu.
-- **`omarchy-cllpse-switcher/icons/`, the submodule** — the mark only reads in
+- **`omarchy-cllpse-plugin-switcher/icons/`, the submodule** — the mark only reads in
   its own colours (`figma-desktop`, `claude-code`, `youtube-music`). Synced
   verbatim, and read directly by the plugin, so one file serves both surfaces.
 

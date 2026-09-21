@@ -1,4 +1,4 @@
-# omarchy-cllpse-switcher
+# omarchy-cllpse-plugin-switcher
 
 A macOS-style window switcher HUD for the Omarchy 4 (Quickshell) shell — hold
 `SUPER`, tap `TAB` / `SHIFT+TAB` to cycle a horizontal strip of open windows,

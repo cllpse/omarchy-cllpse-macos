@@ -7,7 +7,7 @@ file here simply keeps its own vendor icon, in full colour, unchanged.
 
 The other source is the same idea without the repaint — marks that only read in
 their own colours, copied verbatim — and it is **not in this repository**. It is
-`omarchy-cllpse-switcher/icons/`, the switcher submodule, which the plugin draws
+`omarchy-cllpse-plugin-switcher/icons/`, the switcher submodule, which the plugin draws
 from directly and `app-icons.sh` copies into `~/.icons/cllpse-color/apps/` for
 the menu. A name in either source takes that app over; do not put the same name
 in both.
