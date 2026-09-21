@@ -5,12 +5,13 @@ built against [`reference/BUILD.md`](reference/BUILD.md). Seeded from the stock
 **Last Horizon** theme.
 
 Two themes — Omarchy has no runtime light/dark toggle, each theme is one mode.
-Both live under `omarchy-cllpse-theme/`:
+Both are **their own repositories**, added here as submodules under
+`omarchy-cllpse-theme/` — each installs on its own with `omarchy theme install`:
 
 | Folder | Omarchy name | `mode` | Palette |
 |---|---|---|---|
-| `omarchy-cllpse-theme/omarchy-cllpse-theme-dark/`  | **omarchy-cllpse-theme-dark**  | `dark`  | BUILD.md §1 (macOS 27 `NSColor` → sRGB) |
-| `omarchy-cllpse-theme/omarchy-cllpse-theme-light/` | **omarchy-cllpse-theme-light** | `light` | BUILD.md §2 |
+| [`omarchy-cllpse-theme-dark`](https://github.com/cllpse/omarchy-cllpse-theme-dark)  | **omarchy-cllpse-theme-dark**  | `dark`  | BUILD.md §1 (macOS 27 `NSColor` → sRGB) |
+| [`omarchy-cllpse-theme-light`](https://github.com/cllpse/omarchy-cllpse-theme-light) | **omarchy-cllpse-theme-light** | `light` | BUILD.md §2 |
 
 ## Before you run this
 
@@ -24,8 +25,8 @@ sudo (keyd, the Chromium managed policy, those power limits, and the Btrfs
 compression level in `/etc/fstab`) and everything else is user-level. Six things to settle first; everything after
 them can be handed to an agent.
 
-**1. Clone it where it will live — with submodules.** The window-switcher plugin
-is a submodule ([cllpse/omarchy-window-switcher](https://github.com/cllpse/omarchy-window-switcher)),
+**1. Clone it where it will live — with submodules.** The two themes and the
+window-switcher plugin are each their own repository, added here as submodules,
 because it is published to the Omarchy plugin marketplace as a repository of its
 own:
 
@@ -131,6 +132,17 @@ apps and `prefers-color-scheme` in Chromium/Electron).
 
 ## Per-theme contents
 
+Either can be installed without this repo:
+
+```bash
+omarchy theme install https://github.com/cllpse/omarchy-cllpse-theme-dark
+```
+
+Omarchy strips a leading `omarchy-` from the name, so that lands as
+**`cllpse-theme-dark`**. What arrives is colours, shell surfaces, icon theme,
+Chromium frame and wallpapers — not the macOS window decoration, which Omarchy
+will not stage from an installed theme and which lives in `overrides/` here.
+
 Each `omarchy-cllpse-theme/omarchy-cllpse-theme-{dark,light}/` folder is a
 self-contained Omarchy theme:
 
@@ -164,7 +176,7 @@ system (GTK) theme and grayscale.
 ## Layout
 
 ```
-omarchy-cllpse-theme/     the two themes (above), as omarchy-cllpse-theme-{dark,light}/
+omarchy-cllpse-theme/     the two themes, each a SUBMODULE — their own repos, installable on their own
 overrides/                everything that lives outside a theme folder + apply.sh / revert.sh / lib.sh
 overrides/<name>/         one directory per override, each owning BOTH its script and its docs:
                           <name>.sh (runnable on its own) and README.md (why). apply.sh is an
