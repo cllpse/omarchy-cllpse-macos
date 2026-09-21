@@ -54,7 +54,7 @@ QEMU, RetroArch, YouTube/Zoom web apps; browsers set their own `1.0 0.985`), and
 only then is `opacity = "0.985 0.96"` applied to whatever still carries it.
 **Match the tag, never `.*`** — a blanket match silently overrides every one of
 those deliberate exclusions and dims colour-critical and video windows.
-Figma Desktop isn't in Omarchy's own list, so `overrides/hypr/looknfeel-decoration.lua`
+Figma Desktop isn't in Omarchy's own list, so `omarchy-cllpse-theme-*/hyprland.lua`
 adds it: `.*[Ff]igma.*` against the class (the live class is lowercase
 `figma-desktop`), untagged and pinned to `1 1`, same idiom as
 `davinci-resolve.lua`.
@@ -539,7 +539,7 @@ snapping while notifications/OSD/polkit/reminders (never opted out) faded.
 
 **Layer rules accumulate and the last match wins**, and user hypr files load
 after the defaults, so `no_anim = false, animation = "fade"` in
-`overrides/hypr/looknfeel-decoration.lua` re-enables it without touching
+`omarchy-cllpse-theme-*/hyprland.lua` re-enables it without touching
 Omarchy's file. Verified by burst-screenshotting the menu's scrim as it opens:
 one hard step before, a ~130ms ramp after. Two limits worth knowing: the
 compositor **cannot fade a scrim separately from its card** (they are one layer
@@ -1782,7 +1782,7 @@ outlier before the scene settled.
   radius there is close to invisible; `background-alpha` is the stronger lever.
   Taken to its conclusion: every `shell.*.toml` here now ships
   `background-alpha = 1.0`, so the `hl.layer_rule { blur = true }` in
-  `overrides/hypr/looknfeel-decoration.lua` is **entirely inert** — the only
+  `omarchy-cllpse-theme-*/hyprland.lua` is **entirely inert** — the only
   thing `decoration.blur` still reaches is the unfocused window at 0.875. The
   rule is kept because it is the whole cost of re-enabling glass later; the
   number to watch when doing that is its `ignore_alpha = 0.6`, which splits

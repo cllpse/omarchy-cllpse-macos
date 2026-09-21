@@ -364,7 +364,7 @@ plugin-side theming. Under **omarchy-cllpse-theme** that means:
   in the menu the icon sits inline beside a label, here it is the primary
   element of a card, like a macOS Cmd-Tab tile;
 - blur comes from the `hl.layer_rule` in
-  `overrides/hypr/looknfeel-decoration.lua`, whose namespace match includes
+  `omarchy-cllpse-theme-*/hyprland.lua`, whose namespace match includes
   `window-switcher-hud` so the HUD blurs exactly like the Omarchy menu.
 
 ### Icons
@@ -654,7 +654,7 @@ Worth knowing about `glyphFor`, which is still the default for every tile:
     — a literal alternation a third-party namespace cannot join, so the HUD
     faded while the menu snapped, and that mismatch was the original complaint.
     It was first fixed by opting the switcher out too. It is now fixed the other
-    way: `overrides/hypr/looknfeel-decoration.lua` re-enables the fade for the
+    way: `omarchy-cllpse-theme-*/hyprland.lua` re-enables the fade for the
     whole panel family *and* the switcher, so they match and are consistent with
     notifications / OSD / polkit, which were never opted out and always faded.
     A later layer rule wins over an earlier one, so this needs no edit to

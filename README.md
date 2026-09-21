@@ -139,6 +139,7 @@ self-contained Omarchy theme:
 | `colors.toml` | The palette + `mode`. Drives every generated config, including the shell bar/menus/notifications. |
 | `shell.{bar,menu,launcher,notifications}.toml` | Per-section overrides spliced into the generated `shell.toml` — surface `background-alpha` (BUILD.md §6) for the blur set up in `overrides/`. |
 | `icons.theme` | dark → `Yaru-dark`, light → `Yaru-blue`. Fed to `gsettings icon-theme` by `omarchy-theme-set-gnome`. |
+| `hyprland.lua` | **Window and shell decoration** — rounding 18, `rounding_power` 2.05, borders, gaps, blur, window opacity, the shell-surface `layer_rule`s and every animation. Loaded from the active theme by `default/hypr/omarchy.lua`, so it applies on `omarchy theme set` with no relogin. The two themes carry **identical, deliberately duplicated** copies: they are meant to stand alone. **Only while the theme is symlinked from a local checkout** — Omarchy refuses to stage `.lua` from a theme installed by git URL, since it runs in the compositor. |
 | `backgrounds/` | Wallpapers — macOS stock (Big Sur → Sequoia) plus macOS-styled community art; 29 dark / 31 light, **all lossless WebP**. Converted from PNG/JPG/HEIC with pixel-identical output (verified per file), which cut the set from 302 MB to 271 MB and made the six former `.heic` files usable — Omarchy's picker enumerates `jpg/jpeg/png/gif/bmp/webp` and never saw them. The `00-` prefix on `00-umeda_wallpaper_desktop*.webp` is what makes it each theme's default: Omarchy has no default-background key and simply takes the sort-first file when switching into a theme. |
 | `unlock.png`, `preview-unlock.png` | Boot-splash (Plymouth) / SDDM login-screen logo, and its `omarchy plymouth switcher` picker thumbnail — a fixed multi-colour "OMARCHY" wordmark, hand-tuned per theme (close but not pixel-identical between dark/light). Applied separately from `omarchy theme set`: `omarchy plymouth set by theme <name>` (needs sudo). |
 | `unlock.svg` | Vector source for `unlock.png` — not read by Omarchy itself (Plymouth/SDDM only take the PNG), kept for editing/rescaling. Exact rect-per-pixel trace, not a smoothed vectorisation — see below. Regenerate after editing `unlock.png`; it does not stay in sync on its own. |
@@ -207,7 +208,7 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
 - **Window rounding/gaps/borders/blur** (BUILD.md §5) belong in `~/.config/hypr/`,
   not a theme (v4 strips `.lua` from git-cloned themes; `rounding` has no
   `colors.toml` key). `overrides/apply.sh` syncs a fenced block into
-  `~/.config/hypr/looknfeel.lua` (`overrides/hypr/looknfeel-decoration.lua`)
+  the active theme's `hyprland.lua`
   setting `decoration.rounding = 18` — above the BUILD.md §5 fallback of 12
   (26 is faithful but dramatic on tiled windows); this radius drives the shell
   surface corners too. `decoration.rounding_power = 2.05` (a hair off a circular
@@ -221,7 +222,7 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   stock speed by 3 for 3× faster animations, floored at 1 so the fastest leaves
   don't read as a hard cut. It sets no border *colour*: both borders come from
   the active theme's `colors.toml` via the generated `hyprland.lua`.
-  `looknfeel-decoration.lua` also carries an `hl.layer_rule` opting the Omarchy
+  the themes' `hyprland.lua` also carries an `hl.layer_rule` opting the Omarchy
   shell surfaces (`omarchy-bar|menu|notifications|osd|polkit|clipboard|emojis|`
   `reminders|image-selector|network-qr|keyboard-panel|lock-preview`) plus our own
   `omarchy-window-switcher-hud` into that blur — `blur_popups` on,
@@ -319,7 +320,7 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   — kept deliberately, and it is the most expensive thing on this desktop.**
   Omarchy's `windows.lua` tags every window `+default-opacity`, lets the per-app
   files strip that tag, then applies `0.985 0.96` to whatever still carries it.
-  `looknfeel-decoration.lua` repeats that *same tag match* later in load order and
+  the themes' `hyprland.lua` repeats that *same tag match* after `default.hypr.windows` (omarchy.lua requires the theme at line 22, windows at 19) and
   sets `0.99 0.875` — focused isn't fully opaque either, so it reads as the same
   glass material rather than a flat cutout next to the more translucent unfocused
   windows. That last 1% is not free, and the number is recorded so the choice
@@ -337,13 +338,13 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   Steam, QEMU, RetroArch, YouTube/Zoom web apps — and gives browsers their own
   `1.0 0.985`, which the tag match above therefore never touches. Left as-is,
   Chromium/Firefox windows would stay effectively opaque when unfocused (98.5%)
-  with no blur reading through, so `looknfeel-decoration.lua` re-matches
+  with no blur reading through, so the themes' `hyprland.lua` re-matches
   `chromium-based-browser` / `firefox-based-browser` directly (after
   `browser.lua` has run) and pins those to `0.99 0.875` too — same glass as
   everywhere else. The YouTube/Zoom exclusion still holds: `browser.lua` strips
   the browser tag from those windows before this runs.
   Figma Desktop isn't one of Omarchy's stock colour-critical exclusions, so
-  `looknfeel-decoration.lua` adds its own: `.*[Ff]igma.*` matched loosely
+  the themes' `hyprland.lua` adds its own: `.*[Ff]igma.*` matched loosely
   against the class (the live window class is the lowercase `figma-desktop`,
   not the `Figma` the AppImage's own `.desktop` declares as `StartupWMClass`),
   untagged and
