@@ -20,5 +20,11 @@ else
   skip "no icons/fallbacks/ — the repainted half has nothing to sync"
 fi
 "$HERE/hooks/theme-set.d/app-icons.sh" || skip "app-icons.sh produced nothing this run"
-(( _n == 0 )) && skip "icons/fallbacks/ is empty — every app keeps its vendor icon"
+# An `if`, not `(( … )) && skip`. As the LAST command in this script that idiom
+# leaks its own false test as the script's exit status, and apply.sh runs under
+# `set -e` -- so a perfectly normal run with icons present aborted the whole
+# apply at this step. It was harmless while 20 more steps followed it.
+if (( _n == 0 )); then
+  skip "icons/fallbacks/ is empty — every app keeps its vendor icon"
+fi
 
