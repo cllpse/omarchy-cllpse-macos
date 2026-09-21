@@ -37,7 +37,7 @@ the run prints the batch in execution order before it writes anything. One flat 
 express this: "run everything" has to win over anything ticked beside it,
 so as a checkbox it either short-circuits the rest or is itself ignored.
 
-**Look and feel only** is the 22-step subset that changes how the desktop
+**Look and feel only** is the 21-step subset that changes how the desktop
 *looks*: fonts and hinting, the theme, Hyprland's decoration (rounding, borders,
 blur), the bar, the menu's app icons, and the per-app theming that makes
 terminal tools follow the palette. `hypr` is in as a whole, since the fenced
@@ -49,6 +49,13 @@ also `display`, a hardware preference that can resize everything on screen, and
 and the device scale factor. The set is named explicitly in `apply.sh` and validated
 against `STEPS` at startup, so a typo in it fails loudly instead of quietly
 dropping a step. `--look` is the same set without the prompt.
+
+`hypr-reload` is not in the checklist and is not yours to pick: it is how a
+partial run *lands*. A full run already has it in canonical order; a partial one
+would otherwise leave the decoration, binds and input tuning sitting in the
+config unread. It is appended to any partial selection — including named ids on
+the command line — and still runs in its canonical position, last, rather than
+where it was added.
 
 Ticking anything in that checklist also runs `state`, which records what the
 machine had before — only useful if it happens on the first run that changes

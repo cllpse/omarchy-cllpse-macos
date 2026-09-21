@@ -373,7 +373,7 @@ LOOKNFEEL=(
   fonts fontconfig monospace gtk-fonts hinting ghostty gtk-buttons
   hypr
   bat lazygit lsd yazi lazydocker gh-dash starship cursor hunk ytm
-  icons omarchy theme hypr-reload
+  icons omarchy theme
 )
 # state rides along for the same reason it does with a ticked selection:
 # revert.sh needs what the machine had before, recorded on the first run that
@@ -415,7 +415,7 @@ STEPS=(
   "omarchy||Omarchy shell.json|run:omarchy|symlinks"
   "theme||Apply the theme|fn:step_theme|symlinks"
   "keyd|sudo|keyd: Figma modifier remap (sudo)|run:keyd|hypr"
-  "hypr-reload||hyprctl reload|fn:step_hypr_reload|"
+  "hypr-reload|auto|hyprctl reload|fn:step_hypr_reload|"
   "chromium-policy|sudo|Chromium managed policy (sudo)|run:chromium policy|"
   "ryzen|sudo|CPU power limits (sudo)|run:ryzen|"
   "btrfs|sudo|Btrfs compression level (sudo)|fn:step_btrfs|"
@@ -521,7 +521,7 @@ choose_steps() {
   local menu=() s id note label
   for s in "${STEPS[@]}"; do
     IFS='|' read -r id note label _ _ <<<"$s"
-    [[ $note == optin ]] && continue
+    [[ $note == optin || $note == auto ]] && continue
     menu+=("$(printf '%-18s %s%s' "$id" "$label" "${note:+  ($note)}")")
   done
 
@@ -619,6 +619,16 @@ _dedupe() {
   done
   SELECTED=("${seen[@]}")
 }
+# hypr-reload is not something to choose -- it is how a partial run LANDS.
+# A full run already has it in canonical order; a partial one would otherwise
+# leave the decoration, binds and input tuning sitting in the config unread.
+# Appended after selection so it is never ticked, never forgotten, and still
+# runs in its canonical position (last, after keyd) rather than where it was
+# added.
+if (( ${#SELECTED[@]} )) && (( ${#SELECTED[@]} != ${#STEPS[@]} )); then
+  SELECTED+=(hypr-reload)
+fi
+
 _dedupe
 _expand_needs
 _dedupe
