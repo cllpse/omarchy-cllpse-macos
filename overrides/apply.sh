@@ -4,6 +4,7 @@
 #
 #   apply.sh            pick what to run; everything when there is no terminal
 #   apply.sh --all      everything, no prompt
+#   apply.sh --look     only the steps that change how it looks
 #   apply.sh <id>...    only these, always in the order below
 #   apply.sh --list     every id, and which four need sudo
 #
@@ -349,7 +350,30 @@ echo "        omarchy plymouth set by theme omarchy-cllpse-theme-dark   # or -li
 
 }
 
-# id|sudo|label|action — execution order, and the menu's order.
+# The look-and-feel subset: the steps that change how the desktop LOOKS.
+# Named explicitly rather than inferred from a label, so it can be audited --
+# and validated against STEPS at startup, because a typo here would silently
+# drop a step from the set rather than fail.
+#
+# In: fonts and their hinting, the theme itself, Hyprland's decoration (the
+# rounding, borders and blur), the bar, the menu's app icons, text size, and the
+# per-app theming that makes terminal tools follow the palette.
+#
+# Out: anything not about appearance -- keyboard layout (xkb), shell aliases
+# (bash, git), session env, the Figma launcher entry, the repair hook, input
+# remapping (keyd), and everything needing sudo or the network.
+LOOKNFEEL=(
+  fonts fontconfig monospace gtk-fonts hinting ghostty gtk-buttons
+  hypr display
+  bat lazygit lsd yazi lazydocker gh-dash starship cursor hunk ytm
+  icons omarchy theme hypr-reload chromium-user
+)
+# state rides along for the same reason it does with a ticked selection:
+# revert.sh needs what the machine had before, recorded on the first run that
+# changes anything.
+_look_ids() { printf '%s\n' state "${LOOKNFEEL[@]}"; }
+
+# id|note|label|action|needs — execution order, and the menu's order.
 STEPS=(
   "figma|optin|Install or update Figma Desktop (network, opt-in)|run:figma --no-apply|applications"
   "state||Record the pre-existing font and theme, for revert.sh|fn:step_state|"
@@ -403,12 +427,20 @@ _ids()   { printf '%s\n' "${STEPS[@]}" | cut -d'|' -f1; }
 # it in --all would recurse.
 _auto_ids() { printf '%s\n' "${STEPS[@]}" | awk -F'|' '$2!="optin"{print $1}'; }
 
+_validate_look() {
+  local id bad=()
+  for id in "${LOOKNFEEL[@]}"; do _ids | grep -qxF -- "$id" || bad+=("$id"); done
+  (( ${#bad[@]} == 0 )) || { printf 'apply.sh: LOOKNFEEL names unknown step(s): %s\n' "${bad[*]}" >&2; exit 3; }
+}
+_validate_look
+
 usage() {
   cat <<EOF
 Apply the cllpse-macos theme + the system overrides it needs. Idempotent.
 
   apply.sh                 pick what to run (everything, if there is no terminal)
   apply.sh --all           run everything, no prompt
+  apply.sh --look          only the look-and-feel steps
   apply.sh <id> [<id>…]    run only these, in the canonical order
   apply.sh --list          show every id
   apply.sh --help          this
@@ -457,18 +489,20 @@ _load_gum_theme() {
 # string matching on what the user saw.
 choose_steps() {
   _load_gum_theme
+  local LOOK="Look and feel only (fonts, theme, decoration)"
   local EVERY="Run everything" FIGMA="Install or update Figma Desktop" PICK="Choose specific steps…"
   local top
 
   if command -v gum >/dev/null 2>&1; then
-    top=$(gum choose --header "What would you like to do?" "$EVERY" "$FIGMA" "$PICK" || true)
+    top=$(gum choose --header "What would you like to do?" "$LOOK" "$EVERY" "$FIGMA" "$PICK" || true)
   else
-    printf '  1) %s\n  2) %s\n  3) %s\n' "$EVERY" "$FIGMA" "$PICK" >&2
+    printf '  1) %s\n  2) %s\n  3) %s\n  4) %s\n' "$LOOK" "$EVERY" "$FIGMA" "$PICK" >&2
     local n; read -rp "> " n || true
-    case "$n" in 1) top="$EVERY" ;; 2) top="$FIGMA" ;; 3) top="$PICK" ;; *) top="" ;; esac
+    case "$n" in 1) top="$LOOK" ;; 2) top="$EVERY" ;; 3) top="$FIGMA" ;; 4) top="$PICK" ;; *) top="" ;; esac
   fi
 
   case "$top" in
+    "$LOOK")  _look_ids; return 0 ;;
     "$EVERY") _auto_ids; return 0 ;;
     "$FIGMA") printf 'figma\n'; return 0 ;;
     "$PICK")  ;;
@@ -515,6 +549,7 @@ case "${1:-}" in
   -h|--help) usage; exit 0 ;;
   -l|--list) list_steps; exit 0 ;;
   -a|--all)  mapfile -t SELECTED < <(_auto_ids) ;;
+  --look)    mapfile -t SELECTED < <(_look_ids) ;;
   "")
     if [[ -t 0 && -t 1 ]]; then
       mapfile -t SELECTED < <(choose_steps)

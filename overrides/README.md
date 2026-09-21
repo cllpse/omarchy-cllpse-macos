@@ -18,6 +18,7 @@ themselves when they get there. `lib.sh` refuses outright if `EUID` is 0.
 ```bash
 ./apply.sh                  # pick what to run, or everything if there is no terminal
 ./apply.sh --all            # everything, no prompt
+./apply.sh --look           # only the steps that change how the desktop looks
 ./apply.sh cursor icons     # only these, still in the canonical order
 ./apply.sh --list           # every id, and which four need sudo
 ./revert.sh                 # undo everything, restoring what the machine had before
@@ -26,12 +27,22 @@ themselves when they get there. `lib.sh` refuses outright if `EUID` is 0.
 
 **Selection is by step, not by folder** — the inline steps (gsettings, the theme
 apply, `hyprctl reload`, Btrfs) are selectable too, so `--all` is exactly the
-old behaviour. Picking is two stages. The first is a single choice — **Run everything**,
-**Install or update Figma Desktop**, or **Choose specific steps…** — so
+old behaviour. Picking is two stages. The first is a single choice — **Look and feel only**,
+**Run everything**, **Install or update Figma Desktop**, or **Choose specific
+steps…** — so
 Enter acts on whatever is highlighted, no Space needed. Only the third
 opens the checklist, where Space ticks and Enter runs. One flat list cannot
 express this: "run everything" has to win over anything ticked beside it,
 so as a checkbox it either short-circuits the rest or is itself ignored.
+
+**Look and feel only** is the 25-step subset that changes how the desktop
+*looks*: fonts and hinting, the theme, Hyprland's decoration (rounding, borders,
+blur), the bar, the menu's app icons, text size, and the per-app theming that
+makes terminal tools follow the palette. It leaves out keyboard layout, shell
+aliases, session env, the repair hook, input remapping, and everything needing
+sudo or the network. The set is named explicitly in `apply.sh` and validated
+against `STEPS` at startup, so a typo in it fails loudly instead of quietly
+dropping a step. `--look` is the same set without the prompt.
 
 Ticking anything in that checklist also runs `state`, which records what the
 machine had before — only useful if it happens on the first run that changes
