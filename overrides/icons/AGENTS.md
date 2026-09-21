@@ -11,6 +11,27 @@ pass over either. Everything below applies to
 marks you are **adding**; a sweep that "fixes" the existing set is how `hunk`
 lost its background box once already.
 
+## Keeping the two repos in step
+
+Both this repo and the plugin carry all 99 marks, and nothing enforces that they
+match — the de-duplication that once made the plugin the single source was
+deliberately undone when both were asked to be complete. So a mark added or
+refitted in one silently diverges from the other. It happened the day the split
+was made: seven files differed within minutes, because the plugin's copies were
+fitted to the `viewBox` contract and this repo's were not.
+
+Check before trusting either:
+
+```bash
+for f in overrides/icons/*/*.svg; do
+  cmp -s "$f" "omarchy-cllpse-switcher/icons/$(basename "$f")" \
+    || echo "DRIFTED: $(basename "$f")"
+done
+```
+
+Silence means the two are identical. The plugin's copy is the one to fit to the
+contract; copy it back here afterwards.
+
 ## Who consumes these
 
 Three consumers, keyed three different ways. Get the key wrong and the file is
