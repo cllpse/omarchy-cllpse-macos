@@ -26,9 +26,17 @@ themselves when they get there. `lib.sh` refuses outright if `EUID` is 0.
 
 **Selection is by step, not by folder** — the inline steps (gsettings, the theme
 apply, `hyprctl reload`, Btrfs) are selectable too, so `--all` is exactly the
-old behaviour. Picking is a `gum` menu with **Everything** as its first entry, pre-marked —
-press Enter and it runs the lot; Space toggles individual steps. It falls
-back to a numbered prompt where gum is absent.
+old behaviour. Picking is two stages. The first is a single choice — **Run everything**,
+**Install or update Figma Desktop**, or **Choose specific steps…** — so
+Enter acts on whatever is highlighted, no Space needed. Only the third
+opens the checklist, where Space ticks and Enter runs. One flat list cannot
+express this: "run everything" has to win over anything ticked beside it,
+so as a checkbox it either short-circuits the rest or is itself ignored.
+
+Ticking anything in that checklist also runs `state`, which records what the
+machine had before — only useful if it happens on the first run that changes
+something, so it rides along rather than being yours to remember. A numbered
+prompt stands in where gum is absent.
 
 The menu re-reads the active theme's `gum_env.lua` before it draws. Omarchy
 exports those `GUM_*` colours through `hl.env` at **session start**, so they are

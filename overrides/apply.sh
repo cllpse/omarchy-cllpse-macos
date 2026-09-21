@@ -445,42 +445,69 @@ _load_gum_theme() {
   done < <(sed -n 's/^[[:space:]]*hl\.env("\([A-Z_0-9]*\)",[[:space:]]*"\([^"]*\)").*/\1=\2/p' "$f")
 }
 
-# Menu. gum is Omarchy's own picker and is themed with the desktop; fall back to
-# a numbered prompt so this still works on a box without it.
+# Menu, in two stages.
+#
+# Stage one is a SINGLE choice, so Enter acts on whatever is highlighted with no
+# Space needed. Stage two is the multi-select, reached only by asking for it.
+# One flat list cannot express this: "run everything" has to win over anything
+# else ticked beside it, so as a checkbox it either short-circuits the rest or
+# is itself ignored.
+#
+# Both stages emit STEP IDS on stdout, never labels, so the caller does no
+# string matching on what the user saw.
 choose_steps() {
   _load_gum_theme
-  local all="Everything ($(_auto_ids | wc -l) steps)" menu=() s id sudo label
+  local EVERY="Run everything" FIGMA="Install or update Figma Desktop" PICK="Choose specific steps…"
+  local top
+
+  if command -v gum >/dev/null 2>&1; then
+    top=$(gum choose --header "What would you like to do?" "$EVERY" "$FIGMA" "$PICK" || true)
+  else
+    printf '  1) %s\n  2) %s\n  3) %s\n' "$EVERY" "$FIGMA" "$PICK" >&2
+    local n; read -rp "> " n || true
+    case "$n" in 1) top="$EVERY" ;; 2) top="$FIGMA" ;; 3) top="$PICK" ;; *) top="" ;; esac
+  fi
+
+  case "$top" in
+    "$EVERY") _auto_ids; return 0 ;;
+    "$FIGMA") printf 'figma\n'; return 0 ;;
+    "$PICK")  ;;
+    *)        return 0 ;;   # cancelled
+  esac
+
+  # Stage two: tick as many as you like. The list is everything --all would run;
+  # figma is not in it, having had its own entry above.
+  local menu=() s id note label
   for s in "${STEPS[@]}"; do
-    IFS='|' read -r id sudo label _ needs <<<"$s"
-    menu+=("$(printf '%-18s %s%s' "$id" "$label" "${sudo:+  (sudo)}")")
+    IFS='|' read -r id note label _ _ <<<"$s"
+    [[ $note == optin ]] && continue
+    menu+=("$(printf '%-18s %s%s' "$id" "$label" "${note:+  ($note)}")")
   done
+
   local picked=()
   if command -v gum >/dev/null 2>&1; then
-    # --selected pre-marks Everything, so Enter on its own runs the lot. Without
-    # it, --no-limit returns NOTHING unless you press Space first: Enter confirms
-    # marked items, and the highlighted one is not marked. That reads as
-    # "Everything did nothing".
-    mapfile -t picked < <(gum choose --no-limit --height 20 --selected "$all" \
-      --header "Space toggles, Enter runs. Order is fixed regardless of what you pick." \
-      "$all" "${menu[@]}" || true)
+    mapfile -t picked < <(gum choose --no-limit --height 20 \
+      --header "Space ticks, Enter runs. Order is fixed regardless of what you tick." \
+      "${menu[@]}" || true)
   else
-    echo "Pick steps by number, space-separated. Empty = everything." >&2
-    local i=1; printf '  %2d) %s\n' 0 "$all" >&2
+    local i=1 m
     for m in "${menu[@]}"; do printf '  %2d) %s\n' "$i" "$m" >&2; i=$((i+1)); done
-    local reply; read -rp "> " reply || true
-    [[ -z ${reply// } ]] && { printf '%s\n' "$all"; return; }
+    local reply; read -rp "numbers, space-separated > " reply || true
     for n in $reply; do
-      [[ $n == 0 ]] && { printf '%s\n' "$all"; return; }
-      [[ $n =~ ^[0-9]+$ ]] && (( n >= 1 && n <= ${#menu[@]} )) && printf '%s\n' "${menu[$((n-1))]}"
+      [[ $n =~ ^[0-9]+$ ]] && (( n >= 1 && n <= ${#menu[@]} )) && picked+=("${menu[$((n-1))]}")
     done
-    return
   fi
-  # Guard the expansion: `printf '%s\n' "${empty[@]}"` still prints one newline,
-  # which mapfile reads back as a single empty element. That sails past the
-  # is-it-empty test, fails the Everything match, and ends up as an id matching
-  # no step -- "ran 0 of 37 steps" with nothing selected at all.
-  (( ${#picked[@]} )) && printf '%s\n' "${picked[@]}"
-  return 0
+
+  (( ${#picked[@]} )) || return 0
+  local p
+  for p in "${picked[@]}"; do
+    [[ -n ${p// } ]] || continue
+    printf '%s\n' "${p%% *}"
+  done
+  # Recording what the machine had BEFORE is only useful if it happens on the
+  # first run that changes anything, so it rides along with any selection rather
+  # than being something you have to remember to tick.
+  printf 'state\n'
 }
 
 SELECTED=()
@@ -490,16 +517,8 @@ case "${1:-}" in
   -a|--all)  mapfile -t SELECTED < <(_auto_ids) ;;
   "")
     if [[ -t 0 && -t 1 ]]; then
-      mapfile -t _picked < <(choose_steps)
-      (( ${#_picked[@]} )) || { say "nothing selected — nothing to do"; exit 0; }
-      if [[ ${_picked[0]} == Everything* ]]; then
-        mapfile -t SELECTED < <(_auto_ids)
-      else
-        for p in "${_picked[@]}"; do
-          [[ -n ${p// } ]] || continue
-          SELECTED+=("${p%% *}")
-        done
-      fi
+      mapfile -t SELECTED < <(choose_steps)
+      (( ${#SELECTED[@]} )) || { say "nothing selected — nothing to do"; exit 0; }
     else
       mapfile -t SELECTED < <(_auto_ids)
     fi
@@ -543,7 +562,21 @@ _expand_needs() {
   # bare call under `set -e` would make that the script's fate.
   return 0
 }
+# Dedupe before expanding. The menu appends `state` unconditionally and you may
+# also have ticked it; `apply.sh bat bat` is the same shape. The run loop is
+# membership-based so duplicates were harmless, but they made the selection
+# misleading to read.
+_dedupe() {
+  local seen=() x y dup
+  for x in "${SELECTED[@]}"; do
+    dup=0; for y in "${seen[@]}"; do [[ $x == "$y" ]] && { dup=1; break; }; done
+    (( dup )) || seen+=("$x")
+  done
+  SELECTED=("${seen[@]}")
+}
+_dedupe
 _expand_needs
+_dedupe
 
 # ── run ──────────────────────────────────────────────────────────────────────
 # Always in STEPS order, never the order they were picked in: several steps only
