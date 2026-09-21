@@ -356,17 +356,24 @@ echo "        omarchy plymouth set by theme omarchy-cllpse-theme-dark   # or -li
 # drop a step from the set rather than fail.
 #
 # In: fonts and their hinting, the theme itself, Hyprland's decoration (the
-# rounding, borders and blur), the bar, the menu's app icons, text size, and the
-# per-app theming that makes terminal tools follow the palette.
+# rounding, borders and blur), the bar, the menu's app icons, and the per-app
+# theming that makes terminal tools follow the palette.
+#
+# `hypr` is in as a whole even though the same fenced snippets also carry
+# keybinds, the allowlist and mouse tuning: the decoration cannot be taken
+# without them.
 #
 # Out: anything not about appearance -- keyboard layout (xkb), shell aliases
 # (bash, git), session env, the Figma launcher entry, the repair hook, input
-# remapping (keyd), and everything needing sudo or the network.
+# remapping (keyd), and everything needing sudo or the network. Also out, and
+# deliberately: `display`, which is a hardware preference rather than a theme
+# and can resize everything on screen; and `chromium-user`, whose neutral UI is
+# appearance but which also sets page zoom and the device scale factor.
 LOOKNFEEL=(
   fonts fontconfig monospace gtk-fonts hinting ghostty gtk-buttons
-  hypr display
+  hypr
   bat lazygit lsd yazi lazydocker gh-dash starship cursor hunk ytm
-  icons omarchy theme hypr-reload chromium-user
+  icons omarchy theme hypr-reload
 )
 # state rides along for the same reason it does with a ticked selection:
 # revert.sh needs what the machine had before, recorded on the first run that

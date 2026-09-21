@@ -35,12 +35,16 @@ opens the checklist, where Space ticks and Enter runs. One flat list cannot
 express this: "run everything" has to win over anything ticked beside it,
 so as a checkbox it either short-circuits the rest or is itself ignored.
 
-**Look and feel only** is the 25-step subset that changes how the desktop
+**Look and feel only** is the 22-step subset that changes how the desktop
 *looks*: fonts and hinting, the theme, Hyprland's decoration (rounding, borders,
-blur), the bar, the menu's app icons, text size, and the per-app theming that
-makes terminal tools follow the palette. It leaves out keyboard layout, shell
-aliases, session env, the repair hook, input remapping, and everything needing
-sudo or the network. The set is named explicitly in `apply.sh` and validated
+blur), the bar, the menu's app icons, and the per-app theming that makes
+terminal tools follow the palette. `hypr` is in as a whole, since the fenced
+snippets carrying the decoration also carry the keybinds — you cannot take one
+without the other. It leaves out keyboard layout, shell aliases, session env,
+the repair hook, input remapping, and everything needing sudo or the network;
+also `display`, a hardware preference that can resize everything on screen, and
+`chromium-user`, whose neutral UI is appearance but which also sets page zoom
+and the device scale factor. The set is named explicitly in `apply.sh` and validated
 against `STEPS` at startup, so a typo in it fails loudly instead of quietly
 dropping a step. `--look` is the same set without the prompt.
 
