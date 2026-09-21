@@ -265,10 +265,12 @@ hl.config({
 --
 -- READ THIS FIRST: as the themes ship today, this whole rule is INERT.
 --
--- Every surface it names is opaque. shell.bar.toml, shell.menu.toml,
--- shell.launcher.toml and shell.notifications.toml all set background-alpha =
--- 1.0, and an opaque pixel has nothing to blur through; the two scrims are at
--- 0.25, under the ignore_alpha below, so they render sharp by design. Nothing
+-- Every surface it names is opaque. shell.bar.toml, shell.menu.toml and
+-- shell.notifications.toml all set background-alpha = 1.0, and an opaque pixel
+-- has nothing to blur through; the two scrims are at 0.25, under the
+-- ignore_alpha below, so they render sharp by design. (shell.launcher.toml sets
+-- 1.0 too, but it is not why anything here is inert: nothing reads launcher.* on
+-- 4.0.2 -- the launcher IS omarchy-menu, so `menu` above already covers it.) Nothing
 -- here is currently reaching the screen. It is kept, rather than deleted,
 -- because it is the entire cost of re-enabling glass: drop one alpha in a
 -- theme and that surface frosts again with no compositor-side change.
@@ -279,16 +281,18 @@ hl.config({
 --
 -- ignore_alpha leaves any pixel below that alpha unblurred. It started at 0.1,
 -- purely to keep the fully-transparent margin around rounded cards (menu,
--- launcher, polkit, notifications are fullscreen layers with a centred card)
--- from blurring into a rectangle.
+-- polkit, notifications are fullscreen layers with a centred card) from
+-- blurring into a rectangle.  The launcher is not a fourth: SUPER+SPACE is the
+-- menu plugin on the omarchy-menu namespace.
 --
 -- It is 0.6 because a card and the scrim behind it are the SAME layer surface,
 -- so Hyprland cannot blur them differently -- per layer the only controls are
 -- blur on/off and this threshold. 0.6 sits between the two, so a translucent
 -- card frosts while its scrim stays sharp and the windows behind it stay
 -- readable. That is what it did at the alphas this shipped with before the
--- surfaces went opaque (bar 0.72, launcher 0.85, menu 0.92, launcher scrim
--- 0.35) and what it would do again at any alpha above 0.6.
+-- surfaces went opaque (bar 0.72, menu 0.92) and what it would do again at any
+-- alpha above 0.6. The launcher figures on record -- 0.85 with a 0.35 scrim --
+-- never reached the screen at any point, since nothing reads launcher.*.
 --
 -- So the number to watch when re-enabling glass is 0.6: a card set BELOW it
 -- silently gets no blur, and a scrim set above it starts blurring the desktop

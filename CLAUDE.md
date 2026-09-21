@@ -108,6 +108,20 @@ own `freetype-load-flags`. Kitty hardcodes light hinting with no override.
   `status-slot` are read by `Style.bar` but never populated by
   `applyShellValues` — dead keys. A shell-source patch was tried and fully
   reverted.
+- *The whole `[launcher]` section* — a dead **section**, not just dead keys.
+  `Color.qml` defines `bar`/`popups`/`tooltip`/`notifications`/`menu`/`polkit`/
+  `lock`/`imagePicker` and no launcher surface; the lookups are string-keyed
+  (`pick("menu.text")`) and nothing anywhere reads a `launcher.*` key. There is
+  no launcher plugin and no `omarchy-launcher` layer namespace: SUPER+SPACE is
+  the **menu** plugin (`plugins/menu/Menu.qml`, namespace `omarchy-menu`,
+  binding `Color.menu.*`), so `shell.menu.toml` is what styles it and the blur
+  layer rule covers it under `menu`. Each theme still ships a
+  `shell.launcher.toml` mirroring `[menu]`, spliced into the generated
+  `shell.toml` and read by nobody. What makes this worth *checking* rather than
+  re-deriving: Omarchy's own `default/themed/shell.toml.tpl` ships the section
+  and documents it as "applied to the launcher overlay", so the config reads
+  live. Verified by enumeration — `grep -rn -i launcher /usr/share/omarchy/shell`
+  returns no key lookup.
 - Font *size* is machine-level only: `~/.config/omarchy/shell.toml` `[font]
   base-size` (**13** at the time of writing, via `omarchy display text size`;
   `display/display.conf` records it for `apply.sh` to restore — and the two have drifted
