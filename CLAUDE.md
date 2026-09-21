@@ -27,6 +27,8 @@ documents an incompatible theme format — don't read it.
 
 ## Omarchy mechanics worth knowing
 
+### Themes and Hyprland config
+
 **`omarchy theme set` copies, it does not symlink.** It runs
 `cp -r ~/.config/omarchy/themes/<name>/* ~/.local/state/omarchy/current/theme/`.
 So editing a theme folder changes nothing on the live desktop until a theme-set
@@ -58,6 +60,8 @@ Figma Desktop isn't in Omarchy's own list, so `overrides/hypr/looknfeel-decorati
 adds it: `.*[Ff]igma.*` against the class (the live class is lowercase
 `figma-desktop`), untagged and pinned to `1 1`, same idiom as
 `davinci-resolve.lua`.
+
+### Backgrounds
 
 **Backgrounds are filtered by extension.** Both `omarchy-theme-bg-next` and
 `omarchy-menu-images` enumerate with
@@ -125,6 +129,8 @@ marker → background luminance → dark. It only *signals*: it drives
 `prefers-color-scheme`), VS Code's `type`, and Claude's `base`. Terminals, bar,
 btop and Hyprland just render the hex from `colors.toml`.
 
+### Generated files
+
 **Generated, never committed:** `btop.theme`, `hyprland.lua`,
 `vscode-theme.json`, `neovim.lua` and the terminal colour files are produced from
 `colors.toml` on every theme-set. Omarchy strips `.lua` from *git-cloned* themes,
@@ -184,6 +190,8 @@ accent is still cyan. And a hover needs a real pointer, which
 `hyprctl eval 'hl.dispatch(hl.dsp.cursor.move({ x = …, y = … }))'` provides
 (`hl.dsp.cursor` holds exactly `move` and `move_to_corner`); save
 `hyprctl cursorpos` first and put it back, or you have moved the user's mouse.
+
+### App icons
 
 **The menu draws icons two different ways, and only one of them is flat.** Rows
 that are not apps render `row.icon` as *text* in a Nerd Font, tinted
@@ -283,6 +291,8 @@ before anything else here; it is narrowed by the code (only the titles on
 screen, read-only, nothing written into the profile at all) and by nothing
 else. See the `ro()` entry below for what "read-only" has to mean in practice,
 since one URI does not cover both browser families.
+
+### The window switcher
 
 **Nothing in Omarchy or Quickshell offers this.** Enumerated, not assumed:
 Quickshell's whole `Io` module is `FileView`, `Process`, `Socket`,
@@ -440,6 +450,8 @@ colour and would not survive a light/dark switch — which is why the rendering 
 a `theme-set` hook (`hooks/theme-set.d/app-icons.sh`), not a one-off in
 `apply.sh`.
 
+### Caches, restarts and boot art
+
 **`omarchy theme set` does NOT restart the shell** — an earlier version of this
 file said it did, and four comments in the repo were written on that basis.
 Measured: the `quickshell` pid is unchanged across a theme set. What it actually
@@ -517,6 +529,8 @@ each file restates its full section. In those files `background` / `border` /
 that never unwraps a role name — those **must be literal hex** or they render
 black.
 
+### Hooks and plugins
+
 **Hooks are run with `bash "$hook"`, and Omarchy owns the directories they live
 in.** `omarchy-hook <name>` runs `~/.config/omarchy/hooks/<name>` then every file
 in `<name>.d/`, skipping `*.sample`, each as `bash "$hook"` — so a hook is
@@ -567,6 +581,8 @@ true screen centre; when it names a widget the layout doesn't contain,
 `Bar.qml`'s `hasAnchor` is false and the center section simply centres as a
 block (`Bar.qml:1538`) — inert, not broken.
 
+### Layer rules and animation
+
 **Omarchy opts its shell surfaces out of the layer fade by name, and a later
 rule can opt them back in.** Hyprland animates a layer surface on map —
 `layersIn` is `style=fade` (~130ms at our 3x speeds) — and
@@ -608,6 +624,8 @@ trusting any number from it.
 
 Blur and animation are separate rules: matching the namespace for blur says
 nothing about the fade.
+
+### Quickshell and QML
 
 **`Quickshell.Hyprland`'s toplevel list is half live, half snapshot, and the
 seams are silent.** `Hyprland.toplevels` is what a window switcher wants instead
@@ -696,6 +714,8 @@ or `omarchy theme set` does.
 
 ---
 
+### Figma Desktop
+
 **The installed Figma is `IliyaBrook/figma-linux`, not `Figma-Linux/figma-linux`
 — and NOT `nickvdp/figma-desktop-linux`, which does not exist.** This file has
 now named the wrong project twice, so the distinction is worth stating by owner
@@ -736,14 +756,13 @@ and our own switcher's `classIndex`. `apply.sh` step 7e owns the entry
 expanded at install) and corrects both that and `Name=`.
 
 **The `Exec=` line is what keeps that file ours, and it has to be byte-exact.**
-`integrate_desktop()` runs on *every launch* and rewrites the whole entry —
-`Name=Figma`, `StartupWMClass=Figma` — unless the existing `Exec` already equals
-`Exec="${appimage_path}" %u`. That path is `$APPIMAGE` when set, and otherwise
-`readlink -f "$0"`; since this is an **extracted directory** rather than a
-mounted `.AppImage`, `APPIMAGE` is unset and the path is simply
-`~/Applications/figma-desktop/AppRun`. It carries no version, so the template's
-Exec matches what the app would write on every release and the rewrite never
-fires. Updating Figma is: extract over the app directory, re-run `apply.sh`.
+`integrate_desktop()` runs on *every launch* and rewrites the whole entry unless
+the existing `Exec` already equals what it would write. Because this is an
+extracted directory rather than a mounted `.AppImage`, that path carries no
+version, so the template matches on every release and the rewrite never fires.
+The full derivation is in
+[`overrides/applications/README.md`](overrides/applications/README.md).
+Updating Figma is: extract over the app directory, re-run `apply.sh`.
 
 **Which is why nothing wraps `AppRun` any more.** This machine ran a local
 wrapper that renamed the launcher to `AppRun.real` and exported
@@ -787,6 +806,8 @@ things in it are load-bearing rather than convenience:
 It ends by running `apply.sh`, because step 7e owns the launcher entry and the
 app writes its own wrong one. `--check` reports installed vs. latest and
 changes nothing; `--appimage PATH` skips the download.
+
+### keyd
 
 **keyd is the one package this repo depends on, and the only reason is Figma.**
 `apply.sh` does not install it — step 8b configures it if present and says so if
@@ -894,6 +915,8 @@ management still work and are the way out. Corollary worth knowing: in Figma,
 `SUPER + ALT` emits Ctrl+Alt and therefore fires the WM_MOD binds.
 
 
+### Hardware
+
 **CPU power limits are the one hardware decision in this repo, and the trap is
 that nothing persists them.** `ryzenadj` writes the SMU's STAPM/PPT limits at
 runtime; they are lost on every reboot **and on every resume from suspend**, so
@@ -962,6 +985,8 @@ Three things about that step worth keeping:
 
 ## Conventions in this repo
 
+### Conventions
+
 **Fenced blocks.** `apply.sh` injects `>>> cllpse-macos overrides >>>` blocks into
 `~/.config/hypr/{hyprland,looknfeel}.lua`, `~/.config/ghostty/config` and
 `~/.bashrc`. Comment leader is `--` for `.lua` and `#` elsewhere — a `#` line is a
@@ -991,6 +1016,8 @@ passes `--ozone-platform=x11` explicitly, overriding Omarchy's global
 `ELECTRON_OZONE_PLATFORM_HINT=wayland`, and under XWayland with
 `force_zero_scaling` it renders at 1/monitor-scale (80% at 1.25).
 `FIGMA_USE_WAYLAND=1` is the launcher's own opt-in.
+
+### Chromium
 
 **Chromium's context menu has no per-item removal mechanism, and a bare
 Preferences edit doesn't reach it either** — only `/etc/chromium/policies/
@@ -1042,12 +1069,11 @@ than dropping it. The media button's trick does not transfer: that one was
 what the button's menu offers, never whether it is drawn.
 
 **DevTools is deliberately not in that list.** `DeveloperToolsAvailability: 2`
-was, originally, and it is the one key whose blast radius went past the menu —
-it blocks Inspect *everywhere*, local dev servers included. It is now absent
-rather than set to `1`, so Chromium's own default applies (`0`: available except
-on force-installed extensions), on the principle that a managed policy should
-only assert what we have an opinion about. "Inspect" is back in the context menu
-as a consequence; no lever separates the entry from the feature.
+was, and it is the one key whose blast radius went past the menu — it blocks
+Inspect *everywhere*, local dev servers included. It is absent now rather than
+set, so Chromium's own default applies, on the principle that a managed policy
+should assert only what we have an opinion about. Details in
+[`overrides/chromium/README.md`](overrides/chromium/README.md).
 
 Step 9 only writes if `/etc/chromium/policies/managed/` already exists,
 matching `omarchy-theme-set-browser-policy`'s own guard verbatim (never hand a
@@ -1078,10 +1104,14 @@ no `chrome://flags` equivalent for the nine items above: flags exist for
 features still being rolled out, and all nine graduated to stable years ago, so
 any flag that once gated them was removed on graduation.
 
+### apply.sh and revert.sh
+
 **`revert.sh` only undoes.** It never picks a font or theme. `apply.sh` records
 the pre-existing font and theme once, into `~/.local/state/cllpse-macos/`,
 refusing to record values that are already ours; revert restores those, or falls
 back to deleting the generated `fonts.conf`.
+
+### Cursor: settings
 
 **Cursor `settings.json` is merged, not copied.** `apply.sh` step 7 deep-merges
 `overrides/cursor/settings.json` into `~/.config/Cursor/User/settings.json` with
@@ -1092,6 +1122,8 @@ It skips (never truncates) if the live file has JSONC comments `jq` rejects, and
 on every `omarchy theme set` (it also installs the generated `omarchy-theme`
 VS Code extension into `~/.cursor/extensions`), so a competing value just loses
 the race on the next theme switch.
+
+### Cursor: the Bearded theme
 
 **The Bearded theme sidesteps that race rather than fighting it.** With
 `window.autoDetectColorScheme = true`, Cursor ignores `workbench.colorTheme`
@@ -1347,6 +1379,8 @@ global, so lighting it would bring back every widget shadow in the app
 (`widget.shadow` also feeds Cursor's whole `--cursor-shadow-*` palette). A `0 0
 0 1px` ring is CSS geometry, not a colour, and out of reach of any setting.
 
+### Cursor: tabs and edges
+
 **With every tab edge gone, the active tab is marked by its BACKGROUND, set to
 exactly what an inactive tab shows under the pointer.** Omarchy paints
 `tab.activeBackground` the window colour and `tab.hoverBackground` a 25% wash of
@@ -1496,6 +1530,8 @@ load-bearing rather than cosmetic.
 `~/Sites/dotfiles/.config/ghostty/config` (that repo has no Cursor settings of
 its own; the font lives in its Ghostty config).
 
+### Cursor: fonts and input
+
 **Comic Code ships no Regular face, and Chromium abandons a family whose weight
 it cannot match rather than falling back to a heavier face in it.** The two
 `.otf`s are SemiBold (fontconfig weight 180) and Bold (200) — nothing at 400. At
@@ -1598,6 +1634,8 @@ trap. Panel/UI state that has no settings key (sidebar/panel open-closed, the
 (`workbench.statusBar.visible`, `workbench.layoutControl.enabled`,
 `workbench.agentsWindowButton.enabled`, `workbench.activityBar.location`, …) can.
 
+### Cursor: window-layout state
+
 **Two things in `state.vscdb` are corrected by `apply.sh` anyway, because Cursor
 updates flip them, and BOTH present as "the tabs have disappeared"** — with
 `workbench.editor.showTabs` unset (so still `multiple`, the registered default,
@@ -1605,37 +1643,14 @@ checked in the bundle) and every `tab.*` colour correct, which sends you to the
 chrome hook for an hour. Neither is a settings key, so `cursor/settings.json`
 cannot carry either.
 
-- **`cursor/unifiedAppLayout`** — enum `{ Agent: "agent", Editor: "editor" }`,
-  defaulting to `Editor`. In `agent` the editor tab bar is replaced by the agent
-  pane's own strip. Set here by a migration latched on
-  `cursor/migrateEditorMode.forceUnified`.
-- **`cursor/noTitlebarLayout.visibility`** — `hide` puts `no-titlebar-layout` on
-  `<body>` **and applies a -35px top inset to the whole workbench**, which is
-  exactly one tab-strip height. Cursor's own code:
-  `m = stored === "hide" && showTabs !== "none"`, then
-  `body.classList.toggle("no-titlebar-layout", m)` and
-  `updateWorkbenchInsets({ top: m ? -35 : 0 })`. The intent is that the tabs
-  *become* the titlebar — there is a matching CSS rule giving
-  `.tabs-container` `-webkit-app-region: drag` — but with our
-  `window.controlsStyle` / `menuBarVisibility` hidden and
-  `layoutControl.enabled` false the titlebar part is already collapsed, so the
-  -35px eats the tab strip instead. Persisted from a `hide_titlebar_default`
-  feature gate. Corroborating detail worth knowing: the same 35px is
-  compensated in the other direction by
-  `body.no-titlebar-layout .quick-input-widget{transform:translateY(35px)!important}`.
-
-Setting it to `show` restores the tabs **and** brings back Cursor's own title bar
-row — back/forward arrows, the project name, new-tab / comment / settings
-buttons. That row is not the "bare drag strip" the window-frames section
-describes: `window.controlsStyle: "hidden"` suppresses the OS min/max/close, not
-Cursor's own chrome.
-
-Each key is written only over the one wrong value named above. An **absent** key
-is already Cursor's default and is left absent; any **other** value is somebody's
-deliberate choice and is left alone; and the `forceUnified` latch is **not**
-cleared, since it reads as "this migration already ran" and clearing it invites
-the migration to run again. `record_prior "$STATE/previous-cursor-layout"` and
-`previous-cursor-titlebar` are what let `revert.sh` put the old values back.
+The two keys, what each does, and the exact Cursor code behind the -35px inset
+are in [`overrides/cursor/README.md`](overrides/cursor/README.md). What
+generalises: each is written **only** over the one wrong value: an absent key is
+already Cursor's default and is left absent, any other value is somebody's
+deliberate choice and is left alone, and the `forceUnified` latch is not cleared
+— it reads as "this migration already ran", and clearing it invites the
+migration to run again. `record_prior` records both so `revert.sh` can put them
+back.
 
 Both halves are gated on Cursor being closed, for the same reason the merge is:
 Cursor holds that DB open and writes it from memory. **Neither `pgrep` form tests
@@ -1650,6 +1665,8 @@ clients -j | jq -r '.[]|select(.class=="cursor")|"\(.at[0]),\(.at[1]) \(.size[0]
 settles in one shot what an hour of grepping `settings.json` cannot — and note
 `grim` can only capture the **visible** workspace, so a window on an inactive one
 comes back as whatever is actually on screen, with no error.
+
+### ytm-player
 
 **ytm-player is split two ways: colours are themed, preferences are not.**
 `themed/ytm-player.toml.tpl` renders per theme and `hooks/theme-set.d/ytm-player.sh`
@@ -1695,6 +1712,8 @@ they are blank. So the line stays on — ytm loads no user stylesheet
 (no `CSS_PATH`, no `.tcss` read from its config dir), so there is no lever
 that drops the one line and keeps the bar.
 
+### Window frames and BUILD.md
+
 **Window frames are all client-side — Hyprland draws none.** No window on
 Hyprland gets a compositor titlebar, only the 2px `decoration:border_size`; every
 min/max/close is the app's own CSD, so each toolkit is a separate lever:
@@ -1724,6 +1743,8 @@ and the original is kept in prose as provenance. Don't leave the two out of sync
 
 ## Traps already hit
 
+### Shell and tooling
+
 - **`awk -v close=...` is fatal** — `close` is a gawk builtin. It failed silently
   mid-pipeline and truncated the target file to zero bytes. Test any script that
   rewrites a real config against a harness first.
@@ -1740,6 +1761,8 @@ and the original is kept in prose as provenance. Don't leave the two out of sync
   12/14/16/18, versus `display` → 24/28/32/36). `Style.space(px)` is the same
   deal for geometry — it scales by `spacingScale * fontScale`, so pass the
   base-12 pixel value and let it scale.
+### Hyprland
+
 - **`hl.animation` `speed` is inverse**: *smaller is faster*. Every leaf in our
   block is Omarchy's stock speed halved to run 2× faster. Doubling the number
   would have made it 2× slower.
@@ -1830,6 +1853,8 @@ outlier before the scene settled.
 - **`macos-*` Ghostty keys are no-ops on Linux.** `macos-titlebar-style`,
   `macos-window-buttons`, `macos-icon` and friends are read only on macOS. A
   config full of them looks configured and does nothing.
+### App configs
+
 - **Hand-edited app configs replace the packaged defaults rather than extending
   them.** `~/.config/ghostty/config` had been edited in place and had quietly
   lost Omarchy's own keybinds (shift+insert, control+insert, the CSI sequences,
@@ -1873,6 +1898,8 @@ outlier before the scene settled.
   `custom.git_branch` (middle-truncation, which the built-in can't do — it
   truncates from the head) depends on this to match the built-in's own
   disappear-outside-a-repo behaviour.
+### Chromium
+
 - **A repeated `--enable-features` is last-wins, not merged, and the loser
   vanishes silently.** `base::CommandLine` keys switches by name, so a second
   `--enable-features=` line in `~/.config/chromium-flags.conf` replaces the
@@ -1908,6 +1935,8 @@ outlier before the scene settled.
   working lever is CSS (`-webkit-text-stroke: .2px` ≈ +21% ink, against
   FreeType's +24%), which needs a content-script extension since Chromium
   dropped user stylesheets.
+### Language gotchas
+
 - **jq's `//` treats `false` as absent, which silently drops exactly the value
   worth recording.** `.bar.transparent // empty` emits nothing for `false`, not
   just for `null` — so `apply.sh`'s `record_prior` for `bar.transparent` got an
@@ -1941,6 +1970,8 @@ outlier before the scene settled.
   sitting side by side. Any dotted Chromium pref name being hand-written into a
   JSON file needs the nested form, or needs Chromium itself (via Settings) to
   do the write.
+### Images, icons and glyphs
+
 - **`sourceSize` means two different things, by format.** On a raster `Image`
   it picks the *decode* resolution, so leaving it unset just uses the file's own
   and costs nothing. On a **vector** it picks the *rasterisation* resolution,
@@ -2057,6 +2088,8 @@ outlier before the scene settled.
   an otherwise deterministic pipeline produce different bytes for pixel-identical
   output (`compare -metric AE` reports 0). `-strip` before the output filename is
   what makes a generator idempotent.
+### Processes, packages and permissions
+
 - **`pgrep -f` matches whole command lines, including the caller's.** A guard
   written as `pgrep -f /usr/lib/chromium/chromium` matched the shell running the
   script that contained the string, so `default-zoom.py` refused every write
