@@ -14,7 +14,7 @@ mkdir -p ~/.config/omarchy/hooks/theme-set.d
 ln -sfn "$HERE/hooks/theme-set.d/app-icons.sh" ~/.config/omarchy/hooks/theme-set.d/app-icons.sh
 if [[ -d "$HERE/icons/icons" ]]; then
   _n=$(find "$HERE/icons/icons" -maxdepth 1 \( -name '*.svg' -o -name '*.png' \) | wc -l)
-  say "app icons -> ~/.icons/cllpse-flat/apps/ ($_n hand-placed) + ~/.icons/cllpse-color/apps/ (from the switcher submodule)"
+  say "app icons -> ~/.icons/cllpse-flat/apps/ ($_n hand-placed) + ~/.icons/cllpse-color/apps/ (75 verbatim)"
 else
   _n=0
   skip "no icons/icons/ — the repainted half has nothing to sync"
