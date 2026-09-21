@@ -15,7 +15,7 @@ set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONF="$HERE/display.conf"
 
-# shellcheck source=overrides/display-lib.sh
+# shellcheck source=overrides/display/display-lib.sh
 source "$HERE/display-lib.sh"
 
 say() { printf '\033[34m▸\033[0m %s\n' "$*"; }
@@ -30,7 +30,7 @@ text_size="$(read_text_size)"
 
 cat >"$CONF" <<EOF
 # Saved display scaling + text size, restored by apply.sh.
-# Regenerate from the live machine with: ./overrides/save-display.sh
+# Regenerate from the live machine with: ./overrides/display/save-display.sh
 #
 # These are the AUTHOR'S values, tuned for a 3840x1600 display. They are a
 # preference, not part of the macOS look -- if you are not on similar hardware,
@@ -48,6 +48,6 @@ monitor-scale = $monitor_scale
 gdk-scale = $gdk_scale
 EOF
 
-say "saved -> overrides/display.conf"
+say "saved -> overrides/display/display.conf"
 printf '    text-size     %s\n    monitor-scale %s\n    gdk-scale     %s\n' \
   "$text_size" "$monitor_scale" "$gdk_scale"

@@ -75,11 +75,11 @@ list, despite Omarchy shipping config files for both: its package lists ship
 `foot` as the terminal, and nothing on this machine depends on either, so both
 are here because they were installed by hand.
 
-**3. Set the display values for *your* hardware.** `overrides/display.conf` ships
+**3. Set the display values for *your* hardware.** `overrides/display/display.conf` ships
 values tuned for one ~110 PPI 3840x1600 display and applies them confidently:
 
 ```bash
-./overrides/save-display.sh   # capture this machine's current values instead
+./overrides/display/save-display.sh   # capture this machine's current values instead
 ```
 
 Or edit the file. `gdk-scale` is the one to get right — `1` for standard DPI,

@@ -327,9 +327,9 @@ fi
 # Display scaling + text size: put back only what was recorded at first apply.
 # Nothing recorded means the machine already matched display.conf, so there is
 # nothing of its own to restore.
-if [[ -f $HERE/display-lib.sh ]]; then
-  # shellcheck source=overrides/display-lib.sh
-  source "$HERE/display-lib.sh"
+if [[ -f $HERE/display/display-lib.sh ]]; then
+  # shellcheck source=overrides/display/display-lib.sh
+  source "$HERE/display/display-lib.sh"
 
   if [[ -s $STATE/previous-text-size ]]; then
     prev="$(<"$STATE/previous-text-size")"

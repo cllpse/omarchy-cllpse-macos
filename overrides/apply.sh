@@ -39,7 +39,7 @@
 #   7.   the apps Omarchy doesn't theme:
 #          bat/ lazygit/ lsd/ yazi/ lazydocker/ gh-dash/ starship/
 #          cursor/ hunk/ ytm/ bash/ git/
-#   7b.  restore saved display scaling + text size                     [inline]
+#   7b.  restore saved display scaling + text size                     display/
 #   7c.  session environment drop-ins                                  environment.d/
 #   7d.  Chromium flags, zoom and neutral UI                           chromium/ (user)
 #   7e.  Figma Desktop's launcher entry                                applications/
@@ -178,45 +178,7 @@ run bash
 run git
 
 # ── 7b. display scaling + text size ─────────────────────────────────────────
-# Restore overrides/display.conf (written by ./overrides/save-display.sh). Any
-# key left empty is skipped, and a missing file skips the step entirely.
-#
-# These are a machine preference, not part of the macOS look -- re-running
-# apply.sh reasserts them, so if you retune the text size or scale by hand, run
-# save-display.sh to make that the saved state rather than having the next
-# apply.sh pull you back.
-if [[ -f "$HERE/display.conf" ]]; then
-  # shellcheck source=overrides/display-lib.sh
-  source "$HERE/display-lib.sh"
-
-  want_text="$(conf_get text-size "$HERE/display.conf")"
-  want_mon="$(conf_get monitor-scale "$HERE/display.conf")"
-  want_gdk="$(conf_get gdk-scale "$HERE/display.conf")"
-
-  # Record the machine's own values once, so revert.sh can put them back.
-  record_prior "$STATE/previous-text-size"     "$(read_text_size)"                  "$want_text"
-  record_prior "$STATE/previous-monitor-scale" "$(read_scale omarchy_monitor_scale)" "$want_mon"
-  record_prior "$STATE/previous-gdk-scale"     "$(read_scale omarchy_gdk_scale)"     "$want_gdk"
-
-  if [[ -n $want_text && "$(read_text_size)" != "$want_text" ]]; then
-    say "omarchy display text size $want_text  (shell + GTK factor + terminals)"
-    omarchy display text size "$want_text" >/dev/null 2>&1 || true
-  else
-    skip "text size already $want_text"
-  fi
-
-  for pair in "omarchy_monitor_scale:$want_mon" "omarchy_gdk_scale:$want_gdk"; do
-    var="${pair%%:*}"; val="${pair#*:}"
-    [[ -n $val ]] || continue
-    if [[ "$(read_scale "$var")" == "$val" ]]; then
-      skip "$var already $val"
-    elif write_scale "$var" "$val"; then
-      say "$var -> $val  (monitors.lua; takes effect on the next Hyprland reload)"
-    else
-      skip "$var not found in ~/.config/hypr/monitors.lua — left alone"
-    fi
-  done
-fi
+run display
 
 
 # ── 7c. session environment drop-ins ─────────────────────────────────────────
