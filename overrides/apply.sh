@@ -351,6 +351,7 @@ echo "        omarchy plymouth set by theme omarchy-cllpse-theme-dark   # or -li
 
 # id|sudo|label|action — execution order, and the menu's order.
 STEPS=(
+  "figma|optin|Install or update Figma Desktop (network, opt-in)|run:figma --no-apply"
   "state||Record the pre-existing font and theme, for revert.sh|fn:step_state"
   "symlinks||Symlink both themes + the window-switcher plugin|fn:step_symlinks"
   "fonts||SF + Comic Code fonts|run:fonts"
@@ -391,11 +392,16 @@ STEPS=(
 
 # ── selection ────────────────────────────────────────────────────────────────
 # Running everything stays the default when there is no terminal to ask at, so
-# `install-figma.sh` and any other caller keep working unchanged. With a
+# `figma/figma.sh` and any other caller keep working unchanged. With a
 # terminal and no arguments you get the picker, whose first entry is Everything.
 
 _field() { printf '%s\n' "${STEPS[@]}" | awk -F'|' -v k="$1" -v n="$2" '$1==k{print $n}'; }
 _ids()   { printf '%s\n' "${STEPS[@]}" | cut -d'|' -f1; }
+# What a bare --all runs: everything except the opt-in steps. figma reaches
+# the NETWORK and installs an application, which apply.sh otherwise never
+# does -- and figma.sh finishes by calling `apply.sh --all` itself, so having
+# it in --all would recurse.
+_auto_ids() { printf '%s\n' "${STEPS[@]}" | awk -F'|' '$2!="optin"{print $1}'; }
 
 usage() {
   cat <<EOF
@@ -413,10 +419,10 @@ EOF
 }
 
 list_steps() {
-  printf '  %-18s %-5s %s\n' "ID" "SUDO" "WHAT"
+  printf '  %-18s %-5s %s\n' "ID" "NOTE" "WHAT"
   local s; for s in "${STEPS[@]}"; do
     IFS='|' read -r id sudo label _ <<<"$s"
-    printf '  %-18s %-5s %s\n' "$id" "${sudo:+yes}" "$label"
+    printf '  %-18s %-5s %s\n' "$id" "$sudo" "$label"
   done
 }
 
@@ -442,7 +448,7 @@ _load_gum_theme() {
 # a numbered prompt so this still works on a box without it.
 choose_steps() {
   _load_gum_theme
-  local all="Everything (${#STEPS[@]} steps)" menu=() s id sudo label
+  local all="Everything ($(_auto_ids | wc -l) steps)" menu=() s id sudo label
   for s in "${STEPS[@]}"; do
     IFS='|' read -r id sudo label _ <<<"$s"
     menu+=("$(printf '%-18s %s%s' "$id" "$label" "${sudo:+  (sudo)}")")
@@ -471,18 +477,18 @@ SELECTED=()
 case "${1:-}" in
   -h|--help) usage; exit 0 ;;
   -l|--list) list_steps; exit 0 ;;
-  -a|--all)  mapfile -t SELECTED < <(_ids) ;;
+  -a|--all)  mapfile -t SELECTED < <(_auto_ids) ;;
   "")
     if [[ -t 0 && -t 1 ]]; then
       mapfile -t _picked < <(choose_steps)
       (( ${#_picked[@]} )) || { say "nothing selected — nothing to do"; exit 0; }
       if [[ ${_picked[0]} == Everything* ]]; then
-        mapfile -t SELECTED < <(_ids)
+        mapfile -t SELECTED < <(_auto_ids)
       else
         for p in "${_picked[@]}"; do SELECTED+=("${p%% *}"); done
       fi
     else
-      mapfile -t SELECTED < <(_ids)
+      mapfile -t SELECTED < <(_auto_ids)
     fi
     ;;
   -*) printf 'unknown option: %s\n\n' "$1" >&2; usage >&2; exit 2 ;;

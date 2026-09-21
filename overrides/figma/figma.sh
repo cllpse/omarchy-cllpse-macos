@@ -42,7 +42,7 @@ die()  { printf '\033[31m✗\033[0m %s\n' "$*" >&2; exit 1; }
 
 usage() {
   cat <<'USAGE'
-Usage: install-figma.sh [options]
+Usage: figma.sh [options]
 
   --check             Report installed vs. latest and exit. Changes nothing.
   --version X.Y.Z     Install that release instead of the latest one.
@@ -57,7 +57,7 @@ Usage: install-figma.sh [options]
 
 Installing and updating are the same command:
 
-  ./overrides/install-figma.sh
+  ./overrides/figma/figma.sh
 USAGE
 }
 
@@ -164,7 +164,7 @@ if [[ -n $INSTALLED && $INSTALLED == "$TARGET" && $FORCE -eq 0 ]]; then
   skip "Figma Desktop $INSTALLED is already installed — nothing to extract (--force to re-extract)"
   if (( RUN_APPLY )); then
     say "re-running apply.sh anyway, so the launcher entry is known-good"
-    exec "$HERE/apply.sh" --all
+    exec "$HERE/../apply.sh" --all
   fi
   exit 0
 fi
@@ -337,7 +337,7 @@ first_install=0
 
 if (( RUN_APPLY )); then
   say "running apply.sh — step 7e puts the launcher entry back"
-  "$HERE/apply.sh" --all
+  "$HERE/../apply.sh" --all
 else
   warn "skipped apply.sh: the launcher entry still says Name=Figma / StartupWMClass=Figma"
   warn "  run ./overrides/apply.sh to correct it"

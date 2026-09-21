@@ -490,12 +490,12 @@ community Electron wrapper around the web app that happens to share the name and
 has a different settings schema. It is run **extracted**, not as a mounted
 AppImage.
 
-`overrides/install-figma.sh` does all of that. Installing and updating are the
+`overrides/figma/figma.sh` does all of that. Installing and updating are the
 same command:
 
 ```bash
-./overrides/install-figma.sh            # latest release, then apply.sh
-./overrides/install-figma.sh --check    # installed vs. latest; changes nothing
+./overrides/figma/figma.sh             # latest release, then apply.sh
+./overrides/figma/figma.sh --check     # installed vs. latest; changes nothing
 ```
 
 | flag | |
