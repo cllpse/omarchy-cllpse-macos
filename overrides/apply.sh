@@ -100,9 +100,9 @@ step_symlinks() {
 # keeps whatever it had, with nothing saying why. colors.toml is the file every
 # consumer needs, so it is the one to test for.
 for _t in dark light; do
-  if [[ ! -f "$REPO/omarchy-cllpse-theme/omarchy-cllpse-theme-$_t/colors.toml" ]]; then
+  if [[ ! -f "$REPO/omarchy-cllpse-theme-$_t/colors.toml" ]]; then
     printf '\033[31m✗\033[0m %s\n' \
-      "omarchy-cllpse-theme/omarchy-cllpse-theme-$_t/ is empty — the themes are submodules." >&2
+      "omarchy-cllpse-theme-$_t/ is empty — the themes are submodules." >&2
     printf '  %s\n' "Run: git -C \"$REPO\" submodule update --init --recursive" >&2
     exit 1
   fi
@@ -110,8 +110,8 @@ done
 
 say "Linking themes into ~/.config/omarchy/themes/"
 mkdir -p ~/.config/omarchy/themes
-ln -sfn "$REPO/omarchy-cllpse-theme/omarchy-cllpse-theme-dark"  ~/.config/omarchy/themes/omarchy-cllpse-theme-dark
-ln -sfn "$REPO/omarchy-cllpse-theme/omarchy-cllpse-theme-light" ~/.config/omarchy/themes/omarchy-cllpse-theme-light
+ln -sfn "$REPO/omarchy-cllpse-theme-dark"  ~/.config/omarchy/themes/omarchy-cllpse-theme-dark
+ln -sfn "$REPO/omarchy-cllpse-theme-light" ~/.config/omarchy/themes/omarchy-cllpse-theme-light
 
 say "Linking the window-switcher plugin into ~/.config/omarchy/plugins/"
 mkdir -p ~/.config/omarchy/plugins

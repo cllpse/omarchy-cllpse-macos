@@ -42,8 +42,8 @@ link "$OVERRIDES/hooks/theme-set.d/yazi-syntax.sh"      "$HOME/.config/omarchy/h
 link "$OVERRIDES/hooks/theme-set.d/cursor-chrome.sh"    "$HOME/.config/omarchy/hooks/theme-set.d/cursor-chrome.sh"
 link "$OVERRIDES/hooks/post-update.d/cllpse-macos-repair.sh" \
      "$HOME/.config/omarchy/hooks/post-update.d/cllpse-macos-repair.sh"
-link "$REPO/omarchy-cllpse-theme/omarchy-cllpse-theme-dark"  "$HOME/.config/omarchy/themes/omarchy-cllpse-theme-dark"
-link "$REPO/omarchy-cllpse-theme/omarchy-cllpse-theme-light" "$HOME/.config/omarchy/themes/omarchy-cllpse-theme-light"
+link "$REPO/omarchy-cllpse-theme-dark"  "$HOME/.config/omarchy/themes/omarchy-cllpse-theme-dark"
+link "$REPO/omarchy-cllpse-theme-light" "$HOME/.config/omarchy/themes/omarchy-cllpse-theme-light"
 link "$REPO/omarchy-cllpse-plugin-switcher"                          "$HOME/.config/omarchy/plugins/cllpse.window-switcher"
 
 # An update can also land a new Omarchy whose icons differ, so re-sync rather

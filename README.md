@@ -6,7 +6,7 @@ built against [`reference/BUILD.md`](reference/BUILD.md). Seeded from the stock
 
 Two themes — Omarchy has no runtime light/dark toggle, each theme is one mode.
 Both are **their own repositories**, added here as submodules under
-`omarchy-cllpse-theme/` — each installs on its own with `omarchy theme install`:
+`` — each installs on its own with `omarchy theme install`:
 
 | Folder | Omarchy name | `mode` | Palette |
 |---|---|---|---|
@@ -143,7 +143,7 @@ Omarchy strips a leading `omarchy-` from the name, so that lands as
 Chromium frame and wallpapers — not the macOS window decoration, which Omarchy
 will not stage from an installed theme and which lives in `overrides/` here.
 
-Each `omarchy-cllpse-theme/omarchy-cllpse-theme-{dark,light}/` folder is a
+Each `omarchy-cllpse-theme-{dark,light}/` folder is a
 self-contained Omarchy theme:
 
 | File | Role |
@@ -176,7 +176,7 @@ system (GTK) theme and grayscale.
 ## Layout
 
 ```
-omarchy-cllpse-theme/     the two themes, each a SUBMODULE — their own repos, installable on their own
+     the two themes, each a SUBMODULE — their own repos, installable on their own
 overrides/                everything that lives outside a theme folder + apply.sh / revert.sh / lib.sh
 overrides/<name>/         one directory per override, each owning BOTH its script and its docs:
                           <name>.sh (runnable on its own) and README.md (why). apply.sh is an

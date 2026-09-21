@@ -338,7 +338,7 @@ plugin-side theming. Under **omarchy-cllpse-theme** that means:
 
 - corner radius follows `decoration:rounding` (16) like every shell surface;
 - the card is opaque — `[menu] background-alpha` is 1.0 in
-  `omarchy-cllpse-theme/*/shell.menu.toml`, so the card is solid and the layer
+  `*/shell.menu.toml`, so the card is solid and the layer
   blur rule is inert for it;
 - the scrim **binds `Color.menu.scrim`**, so it is the same dim the SUPER+SPACE
   menu draws. It used to compose its own colour at 0.35 — the value the inert
