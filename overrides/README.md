@@ -20,8 +20,9 @@ so it can't ship inside a theme folder.
 
 **Selection is by step, not by folder** — the inline steps (gsettings, the theme
 apply, `hyprctl reload`, Btrfs) are selectable too, so `--all` is exactly the
-old behaviour. Picking is a `gum` menu with **Everything** as its first entry,
-falling back to a numbered prompt where gum is absent.
+old behaviour. Picking is a `gum` menu with **Everything** as its first entry, pre-marked —
+press Enter and it runs the lot; Space toggles individual steps. It falls
+back to a numbered prompt where gum is absent.
 
 The menu re-reads the active theme's `gum_env.lua` before it draws. Omarchy
 exports those `GUM_*` colours through `hl.env` at **session start**, so they are

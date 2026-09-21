@@ -456,8 +456,12 @@ choose_steps() {
   done
   local picked=()
   if command -v gum >/dev/null 2>&1; then
-    mapfile -t picked < <(gum choose --no-limit --height 20 \
-      --header "Space selects, Enter runs. Order is fixed regardless of what you pick." \
+    # --selected pre-marks Everything, so Enter on its own runs the lot. Without
+    # it, --no-limit returns NOTHING unless you press Space first: Enter confirms
+    # marked items, and the highlighted one is not marked. That reads as
+    # "Everything did nothing".
+    mapfile -t picked < <(gum choose --no-limit --height 20 --selected "$all" \
+      --header "Space toggles, Enter runs. Order is fixed regardless of what you pick." \
       "$all" "${menu[@]}" || true)
   else
     echo "Pick steps by number, space-separated. Empty = everything." >&2
@@ -471,7 +475,12 @@ choose_steps() {
     done
     return
   fi
-  printf '%s\n' "${picked[@]}"
+  # Guard the expansion: `printf '%s\n' "${empty[@]}"` still prints one newline,
+  # which mapfile reads back as a single empty element. That sails past the
+  # is-it-empty test, fails the Everything match, and ends up as an id matching
+  # no step -- "ran 0 of 37 steps" with nothing selected at all.
+  (( ${#picked[@]} )) && printf '%s\n' "${picked[@]}"
+  return 0
 }
 
 SELECTED=()
@@ -486,7 +495,10 @@ case "${1:-}" in
       if [[ ${_picked[0]} == Everything* ]]; then
         mapfile -t SELECTED < <(_auto_ids)
       else
-        for p in "${_picked[@]}"; do SELECTED+=("${p%% *}"); done
+        for p in "${_picked[@]}"; do
+          [[ -n ${p// } ]] || continue
+          SELECTED+=("${p%% *}")
+        done
       fi
     else
       mapfile -t SELECTED < <(_auto_ids)
@@ -527,6 +539,9 @@ _expand_needs() {
       done < <(_needs_of "$id")
     done
   done
+  # Explicit: the loop's status is whatever its last command left behind, and a
+  # bare call under `set -e` would make that the script's fate.
+  return 0
 }
 _expand_needs
 
