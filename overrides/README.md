@@ -37,16 +37,20 @@ the run prints the batch in execution order before it writes anything. One flat 
 express this: "run everything" has to win over anything ticked beside it,
 so as a checkbox it either short-circuits the rest or is itself ignored.
 
-**Look and feel only** is the 21-step subset that changes how the desktop
+**Look and feel only** is the 22-step subset that changes how the desktop
 *looks*: fonts and hinting, the theme, Hyprland's decoration (rounding, borders,
 blur), the bar, the menu's app icons, and the per-app theming that makes
 terminal tools follow the palette. `hypr` is in as a whole, since the fenced
 snippets carrying the decoration also carry the keybinds — you cannot take one
-without the other. It leaves out keyboard layout, shell aliases, session env,
-the repair hook, input remapping, and everything needing sudo or the network;
-also `display`, a hardware preference that can resize everything on screen, and
-`chromium-user`, whose neutral UI is appearance but which also sets page zoom
-and the device scale factor. The set is named explicitly in `apply.sh` and validated
+without the other. `bash` is in for the same reason: its block is mostly
+aliases, but it is also where fzf's colours are read out of the active theme's
+`colors.toml` and where `lsd`'s filetypes are moved onto ANSI slots that track
+it, so leaving it out stranded the picker and `ls` on the previous palette. It
+leaves out keyboard layout, the `git` pager, session env, the repair hook, input
+remapping, and everything needing sudo or the network; also `display`, a
+hardware preference that can resize everything on screen, and `chromium-user`,
+whose neutral UI is appearance but which also sets page zoom and the device
+scale factor. The set is named explicitly in `apply.sh` and validated
 against `STEPS` at startup, so a typo in it fails loudly instead of quietly
 dropping a step. `--look` is the same set without the prompt.
 
@@ -527,7 +531,8 @@ ryzen/ryzen-tdp.env           the power limits themselves: 52W sustained / 58W b
 ryzen/ryzen-tdp.service       reapplies them at boot AND on resume -- ryzenadj's settings survive neither (installed to /etc/systemd/system with sudo)
 chromium/policies-managed.json  spellcheck/translate/password/autofill/Print/Cast/QR-code/Reading-list off, plus ExtensionInstallForcelist pinning uBlock Origin Lite + Proton Pass (managed policy, installed to /etc with sudo). DevTools deliberately absent — see the follow-ups section
 omarchy/shell-bar.json        the recorded bar: widget layout, centerAnchor, disabledPlugins (jq-written into shell.json by step 7h)
-icons/icons/              app icons REPAINTED to the theme: <Icon=>.svg (or .png) placed by hand; see its README for the naming + silhouette contract
+icons/icons/              app icons REPAINTED to the theme: <Icon=>.svg placed by hand; see its README for the naming + silhouette contract
+icons/verbatim/           full-colour marks copied UNTOUCHED; same 75 the switcher plugin ships, kept in step by hand
 hooks/post-update.d/cllpse-macos-repair.sh  re-links our hooks/themes/plugin after an omarchy update, then re-syncs the icons
-hooks/theme-set.d/app-icons.sh  syncs icons/icons/ into ~/.icons/cllpse-flat/apps/ in the active theme's foreground, on every theme switch; ALSO copies the switcher submodule's icons/ verbatim into ~/.icons/cllpse-color/apps/ so the menu gets the full-colour marks
+hooks/theme-set.d/app-icons.sh  syncs icons/icons/ into ~/.icons/cllpse-flat/apps/ in the active theme's foreground, on every theme switch; ALSO copies icons/verbatim/ untouched into ~/.icons/cllpse-color/apps/ so the menu gets the full-colour marks
 ```

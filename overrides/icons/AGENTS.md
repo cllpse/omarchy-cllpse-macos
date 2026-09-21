@@ -5,7 +5,7 @@ contract — what a file must look like, and which directory it belongs in. This
 file is how you find out *which* files are worth adding, and how to make a new
 one sit correctly beside the ones already here.
 
-**Ship the set as it is.** The 24 marks in `icons/` here — and the 75 full-colour
+**Ship the set as it is.** The 24 silhouettes in `icons/` and the 75 full-colour marks in `verbatim/` — and the same 99
 ones in the switcher submodule — are aligned and committed. Do not run a bulk
 pass over either. Everything below applies to
 marks you are **adding**; a sweep that "fixes" the existing set is how `hunk`

@@ -16,13 +16,18 @@ else.
 
 | source | published to | treatment |
 |---|---|---|
-| [`icons/`](icons/README.md), here — 24 hand-placed SVGs | `~/.icons/cllpse-flat/apps/` | **repainted** to the theme `foreground` |
-| the **plugin's** `omarchy-cllpse-switcher/icons/` — 75 marks | `~/.icons/cllpse-color/apps/` | **verbatim** |
+| [`icons/`](icons/README.md) — 24 silhouettes | `~/.icons/cllpse-flat/apps/` | **repainted** to the theme `foreground` |
+| `verbatim/` — 75 full-colour marks | `~/.icons/cllpse-color/apps/` | **copied untouched** |
 
-The verbatim half follows the plugin's rule: an icon is the source of truth for
-its own appearance, and the only thing ever changed in a file is its `viewBox`.
-Those marks live in the plugin repo, not here — see
-[`../../omarchy-cllpse-switcher/AGENTS.md`](../../omarchy-cllpse-switcher/AGENTS.md).
+99 marks across the two, and the split is the whole mechanism: the repaint is
+keyed on the DIRECTORY, never on anything inside a file, so a multi-hue logo in
+`icons/` would come out flattened.
+
+`verbatim/` is a copy of the plugin's `icons/`, which carries the same 99 for
+its own tiles. **Both repos hold the full set, so a new mark goes in both** —
+see [`../../omarchy-cllpse-switcher/AGENTS.md`](../../omarchy-cllpse-switcher/AGENTS.md)
+for the rule the verbatim half follows: an icon is the source of truth for its
+own appearance, and only its `viewBox` is ever changed.
 
 Both are published by `app-icons.sh`, a `theme-set` hook rather than an apply
 step, because a repainted file carries a fixed colour and must be rewritten per

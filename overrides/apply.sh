@@ -363,8 +363,17 @@ echo "        omarchy plymouth set by theme omarchy-cllpse-theme-dark   # or -li
 # keybinds, the allowlist and mouse tuning: the decoration cannot be taken
 # without them.
 #
-# Out: anything not about appearance -- keyboard layout (xkb), shell aliases
-# (bash, git), session env, the Figma launcher entry, the repair hook, input
+# `bash` is in for the same reason, and it is the one entry whose label does not
+# say so. Its fenced block is mostly aliases, but two of its exports are palette:
+# FZF_DEFAULT_OPTS is parsed out of the ACTIVE theme's colors.toml on every
+# interactive shell, and LS_COLORS moves lsd's filetypes off their fixed
+# 256-colour table onto basic ANSI slots so they track whatever each theme's
+# terminal template paints. Both follow `omarchy theme set` the way bat/lazygit/
+# lsd do, so a look-and-feel run that skipped this left the picker and `ls` on
+# whatever the last full run installed. The aliases ride along.
+#
+# Out: anything not about appearance -- keyboard layout (xkb), `git` (the pager,
+# not a palette), session env, the Figma launcher entry, the repair hook, input
 # remapping (keyd), and everything needing sudo or the network. Also out, and
 # deliberately: `display`, which is a hardware preference rather than a theme
 # and can resize everything on screen; and `chromium-user`, whose neutral UI is
@@ -372,7 +381,7 @@ echo "        omarchy plymouth set by theme omarchy-cllpse-theme-dark   # or -li
 LOOKNFEEL=(
   fonts fontconfig monospace gtk-fonts hinting ghostty gtk-buttons
   hypr
-  bat lazygit lsd yazi lazydocker gh-dash starship cursor hunk ytm
+  bat lazygit lsd yazi lazydocker gh-dash starship cursor hunk ytm bash
   icons omarchy theme
 )
 # state rides along for the same reason it does with a ticked selection:

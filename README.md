@@ -169,7 +169,7 @@ overrides/<name>/         one directory per override, each owning BOTH its scrip
                           <name>.sh (runnable on its own) and README.md (why). apply.sh is an
                           orchestrator that sources lib.sh and calls them in order; the order,
                           and the system-level steps with no folder, stay in apply.sh.
-overrides/icons/          app/CLI marks repainted to the theme (icons/icons/); the verbatim ones live in the switcher submodule.
+overrides/icons/          all 99 app/CLI marks: icons/icons/ repainted to the theme, icons/verbatim/ untouched.
                           AGENTS.md is how to add one, icons/README.md is what a
                           file must look like
 omarchy-cllpse-switcher/  SUBMODULE -> cllpse/omarchy-window-switcher. The macOS-style
