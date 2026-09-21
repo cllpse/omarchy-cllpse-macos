@@ -106,9 +106,9 @@ own `freetype-load-flags`. Kitty hardcodes light hinting with no override.
   reverted.
 - Font *size* is machine-level only: `~/.config/omarchy/shell.toml` `[font]
   base-size` (**13** at the time of writing, via `omarchy display text size`;
-  `display.conf` records it for `apply.sh` to restore — and the two have drifted
+  `display/display.conf` records it for `apply.sh` to restore — and the two have drifted
   apart before, when the live size was changed without re-running
-  `save-display.sh`, leaving `apply.sh` primed to undo the change on its next
+  `display/save-display.sh`, leaving `apply.sh` primed to undo the change on its next
   run. Read the live value, don't trust this number or that file). That file is **watched live** —
   `Color.qml:242-251` holds a `FileView` on the user copy with
   `watchChanges: true` and `onFileChanged: reload()`, so a size change reaches
@@ -213,33 +213,28 @@ step 7f and `overrides/icons/`. Nothing there is generated: each icon is a
 hand-placed SVG named for a desktop entry's `Icon=` value, and an app without
 one keeps its vendor icon.
 
-**There are two drop-in sources, and only one of them is in this repo.**
-`icons/fallbacks/` is **repainted** to the active palette by `app-icons.sh` and
-lands in `~/.icons/cllpse-flat/apps/`. The verbatim set is the switcher
-submodule's `omarchy-cllpse-switcher/icons/`, copied unchanged — no ImageMagick,
-no palette — into `~/.icons/cllpse-color/apps/` by the same script. Both land
-under `*/apps/*` in the sweep, so both outrank every installed theme, and a name
-present in either takes that app over. Use the submodule for a mark that only
-reads in its own colours (a multi-hue vendor logo) and `fallbacks/` for anything
-that should track light/dark.
+**There are two drop-in sources, both in this repo, and the split is the whole
+mechanism.** `icons/icons/` — 24 silhouettes — is **repainted** to the active
+palette by `app-icons.sh` and lands in `~/.icons/cllpse-flat/apps/`.
+`icons/verbatim/` — 75 full-colour marks — is copied unchanged, no ImageMagick
+and no palette, into `~/.icons/cllpse-color/apps/` by the same script. The
+repaint is keyed on the DIRECTORY, never on anything inside a file, so a
+multi-hue logo in the first would come out flattened. Both land under `*/apps/*`
+in the sweep, so both outrank every installed theme.
 
-`overrides/icons/color/` used to hold that verbatim set here, and was deleted
-once the plugin shipped the same 75 files: two copies of identical artwork in
-two repositories is drift waiting to happen, and the plugin's is the copy with
-the rescaled `viewBox`es. **The menu is the only consumer of the colour pass** —
-it draws a plain `Image` out of `$HOME/.icons` and cannot recolour, so a
-verbatim mark reaches it no other way, while the switcher reads its own `icons/`
-directly. One file now serves both surfaces.
+**The menu is the only consumer of the colour pass** — it draws a plain `Image`
+out of `$HOME/.icons` and cannot recolour, so a verbatim mark reaches it no other
+way, while the switcher reads its own `icons/` directly.
 
-That makes a missing source ambiguous, so the script tests `manifest.json` and
-not just the directory: absent means the submodule is **not checked out** and
-the colour pass is skipped, while a checked-out submodule with an emptied
-`icons/` genuinely means "delete a drop-in to hand that app back" and the sweep
-clears. Skipping is not exiting — the flat pass reads a different set out of a
-different directory and still runs. The colour
-pass runs **first** and outside the flat pass's guards, on purpose: it needs
-neither the palette nor a readable `colors.toml`, and coupling them once meant
-emptying `fallbacks/` silently stopped syncing `color/` too. An earlier version generated the whole set
+A missing source means one thing again, now that both live here: the marks were
+deliberately deleted, so the sweep clears what they backed — which is what
+"delete a drop-in to hand that app back" has to mean. While the verbatim set sat
+in the submodule it meant two things, and the script had to test `manifest.json`
+to tell "deleted" from "never checked out"; that guard went with the move.
+
+The colour pass runs **first** and outside the flat pass's guards, on purpose:
+it needs neither the palette nor a readable `colors.toml`, and coupling them
+once meant emptying one set silently stopped syncing the other. An earlier version generated the whole set
 from Nerd Font outlines; it was removed in favour of sourcing marks by hand,
 because automatic derivation cannot produce a usable mark for a logo defined by
 colour boundaries rather than shape (measured: Chromium, OBS and Moonlight all
@@ -247,14 +242,14 @@ flatten to featureless discs, and no fill-ratio threshold separates those from
 legitimately solid marks — a filled circle scores 0.785, the same range as real
 ones).
 
-**Two keyspaces, one rule.** `overrides/icons/fallbacks/` is named for a desktop
+**Two keyspaces, one rule.** `overrides/icons/icons/` is named for a desktop
 entry's `Icon=`; the switcher's `Hud.qml` `glyphFor` (in the submodule) is keyed on the
 window class, because a switcher has nothing else. A single shared key does not
 exist — measured here, 5 of the 24 entries declaring `StartupWMClass` use a
 class that is not their icon name, and Chromium's is the literal unsubstituted
 `@@startup_wm_class`. So the switcher looks the class up in an index it builds
 once at launch, and falls back to its own glyph when nothing answers — which
-covers a missing file, an empty `fallbacks/`, a machine where step 7f never ran,
+covers a missing file, an empty `icons/`, a machine where step 7f never ran,
 and a name mismatch alike. A drop-in whose filename differs from the window
 class reaches the menu but not the switcher; a second copy named for the class
 covers both.
@@ -374,11 +369,16 @@ like a pass. It now sets a `finished` flag as its last statement and the
 watchdog exits non-zero if it is unset. Any harness lifting code out of a larger
 component needs that tripwire, or its silence means nothing.
 
-**The duplication that used to sit here is gone.** `icons/color/` was a second
-copy of those 75 marks kept for the menu's sake; `COLOR_IN` points at the
-submodule instead. Two costs, both accepted deliberately: the menu now depends
-on the submodule being checked out (guarded above), and it sizes those marks by
-the plugin's rescaled `viewBox`es rather than the originals'.
+**Both repos carry all 99 marks, and nothing enforces that they match.** The
+plugin holds them in one `icons/`; this repo splits them by treatment across
+`icons/icons/` and `icons/verbatim/`. That duplication was removed once, making
+the plugin the single source precisely so two copies could not diverge, and then
+deliberately taken back when both repos were asked to be complete. It diverged
+within minutes of being taken back: seven files differed because the plugin's
+copies were fitted to the `viewBox` contract and this repo's were not, which had
+the menu drawing those 24 smaller than the 75 beside them.
+`overrides/icons/AGENTS.md` carries the one-liner that detects it; run it before
+trusting either repo.
 
 The switcher's *label* closed that gap rather than widening it. `nameFor` used
 to be a curated class→name chain ending in a title-cased class, which is a
@@ -675,7 +675,7 @@ project. The id is real; the repo slug 404s and the GitHub user `nickvdp` has no
 such repo. Don't re-derive the upstream from the app id.
 
 Ours is `~/Applications/figma-desktop-<version>-amd64.AppImage`, extracted to
-`~/Applications/figma-desktop/`. `overrides/install-figma.sh` does the install
+`~/Applications/figma-desktop/`. `overrides/figma/figma.sh` does the install
 and the update — see the entry under *Conventions* below.
 
 Three names are in play and all three are load-bearing somewhere: the AppStream
@@ -718,7 +718,7 @@ wrapper if it finds one, keyed on `integrate_desktop` being present in
 `AppRun.real` and absent from `AppRun`, and clears a stale `AppRun.real` that a
 fresh extraction left orphaned.
 
-**`overrides/install-figma.sh` is the install and the update, and they are the
+**`overrides/figma/figma.sh` is the install and the update, and they are the
 same run.** It is the one script here that reaches the network and the only one
 that installs an application at all — `apply.sh` still installs nothing. Five
 things in it are load-bearing rather than convenience:
@@ -1986,7 +1986,7 @@ outlier before the scene settled.
   after). That factor was right for a PNG and wrong for an SVG — the vector
   branch only recoloured, so a simple-icons source arrived edge-to-edge and the
   same compensation drew it 28% oversized, overflowing and clipping. Both halves
-  are gone: `fallbacks/` is SVG-only, every drop-in is edge-to-edge in a **square
+  are gone: `icons/` is SVG-only, every drop-in is edge-to-edge in a **square
   `viewBox`**, and `Hud.qml` draws the Image at `iconDrawn` — `iconSize * 0.9`, a
   flat optical trim with no ratio in it. Don't re-add a compensation factor;
   square the file's viewBox instead.
@@ -2160,7 +2160,7 @@ follows was not *introduced* by that split; the split is what made it visible.
   read by its icon index and documented in no file anywhere. It degrades
   correctly when absent, so nothing ever failed loudly enough to notice. The
   same shape turned up three more times — `apply.sh` gating the whole app-icons
-  hook on `icons/fallbacks/`, `app-icons.sh` justifying its own design on
+  hook on `icons/icons/`, `app-icons.sh` justifying its own design on
   switcher behaviour that had been deleted, and 75 icons duplicated across both
   repos. Grep for the mechanism (paths, commands, imports), not for the concept.
 - **A hidden dependency is fixed by naming it, not always by removing it.**
@@ -2229,7 +2229,7 @@ follows was not *introduced* by that split; the split is what made it visible.
 
 `apply.sh` is deterministic and idempotent for what it controls, but it is not a
 full machine build — it installs no packages, no third-party plugins,
-`display.conf` carries values tuned for one specific display, and step 10's CPU
+`display/display.conf` carries values tuned for one specific display, and step 10's CPU
 power limits are measured for one CPU in one chassis (gated on both, so they are
 inert elsewhere rather than wrong elsewhere). Several
 settings only take effect after a relogin. `overrides/README.md` has the full
