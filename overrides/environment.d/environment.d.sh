@@ -9,7 +9,7 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib.sh"
 HERE="$OVERRIDES"
 
-# See README.md (1)
+# See README.md
 for _stale in 10-cllpse-macos-font-rendering.conf; do
   if [[ -e ~/.config/environment.d/$_stale ]]; then
     rm -f ~/.config/environment.d/"$_stale"

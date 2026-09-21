@@ -2,11 +2,7 @@
 
 Two halves that run at opposite ends of an apply run: user-level flags, zoom and a neutral UI early; the managed policy last, because it is the only part needing sudo.
 
-The script is [`chromium.sh`](chromium.sh). It is runnable on its own and is also
-called by [`../apply.sh`](../apply.sh), which owns the order. Numbered
-sections below match the `# See README.md (n)` pointers in that script.
-
-## 1. _mode="${1:-all}"
+## 1. Two halves
 
 Two halves, and they run at DIFFERENT points of an apply.sh run: the
 user-level flags/zoom/UI half early (it was step 7d), the managed policy last
@@ -14,7 +10,7 @@ because it is the only part needing sudo and a password prompt should not
 stall a run halfway through (it was step 9). Calling this with no argument
 -- which is what running it by hand does -- does both, in that order.
 
-## 2. if [[ -f "$HERE/chromium/chromium-flags.conf" ]]; then
+## 2. Two settings that only make sense together
 
 Two settings that only make sense together: the flag pins the device pixel
 ratio to 1 (20% under DP-2's 1.25), and the preference puts page zoom back on
@@ -27,7 +23,7 @@ shared config here; the launcher skips "#" lines, which makes the markers
 inert. Drop any bare copy of the flag first: it predates the fenced block on
 this machine and would otherwise be passed twice.
 
-## 3. if [[ -f ~/.config/chromium-flags.conf ]]; then
+## 3. A repeated --enable-features is not merged
 
 A repeated --enable-features is not merged: base::CommandLine keys switches
 by name, so the last one wins outright and everything an earlier copy named
@@ -41,7 +37,7 @@ an Omarchy feature off on the next update.
 way: Omarchy ships no such line today, but if it ever adds one, ours would
 drop it just as silently.
 
-## 4. if [[ -x "$HERE/chromium/default-zoom.py" ]]; then
+## 4. There is no command-line flag for default page
 
 There is no command-line flag for default page zoom — see the script header
 for what was checked and for the log-scale the preference is stored in.
@@ -51,7 +47,7 @@ above: revert.sh restores what this machine had rather than picking a zoom of
 its own, and a value that already matches what we are about to write is
 refused so a re-run can't turn revert into a no-op.
 
-## 5. if [[ -x "$HERE/chromium/neutral-theme.py" ]]; then
+## 5. The third Chromium setting with no flag and
 
 The third Chromium setting with no flag and no policy: a neutral browser UI.
 The seed Omarchy feeds Chromium as BrowserThemeColor cannot give one -- a
@@ -63,14 +59,14 @@ is a dark teal without it). The script header has the measurements and the
 two attempts that lose to the policy. Recorded before it is changed, on the
 same terms as the zoom above.
 
-## 6. _prev_theme="$("$HERE/chromium/neutral-theme.py" --print 2>/dev/null |
+## 6. record_prior refuses one value
 
 record_prior refuses one value, and this step can leave more than one that
 is ours: the grayscale half was added after the system-theme half shipped,
 so a machine that ran the earlier version reads back `st=1,gs=` -- half our
 own work, which must not be recorded as what the machine came with.
 
-## 7. if [[ -f "$HERE/chromium/policies-managed.json" &&
+## 7. LAST on purpose
 
 LAST on purpose. This is the only step that needs sudo, so it runs after
 everything else rather than stalling a run halfway through on a password
@@ -163,3 +159,5 @@ Chromium: `--force-device-scale-factor=1` (browser UI 20% under DP-2's 1.25) + `
 ## From the step table
 
 Chromium context-menu declutter: spellcheck, translate, password-save prompt, address/card autofill, Print, Cast, "Create QR Code", and "Add to reading list" off — all eight as enterprise policy, none as a Preferences key. (An earlier version wrote the first five as plain `Preferences` booleans; a bare pref only changes the default, so Settings still showed the toggle as user-changeable, and per Chrome's own docs the bare `translate.enabled` pref doesn't suppress the manual "Translate to…" context-menu entry the way the `TranslateEnabled` policy does — confirmed live, plus four of those five keys have a dot in their real pref name and Chromium nests dotted pref names into nested JSON on write, so a flat key with a literal dot in it is never read back at all.) Needs **sudo** (the only step in this script that does), and only writes into `/etc/chromium/policies/managed/` if that directory already exists — mirroring Omarchy's own guard, so a machine without Chromium doesn't get handed a policy root it didn't have. No relaunch needed if Chromium is running: step 8's `omarchy-theme-set-browser` already calls Chromium's `--refresh-platform-policy` on every theme-set, which reloads this file too, same as Omarchy's own `color.json`. The same file also carries `ExtensionInstallForcelist`, which pins two extensions by ID against Google's CRX endpoint: **uBlock Origin Lite** (`ddkjiahejlhfcafbddmgiahcphecmpfh`) and **Proton Pass** (`ghmbeldphafepmbegfdlkpapadhbakde`). uBOL rather than uBlock Origin because MV2 is gone — Chromium 152's binary contains no `ExtensionManifestV2Availability` string at all, so there is no longer a policy to force MV2 back on; Proton Pass is the other half of `PasswordManagerEnabled: false`, which otherwise leaves nothing offering to store a credential. Both are unremovable from `chrome://extensions` while the file is in place, and uBOL's filtering mode is a per-profile setting with no policy behind it — raise it from Basic to Optimal by hand, once
+
+Script: [`chromium.sh`](chromium.sh) — runnable on its own; [`../apply.sh`](../apply.sh) owns the order.

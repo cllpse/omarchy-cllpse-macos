@@ -1,12 +1,6 @@
 # Display scaling + text size
 
-Three machine-level values — text size, monitor scale and GDK scale — captured from a live machine and restored on every apply. These are hardware preferences, not part of the macOS look, which is why they are saved to a file you own rather than pinned in the theme.
-
-The script is [`display.sh`](display.sh). It is runnable on its own and is also
-called by [`../apply.sh`](../apply.sh), which owns the order. Numbered
-sections below match the `# See README.md (n)` pointers in that script.
-
-## 1. if [[ -f "$HERE/display/display.conf" ]]; then
+Three machine-level values — text size, monitor scale, GDK scale — captured from a live machine and restored on every apply.
 
 Restore overrides/display/display.conf (written by ./overrides/display/save-display.sh).
 key left empty is skipped, and a missing file skips the step entirely.
@@ -39,3 +33,5 @@ executable bit to invite running it.
 panel, where Omarchy's default of 2 is right. Re-run `save-display.sh` on your
 own machine before the first apply, or `apply.sh` will confidently assert
 someone else's sizing.
+
+Script: [`display.sh`](display.sh) — runnable on its own; [`../apply.sh`](../apply.sh) owns the order.

@@ -2,11 +2,7 @@
 
 Four fenced snippets appended to the user's own hypr config, plus the keybind allowlist that decides which of Omarchy's stock binds survive.
 
-The script is [`hypr.sh`](hypr.sh). It is runnable on its own and is also
-called by [`../apply.sh`](../apply.sh), which owns the order. Numbered
-sections below match the `# See README.md (n)` pointers in that script.
-
-## 1. CURRENT="$HERE/hypr/keybind-current.conf"
+## 1. keybind-scan.lua sandboxes the live ~/.config/hypr/hyprland.lua
 
 keybind-scan.lua sandboxes the live ~/.config/hypr/hyprland.lua (dofile'd
 under a fake hl/o -- no interaction with the running Hyprland session, see
@@ -28,21 +24,21 @@ Two files, two lifecycles:
                            and re-apply to seed from this machine instead;
                            the file's own header covers the consequences.
 
-## 2. skip "keybind-allowlist.conf already exists — not reseeding (edit it d
+## 2. Note this ALWAYS fires on a fresh clone
 
 Note this ALWAYS fires on a fresh clone: the allowlist is tracked in git,
 so it exists before the first apply and the seeding branch below is
 unreachable until someone deletes it. That means a second machine is
 diffed against the author's bind set, not its own — see the file's header.
 
-## 3. sync_fenced ~/.config/hypr/bindings.lua "$HERE/hypr/macos-shortcuts.lu
+## 3. macOS-parity shortcuts
 
 macOS-parity shortcuts. Must be synced AFTER keybind-unbinds.lua above:
 some of these repurpose a combo (SUPER+LEFT/RIGHT, SUPER+SHIFT+LEFT/RIGHT)
 that the allowlist diff just unbound from its old WM meaning -- these
 bindings need to be the last word for that combo, not the unbind.
 
-## 4. sync_fenced ~/.config/hypr/bindings.lua "$HERE/hypr/window-management-
+## 4. Window navigation/arrangement on CTRL+ALT instead of SUPER
 
 Window navigation/arrangement on CTRL+ALT instead of SUPER -- see the
 header comment in window-management-mod.lua for why (the Preonic
@@ -58,3 +54,5 @@ share a chord with anything being unbound.
 ## From the step table
 
 Keybind allowlist + macOS-parity shortcuts. `keybind-scan.lua` sandboxes the live `hyprland.lua` (fake `hl`/`o`, no live Hyprland IPC) to enumerate every bind in effect; `keybind-allowlist.conf` seeds from that scan once and is yours from then on — delete a line to have the next apply unbind it; `keybind-unbinds.lua` is regenerated from the current allowlist on every apply, so an Omarchy update that adds new default binds gets pruned too, without reseeding. `macos-shortcuts.lua` (word/line navigation, close/undo/redo/save, quit — synthesized via `send_key_state`, guarded off inside terminals where forwarding Ctrl+Z/W/S would be destructive) and `window-management-mod.lua` (window nav/arrangement moved `SUPER` → `CTRL+ALT`, working around the Preonic firmware's key overrides suppressing `SUPER` on the keys they trigger on) are synced in *after* the unbinds, so their own binds land fresh every run
+
+Script: [`hypr.sh`](hypr.sh) — runnable on its own; [`../apply.sh`](../apply.sh) owns the order.

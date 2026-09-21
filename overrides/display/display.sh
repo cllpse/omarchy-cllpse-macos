@@ -8,7 +8,7 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib.sh"
 HERE="$OVERRIDES"
 
-# See README.md (1)
+# See README.md
 if [[ -f "$HERE/display/display.conf" ]]; then
   # shellcheck source=overrides/display/display-lib.sh
   source "$HERE/display/display-lib.sh"

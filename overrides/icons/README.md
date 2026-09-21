@@ -1,13 +1,5 @@
 # App icons
 
-Hand-placed marks for the Omarchy menu, which draws app rows as a plain image and cannot recolour. See AGENTS.md here for the workflow.
-
-The script is [`icons.sh`](icons.sh). It is runnable on its own and is also
-called by [`../apply.sh`](../apply.sh), which owns the order. Numbered
-sections below match the `# See README.md (n)` pointers in that script.
-
-## 1. mkdir -p ~/.config/omarchy/hooks/theme-set.d
-
 The Omarchy menu draws icons two ways. Non-app rows render `row.icon` as TEXT
 in a Nerd Font, tinted `foreground` — that is the flat, theme-tracking look.
 App rows instead render a plain Image of whatever the desktop entry's `Icon=`
@@ -50,3 +42,5 @@ the call site.
 ## From the step table
 
 Flat app icons for the menu. The menu renders non-app rows as Nerd Font *text* tinted `foreground` (the flat look) but app rows as a plain `Image` of the vendor's icon with no recolouring — 48 of 52 visible entries here resolve to a full-colour logo. `AppLibrary.qml` checks its own `find`-built index *before* Qt's themed lookup, and `$HOME/.icons` is the first directory in both its svg and png passes, so a file dropped there outranks every installed theme; with no `index.theme` it stays invisible to GTK and Qt. **Nothing is generated** — `icons/fallbacks/` holds hand-placed SVGs, one per desktop-entry `Icon=` value, and an app with no file there simply keeps its vendor icon. Synced by a `theme-set` hook rather than here, because app icons are never recoloured by the shell: a synced file has a fixed colour and must be rewritten per theme, and the shell restart `omarchy theme set` performs is what drops Qt's image cache so the new colour lands. SVG paints are repainted — attribute *and* CSS-block fills, both quote styles, `fill="none"` preserved so outline shapes stay outlines, and a root fill injected when a file carries no paint at all (simple-icons ships bare `<path d>`, which would otherwise render black). PNGs are masked by their alpha. A file that fails to parse is skipped, so a missing icon means a malformed drop-in
+
+Script: [`icons.sh`](icons.sh) — runnable on its own; [`../apply.sh`](../apply.sh) owns the order.

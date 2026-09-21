@@ -9,7 +9,7 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib.sh"
 HERE="$OVERRIDES"
 
-# See README.md (1)
+# See README.md
 say "starship -> ~/.config/omarchy/hooks/theme-set.d/starship-colors.sh"
 mkdir -p ~/.config/omarchy/hooks/theme-set.d
 ln -sfn "$HERE/hooks/theme-set.d/starship-colors.sh" ~/.config/omarchy/hooks/theme-set.d/starship-colors.sh

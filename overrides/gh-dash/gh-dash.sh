@@ -9,7 +9,7 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib.sh"
 HERE="$OVERRIDES"
 
-# See README.md (1)
+# See README.md
 _ghdash_dir="${XDG_DATA_HOME:-$HOME/.local/share}/gh/extensions/gh-dash"
 if [[ -d $_ghdash_dir ]]; then
   say "gh-dash -> ~/.config/omarchy/hooks/theme-set.d/gh-dash-colors.sh"

@@ -9,7 +9,7 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib.sh"
 HERE="$OVERRIDES"
 
-# See README.md (1)
+# See README.md
 say "post-update repair -> ~/.config/omarchy/hooks/post-update.d/cllpse-macos-repair.sh"
 mkdir -p ~/.config/omarchy/hooks/post-update.d
 ln -sfn "$HERE/hooks/post-update.d/cllpse-macos-repair.sh" \

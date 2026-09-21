@@ -2,18 +2,14 @@
 
 Cursor is themed in three separate places, because its settings live in three separate places: a JSON file we can merge, a SQLite DB we cannot, and a generated VS Code theme Omarchy owns.
 
-The script is [`cursor.sh`](cursor.sh). It is runnable on its own and is also
-called by [`../apply.sh`](../apply.sh), which owns the order. Numbered
-sections below match the `# See README.md (n)` pointers in that script.
-
-## 1. if [[ -d ~/.config/Cursor/User ]]; then
+## 1. Cursor's window chrome
 
 Cursor's window chrome, repainted from Omarchy's own generated VS Code theme
 so the editor frame matches every other window instead of wearing Bearded's
 greys. Chrome only — the editor pane and syntax stay Bearded. Hook, because
 the palette changes per theme; see the hook for the scoping.
 
-## 2. cursor_settings=~/.config/Cursor/User/settings.json
+## 2. Cursor
 
 Cursor — deep-merge our editor prefs into settings.json with jq: our keys win,
 any key we don't set is kept. Omarchy owns workbench.colorTheme (it rewrites it
@@ -21,7 +17,7 @@ to "Omarchy" on every `omarchy theme set`, via omarchy-theme-set-vscode), so
 cursor/settings.json deliberately omits it. Cursor is the only editor of this
 family installed here; VS Code / VSCodium would each want their own merge.
 
-## 3. _tokens="$HERE/cursor/bearded-dark-tokens.json"
+## 3. cursor/bearded-dark-tokens.json is the third input
 
 cursor/bearded-dark-tokens.json is the third input: the syntax colours for
 dark mode, derived from Bearded Theme Light by
@@ -29,7 +25,7 @@ cursor/derive-dark-from-light.py and scoped to the dark variant by name,
 so light mode is untouched. jq's `*` merges objects recursively and takes
 the right-hand side for arrays, which is what the textMateRules list wants.
 
-## 4. _px="$(omarchy display text size 2>/dev/null | sed -n '1s/[^0-9]*\([0-
+## 4. editor.fontSize is DERIVED
 
 editor.fontSize is DERIVED, not pinned. `omarchy display text size` is the
 one knob for apparent text size across the desktop -- it already drives the
@@ -39,7 +35,7 @@ those, so Cursor can ride the same knob instead of holding its own number.
 The value in cursor/settings.json is the fallback for when the reading
 fails; it is not the source of truth.
 
-## 5. mkdir -p ~/.local/bin ~/.config/systemd/user
+## 5. The derivation above is a one-shot
 
 The derivation above is a one-shot, taken during this merge. Keeping it
 tracking a LATER `omarchy display text size` needs a trigger, and
@@ -52,7 +48,7 @@ User units, not system: the target is $HOME/.config/Cursor. The .path
 is what gets enabled; it starts the oneshot .service, which is why only
 the former is in [Install].
 
-## 6. cursor_running()
+## 6. Cursor's window layout
 
 Cursor's window layout — NOT settings keys. Both live in
 ~/.config/Cursor/User/globalStorage/state.vscdb, so the jq merge above cannot
@@ -98,3 +94,5 @@ Gated on Cursor being closed, same as the merge above: Cursor holds this DB
 open and rewrites it from memory. NEITHER `pgrep` form tests for that -- the
 process NAME is `electron` (/usr/lib/electron42/electron), so `pgrep -x cursor`
 finds nothing, and `pgrep -f` is the whole-command-line trap in CLAUDE.md.
+
+Script: [`cursor.sh`](cursor.sh) — runnable on its own; [`../apply.sh`](../apply.sh) owns the order.

@@ -2,11 +2,7 @@
 
 Figma Desktop ships an entry whose Name= and StartupWMClass are both wrong for this setup. This replaces it.
 
-The script is [`applications.sh`](applications.sh). It is runnable on its own and is also
-called by [`../apply.sh`](../apply.sh), which owns the order. Numbered
-sections below match the `# See README.md (n)` pointers in that script.
-
-## 1. _figma_dir=~/Applications/figma-desktop
+## 1. The app regenerates its own entry on every
 
 The app regenerates its own entry on every launch (AppRun: integrate_desktop)
 and gets two fields wrong for this desktop: Name=Figma, where the product is
@@ -37,7 +33,7 @@ demonstrably is.
 Not installing Figma is the normal case on another machine, so a missing app
 directory is a skip, not an error -- nothing else here depends on the entry.
 
-## 2. skip "WARNING: $_figma_dir/AppRun is not the app's own launcher and th
+## 2. Something is standing in for the launcher and
 
 Something is standing in for the launcher and there is no AppRun.real
 to put back. Figma is already broken in this state (a wrapper execs a
@@ -47,3 +43,5 @@ rather than writing an entry that points at it.
 ## From the step table
 
 Figma Desktop's launcher entry. The app regenerates its own entry on every launch (`AppRun: integrate_desktop`) and gets two fields wrong for this desktop: `Name=Figma` (its AppStream `<name>` and `X-AppImage-Name` both say *Figma Desktop*) and `StartupWMClass=Figma` against a live Hyprland class of `figma-desktop` — so nothing that joins an entry to a window through that value lands, including the window switcher's class → entry lookup, which is where its tile label comes from. Rendered from a template (`{{ home }}` expanded), skipped entirely if Figma isn't installed. The regeneration only fires when `Exec` differs from `Exec="${appimage_path}" %u`, which for an extracted directory is `readlink -f "$0"` — a path with no version in it, so the template's Exec matches on every release and the entry is never taken back. The step also **removes a wrapper around `AppRun`** if it finds one: a wrapper displaces the launcher to `AppRun.real`, which is what breaks that path in the first place, and lives inside the app directory where the next extraction deletes it
+
+Script: [`applications.sh`](applications.sh) — runnable on its own; [`../apply.sh`](../apply.sh) owns the order.

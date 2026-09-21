@@ -9,7 +9,7 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib.sh"
 HERE="$OVERRIDES"
 
-# See README.md (1)
+# See README.md
 if command -v hunk >/dev/null 2>&1; then
   say "hunk -> ~/.config/omarchy/hooks/theme-set.d/hunk-colors.sh"
   mkdir -p ~/.config/omarchy/hooks/theme-set.d ~/.config/hunk

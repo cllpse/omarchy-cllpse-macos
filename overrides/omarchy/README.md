@@ -2,11 +2,7 @@
 
 Five targeted jq writes into the shell config: the window-switcher plugin, a transparent bar, the recorded bar layout and the disabled first-party plugins.
 
-The script is [`omarchy.sh`](omarchy.sh). It is runnable on its own and is also
-called by [`../apply.sh`](../apply.sh), which owns the order. Numbered
-sections below match the `# See README.md (n)` pointers in that script.
-
-## 1. shell_json=~/.config/omarchy/shell.json
+## 1. Targeted key writes into ~/.config/omarchy/shell.json
 
 Targeted key writes into ~/.config/omarchy/shell.json, Omarchy's own
 machine-level shell config. Deliberately still not a whole-file copy or a deep
@@ -62,21 +58,21 @@ onFileChanged: reload(), so a targeted key write lands as soon as it is saved.
 not Hyprland's. And step 8's theme-set does not restart the shell, which an
 earlier version of this comment assumed it did.)
 
-## 2. switcher_id_legacy=io.eject.window-switcher
+## 2. The id this plugin's manifest used to declare
 
 The id this plugin's manifest used to declare. Omarchy enables a third-party
 plugin iff its id appears anywhere in shell.json, so an entry left over from
 an earlier apply keeps a plugin "enabled" that no longer exists under that
 name. Dropped alongside the legacy symlink removed in step 1.
 
-## 3. _subset='{ layout: .bar.layout, centerAnchor: .bar.centerAnchor, disab
+## 3. Everything the block above would change
 
 Everything the block above would change, as one compact blob, so revert
 has a single thing to put back. Compared against what we are about to
 write rather than against shell-bar.json, so the tray carry-over doesn't
 read as a difference and get recorded on an already-applied machine.
 
-## 4. record_prior "$STATE/previous-bar-transparent" \
+## 4. NOT `.bar.transparent // empty`
 
 NOT `.bar.transparent // empty`. jq's `//` treats FALSE as absent, so that
 form emits nothing for the one value that actually needs recording --
@@ -88,3 +84,5 @@ explicitly and stringify, so false records as "false".
 ## From the step table
 
 Omarchy shell config, five targeted `jq` key writes — never a whole-file copy or deep merge, since the file also holds `idle`, `version` and other plugins' widget config, and `plugins[]` is an array a merge would replace rather than append to. **`plugins[]`**: enable the window-switcher (entry keyed by the manifest id — step 1's symlink only *installs* it; without this entry the HUD never loads and nothing says so). **`bar.transparent`**: true (Omarchy ships false). **`bar.layout`** + **`bar.centerAnchor`** + **`disabledPlugins`**: from `omarchy/shell-bar.json`, the recorded bar. `disabledPlugins[]` reaches only first-party *non-widget* plugins — panels and services (`PluginRegistry.qml:148-165`); a widget is disabled by absence from the layout, which is also the whole uninstall for a third-party one. The tray's `pinned`/`hidden` arrays are carried over from the live file rather than replaced — they name items that exist on this box. `centerAnchor` stays at Omarchy's `omarchy.clock` although no clock is in the layout: with the anchor absent `Bar.qml`'s `hasAnchor` is false and the center section just centres as a block (`Bar.qml:1538`), so the key is inert until a clock comes back. The pre-existing values are recorded once for `revert.sh`, refusing values already ours
+
+Script: [`omarchy.sh`](omarchy.sh) — runnable on its own; [`../apply.sh`](../apply.sh) owns the order.

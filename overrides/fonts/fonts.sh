@@ -13,7 +13,7 @@ say "Installing SF fonts -> ~/.local/share/fonts/SF/"
 mkdir -p ~/.local/share/fonts/SF
 cp -u "$HERE"/fonts/*.otf ~/.local/share/fonts/SF/
 
-# See README.md (1)
+# See README.md
 say "Installing Comic Code -> ~/.local/share/fonts/ComicCode/"
 mkdir -p ~/.local/share/fonts/ComicCode
 cp -u "$HERE"/fonts/comic-code/*.otf ~/.local/share/fonts/ComicCode/

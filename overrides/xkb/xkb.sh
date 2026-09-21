@@ -9,7 +9,7 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib.sh"
 HERE="$OVERRIDES"
 
-# See README.md (1)
+# See README.md
 say "xkb: installing us-danish-letters -> ~/.config/xkb/symbols/"
 mkdir -p ~/.config/xkb/symbols
 cp "$HERE/xkb/symbols/us-danish-letters" ~/.config/xkb/symbols/us-danish-letters
