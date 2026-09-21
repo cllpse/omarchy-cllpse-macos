@@ -96,3 +96,65 @@ process NAME is `electron` (/usr/lib/electron42/electron), so `pgrep -x cursor`
 finds nothing, and `pgrep -f` is the whole-command-line trap in CLAUDE.md.
 
 Script: [`cursor.sh`](cursor.sh) — runnable on its own; [`../apply.sh`](../apply.sh) owns the order.
+
+## Editor preferences
+
+Cursor editor prefs (Bearded colour + icon theme selected via
+`autoDetectColorScheme`, so the editor follows Omarchy's light/dark through
+`gsettings color-scheme` rather than through `workbench.colorTheme`, which
+Omarchy overwrites on every theme-set; whitespace/format-on-save, chrome
+trimmed — activity + status bars, menu bar, layout control, agents-window
+button and the `custom` title bar's min/max/close all hidden) merged into
+`settings.json` with `jq` — our keys win, `workbench.colorTheme` left to
+Omarchy. The Bearded keys are the override's one marketplace dependency;
+everything else in it is a stock Cursor key
+
+## Window chrome
+
+The colour theme is Bearded, chosen for its editor and syntax colours, but
+everything around the code was its own palette — a grey frame, blue-tinted
+`#202027` text fields and cyan/teal accents — against a desktop that is flat
+neutral with a `#007AFF` accent. `cursor-chrome.sh` now copies **everything
+except the editor canvas** out of Omarchy's *own* generated
+`vscode-theme.json` into `workbench.colorCustomizations`, which sits above the
+active theme: 487 of the 624 keys in each scope. `$KEEP` is the exception list
+(the code area, brackets/guides/line numbers/cursor, `symbolIcon.`, and the
+overview ruler + minimap marks, which have to agree with the canvas); `$EXACT`
+takes three surfaces back from it (`editor.background`,
+`editorGutter.background`, `minimap.background`). On top of the copy: every
+hover/active state is normalised onto the tab's 25% `muted` wash — Omarchy
+paints several of them the window colour (no feedback) or opaque `muted` (far
+heavier than a selected tab) — and the three families Cursor registers that
+Omarchy has no key for (`inlineEdit.`, `scmGraph.`, `errorLens.`) are
+re-tinted to `charts.*` hues while keeping the alpha the Bearded variant gave
+them. Three structural edges are put back that Omarchy paints the window
+colour, i.e. invisible: `sideBar.border` (the sidebar/editor separator),
+`tab.border` (between tabs, every tab, active or not) and
+`editorGroupHeader.border` (the line under the tab strip — that key, *not* the
+similarly named `editorGroupHeader.tabsBorder`, which is forced transparent).
+Cursor paints two 1px rules there, one on the tabs container and one on the
+`.title` element wrapping it, both `bottom:0; z-index:9`, and a parent's
+`::after` paints over its children's — so only `editorGroupHeader.border` is
+ever visible and a `tabsBorder` set instead is covered, which makes that key
+look inert. Established by probe: colouring the four keys differently produced
+zero pixels of the `tabsBorder` colour anywhere on screen. The edge is
+strip-wide rather than per-tab because it has to be: of the 29 `tab.*` ids
+Cursor registers, the only bottom-edge ones are `tab.activeBorder`,
+`tab.hoverBorder` and their unfocused pair — there is no `tab.inactiveBorder`,
+so a line under every tab can only come from the container, at the cost of
+running past the last tab. The per-tab bars (`tab.activeBorder` and friends)
+need no change: they are already derived as the hover wash flattened onto the
+strip — the same muted at the same 25% over the same backdrop — so they land
+on the identical rendered colour (`#2C2C2C` dark, `#EEEEEE` light) and
+continue the line instead of breaking it. All take `muted` at 25% flattened
+onto the window background, written as an opaque `#EEEEEE` light / `#2C2C2C`
+dark rather than a value with alpha — flattened because `tab.border` is a real
+CSS border painted over each tab's own background, so a translucent value
+would change shade as tabs activate. 25% is the weight the weight Omarchy
+already gives every other divider of that class (`editorGroup.border`,
+`panel.border`, `sideBarSectionHeader.border`), so they read as the same line
+rather than outweighing their neighbours. `tab.lastPinnedBorder` stays at full
+`muted`, a step heavier, so it still marks where the pinned tabs end. Values
+come from Omarchy's generated file rather than a second derivation of
+`colors.toml`, so there is nothing to drift, and both modes are correct by
+construction. Only the editor canvas and its syntax stay Bearded

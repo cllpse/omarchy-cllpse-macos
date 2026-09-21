@@ -32,6 +32,12 @@ SMU instead of from systemctl.
 
 ## From the step table
 
-CPU power limits: `ryzenadj` at 52W sustained / 58W burst, reapplied at **boot and on resume** by `ryzen-tdp.service` — runtime SMU settings persist across neither, so a machine tuned by hand is back at the firmware's 45W the next morning with nothing on it to say so. **Hardware-gated**: the step refuses unless `/proc/cpuinfo` reads 8745HS and DMI reads GEEKOM/A8, because 52W is a number for one chassis, not a general setting. Needs **sudo**, and does not install `ryzenadj`
+CPU power limits: `ryzenadj` at 52W sustained / 58W burst, reapplied at **boot
+and on resume** by `ryzen-tdp.service` — runtime SMU settings persist across
+neither, so a machine tuned by hand is back at the firmware's 45W the next
+morning with nothing on it to say so. **Hardware-gated**: the step refuses
+unless `/proc/cpuinfo` reads 8745HS and DMI reads GEEKOM/A8, because 52W is a
+number for one chassis, not a general setting. Needs **sudo**, and does not
+install `ryzenadj`
 
 Script: [`ryzen.sh`](ryzen.sh) — runnable on its own; [`../apply.sh`](../apply.sh) owns the order.

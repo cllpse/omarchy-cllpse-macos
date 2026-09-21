@@ -83,6 +83,23 @@ explicitly and stringify, so false records as "false".
 
 ## From the step table
 
-Omarchy shell config, five targeted `jq` key writes — never a whole-file copy or deep merge, since the file also holds `idle`, `version` and other plugins' widget config, and `plugins[]` is an array a merge would replace rather than append to. **`plugins[]`**: enable the window-switcher (entry keyed by the manifest id — step 1's symlink only *installs* it; without this entry the HUD never loads and nothing says so). **`bar.transparent`**: true (Omarchy ships false). **`bar.layout`** + **`bar.centerAnchor`** + **`disabledPlugins`**: from `omarchy/shell-bar.json`, the recorded bar. `disabledPlugins[]` reaches only first-party *non-widget* plugins — panels and services (`PluginRegistry.qml:148-165`); a widget is disabled by absence from the layout, which is also the whole uninstall for a third-party one. The tray's `pinned`/`hidden` arrays are carried over from the live file rather than replaced — they name items that exist on this box. `centerAnchor` stays at Omarchy's `omarchy.clock` although no clock is in the layout: with the anchor absent `Bar.qml`'s `hasAnchor` is false and the center section just centres as a block (`Bar.qml:1538`), so the key is inert until a clock comes back. The pre-existing values are recorded once for `revert.sh`, refusing values already ours
+Omarchy shell config, five targeted `jq` key writes — never a whole-file copy
+or deep merge, since the file also holds `idle`, `version` and other plugins'
+widget config, and `plugins[]` is an array a merge would replace rather than
+append to. **`plugins[]`**: enable the window-switcher (entry keyed by the
+manifest id — step 1's symlink only *installs* it; without this entry the HUD
+never loads and nothing says so). **`bar.transparent`**: true (Omarchy ships
+false). **`bar.layout`** + **`bar.centerAnchor`** + **`disabledPlugins`**:
+from `omarchy/shell-bar.json`, the recorded bar. `disabledPlugins[]` reaches
+only first-party *non-widget* plugins — panels and services
+(`PluginRegistry.qml:148-165`); a widget is disabled by absence from the
+layout, which is also the whole uninstall for a third-party one. The tray's
+`pinned`/`hidden` arrays are carried over from the live file rather than
+replaced — they name items that exist on this box. `centerAnchor` stays at
+Omarchy's `omarchy.clock` although no clock is in the layout: with the anchor
+absent `Bar.qml`'s `hasAnchor` is false and the center section just centres as
+a block (`Bar.qml:1538`), so the key is inert until a clock comes back. The
+pre-existing values are recorded once for `revert.sh`, refusing values already
+ours
 
 Script: [`omarchy.sh`](omarchy.sh) — runnable on its own; [`../apply.sh`](../apply.sh) owns the order.

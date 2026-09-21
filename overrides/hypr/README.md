@@ -49,10 +49,33 @@ share a chord with anything being unbound.
 
 ## From the step table
 
-`OMARCHY_MENU_FONT` + cursor theme + `no_warps` + keyboard layout (`hyprland.lua`), decoration/blur/opacity/animations (`looknfeel.lua`), window-switcher keybinds (`bindings.lua`), mouse tuning (`input.lua`) + `decoration` (`rounding = 18` / `rounding_power = 2.05` — a hair off a circular arc; 2.1, 2.2 and a real 3-3.4 squircle were all tried and dropped / `border_part_of_window = true`, `blur` on @ size 7 / passes 4 / vibrancy 0.30, `border_size = 2`, `gaps_in/out = 12/24`) + window `opacity = 0.99 0.875` (re-matched onto `chromium-based-browser` / `firefox-based-browser` too, since Omarchy pins those to `1.0 0.985` otherwise) + 3× animation speeds (floor 1) + `layer_rule` blur on the shell surfaces + `layer_rule` re-enabling the layer fade on the keyboard-driven panels, and `no_anim` on the window switcher (which fades its own scrim in QML)
+`OMARCHY_MENU_FONT` + cursor theme + `no_warps` + keyboard layout
+(`hyprland.lua`), decoration/blur/opacity/animations (`looknfeel.lua`),
+window-switcher keybinds (`bindings.lua`), mouse tuning (`input.lua`) +
+`decoration` (`rounding = 18` / `rounding_power = 2.05` — a hair off a
+circular arc; 2.1, 2.2 and a real 3-3.4 squircle were all tried and dropped /
+`border_part_of_window = true`, `blur` on @ size 7 / passes 4 / vibrancy 0.30,
+`border_size = 2`, `gaps_in/out = 12/24`) + window `opacity = 0.99 0.875`
+(re-matched onto `chromium-based-browser` / `firefox-based-browser` too, since
+Omarchy pins those to `1.0 0.985` otherwise) + 3× animation speeds (floor 1) +
+`layer_rule` blur on the shell surfaces + `layer_rule` re-enabling the layer
+fade on the keyboard-driven panels, and `no_anim` on the window switcher
+(which fades its own scrim in QML)
 
 ## From the step table
 
-Keybind allowlist + macOS-parity shortcuts. `keybind-scan.lua` sandboxes the live `hyprland.lua` (fake `hl`/`o`, no live Hyprland IPC) to enumerate every bind in effect; `keybind-allowlist.conf` seeds from that scan once and is yours from then on — delete a line to have the next apply unbind it; `keybind-unbinds.lua` is regenerated from the current allowlist on every apply, so an Omarchy update that adds new default binds gets pruned too, without reseeding. `macos-shortcuts.lua` (word/line navigation, close/undo/redo/save, quit — synthesized via `send_key_state`, guarded off inside terminals where forwarding Ctrl+Z/W/S would be destructive) and `window-management-mod.lua` (window nav/arrangement moved `SUPER` → `CTRL+ALT`, working around the Preonic firmware's key overrides suppressing `SUPER` on the keys they trigger on) are synced in *after* the unbinds, so their own binds land fresh every run
+Keybind allowlist + macOS-parity shortcuts. `keybind-scan.lua` sandboxes the
+live `hyprland.lua` (fake `hl`/`o`, no live Hyprland IPC) to enumerate every
+bind in effect; `keybind-allowlist.conf` seeds from that scan once and is
+yours from then on — delete a line to have the next apply unbind it;
+`keybind-unbinds.lua` is regenerated from the current allowlist on every
+apply, so an Omarchy update that adds new default binds gets pruned too,
+without reseeding. `macos-shortcuts.lua` (word/line navigation,
+close/undo/redo/save, quit — synthesized via `send_key_state`, guarded off
+inside terminals where forwarding Ctrl+Z/W/S would be destructive) and
+`window-management-mod.lua` (window nav/arrangement moved `SUPER` →
+`CTRL+ALT`, working around the Preonic firmware's key overrides suppressing
+`SUPER` on the keys they trigger on) are synced in *after* the unbinds, so
+their own binds land fresh every run
 
 Script: [`hypr.sh`](hypr.sh) — runnable on its own; [`../apply.sh`](../apply.sh) owns the order.

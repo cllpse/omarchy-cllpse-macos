@@ -86,6 +86,16 @@ cannot strand the two out of step even if Figma happens to be focused.
 
 ## From the step table
 
-keyd, for Figma alone: an identity `default.conf` pinned to the Preonic that also *defines* the inert `[figma:C]` layer, the focus helper, and the `keyd` group grant. Nothing is remapped until Figma takes focus, at which point `macos-shortcuts.lua` binds `leftmeta = layer(figma)` in the running daemon and drops it again on blur — Figma reads `ctrlKey` and ignores `metaKey` off macOS, and Hyprland has no pointer-button or scroll-axis dispatcher to translate Cmd+click / Cmd+scroll with. Needs **sudo**. keyd re-reads that config only at start, so this step's `systemctl restart` is the *only* thing that publishes an edit to `keyd/default.conf`; it ends by binding the layer and releasing it as a smoke test, because every link in the chain fails silently
+keyd, for Figma alone: an identity `default.conf` pinned to the Preonic that
+also *defines* the inert `[figma:C]` layer, the focus helper, and the `keyd`
+group grant. Nothing is remapped until Figma takes focus, at which point
+`macos-shortcuts.lua` binds `leftmeta = layer(figma)` in the running daemon
+and drops it again on blur — Figma reads `ctrlKey` and ignores `metaKey` off
+macOS, and Hyprland has no pointer-button or scroll-axis dispatcher to
+translate Cmd+click / Cmd+scroll with. Needs **sudo**. keyd re-reads that
+config only at start, so this step's `systemctl restart` is the *only* thing
+that publishes an edit to `keyd/default.conf`; it ends by binding the layer
+and releasing it as a smoke test, because every link in the chain fails
+silently
 
 Script: [`keyd.sh`](keyd.sh) — runnable on its own; [`../apply.sh`](../apply.sh) owns the order.

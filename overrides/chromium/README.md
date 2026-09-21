@@ -154,10 +154,47 @@ as a DevTools bug.
 
 ## From the step table
 
-Chromium: `--force-device-scale-factor=1` (browser UI 20% under DP-2's 1.25) + `110%` default page zoom — page size is the product of the two, and 125% would be exactly 1:1 with native; `--enable-features=…,OverlayScrollbar` for the thin auto-hiding scrollbar (restating Omarchy's own feature, because a repeated `--enable-features` is last-wins rather than merged); `--disable-features=MediaSessionService`, the only lever that removes the global-media-controls button beside the profile avatar — at the cost of Chromium's MPRIS export (media keys, now-playing widgets); and a neutral browser UI — Omarchy's `BrowserThemeColor` policy runs our grey seed through Material's tonal-spot scheme and comes back cyan, which takes both the system (GTK) theme (frame and menus) and grayscale (the accent: the omnibox focus ring is a dark teal without it)
+Chromium: `--force-device-scale-factor=1` (browser UI 20% under DP-2's 1.25) +
+`110%` default page zoom — page size is the product of the two, and 125% would
+be exactly 1:1 with native; `--enable-features=…,OverlayScrollbar` for the
+thin auto-hiding scrollbar (restating Omarchy's own feature, because a
+repeated `--enable-features` is last-wins rather than merged);
+`--disable-features=MediaSessionService`, the only lever that removes the
+global-media-controls button beside the profile avatar — at the cost of
+Chromium's MPRIS export (media keys, now-playing widgets); and a neutral
+browser UI — Omarchy's `BrowserThemeColor` policy runs our grey seed through
+Material's tonal-spot scheme and comes back cyan, which takes both the system
+(GTK) theme (frame and menus) and grayscale (the accent: the omnibox focus
+ring is a dark teal without it)
 
 ## From the step table
 
-Chromium context-menu declutter: spellcheck, translate, password-save prompt, address/card autofill, Print, Cast, "Create QR Code", and "Add to reading list" off — all eight as enterprise policy, none as a Preferences key. (An earlier version wrote the first five as plain `Preferences` booleans; a bare pref only changes the default, so Settings still showed the toggle as user-changeable, and per Chrome's own docs the bare `translate.enabled` pref doesn't suppress the manual "Translate to…" context-menu entry the way the `TranslateEnabled` policy does — confirmed live, plus four of those five keys have a dot in their real pref name and Chromium nests dotted pref names into nested JSON on write, so a flat key with a literal dot in it is never read back at all.) Needs **sudo** (the only step in this script that does), and only writes into `/etc/chromium/policies/managed/` if that directory already exists — mirroring Omarchy's own guard, so a machine without Chromium doesn't get handed a policy root it didn't have. No relaunch needed if Chromium is running: step 8's `omarchy-theme-set-browser` already calls Chromium's `--refresh-platform-policy` on every theme-set, which reloads this file too, same as Omarchy's own `color.json`. The same file also carries `ExtensionInstallForcelist`, which pins two extensions by ID against Google's CRX endpoint: **uBlock Origin Lite** (`ddkjiahejlhfcafbddmgiahcphecmpfh`) and **Proton Pass** (`ghmbeldphafepmbegfdlkpapadhbakde`). uBOL rather than uBlock Origin because MV2 is gone — Chromium 152's binary contains no `ExtensionManifestV2Availability` string at all, so there is no longer a policy to force MV2 back on; Proton Pass is the other half of `PasswordManagerEnabled: false`, which otherwise leaves nothing offering to store a credential. Both are unremovable from `chrome://extensions` while the file is in place, and uBOL's filtering mode is a per-profile setting with no policy behind it — raise it from Basic to Optimal by hand, once
+Chromium context-menu declutter: spellcheck, translate, password-save prompt,
+address/card autofill, Print, Cast, "Create QR Code", and "Add to reading
+list" off — all eight as enterprise policy, none as a Preferences key. (An
+earlier version wrote the first five as plain `Preferences` booleans; a bare
+pref only changes the default, so Settings still showed the toggle as
+user-changeable, and per Chrome's own docs the bare `translate.enabled` pref
+doesn't suppress the manual "Translate to…" context-menu entry the way the
+`TranslateEnabled` policy does — confirmed live, plus four of those five keys
+have a dot in their real pref name and Chromium nests dotted pref names into
+nested JSON on write, so a flat key with a literal dot in it is never read
+back at all.) Needs **sudo** (the only step in this script that does), and
+only writes into `/etc/chromium/policies/managed/` if that directory already
+exists — mirroring Omarchy's own guard, so a machine without Chromium doesn't
+get handed a policy root it didn't have. No relaunch needed if Chromium is
+running: step 8's `omarchy-theme-set-browser` already calls Chromium's
+`--refresh-platform-policy` on every theme-set, which reloads this file too,
+same as Omarchy's own `color.json`. The same file also carries
+`ExtensionInstallForcelist`, which pins two extensions by ID against Google's
+CRX endpoint: **uBlock Origin Lite** (`ddkjiahejlhfcafbddmgiahcphecmpfh`) and
+**Proton Pass** (`ghmbeldphafepmbegfdlkpapadhbakde`). uBOL rather than uBlock
+Origin because MV2 is gone — Chromium 152's binary contains no
+`ExtensionManifestV2Availability` string at all, so there is no longer a
+policy to force MV2 back on; Proton Pass is the other half of
+`PasswordManagerEnabled: false`, which otherwise leaves nothing offering to
+store a credential. Both are unremovable from `chrome://extensions` while the
+file is in place, and uBOL's filtering mode is a per-profile setting with no
+policy behind it — raise it from Basic to Optimal by hand, once
 
 Script: [`chromium.sh`](chromium.sh) — runnable on its own; [`../apply.sh`](../apply.sh) owns the order.

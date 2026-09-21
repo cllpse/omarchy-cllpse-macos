@@ -49,7 +49,7 @@
 #   7c.  session environment drop-ins                                  environment.d/
 #   7d.  Chromium flags, zoom and neutral UI                           chromium/ (user)
 #   7e.  Figma Desktop's launcher entry                                applications/
-#   7f.  flat app icons for the menu                                   icons/
+#   7f.  app icons for the menu (repainted + verbatim)                 icons/
 #   7f2. post-update repair hook                                       hooks/
 #   7h.  Omarchy shell.json: switcher, bar, disabled plugins           omarchy/
 #   8.   apply the theme                                               [inline]
@@ -410,7 +410,7 @@ STEPS=(
   "environment.d||Session environment drop-ins|run:environment.d|"
   "chromium-user||Chromium flags, zoom, neutral UI|run:chromium user|"
   "applications||Figma Desktop launcher entry|run:applications|"
-  "icons||Flat app icons for the menu|run:icons|"
+  "icons||App icons for the menu|run:icons|"
   "hooks||Post-update repair hook|run:hooks|"
   "omarchy||Omarchy shell.json|run:omarchy|symlinks"
   "theme||Apply the theme|fn:step_theme|symlinks"

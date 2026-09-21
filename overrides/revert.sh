@@ -247,7 +247,7 @@ elif [[ -e ~/.config/ytm-player/config.toml ]]; then
   say "left ~/.config/ytm-player/config.toml alone — its [ui] theme may still name textual-light/dark"
 fi
 
-# Flat app icons (apply.sh step 7f). The whole override is one directory we
+# App icons (apply.sh step 7f). The whole override is one directory we
 # created, so removing it hands every app back to its vendor icon; there is no
 # backup to restore because nothing pre-existing was replaced.
 say "Removing the post-update repair hook"
