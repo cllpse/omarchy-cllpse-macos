@@ -16,8 +16,8 @@ else.
 
 | source | published to | treatment |
 |---|---|---|
-| [`fallbacks/`](fallbacks/README.md) — 24 hand-placed SVGs | `~/.icons/cllpse-flat/apps/` | **repainted** to the theme `foreground` |
-| the switcher submodule's `icons/` — 75 marks | `~/.icons/cllpse-color/apps/` | **verbatim** |
+| [`icons/`](icons/README.md), here — 24 hand-placed SVGs | `~/.icons/cllpse-flat/apps/` | **repainted** to the theme `foreground` |
+| the **plugin's** `omarchy-cllpse-switcher/icons/` — 75 marks | `~/.icons/cllpse-color/apps/` | **verbatim** |
 
 The verbatim half follows the plugin's rule: an icon is the source of truth for
 its own appearance, and the only thing ever changed in a file is its `viewBox`.
@@ -31,5 +31,5 @@ the new colour lands.
 
 Nothing is generated. One file per desktop-entry `Icon=` value; an app with no
 file keeps its vendor icon. See [`AGENTS.md`](AGENTS.md) for finding and fitting
-new ones, and [`fallbacks/README.md`](fallbacks/README.md) for what a repainted
+new ones, and [`icons/README.md`](icons/README.md) for what a repainted
 file must contain.

@@ -169,8 +169,8 @@ overrides/<name>/         one directory per override, each owning BOTH its scrip
                           <name>.sh (runnable on its own) and README.md (why). apply.sh is an
                           orchestrator that sources lib.sh and calls them in order; the order,
                           and the system-level steps with no folder, stay in apply.sh.
-overrides/icons/          app/CLI marks repainted to the theme (fallbacks/); the verbatim ones live in the switcher submodule.
-                          AGENTS.md is how to add one, fallbacks/README.md is what a
+overrides/icons/          app/CLI marks repainted to the theme (icons/icons/); the verbatim ones live in the switcher submodule.
+                          AGENTS.md is how to add one, icons/README.md is what a
                           file must look like
 omarchy-cllpse-switcher/  SUBMODULE -> cllpse/omarchy-window-switcher. The macOS-style
                           window-switcher HUD plugin (id cllpse.window-switcher),
@@ -279,14 +279,14 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   is a file, not a setting: `$HOME/.icons` is the first directory Omarchy's icon
   index scans and carries no `index.theme`, so a drop-in reaches the shell
   without touching GTK or Qt, and an app with no file keeps its vendor icon.
-  `overrides/icons/fallbacks/` holds the marks repainted to the theme. The
+  `overrides/icons/icons/` holds the marks repainted to the theme. The
   full-colour ones are **not here**: they live in the switcher submodule, which
   ships all 75 and is what `app-icons.sh` copies verbatim into
   `~/.icons/cllpse-color/apps/` for the menu — one set of files, both surfaces.
   The menu is the consumer that can only be served this way, because it draws a
   plain image and cannot recolour anything. **Adding or updating one:
   [`overrides/icons/AGENTS.md`](overrides/icons/AGENTS.md)** for the workflow,
-  [`overrides/icons/fallbacks/README.md`](overrides/icons/fallbacks/README.md)
+  [`overrides/icons/icons/README.md`](overrides/icons/icons/README.md)
   for what a file must contain.
 - **Shell-surface translucency lives in the theme, per section.** A theme-shipped
   `shell.<section>.toml` is spliced into the generated `shell.toml` by

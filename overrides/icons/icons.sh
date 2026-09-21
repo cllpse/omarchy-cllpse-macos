@@ -12,12 +12,12 @@ HERE="$OVERRIDES"
 # See README.md
 mkdir -p ~/.config/omarchy/hooks/theme-set.d
 ln -sfn "$HERE/hooks/theme-set.d/app-icons.sh" ~/.config/omarchy/hooks/theme-set.d/app-icons.sh
-if [[ -d "$HERE/icons/fallbacks" ]]; then
-  _n=$(find "$HERE/icons/fallbacks" -maxdepth 1 \( -name '*.svg' -o -name '*.png' \) | wc -l)
+if [[ -d "$HERE/icons/icons" ]]; then
+  _n=$(find "$HERE/icons/icons" -maxdepth 1 \( -name '*.svg' -o -name '*.png' \) | wc -l)
   say "app icons -> ~/.icons/cllpse-flat/apps/ ($_n hand-placed) + ~/.icons/cllpse-color/apps/ (from the switcher submodule)"
 else
   _n=0
-  skip "no icons/fallbacks/ — the repainted half has nothing to sync"
+  skip "no icons/icons/ — the repainted half has nothing to sync"
 fi
 "$HERE/hooks/theme-set.d/app-icons.sh" || skip "app-icons.sh produced nothing this run"
 # An `if`, not `(( … )) && skip`. As the LAST command in this script that idiom
@@ -25,6 +25,6 @@ fi
 # `set -e` -- so a perfectly normal run with icons present aborted the whole
 # apply at this step. It was harmless while 20 more steps followed it.
 if (( _n == 0 )); then
-  skip "icons/fallbacks/ is empty — every app keeps its vendor icon"
+  skip "icons/icons/ is empty — every app keeps its vendor icon"
 fi
 

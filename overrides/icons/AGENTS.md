@@ -1,11 +1,11 @@
 # Finding and fitting icon overrides
 
-A workflow, not a contract. [`fallbacks/README.md`](fallbacks/README.md) is the
+A workflow, not a contract. [`icons/README.md`](icons/README.md) is the
 contract — what a file must look like, and which directory it belongs in. This
 file is how you find out *which* files are worth adding, and how to make a new
 one sit correctly beside the ones already here.
 
-**Ship the set as it is.** The 24 marks in `fallbacks/` — and the 75 full-colour
+**Ship the set as it is.** The 24 marks in `icons/` here — and the 75 full-colour
 ones in the switcher submodule — are aligned and committed. Do not run a bulk
 pass over either. Everything below applies to
 marks you are **adding**; a sweep that "fixes" the existing set is how `hunk`
@@ -15,22 +15,22 @@ lost its background box once already.
 
 Three consumers, keyed three different ways. Get the key wrong and the file is
 simply never found — nothing errors. Only the first is served from **this**
-directory; the other two read the submodule's `icons/`, so the example column
+directory; the other two read the **plugin's** `omarchy-cllpse-switcher/icons/`, so the example column
 says where each file actually lives.
 
 | consumer | key | example (and where it lives) |
 |---|---|---|
-| Omarchy menu (app rows) | the desktop entry's `Icon=` | `org.gnome.DiskUtility.svg` — `fallbacks/`, here |
-| Switcher tile | the **window class** | `cursor.svg` — the submodule's `icons/` |
-| Switcher terminal icon | the **command name**, after the switcher's alias file | `hunk.svg` — the submodule's `icons/` |
+| Omarchy menu (app rows) | the desktop entry's `Icon=` | `org.gnome.DiskUtility.svg` — `icons/`, here |
+| Switcher tile | the **window class** | `cursor.svg` — the plugin's `icons/` |
+| Switcher terminal icon | the **command name**, after the switcher's alias file | `hunk.svg` — the plugin's `icons/` |
 
-A mark in `fallbacks/` also reaches the switcher, through the optional
+A mark in `icons/` here also reaches the switcher, through the optional
 `~/.icons/cllpse-flat/apps/` root it reads; `btop.svg` and `gh.svg` here are
 what that looks like in practice.
 
 The menu is the consumer that **only** we can serve: it draws a plain image and
 cannot recolour anything, so it needs the repainted copies `app-icons.sh` writes
-out of `fallbacks/`.
+out of `icons/`.
 
 **The full-colour marks are not in this repository any more.** They live in the
 switcher submodule, `omarchy-cllpse-switcher/icons/` — all 75 of them. The
@@ -43,7 +43,7 @@ fitting one.
 
 So this directory is now only about the repainted set. The switcher still reads
 `~/.icons/cllpse-flat/apps/` as an optional integration, so a mark added to
-`fallbacks/` does reach both surfaces — but it draws every icon exactly as
+`icons/` does reach both surfaces — but it draws every icon exactly as
 authored, so nothing here has to care whether a mark is flat or full-colour.
 
 Its alias table moved too: command-to-icon mappings now live in
@@ -99,7 +99,7 @@ import os, glob, re, subprocess, collections, shutil
 HOME = os.path.expanduser("~")
 override = {os.path.basename(p)[:-4]
             for p in glob.glob("omarchy-cllpse-switcher/icons/*.svg")
-                   + glob.glob("overrides/icons/fallbacks/*.svg")}
+                   + glob.glob("overrides/icons/icons/*.svg")}
 # Exactly the sweep Hud.qml's vendorScan runs, so "already covered" means the
 # same thing here as it does at runtime.
 sweep = r'''dirs="$HOME/.icons $HOME/.local/share/icons"; IFS=":";
@@ -158,7 +158,7 @@ name is a suggestion, not a task.
 
 Two destinations, and they are in **different repositories** now.
 
-- **`fallbacks/`, here** — a silhouette; the theme supplies the colour. Synced
+- **`icons/`, here** — a silhouette; the theme supplies the colour. Synced
   repainted to the theme `foreground`. Only ever about the menu.
 - **`omarchy-cllpse-switcher/icons/`, the submodule** — the mark only reads in
   its own colours (`figma-desktop`, `claude-code`, `youtube-music`). Synced
@@ -168,12 +168,12 @@ One name, one directory, never both — the switcher checks the repainted index
 first, so a duplicate silently wins there and the colour copy is dead.
 
 **A monochrome mark whose only contrast comes from its own background belongs in
-`fallbacks/`, not with the colour set.** `hunk` is dark-on-cream: strip its box
+`icons/`, not with the colour set.** `hunk` is dark-on-cream: strip its box
 and treat it as a colour mark and you get a `#16140F` glyph on a `#1E1E1E` card,
 contrast 1.05, invisible. Either keep the background and stay with the colour
-set, or drop the background and move to `fallbacks/`.
+set, or drop the background and move to `icons/`.
 
-Conversely, a file in `fallbacks/` with a background rect is **broken**: the
+Conversely, a file in `icons/` with a background rect is **broken**: the
 repaint rewrites the rect and the mark to the same colour and it renders as a
 solid block. `grok` shipped that way and nobody noticed.
 

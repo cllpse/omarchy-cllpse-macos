@@ -1,4 +1,4 @@
-# fallbacks/
+# icons/
 
 This directory is one of the two sources of app icons for the Omarchy menu —
 the **repainted** one. Nothing is generated: each file here is one you placed by

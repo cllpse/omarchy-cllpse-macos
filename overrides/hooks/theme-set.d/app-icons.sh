@@ -1,5 +1,5 @@
 #!/bin/bash
-# Sync overrides/icons/fallbacks/ into the icon directory the Omarchy menu
+# Sync overrides/icons/icons/ into the icon directory the Omarchy menu
 # actually reads, repainted in the active theme's foreground.
 #
 # Why this exists: the menu draws two kinds of icon. Rows that are not apps
@@ -18,7 +18,7 @@
 # Omarchy shell and nothing else.
 #
 # Nothing here is generated. Every icon is a file hand-placed in
-# icons/fallbacks/ -- see that directory's README for the naming and silhouette
+# icons/icons/ -- see that directory's README for the naming and silhouette
 # contract. An app with no file there keeps its vendor icon, unchanged.
 #
 # Because app icons are never recoloured by the shell, a synced file carries a
@@ -35,7 +35,7 @@
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
-FALLBACKS="$HERE/../../icons/fallbacks"
+FLAT_IN="$HERE/../../icons/icons"
 # Marks that keep their own colours. These live in the SWITCHER SUBMODULE, not
 # in this repo: the plugin ships the full set to render its own tiles, this
 # script copies the same files out for the menu, and one directory is easier to
@@ -107,7 +107,7 @@ trap _restart_shell_if_changed EXIT
 # Copied verbatim, no recolouring, no ImageMagick -- so it needs neither the
 # palette nor the flat directory, and it runs FIRST, before any of the flat
 # pass's guards. It used to sit below them, which quietly coupled two
-# independent icon sets: emptying icons/fallbacks/ also stopped syncing
+# independent icon sets: emptying icons/icons/ also stopped syncing
 # icons/color/, and a theme with no readable colors.toml stopped both.
 #
 # $HOME/.icons is first in the XDG sweep the switcher runs (and in Omarchy's own
@@ -153,7 +153,7 @@ fi
 # ── Flat pass ───────────────────────────────────────────────────────────────
 # Repainting needs the active palette, so this half -- and only this half --
 # stops here when either is missing.
-[[ -d $FALLBACKS ]] || exit 0
+[[ -d $FLAT_IN ]] || exit 0
 [[ -f $COLORS ]] || exit 0
 
 fg="$(omarchy-theme-color --file "$COLORS" foreground 2>/dev/null || true)"
@@ -179,7 +179,7 @@ declare -A wanted=()
 #
 # aether, cliamp, helium and LimineSnapperSync were the four that went. If a
 # vector turns up for any of them, dropping it in is the whole of the work.
-for f in "$FALLBACKS"/*.svg; do
+for f in "$FLAT_IN"/*.svg; do
   base=$(basename "$f"); name=${base%.*}
   wanted[$name]="$base"
 
@@ -226,7 +226,7 @@ for f in "$FALLBACKS"/*.svg; do
   fi
 done
 
-# Remove anything no longer backed by a file in fallbacks/, so deleting a
+# Remove anything no longer backed by a file in icons/icons/, so deleting a
 # drop-in really does hand that app back to its vendor icon. Still sweeps .png
 # as well as .svg: this run generates none, but an earlier one did, and a
 # leftover raster is exactly the stale second convention this change exists to

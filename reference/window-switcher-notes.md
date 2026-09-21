@@ -374,7 +374,7 @@ The tile's mark is a Nerd Font **glyph rendered as text**, coloured from
 nothing to regenerate. That is the same track the Omarchy menu uses for its
 non-app rows; the menu's *app* rows are the exception — they draw a plain
 `Image` of the vendor icon with no recolouring, which is what
-`overrides/icons/fallbacks/` and the `app-icons.sh` theme-set hook exist to
+`overrides/icons/icons/` and the `app-icons.sh` theme-set hook exist to
 replace.
 
 The switcher keys on the **window class** while a drop-in is named for the
@@ -514,7 +514,7 @@ Worth knowing about `glyphFor`, which is still the default for every tile:
     `#1E1E1E` card — a contrast ratio of about 1.05, i.e. invisible. It was
     restored from backup and **kept its box**, staying in the colour set, because
     the box is part of the logo. The alternative was dropping the background and
-    moving it to `fallbacks/` where the theme supplies the colour — the rule for
+    moving it to `icons/` where the theme supplies the colour — the rule for
     a monochrome mark that only reads against its own background, and not what
     was done here.
 - **A drop-in renders at exactly the size its own ink fills its `viewBox`.**
@@ -534,7 +534,7 @@ Worth knowing about `glyphFor`, which is still the default for every tile:
   to sit behind its own glyph, which is how the box "disappeared". An icon with
   nothing transparent in it is already edge-to-edge by definition and wants
   leaving alone. That is
-  compliance with the contract in `../overrides/icons/fallbacks/README.md`, not
+  compliance with the contract in `../overrides/icons/icons/README.md`, not
   a new rule: edge-to-edge in the file is what makes every tile agree on size.
   When a mark still looks small, measure its ink before touching anything in
   the QML.
@@ -575,7 +575,7 @@ Worth knowing about `glyphFor`, which is still the default for every tile:
   A name that still resolves to a title-cased class is the signal to check that
   declaration first.
 - If a hand-placed icon exists for the window's class in
-  `~/.icons/cllpse-flat/apps/` (synced from `overrides/icons/fallbacks/`), an
+  `~/.icons/cllpse-flat/apps/` (synced from `overrides/icons/icons/`), an
   `Image` replaces the text cell for that tile. `.svg` is probed first, then
   `.png`. Everything else stays text — a glyph is crisper at this size than any
   bitmap, and it recolours for free.
