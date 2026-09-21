@@ -10,10 +10,26 @@ so it can't ship inside a theme folder.
 ## Use
 
 ```bash
-./apply.sh          # install everything + apply the theme (keeps light if light is active)
-./revert.sh         # undo everything, restoring what the machine had before
-./install-figma.sh  # install or update Figma Desktop, then run apply.sh
+./apply.sh                  # pick what to run, or everything if there is no terminal
+./apply.sh --all            # everything, no prompt
+./apply.sh cursor icons     # only these, still in the canonical order
+./apply.sh --list           # every id, and which four need sudo
+./revert.sh                 # undo everything, restoring what the machine had before
+./install-figma.sh          # install or update Figma Desktop, then run apply.sh --all
 ```
+
+**Selection is by step, not by folder** — the inline steps (gsettings, the theme
+apply, `hyprctl reload`, Btrfs) are selectable too, so `--all` is exactly the
+old behaviour. Picking is a `gum` menu with **Everything** as its first entry,
+falling back to a numbered prompt where gum is absent.
+
+Order is always the canonical one regardless of what you pick or the order you
+name it in: several steps only work after an earlier one — `hypr-reload` reloads
+Hyprland against the keyd that `keyd` just restarted — and letting the menu
+reorder them would be a silent way to break a run.
+
+Skipping the four sudo steps means the run needs no password at all, which is
+the quickest way to reapply the user-level half of the config.
 
 `install-figma.sh` is the odd one out: it is the only script here that reaches
 the network, and the only one that installs an **application** — `apply.sh`

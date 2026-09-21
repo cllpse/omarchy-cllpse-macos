@@ -112,7 +112,7 @@ behind, still overriding. See *Also on the author's machine* below.
 ## Install
 
 ```bash
-./overrides/apply.sh      # symlink both themes, install fonts + all system overrides, apply the theme
+./overrides/apply.sh      # pick what to run (menu); --all for everything, --list for the ids
 ./overrides/revert.sh     # undo it
 ```
 

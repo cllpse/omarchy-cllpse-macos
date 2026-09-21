@@ -164,7 +164,7 @@ if [[ -n $INSTALLED && $INSTALLED == "$TARGET" && $FORCE -eq 0 ]]; then
   skip "Figma Desktop $INSTALLED is already installed — nothing to extract (--force to re-extract)"
   if (( RUN_APPLY )); then
     say "re-running apply.sh anyway, so the launcher entry is known-good"
-    exec "$HERE/apply.sh"
+    exec "$HERE/apply.sh" --all
   fi
   exit 0
 fi
@@ -337,7 +337,7 @@ first_install=0
 
 if (( RUN_APPLY )); then
   say "running apply.sh — step 7e puts the launcher entry back"
-  "$HERE/apply.sh"
+  "$HERE/apply.sh" --all
 else
   warn "skipped apply.sh: the launcher entry still says Name=Figma / StartupWMClass=Figma"
   warn "  run ./overrides/apply.sh to correct it"

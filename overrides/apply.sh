@@ -2,6 +2,11 @@
 # Apply the cllpse-macos theme + every system-level override it needs.
 # Idempotent. Re-run any time. See revert.sh to undo.
 #
+#   apply.sh            pick what to run; everything when there is no terminal
+#   apply.sh --all      everything, no prompt
+#   apply.sh <id>...    only these, always in the order below
+#   apply.sh --list     every id, and which four need sudo
+#
 # This script is now an ORCHESTRATOR. Each override owns a script and a README
 # in its own directory -- overrides/cursor/cursor.sh and overrides/cursor/
 # README.md, and so on -- and this file calls them in the order below. Two
@@ -55,12 +60,13 @@
 #   11.  Btrfs compression level (sudo) -- last, and the only step
 #        that edits a file the machine will not boot without           [inline]
 
+
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$HERE/lib.sh"
 
-# Run an override's own script. Named rather than globbed, because the ORDER is
+# Run an override's own script. Named rather than globbed: the ORDER is
 # load-bearing and a glob would sort it alphabetically.
 run() { # $1 folder  $2.. args
   local f="$HERE/$1/${1}.sh"
@@ -68,8 +74,7 @@ run() { # $1 folder  $2.. args
   "$f" "${@:2}"
 }
 
-
-# ── 0. record pre-existing state ─────────────────────────────────────────
+step_state() {
 # revert.sh restores what this machine had before apply.sh first ran, rather
 # than hardcoding Omarchy's stock font/theme — those are only right on a machine
 # that was already stock. Written once and never overwritten, so re-running
@@ -85,7 +90,9 @@ prior_theme="$(cat "$HOME/.local/state/omarchy/current/theme.name" 2>/dev/null |
 case "$prior_theme" in omarchy-cllpse-theme-*) prior_theme="" ;; esac
 record_prior "$STATE/previous-theme" "$prior_theme" ""
 
-# ── 1. symlinks ─────────────────────────────────────────
+}
+
+step_symlinks() {
 say "Linking themes into ~/.config/omarchy/themes/"
 mkdir -p ~/.config/omarchy/themes
 ln -sfn "$REPO/omarchy-cllpse-theme/omarchy-cllpse-theme-dark"  ~/.config/omarchy/themes/omarchy-cllpse-theme-dark
@@ -118,11 +125,9 @@ fi
 ln -sfn "$REPO/omarchy-cllpse-switcher" ~/.config/omarchy/plugins/cllpse.window-switcher
 
 
-# ── 2. fonts + fontconfig ─────────────────────────────────────────
-run fonts
-run fontconfig
+}
 
-# ── 3. monospace font (Omarchy's own mechanism) ─────────────────────────────────────────
+step_monospace() {
 if [[ "$(omarchy font current 2>/dev/null)" == "SFMono Nerd Font Mono" ]]; then
   skip "omarchy font already SFMono Nerd Font Mono"
 else
@@ -133,21 +138,25 @@ say "fc-match check"
 for q in monospace sans-serif; do printf '    %-11s -> %s\n' "$q" "$(fc-match "$q")"; done
 
 
-# ── 4. GTK / GNOME fonts ─────────────────────────────────────────
+}
+
+step_gtk_fonts() {
 say "gsettings: GTK/GNOME fonts -> SF Pro / SF Mono"
 gsettings set org.gnome.desktop.interface font-name           'SFProText Nerd Font Propo 11'
 gsettings set org.gnome.desktop.interface document-font-name  'SFProText Nerd Font Propo 12'
 gsettings set org.gnome.desktop.interface monospace-font-name 'SFMono Nerd Font Mono 10'
 
 
-# ── 5. font hinting -> none ─────────────────────────────────────────
+}
+
+step_hinting() {
 # fontconfig side is the 11-cllpse-macos-hinting.conf drop-in from step 2.
 # GTK/GNOME and Ghostty each read their own knob:
 say "gsettings: GTK/GNOME font-hinting -> none"
 gsettings set org.gnome.desktop.interface font-hinting 'none'
-run ghostty
+}
 
-# ── 5b. GTK window buttons -> none ─────────────────────────────────────────
+step_gtk_buttons() {
 # Hyprland draws no titlebars; the min/max/close a GTK/libadwaita app shows are
 # its own client-side decoration, laid out from this key (Nautilus, Files, the
 # GNOME apps). ':' = nothing either side of the divider. Omarchy's default is
@@ -157,49 +166,9 @@ say "gsettings: GTK window buttons -> none"
 gsettings set org.gnome.desktop.wm.preferences button-layout ':'
 
 
-# ── 5c. xkb: Danish letters on the Preonic's M0 layer ─────────────────────────────────────────
-run xkb
+}
 
-# ── 6. hypr overrides + keybind allowlist ─────────────────────────────────────────
-run hypr
-
-# ── 7. apps Omarchy doesn't theme ─────────────────────────────────────────
-run bat
-run lazygit
-run lsd
-run yazi
-run lazydocker
-run gh-dash
-run starship
-run cursor
-run hunk
-run ytm
-run bash
-run git
-
-# ── 7b. display scaling + text size ─────────────────────────────────────────
-run display
-
-
-# ── 7c. session environment drop-ins ─────────────────────────────────────────
-run environment.d
-
-# ── 7d. Chromium scale, zoom and neutral UI ─────────────────────────────────────────
-run chromium user
-
-# ── 7e. Figma Desktop launcher entry ─────────────────────────────────────────
-run applications
-
-# ── 7f. Flat app icons for the menu ─────────────────────────────────────────
-run icons
-
-# ── 7f2. Post-update repair hook ─────────────────────────────────────────
-run hooks
-
-# ── 7h. Omarchy shell.json ─────────────────────────────────────────
-run omarchy
-
-# ── 8. apply theme ─────────────────────────────────────────
+step_theme() {
 # `omarchy theme set` COPIES the theme folder into
 # ~/.local/state/omarchy/current/theme/ — it does not symlink it. So this step
 # is also what publishes any edit made to a theme folder (new background, changed
@@ -263,10 +232,9 @@ if [[ -n $restored_bg ]]; then
 fi
 
 
-# ── 8b. keyd: Figma's modifier remap (needs sudo) ─────────────────────────────────────────
-run keyd
+}
 
-# ── 8c. Reload Hyprland ─────────────────────────────────────────
+step_hypr_reload() {
 # LAST of the 8s, after keyd, and that order is load-bearing for one thing: a
 # reload rebuilds the Lua state, which makes macos-shortcuts.lua re-seed
 # `figma_keyd_on` from the current focus and dispatch the helper to match. 8b
@@ -306,13 +274,9 @@ else
 fi
 
 
-# ── 9. Chromium managed policy (needs sudo) ─────────────────────────────────────────
-run chromium policy
+}
 
-# ── 10. CPU power limits (needs sudo) ─────────────────────────────────────────
-run ryzen
-
-# ── 11. Btrfs compression level (needs sudo) ─────────────────────────────────────────
+step_btrfs() {
 # Btrfs compresses every write, and zstd's level decides how hard it works.
 # Level 3 -- the kernel's default, which is what a bare `compress=zstd` selects
 # -- runs roughly 2-3x slower at compression than level 1 for ~5-10% better
@@ -382,3 +346,149 @@ echo "    • CPU power limits (10) are live now and reapplied at boot and on re
 echo "      systemctl status ryzen-tdp, values in /etc/default/ryzen-tdp"
 echo "    • boot splash / login screen (needs sudo, not run by this script):"
 echo "        omarchy plymouth set by theme omarchy-cllpse-theme-dark   # or -light"
+
+}
+
+# id|sudo|label|action — execution order, and the menu's order.
+STEPS=(
+  "state||Record the pre-existing font and theme, for revert.sh|fn:step_state"
+  "symlinks||Symlink both themes + the window-switcher plugin|fn:step_symlinks"
+  "fonts||SF + Comic Code fonts|run:fonts"
+  "fontconfig||fontconfig drop-ins (UI font + hintnone)|run:fontconfig"
+  "monospace||Point monospace at SF Mono (omarchy font set)|fn:step_monospace"
+  "gtk-fonts||Point GTK / GNOME apps at SF Pro / SF Mono|fn:step_gtk_fonts"
+  "hinting||Font hinting -> none (GTK/GNOME side)|fn:step_hinting"
+  "ghostty||Ghostty hinting|run:ghostty"
+  "gtk-buttons||Strip GTK window buttons|fn:step_gtk_buttons"
+  "xkb||Danish letters on the Preonic M0 layer|run:xkb"
+  "hypr||Hyprland env, decoration, binds, input + keybind allowlist|run:hypr"
+  "bat||bat|run:bat"
+  "lazygit||lazygit|run:lazygit"
+  "lsd||lsd|run:lsd"
+  "yazi||yazi|run:yazi"
+  "lazydocker||lazydocker|run:lazydocker"
+  "gh-dash||gh-dash|run:gh-dash"
+  "starship||starship|run:starship"
+  "cursor||Cursor|run:cursor"
+  "hunk||hunk|run:hunk"
+  "ytm||ytm-player|run:ytm"
+  "bash||bash aliases + fzf|run:bash"
+  "git||git diff through hunk|run:git"
+  "display||Display scaling + text size|run:display"
+  "environment.d||Session environment drop-ins|run:environment.d"
+  "chromium-user||Chromium flags, zoom, neutral UI|run:chromium user"
+  "applications||Figma Desktop launcher entry|run:applications"
+  "icons||Flat app icons for the menu|run:icons"
+  "hooks||Post-update repair hook|run:hooks"
+  "omarchy||Omarchy shell.json|run:omarchy"
+  "theme||Apply the theme|fn:step_theme"
+  "keyd|sudo|keyd: Figma modifier remap (sudo)|run:keyd"
+  "hypr-reload||hyprctl reload|fn:step_hypr_reload"
+  "chromium-policy|sudo|Chromium managed policy (sudo)|run:chromium policy"
+  "ryzen|sudo|CPU power limits (sudo)|run:ryzen"
+  "btrfs|sudo|Btrfs compression level (sudo)|fn:step_btrfs"
+)
+
+# ── selection ────────────────────────────────────────────────────────────────
+# Running everything stays the default when there is no terminal to ask at, so
+# `install-figma.sh` and any other caller keep working unchanged. With a
+# terminal and no arguments you get the picker, whose first entry is Everything.
+
+_field() { printf '%s\n' "${STEPS[@]}" | awk -F'|' -v k="$1" -v n="$2" '$1==k{print $n}'; }
+_ids()   { printf '%s\n' "${STEPS[@]}" | cut -d'|' -f1; }
+
+usage() {
+  cat <<EOF
+Apply the cllpse-macos theme + the system overrides it needs. Idempotent.
+
+  apply.sh                 pick what to run (everything, if there is no terminal)
+  apply.sh --all           run everything, no prompt
+  apply.sh <id> [<id>…]    run only these, in the canonical order
+  apply.sh --list          show every id
+  apply.sh --help          this
+
+Ids are listed by --list. Four need sudo and are marked there; skip them and
+the run needs no password at all.
+EOF
+}
+
+list_steps() {
+  printf '  %-18s %-5s %s\n' "ID" "SUDO" "WHAT"
+  local s; for s in "${STEPS[@]}"; do
+    IFS='|' read -r id sudo label _ <<<"$s"
+    printf '  %-18s %-5s %s\n' "$id" "${sudo:+yes}" "$label"
+  done
+}
+
+# Menu. gum is Omarchy's own picker and is themed with the desktop; fall back to
+# a numbered prompt so this still works on a box without it.
+choose_steps() {
+  local all="Everything (${#STEPS[@]} steps)" menu=() s id sudo label
+  for s in "${STEPS[@]}"; do
+    IFS='|' read -r id sudo label _ <<<"$s"
+    menu+=("$(printf '%-18s %s%s' "$id" "$label" "${sudo:+  (sudo)}")")
+  done
+  local picked=()
+  if command -v gum >/dev/null 2>&1; then
+    mapfile -t picked < <(gum choose --no-limit --height 20 \
+      --header "Space selects, Enter runs. Order is fixed regardless of what you pick." \
+      "$all" "${menu[@]}" || true)
+  else
+    echo "Pick steps by number, space-separated. Empty = everything." >&2
+    local i=1; printf '  %2d) %s\n' 0 "$all" >&2
+    for m in "${menu[@]}"; do printf '  %2d) %s\n' "$i" "$m" >&2; i=$((i+1)); done
+    local reply; read -rp "> " reply || true
+    [[ -z ${reply// } ]] && { printf '%s\n' "$all"; return; }
+    for n in $reply; do
+      [[ $n == 0 ]] && { printf '%s\n' "$all"; return; }
+      [[ $n =~ ^[0-9]+$ ]] && (( n >= 1 && n <= ${#menu[@]} )) && printf '%s\n' "${menu[$((n-1))]}"
+    done
+    return
+  fi
+  printf '%s\n' "${picked[@]}"
+}
+
+SELECTED=()
+case "${1:-}" in
+  -h|--help) usage; exit 0 ;;
+  -l|--list) list_steps; exit 0 ;;
+  -a|--all)  mapfile -t SELECTED < <(_ids) ;;
+  "")
+    if [[ -t 0 && -t 1 ]]; then
+      mapfile -t _picked < <(choose_steps)
+      (( ${#_picked[@]} )) || { say "nothing selected — nothing to do"; exit 0; }
+      if [[ ${_picked[0]} == Everything* ]]; then
+        mapfile -t SELECTED < <(_ids)
+      else
+        for p in "${_picked[@]}"; do SELECTED+=("${p%% *}"); done
+      fi
+    else
+      mapfile -t SELECTED < <(_ids)
+    fi
+    ;;
+  -*) printf 'unknown option: %s\n\n' "$1" >&2; usage >&2; exit 2 ;;
+  *)
+    for a in "$@"; do
+      if _ids | grep -qxF -- "$a"; then SELECTED+=("$a")
+      else printf 'unknown id: %s (see --list)\n' "$a" >&2; exit 2; fi
+    done
+    ;;
+esac
+
+# ── run ──────────────────────────────────────────────────────────────────────
+# Always in STEPS order, never the order they were picked in: several steps only
+# work after an earlier one (8c reloads Hyprland against the keyd 8b restarted),
+# and letting a menu reorder them would be a silent way to break a run.
+_want() { local x; for x in "${SELECTED[@]}"; do [[ $x == "$1" ]] && return 0; done; return 1; }
+
+_ran=0
+for s in "${STEPS[@]}"; do
+  IFS='|' read -r id sudo label action <<<"$s"
+  _want "$id" || continue
+  case "$action" in
+    fn:*)  "${action#fn:}" ;;
+    run:*) run ${action#run:} ;;
+  esac
+  _ran=$((_ran+1))
+done
+(( _ran == ${#STEPS[@]} )) || say "ran $_ran of ${#STEPS[@]} steps"
