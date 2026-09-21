@@ -31,6 +31,14 @@ changed. That shows up as black-on-white under a dark theme, and looks fine to
 anyone who logged in on light. Resolving the file at run time instead means the
 picker follows a theme switch with no relogin.
 
+**Prerequisites are pulled in automatically**, and announced when they are.
+Some steps are inert or actively wrong alone: `monospace` points the monospace
+font at a family `fonts` installs, `theme` asks Omarchy to set a theme
+`symlinks` puts in place, `omarchy` enables a plugin id whose directory is that
+same symlink, `keyd` defines the `figma:C` layer that `hypr`'s
+`macos-shortcuts.lua` is what actually binds, and `figma` installs the app whose
+launcher entry `applications` corrects. `--list` shows what each one needs.
+
 Order is always the canonical one regardless of what you pick or the order you
 name it in: several steps only work after an earlier one — `hypr-reload` reloads
 Hyprland against the keyd that `keyd` just restarted — and letting the menu

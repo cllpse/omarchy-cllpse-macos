@@ -351,43 +351,43 @@ echo "        omarchy plymouth set by theme omarchy-cllpse-theme-dark   # or -li
 
 # id|sudo|label|action — execution order, and the menu's order.
 STEPS=(
-  "figma|optin|Install or update Figma Desktop (network, opt-in)|run:figma --no-apply"
-  "state||Record the pre-existing font and theme, for revert.sh|fn:step_state"
-  "symlinks||Symlink both themes + the window-switcher plugin|fn:step_symlinks"
-  "fonts||SF + Comic Code fonts|run:fonts"
-  "fontconfig||fontconfig drop-ins (UI font + hintnone)|run:fontconfig"
-  "monospace||Point monospace at SF Mono (omarchy font set)|fn:step_monospace"
-  "gtk-fonts||Point GTK / GNOME apps at SF Pro / SF Mono|fn:step_gtk_fonts"
-  "hinting||Font hinting -> none (GTK/GNOME side)|fn:step_hinting"
-  "ghostty||Ghostty hinting|run:ghostty"
-  "gtk-buttons||Strip GTK window buttons|fn:step_gtk_buttons"
-  "xkb||Danish letters on the Preonic M0 layer|run:xkb"
-  "hypr||Hyprland env, decoration, binds, input + keybind allowlist|run:hypr"
-  "bat||bat|run:bat"
-  "lazygit||lazygit|run:lazygit"
-  "lsd||lsd|run:lsd"
-  "yazi||yazi|run:yazi"
-  "lazydocker||lazydocker|run:lazydocker"
-  "gh-dash||gh-dash|run:gh-dash"
-  "starship||starship|run:starship"
-  "cursor||Cursor|run:cursor"
-  "hunk||hunk|run:hunk"
-  "ytm||ytm-player|run:ytm"
-  "bash||bash aliases + fzf|run:bash"
-  "git||git diff through hunk|run:git"
-  "display||Display scaling + text size|run:display"
-  "environment.d||Session environment drop-ins|run:environment.d"
-  "chromium-user||Chromium flags, zoom, neutral UI|run:chromium user"
-  "applications||Figma Desktop launcher entry|run:applications"
-  "icons||Flat app icons for the menu|run:icons"
-  "hooks||Post-update repair hook|run:hooks"
-  "omarchy||Omarchy shell.json|run:omarchy"
-  "theme||Apply the theme|fn:step_theme"
-  "keyd|sudo|keyd: Figma modifier remap (sudo)|run:keyd"
-  "hypr-reload||hyprctl reload|fn:step_hypr_reload"
-  "chromium-policy|sudo|Chromium managed policy (sudo)|run:chromium policy"
-  "ryzen|sudo|CPU power limits (sudo)|run:ryzen"
-  "btrfs|sudo|Btrfs compression level (sudo)|fn:step_btrfs"
+  "figma|optin|Install or update Figma Desktop (network, opt-in)|run:figma --no-apply|applications"
+  "state||Record the pre-existing font and theme, for revert.sh|fn:step_state|"
+  "symlinks||Symlink both themes + the window-switcher plugin|fn:step_symlinks|"
+  "fonts||SF + Comic Code fonts|run:fonts|"
+  "fontconfig||fontconfig drop-ins (UI font + hintnone)|run:fontconfig|"
+  "monospace||Point monospace at SF Mono (omarchy font set)|fn:step_monospace|fonts"
+  "gtk-fonts||Point GTK / GNOME apps at SF Pro / SF Mono|fn:step_gtk_fonts|fonts"
+  "hinting||Font hinting -> none (GTK/GNOME side)|fn:step_hinting|"
+  "ghostty||Ghostty hinting|run:ghostty|"
+  "gtk-buttons||Strip GTK window buttons|fn:step_gtk_buttons|"
+  "xkb||Danish letters on the Preonic M0 layer|run:xkb|"
+  "hypr||Hyprland env, decoration, binds, input + keybind allowlist|run:hypr|"
+  "display||Display scaling + text size|run:display|"
+  "bat||bat|run:bat|"
+  "lazygit||lazygit|run:lazygit|"
+  "lsd||lsd|run:lsd|"
+  "yazi||yazi|run:yazi|"
+  "lazydocker||lazydocker|run:lazydocker|"
+  "gh-dash||gh-dash|run:gh-dash|"
+  "starship||starship|run:starship|"
+  "cursor||Cursor|run:cursor|"
+  "hunk||hunk|run:hunk|"
+  "ytm||ytm-player|run:ytm|"
+  "bash||bash aliases + fzf|run:bash|"
+  "git||git diff through hunk|run:git|"
+  "environment.d||Session environment drop-ins|run:environment.d|"
+  "chromium-user||Chromium flags, zoom, neutral UI|run:chromium user|"
+  "applications||Figma Desktop launcher entry|run:applications|"
+  "icons||Flat app icons for the menu|run:icons|"
+  "hooks||Post-update repair hook|run:hooks|"
+  "omarchy||Omarchy shell.json|run:omarchy|symlinks"
+  "theme||Apply the theme|fn:step_theme|symlinks"
+  "keyd|sudo|keyd: Figma modifier remap (sudo)|run:keyd|hypr"
+  "hypr-reload||hyprctl reload|fn:step_hypr_reload|"
+  "chromium-policy|sudo|Chromium managed policy (sudo)|run:chromium policy|"
+  "ryzen|sudo|CPU power limits (sudo)|run:ryzen|"
+  "btrfs|sudo|Btrfs compression level (sudo)|fn:step_btrfs|"
 )
 
 # ── selection ────────────────────────────────────────────────────────────────
@@ -413,16 +413,17 @@ Apply the cllpse-macos theme + the system overrides it needs. Idempotent.
   apply.sh --list          show every id
   apply.sh --help          this
 
-Ids are listed by --list. Four need sudo and are marked there; skip them and
-the run needs no password at all.
+Ids are listed by --list, with whatever each one needs. Prerequisites are
+added automatically and announced. Four steps need sudo and are marked; skip
+those and the run needs no password at all.
 EOF
 }
 
 list_steps() {
-  printf '  %-18s %-5s %s\n' "ID" "NOTE" "WHAT"
+  printf '  %-18s %-5s %-12s %s\n' "ID" "NOTE" "NEEDS" "WHAT"
   local s; for s in "${STEPS[@]}"; do
-    IFS='|' read -r id sudo label _ <<<"$s"
-    printf '  %-18s %-5s %s\n' "$id" "$sudo" "$label"
+    IFS='|' read -r id sudo label _ needs <<<"$s"
+    printf '  %-18s %-5s %-12s %s\n' "$id" "$sudo" "$needs" "$label"
   done
 }
 
@@ -450,7 +451,7 @@ choose_steps() {
   _load_gum_theme
   local all="Everything ($(_auto_ids | wc -l) steps)" menu=() s id sudo label
   for s in "${STEPS[@]}"; do
-    IFS='|' read -r id sudo label _ <<<"$s"
+    IFS='|' read -r id sudo label _ needs <<<"$s"
     menu+=("$(printf '%-18s %s%s' "$id" "$label" "${sudo:+  (sudo)}")")
   done
   local picked=()
@@ -500,15 +501,42 @@ case "${1:-}" in
     ;;
 esac
 
+# ── prerequisites ────────────────────────────────────────────────────────────
+# Some steps are inert or actively wrong without another one. `monospace` points
+# the monospace font at a family `fonts` installs, so on its own it names a font
+# that is not there. `theme` asks Omarchy to set a theme `symlinks` puts in
+# place. `omarchy` enables a plugin id whose directory is that same symlink.
+# `keyd` defines the figma:C layer that hypr's macos-shortcuts.lua is what
+# actually binds. `figma` installs the app whose launcher entry `applications`
+# corrects, which is why figma.sh normally calls apply.sh itself.
+#
+# Rather than refuse a selection, pull the missing ones in and say so. The loop
+# repeats because a prerequisite can have its own.
+_needs_of() { printf '%s\n' "${STEPS[@]}" | awk -F'|' -v k="$1" '$1==k{print $5}' | tr ',' '\n'; }
+_want() { local x; for x in "${SELECTED[@]}"; do [[ $x == "$1" ]] && return 0; done; return 1; }
+
+_expand_needs() {
+  local added=1 id n
+  while (( added )); do
+    added=0
+    for id in "${SELECTED[@]}"; do
+      while read -r n; do
+        [[ -n $n ]] || continue
+        _want "$n" && continue
+        SELECTED+=("$n"); skip "also running $n — $id needs it"; added=1
+      done < <(_needs_of "$id")
+    done
+  done
+}
+_expand_needs
+
 # ── run ──────────────────────────────────────────────────────────────────────
 # Always in STEPS order, never the order they were picked in: several steps only
 # work after an earlier one (8c reloads Hyprland against the keyd 8b restarted),
 # and letting a menu reorder them would be a silent way to break a run.
-_want() { local x; for x in "${SELECTED[@]}"; do [[ $x == "$1" ]] && return 0; done; return 1; }
-
 _ran=0
 for s in "${STEPS[@]}"; do
-  IFS='|' read -r id sudo label action <<<"$s"
+  IFS='|' read -r id sudo label action needs <<<"$s"
   _want "$id" || continue
   case "$action" in
     fn:*)  "${action#fn:}" ;;
