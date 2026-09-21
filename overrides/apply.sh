@@ -395,7 +395,7 @@ echo "        omarchy plymouth set by theme omarchy-cllpse-theme-dark   # or -li
 LOOKNFEEL=(
   fonts fontconfig monospace gtk-fonts hinting ghostty gtk-buttons
   hypr
-  bat lazygit lsd yazi lazydocker gh-dash starship cursor hunk ytm bash
+  bat lazygit lsd yazi lazydocker gh-dash starship cursor hunk ytm
   icons omarchy theme
 )
 # state rides along for the same reason it does with a ticked selection:

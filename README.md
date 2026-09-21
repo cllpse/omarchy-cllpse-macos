@@ -27,8 +27,8 @@ them can be handed to an agent.
 
 **1. Clone it where it will live — with submodules.** The two themes and the
 window-switcher plugin are each their own repository, added here as submodules,
-because it is published to the Omarchy plugin marketplace as a repository of its
-own:
+so each installs on its own the way Omarchy expects — `omarchy theme install`
+for a theme, `omarchy plugin add` for the plugin:
 
 ```bash
 git clone --recurse-submodules git@github.com:cllpse/omarchy-cllpse-macos.git
@@ -36,8 +36,8 @@ git clone --recurse-submodules git@github.com:cllpse/omarchy-cllpse-macos.git
 git submodule update --init --recursive
 ```
 
-A plain clone leaves `omarchy-cllpse-plugin-switcher/` empty, and `apply.sh` stops with
-that instruction rather than symlinking a registered plugin id at nothing.
+A plain clone leaves all three empty, and `apply.sh` stops with that instruction
+rather than symlinking a registered plugin id — or a theme name — at nothing.
 
 `apply.sh` symlinks the two theme folders into `~/.config/omarchy/themes/` and
 the plugin into `~/.config/omarchy/plugins/`, all pointing at this checkout.

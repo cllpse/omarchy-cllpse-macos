@@ -37,7 +37,7 @@ the run prints the batch in execution order before it writes anything. One flat 
 express this: "run everything" has to win over anything ticked beside it,
 so as a checkbox it either short-circuits the rest or is itself ignored.
 
-**Look and feel only** is the 22-step subset that changes how the desktop
+**Look and feel only** is the 21-step subset that changes how the desktop
 *looks*: fonts and hinting, the theme, Hyprland's decoration (rounding, borders,
 blur), the bar, the menu's app icons, and the per-app theming that makes
 terminal tools follow the palette. `hypr` is in as a whole, since the fenced

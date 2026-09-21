@@ -2188,7 +2188,7 @@ outlier before the scene settled.
   check one landed is to issue it and read the exit status, which is what
   `apply.sh`'s smoke test does. A `reset` was always silent.
 
-## Extracting a plugin into its own repo
+## Extracting a sub-repo
 
 The window switcher moved to `omarchy-cllpse-plugin-switcher/` — a submodule here, a
 public repository of its own — and was prepared for release. Most of what
@@ -2264,6 +2264,34 @@ follows was not *introduced* by that split; the split is what made it visible.
   Used here while 76 wallpaper changes sat unstaged. It happened to be clean —
   verified after the fact that no commit touched them — but that was luck.
   Stage by explicit path in a repo you share.
+
+### Extracting the themes taught different things
+
+- **A standard-installed theme cannot carry compositor config, and that decided
+  the design.** `omarchy theme install` git-clones into
+  `~/.config/omarchy/themes/`, and `omarchy-theme-set:204` calls a theme
+  repo-installed when `[[ ! -L $source && -d $source/.git ]]` — staging no
+  `.lua` from one, because it runs in the compositor. The decoration was moved
+  into both themes, worked live on theme switch, and had to be reverted: it only
+  applied while the theme was SYMLINKED, which is not how anyone installs a
+  theme. What a theme can reach Hyprland-side is `default/themed/
+  hyprland.lua.tpl` — four lines of border colour, rendered from `colors.toml`.
+- **Verify the install path, not just the mechanism.** "A theme can carry
+  `hyprland.lua`" was true and useless. The question worth testing first was
+  "does it survive the way people install it", and the answer was no.
+- **A repo name is not the installed name.** Omarchy strips a leading
+  `omarchy-`, so `omarchy-cllpse-theme-dark` installs as `cllpse-theme-dark`.
+  Documented in each theme, because a theme arriving under a different name than
+  the one you typed reads as a bug.
+- **Renaming a submodule is four places, not one.** `git mv` moves the path and
+  fixes `core.worktree`; the `.gitmodules` section name, the `.git/config`
+  section, and `.git/modules/<name>` with the submodule's own `.git` file
+  pointing into it all stay behind. Legal, but it leaves the next reader
+  guessing which name is authoritative.
+- **Rename by anchor, never by substring.** `omarchy-window-switcher-hud` is a
+  Wayland namespace matched in seven places across two repos and reads exactly
+  like the repo name that was being renamed. Anchoring every replacement on
+  `cllpse/` is what kept it out; it was counted before and after.
 
 ## Reproducing this on another machine
 
