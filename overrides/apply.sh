@@ -125,7 +125,7 @@ if [[ -L ~/.config/omarchy/plugins/io.eject.window-switcher ]]; then
   rm -f ~/.config/omarchy/plugins/io.eject.window-switcher
   skip "removed the legacy io.eject.window-switcher plugin link"
 fi
-# The plugin is a SUBMODULE (github.com/cllpse/omarchy-window-switcher), so it
+# The plugin is a SUBMODULE (github.com/cllpse/omarchy-cllpse-plugin-switcher), so it
 # is published to the Omarchy marketplace as a repository of its own. A plain
 # `git clone` of this repo leaves that directory empty, and the symlink below
 # would then point a registered plugin id at nothing: the shell finds no

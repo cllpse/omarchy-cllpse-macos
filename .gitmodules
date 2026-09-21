@@ -1,6 +1,6 @@
 [submodule "omarchy-cllpse-switcher"]
 	path = omarchy-cllpse-switcher
-	url = git@github.com:cllpse/omarchy-window-switcher.git
+	url = git@github.com:cllpse/omarchy-cllpse-plugin-switcher.git
 	branch = main
 [submodule "omarchy-cllpse-theme/omarchy-cllpse-theme-dark"]
 	path = omarchy-cllpse-theme/omarchy-cllpse-theme-dark

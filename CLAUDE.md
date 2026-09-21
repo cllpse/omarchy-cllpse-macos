@@ -9,7 +9,7 @@ spec. This file is only for what those don't say: how Omarchy itself behaves, an
 the traps that have already cost time.
 
 **`omarchy-cllpse-switcher/` is a submodule**, not a directory —
-[cllpse/omarchy-window-switcher](https://github.com/cllpse/omarchy-window-switcher),
+[cllpse/omarchy-cllpse-plugin-switcher](https://github.com/cllpse/omarchy-cllpse-plugin-switcher),
 published to the Omarchy plugin marketplace on its own. Clone this repo with
 `--recurse-submodules` or run `git submodule update --init --recursive`; a plain
 clone leaves it empty and `apply.sh` step 1 stops rather than symlinking a
