@@ -50,19 +50,17 @@ share a chord with anything being unbound.
 ## From the step table
 
 `OMARCHY_MENU_FONT` + cursor theme + `no_warps` + keyboard layout
-(`hyprland.lua`), window-switcher keybinds (`bindings.lua`), mouse tuning
-(`input.lua`), and the presentation-popup width rule (`looknfeel.lua`).
-
-**The decoration moved out.** Rounding, `rounding_power`, borders, gaps, blur,
-window opacity, the shell-surface `layer_rule`s and every animation now live in
-each theme's own `hyprland.lua`, which Omarchy loads from the active theme —
-see [`../../README.md`](../../README.md) for the theme-folder table. The
-popup-width rule stayed because it has to load *after* Omarchy's own float
-sizing to win, and a theme loads earlier (`omarchy.lua` requires the theme at
-line 22, its window rules at 19).
-
-The consequence is intended: the macOS decoration is now scoped to these
-themes. Switch to a stock Omarchy theme and rounding returns to 0.
+(`hyprland.lua`), decoration/blur/opacity/animations (`looknfeel.lua`),
+window-switcher keybinds (`bindings.lua`), mouse tuning (`input.lua`) +
+`decoration` (`rounding = 18` / `rounding_power = 2.05` — a hair off a
+circular arc; 2.1, 2.2 and a real 3-3.4 squircle were all tried and dropped /
+`border_part_of_window = true`, `blur` on @ size 7 / passes 4 / vibrancy 0.30,
+`border_size = 2`, `gaps_in/out = 12/24`) + window `opacity = 0.99 0.875`
+(re-matched onto `chromium-based-browser` / `firefox-based-browser` too, since
+Omarchy pins those to `1.0 0.985` otherwise) + 3× animation speeds (floor 1) +
+`layer_rule` blur on the shell surfaces + `layer_rule` re-enabling the layer
+fade on the keyboard-driven panels, and `no_anim` on the window switcher
+(which fades its own scrim in QML)
 
 ## From the step table
 

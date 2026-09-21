@@ -3,34 +3,31 @@
 A macOS-style theme for [Omarchy](https://omarchy.org) 4. Palette read from
 macOS 27 (Tahoe) `NSColor` under the darkAqua appearance, converted to sRGB.
 
-Self-contained: colours, shell surfaces, icon theme, wallpapers, and the window
-decoration. Nothing is shared with `omarchy-cllpse-theme-light`.
+Colours, shell surfaces, icon theme and wallpapers. Installs and works on its
+own. Nothing is shared with `omarchy-cllpse-theme-light`.
 
 ## Install
 
-**Clone and symlink — do not `omarchy theme install` it.**
-
 ```bash
-git clone https://github.com/cllpse/omarchy-cllpse-theme-dark ~/src/omarchy-cllpse-theme-dark
-ln -sfn ~/src/omarchy-cllpse-theme-dark ~/.config/omarchy/themes/omarchy-cllpse-theme-dark
-omarchy theme set omarchy-cllpse-theme-dark
+omarchy theme install https://github.com/cllpse/omarchy-cllpse-theme-%s
 ```
 
-The symlink is load-bearing. `hyprland.lua` carries the decoration — rounding,
-borders, gaps, blur, window opacity, layer rules and animations — and Omarchy
-refuses to stage `.lua` from a theme it considers repo-installed, because it
-executes in the compositor. The test is
-`[[ ! -L $source && -d $source/.git ]]` (`omarchy-theme-set:204`): a symlink is
-never repo-installed, whatever its target contains. Clone into
-`~/.config/omarchy/themes/` directly and the decoration is silently dropped
-while the colours still arrive.
+Omarchy derives the installed name by stripping a leading `omarchy-`, so this
+lands as **`cllpse-theme-%s`**, not the repo name.
+
+This theme is colours only — palette, shell surfaces, icon theme, Chromium
+frame, wallpapers. The macOS **window decoration** (rounding, borders, gaps,
+blur, window opacity, animations) is not here and cannot be: Omarchy stages no
+`.lua` from an installed theme, because it would execute in the compositor
+(`omarchy-theme-set:204`). That lives in
+[omarchy-cllpse-macos](https://github.com/cllpse/omarchy-cllpse-macos), which
+appends it to your own `~/.config/hypr/looknfeel.lua`.
 
 ## What is in here
 
 | file | what it does |
 |---|---|
 | `colors.toml` | the palette and `mode`; drives every generated config |
-| `hyprland.lua` | window/shell decoration, loaded from the active theme |
 | `shell.*.toml` | per-section shell surface overrides (opacity, spacing) |
 | `icons.theme` | the GTK icon theme name |
 | `chromium.theme` | Chromium's frame colour |
