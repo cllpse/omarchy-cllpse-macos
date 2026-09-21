@@ -420,9 +420,28 @@ list_steps() {
   done
 }
 
+# gum reads its colours from GUM_* in the environment, and Omarchy puts them
+# there with hl.env from the theme's generated gum_env.lua -- at SESSION START.
+# They are therefore whatever theme was active at login: switch theme afterwards
+# and every gum menu keeps the old palette, because you cannot change the
+# environment of a process that is already running. Black-on-white under a dark
+# theme is exactly that, and it looks fine to anyone who logged in on light.
+#
+# So read the live file rather than trusting what we inherited. Same source
+# Omarchy uses, just resolved now instead of at login, which also means the
+# picker follows a theme switch with no relogin.
+_load_gum_theme() {
+  local f="$HOME/.local/state/omarchy/current/theme/gum_env.lua" k v
+  [[ -r $f ]] || return 0
+  while IFS='=' read -r k v; do
+    [[ -n $k ]] && export "$k=$v"
+  done < <(sed -n 's/^[[:space:]]*hl\.env("\([A-Z_0-9]*\)",[[:space:]]*"\([^"]*\)").*/\1=\2/p' "$f")
+}
+
 # Menu. gum is Omarchy's own picker and is themed with the desktop; fall back to
 # a numbered prompt so this still works on a box without it.
 choose_steps() {
+  _load_gum_theme
   local all="Everything (${#STEPS[@]} steps)" menu=() s id sudo label
   for s in "${STEPS[@]}"; do
     IFS='|' read -r id sudo label _ <<<"$s"

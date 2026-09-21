@@ -23,6 +23,14 @@ apply, `hyprctl reload`, Btrfs) are selectable too, so `--all` is exactly the
 old behaviour. Picking is a `gum` menu with **Everything** as its first entry,
 falling back to a numbered prompt where gum is absent.
 
+The menu re-reads the active theme's `gum_env.lua` before it draws. Omarchy
+exports those `GUM_*` colours through `hl.env` at **session start**, so they are
+whatever theme was active at login — switch theme afterwards and every gum menu
+keeps the old palette, because a running process's environment cannot be
+changed. That shows up as black-on-white under a dark theme, and looks fine to
+anyone who logged in on light. Resolving the file at run time instead means the
+picker follows a theme switch with no relogin.
+
 Order is always the canonical one regardless of what you pick or the order you
 name it in: several steps only work after an earlier one — `hypr-reload` reloads
 Hyprland against the keyd that `keyd` just restarted — and letting the menu
