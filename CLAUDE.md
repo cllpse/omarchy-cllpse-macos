@@ -2051,6 +2051,83 @@ outlier before the scene settled.
   check one landed is to issue it and read the exit status, which is what
   `apply.sh`'s smoke test does. A `reset` was always silent.
 
+## Extracting a plugin into its own repo
+
+The window switcher moved to `omarchy-cllpse-switcher/` — a submodule here, a
+public repository of its own — and was prepared for release. Most of what
+follows was not *introduced* by that split; the split is what made it visible.
+
+- **Only enumeration finds the couplings.** From inside this repo the plugin
+  looked self-contained, and reading its docs said so. Listing every absolute
+  path in its code found the one that mattered: `~/.icons/cllpse-flat/apps/`,
+  read by its icon index and documented in no file anywhere. It degrades
+  correctly when absent, so nothing ever failed loudly enough to notice. The
+  same shape turned up three more times — `apply.sh` gating the whole app-icons
+  hook on `icons/fallbacks/`, `app-icons.sh` justifying its own design on
+  switcher behaviour that had been deleted, and 75 icons duplicated across both
+  repos. Grep for the mechanism (paths, commands, imports), not for the concept.
+- **A hidden dependency is fixed by naming it, not always by removing it.**
+  `cllpse-flat` stayed — it is optional and harmless — but it became documented,
+  and the property stopped being called `legacyIconDir`, which described neither
+  what it is nor why. A personal name leaking into a public plugin is tolerable;
+  a silent one is not.
+- **Comments outlive the mechanism they describe, and they are read at the worst
+  possible moment.** Eleven blocks in `Hud.qml` still described an `icons/flat/`
+  vs `icons/color/` split, a draw-time recolour and a `c`/`t` tagging scheme,
+  all removed. A stale README misleads a reader; a stale comment misleads the
+  person about to edit that function, and every one of those was an argument for
+  reintroducing colorization. When you delete a mechanism, its comments are part
+  of it.
+- **"Missing" gains a second meaning the moment the source is a submodule.** An
+  absent `COLOR_IN` used to mean "these marks were deleted, clear the output".
+  It now also means "`git submodule update --init` has not run", and the
+  existing code would have wiped 75 working icons over it. That needs a
+  *discriminator* — `manifest.json` — not a better guess.
+- **Skipping is not exiting.** The first version of that guard was `exit 0`,
+  which would have taken down the flat pass as well: a different icon set, from
+  a different directory, with no relation to the submodule. That is exactly the
+  coupling the surrounding comments exist to prevent. Re-reading *why* the code
+  was shaped that way is what caught it.
+- **Prove standalone by running it, not by reading it.** Clone from the **remote**
+  rather than locally — that is what catches files that exist only on your disk —
+  then delete the dependency outright (`~/.icons/cllpse-*` moved aside) and boot
+  it. Shell loaded clean, three global shortcuts registered, HUD layer mapped,
+  and every live window still resolved an icon from the plugin's own set.
+- **Run a control before reporting a regression.** Driving the switcher with
+  `hyprctl dispatch global` opens and immediately closes it. That looked like a
+  standalone failure until the same dispatch did the same thing with the
+  original setup restored. It is the artificial input path — the real one holds
+  `SUPER` and polls. Without the comparison the report would have been wrong.
+- **Verify the mechanism, not the intention.** `magick -trim` trims by *corner
+  colour*, so on a mark with a background it reports the inner shape — which is
+  how `hunk` lost its cream box; alpha extent is the real measurement.
+  `git checkout` on an untracked file silently does nothing, so a "revert" left
+  broken JSON in place. A blanket rename turned `badge-aliases.json` into
+  `processIcon-aliases.json` in four places including a runtime path. The
+  counter-practice: assert the doc against reality — Ghostty measured at the
+  99% x 100% its `AGENTS.md` claims, all 75 icons checked against the documented
+  scaling contract, the alias table cross-checked 15/15 in a script.
+- **A `.json` file with comments is not JSON.** `icon-aliases.json` documented
+  itself in a 25-line `//` header that worked only because the parser stripped
+  those lines first — a private dialect wearing a `.json` extension, which any
+  formatter or `jq` run would reject. Moving the prose to the README forced a
+  second rule, because a mapping can no longer explain itself in place: adding
+  one now requires documenting it in that table.
+- **Inherited files do not inherit their terms.** The submodule took 75
+  third-party marks along with a blanket MIT statement. Whether to carve that
+  out is a decision to *make*, not to skip — here the notices were deliberately
+  removed.
+- **Measure before a bulk pass.** The `hunk` damage came from one run without
+  measuring. The WebP conversion is the corrected instinct: pilot three files
+  (PNG -35%, JPG -31%, HEIC **+22%**), check the 16383px limit, check basename
+  collisions, confirm `omarchy-theme-set` already enumerates `*.webp` — then
+  convert, verify all 60 at zero differing pixels, and only then delete an
+  original.
+- **`git add -A` is unsafe in a tree holding someone else's uncommitted work.**
+  Used here while 76 wallpaper changes sat unstaged. It happened to be clean —
+  verified after the fact that no commit touched them — but that was luck.
+  Stage by explicit path in a repo you share.
+
 ## Reproducing this on another machine
 
 `apply.sh` is deterministic and idempotent for what it controls, but it is not a
