@@ -280,7 +280,9 @@ own. There is no URL anywhere on the toplevel, so the only join is title ->
 the browser's history DB -> URL -> its favicon DB. **That means the plugin has
 read access to a browsing-history database**, which is the thing to weigh
 before anything else here; it is narrowed by the code (only the titles on
-screen, `mode=ro&immutable=1`, nothing written) and by nothing else.
+screen, read-only, nothing written into the profile at all) and by nothing
+else. See the `ro()` entry below for what "read-only" has to mean in practice,
+since one URI does not cover both browser families.
 
 **Nothing in Omarchy or Quickshell offers this.** Enumerated, not assumed:
 Quickshell's whole `Io` module is `FileView`, `Process`, `Socket`,
@@ -296,10 +298,48 @@ out at 32**; it cannot tell you which site a window is on, which is the hard hal
 
 Findings worth not re-deriving:
 
-- **A live profile DB reads fine in ~2ms** at `mode=ro&immutable=1`. The
-  `immutable=1` does the work -- without it a readonly connection against a hot
-  journal can fail outright. Cost: a read racing a write comes back
-  inconsistent, which lands as a miss.
+- **Reading a live profile takes TWO different URIs, and picking one is a
+  bug.** `mode=ro&immutable=1` takes no lock, which is the only way to read a
+  running **Chromium** -- it holds History and Favicons at
+  `locking_mode = EXCLUSIVE`, so a plain `mode=ro` gets `database is locked`
+  and nothing else (measured against the live profile: immutable 0.56ms, plain
+  `mode=ro` fails in 0.04ms). But `immutable=1` ignores the `-wal` **by
+  design**, so against **Firefox** -- whose `places.sqlite` is WAL -- it
+  silently returns the database as of the last checkpoint. Measured against a
+  live writer: **1 row of 399**. That was a real, shipped bug, and a
+  reconstructed Firefox profile with no live writer is exactly what would not
+  show it.
+  `mode=ro&readonly_shm=1` reads the WAL and, unlike a bare `mode=ro`, leaves
+  the `-shm` **byte-identical** (A/B'd on two fresh databases, each with its
+  own live writer: `mode=ro` changed it, `readonly_shm=1` did not, both saw all
+  399 rows). It is gated on a `-shm` already existing rather than simply
+  preferred, because without one it cannot open the database at all and -- when
+  there is no `-wal` either -- **creates a zero-byte `-wal` in the profile**
+  before failing. That gate is the only thing between this plugin and a write.
+  Cost of the WAL path scales with WAL size: 0.16ms at 177KB, 2.39ms at 3.6MB,
+  against 0.04ms for immutable. Noise beside the 8ms interpreter floor.
+  `readonly_shm` is a unix-VFS parameter, not one of the six documented URI
+  ones, and an SQLite that does not know it **ignores it silently** and leaves
+  a plain `mode=ro` that still reads but does write a read-mark. Honoured on
+  3.53.4; re-run the A/B before trusting the no-write claim elsewhere.
+  `nolock=1` and `vfs=unix-none` were both tried and cannot open a WAL at all.
+- **`timeout=0` or a five-SECOND stall.** Python's `sqlite3.connect` defaults
+  to a 5s busy timeout, and the locked-Chromium path above walks straight into
+  it -- measured 5008ms against 0.17ms. The old code never hit this because
+  `immutable=1` takes no lock; anything that stops being immutable must pass
+  `timeout=0`.
+- **A browser does not write a visit to its history when it happens.** Chromium
+  commits **10.07s** later (measured: throwaway profile, navigation driven over
+  DevTools, polling the DB as the helper opens it -- it is
+  `kCommitIntervalSeconds`). The switcher's lookup runs ~464ms after a title
+  settles, so the page in front of you is invisible to it by construction,
+  every time. Combined with the plugin's own unchanged-key-set guard that made
+  the miss **permanent**: the title does not change, so the key set does not
+  change, so nothing ever asked again. 70% of navigations in this profile went
+  to a URL with no prior visit, so most pages never got a badge at all. Fixed
+  with a bounded retry -- 3 attempts, 12s apart, then give up -- and the guard
+  now yields to that timer and to nothing else. Do not "simplify" it back into
+  a plain early return.
 - **QML's `Image` takes a `data:` URL** -- verified against a `file://` control,
   same `sourceSize`, both `Ready`. That is what keeps "writes no files" true.
 - **Sniff the media type, never assume it.** Chromium re-encodes every favicon
