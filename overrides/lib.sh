@@ -12,6 +12,32 @@
 [[ -n ${_CLLPSE_LIB_LOADED:-} ]] && return 0
 _CLLPSE_LIB_LOADED=1
 
+# Never as root. Everything here is USER-level and keyed on $HOME: under sudo
+# that becomes /root, so the themes, fonts, fontconfig drop-ins and state all
+# land in root's home and the real desktop is left untouched. gsettings fails
+# too -- root has no session bus, so dconf cannot commit and every write is a
+# warning rather than an error, which makes a sudo run look like it is working.
+#
+# The four steps that genuinely need root call `sudo` themselves, at the point
+# they need it, so the correct invocation is always the unprivileged one.
+if (( EUID == 0 )); then
+  cat >&2 <<'ROOT'
+refusing to run as root.
+
+  These scripts are user-level and keyed on $HOME. As root that is /root, so
+  everything installs into root's home and your desktop is untouched; gsettings
+  also fails silently, because root has no session bus.
+
+  Run it as yourself:
+
+      ./overrides/apply.sh
+
+  The four steps that need root (keyd, chromium-policy, ryzen, btrfs) call sudo
+  themselves and will prompt when they get there.
+ROOT
+  exit 1
+fi
+
 OVERRIDES="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(dirname "$OVERRIDES")"
 MARK='cllpse-macos overrides'

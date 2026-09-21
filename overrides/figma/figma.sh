@@ -28,6 +28,14 @@
 
 set -euo pipefail
 
+# Never as root: everything here is keyed on $HOME, which under sudo is /root.
+# This script writes nothing outside $HOME, so root buys nothing and costs you
+# an install in the wrong home.
+if (( EUID == 0 )); then
+  echo "refusing to run as root — this installs into \$HOME. Run it as yourself." >&2
+  exit 1
+fi
+
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 REPO_SLUG='IliyaBrook/figma-linux'

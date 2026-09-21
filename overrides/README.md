@@ -9,6 +9,12 @@ so it can't ship inside a theme folder.
 
 ## Use
 
+**Never with `sudo`.** These are user-level scripts keyed on `$HOME`; as root
+that is `/root`, so everything installs into root's home and leaves your desktop
+untouched — and `gsettings` fails silently, because root has no session bus, so
+the run *looks* like it worked. The four steps that need root call `sudo`
+themselves when they get there. `lib.sh` refuses outright if `EUID` is 0.
+
 ```bash
 ./apply.sh                  # pick what to run, or everything if there is no terminal
 ./apply.sh --all            # everything, no prompt
