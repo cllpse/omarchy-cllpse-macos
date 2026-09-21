@@ -164,7 +164,11 @@ system (GTK) theme and grayscale.
 
 ```
 omarchy-cllpse-theme/     the two themes (above), as omarchy-cllpse-theme-{dark,light}/
-overrides/                everything that lives outside a theme folder + apply.sh / revert.sh
+overrides/                everything that lives outside a theme folder + apply.sh / revert.sh / lib.sh
+overrides/<name>/         one directory per override, each owning BOTH its script and its docs:
+                          <name>.sh (runnable on its own) and README.md (why). apply.sh is an
+                          orchestrator that sources lib.sh and calls them in order; the order,
+                          and the system-level steps with no folder, stay in apply.sh.
 overrides/icons/          app/CLI marks repainted to the theme (fallbacks/); the verbatim ones live in the switcher submodule.
                           AGENTS.md is how to add one, fallbacks/README.md is what a
                           file must look like

@@ -1,129 +1,75 @@
 #!/bin/bash
 # Apply the cllpse-macos theme + every system-level override it needs.
 # Idempotent. Re-run any time. See revert.sh to undo.
-# Sudo is needed by exactly four steps, all near the end: 8b (keyd's config +
-# service + group), 9 (the Chromium managed policy), 10 (the CPU power limits)
-# and 11 (the Btrfs compression level). Everything else is user-level. keyd and ryzenadj are the two packages
-# this script depends on and it installs NEITHER — each step configures its tool
-# if present and says so if it is not.
 #
-#   0. record the pre-existing font and theme, for revert.sh to restore
-#   1. symlink both themes + the window-switcher plugin into ~/.config/omarchy/
-#   2. install the SF fonts + fontconfig drop-ins (UI font + hintnone)
-#   3. point monospace at SF Mono (omarchy font set)
-#   4. point GTK / GNOME apps at SF Pro / SF Mono (gsettings)
-#   5. force hintnone for GTK/GNOME (gsettings) + Ghostty (freetype-load-flags)
-#   5b. strip GTK window buttons (gsettings button-layout)
-#   5c. xkb: the Preonic's Danish letters (~/.config/xkb/symbols/)
-#   6. hypr overrides: OMARCHY_MENU_FONT (shell popups) + decoration (rounding, blur)
-#   6b. keybind allowlist: scan the live binds, unbind what the allowlist omits,
-#       then re-sync the macOS-parity and window-management blocks
-#   7. install bat / lazygit / lsd / yazi / lazydocker / gh-dash / hunk theme
-#      configs, merge Cursor settings, add fzf +
-#      lsd colours and the tool aliases to .bashrc, git diff pager to git config
-#   7b. restore saved display scaling + text size from display.conf
-#   7c. session environment drop-ins (~/.config/environment.d/)
-#   7d. Chromium: device-scale-factor + overlay-scrollbar flags, default page
-#       zoom, and a neutral browser UI (system theme + grayscale)
-#   7e. Figma Desktop's launcher entry (correct Name= and StartupWMClass)
-#   7f. flat app icons for the menu (hand-placed SVGs in icons/fallbacks/)
-#   7f2. post-update repair hook: re-link what an Omarchy update could take out
-#   7h. Omarchy shell.json: window-switcher plugin, transparent bar, bar layout,
-#       disabled first-party plugins
-#   8. apply the theme (refreshes whichever cllpse-macos theme is active; dark otherwise)
-#   8b. keyd: identity config + the Figma modifier remap helper (sudo)
-#   8c. hyprctl reload (determinism; autoreload already covers the hypr files)
-#       — after 8b on purpose, so the focus handler's state is seeded against
-#       the keyd that is now running
-#   9. Chromium managed policy (sudo): context-menu declutter (spellcheck/
-#      translate/password/autofill/Print/Cast/QR/Reading-list off) + the two
-#      force-installed extensions (uBlock Origin Lite, Proton Pass)
-#   10. CPU power limits: ryzenadj 52W sustained, reapplied at boot and on
-#       resume by a systemd unit (sudo) — HARDWARE-GATED to the 8745HS in the
-#       Geekom A8, since these are numbers for one thermal design
-#   11. Btrfs compression level: compress=zstd (kernel default 3) -> zstd:1 in
-#       /etc/fstab, and remounted live (sudo) — last, and the only step that
-#       edits a file the machine will not boot without
+# This script is now an ORCHESTRATOR. Each override owns a script and a README
+# in its own directory -- overrides/cursor/cursor.sh and overrides/cursor/
+# README.md, and so on -- and this file calls them in the order below. Two
+# things are deliberately NOT in a folder:
+#
+#   * steps that configure the system rather than an app (gsettings, the theme
+#     apply, hyprctl reload, the Btrfs mount option). They have no folder to
+#     live in and stay inline here.
+#   * the ORDER itself, which is the one thing a per-folder script cannot own.
+#     Sudo is needed by exactly four steps and they are all late on purpose:
+#     8b (keyd), 9 (the Chromium managed policy), 10 (CPU power limits) and
+#     11 (Btrfs). chromium/chromium.sh takes a `user`/`policy` argument for
+#     precisely this reason -- its two halves run at opposite ends of a run.
+#
+# Every per-folder script is also runnable on its own. They source lib.sh for
+# say/skip/backup/sync_fenced/record_prior, STATE and MARK.
+#
+# keyd and ryzenadj are the two packages this depends on and it installs
+# NEITHER -- each step configures its tool if present and says so if it is not.
+#
+# What each step does, and where to read about it:
+#
+#   0.   record the pre-existing font and theme, for revert.sh        [inline]
+#   1.   symlink both themes + the window-switcher plugin              [inline]
+#   2.   SF + Comic Code fonts                                         fonts/
+#        fontconfig drop-ins (UI font + hintnone)                      fontconfig/
+#   3.   point monospace at SF Mono (omarchy font set)                 [inline]
+#   4.   point GTK / GNOME apps at SF Pro / SF Mono (gsettings)        [inline]
+#   5.   hinting none: gsettings                                       [inline]
+#        hinting none: Ghostty                                         ghostty/
+#   5b.  strip GTK window buttons (gsettings)                          [inline]
+#   5c.  the Preonic's Danish letters                                  xkb/
+#   6.   hypr env + decoration + switcher binds + input,
+#        and the keybind allowlist (was 6b)                            hypr/
+#   7.   the apps Omarchy doesn't theme:
+#          bat/ lazygit/ lsd/ yazi/ lazydocker/ gh-dash/ starship/
+#          cursor/ hunk/ ytm/ bash/ git/
+#   7b.  restore saved display scaling + text size                     [inline]
+#   7c.  session environment drop-ins                                  environment.d/
+#   7d.  Chromium flags, zoom and neutral UI                           chromium/ (user)
+#   7e.  Figma Desktop's launcher entry                                applications/
+#   7f.  flat app icons for the menu                                   icons/
+#   7f2. post-update repair hook                                       hooks/
+#   7h.  Omarchy shell.json: switcher, bar, disabled plugins           omarchy/
+#   8.   apply the theme                                               [inline]
+#   8b.  keyd identity config + Figma modifier remap (sudo)            keyd/
+#   8c.  hyprctl reload -- after 8b so the focus handler is seeded
+#        against the keyd that is now running                          [inline]
+#   9.   Chromium managed policy (sudo)                                chromium/ (policy)
+#   10.  CPU power limits (sudo), hardware-gated                       ryzen/
+#   11.  Btrfs compression level (sudo) -- last, and the only step
+#        that edits a file the machine will not boot without           [inline]
 
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO="$(dirname "$HERE")"
-MARK='cllpse-macos overrides'
+source "$HERE/lib.sh"
 
-say()  { printf '\033[34m▸\033[0m %s\n' "$*"; }
-skip() { printf '  \033[2m– %s\033[0m\n' "$*"; }
-backup() { [[ -s $1 && ! -e $1.pre-cllpse ]] && { cp "$1" "$1.pre-cllpse"; skip "backed up $1 -> $1.pre-cllpse"; } || true; }
-
-# Current contents of the fenced block in $3 — the lines between, but not
-# including, the $1/$2 marker lines.
-# NB: the awk variables are openm/closem, not open/close — `close` is a gawk
-# builtin and `-v close=...` is a fatal error, which silently emptied the target.
-fenced_body() { # $1 open-marker  $2 close-marker  $3 target
-  awk -v openm="$1" -v closem="$2" '$0 == openm { f = 1; next } $0 == closem { f = 0 } f' "$3"
+# Run an override's own script. Named rather than globbed, because the ORDER is
+# load-bearing and a glob would sort it alphabetically.
+run() { # $1 folder  $2.. args
+  local f="$HERE/$1/${1}.sh"
+  [[ -x $f ]] || { skip "missing $1/${1}.sh — skipped"; return 0; }
+  "$f" "${@:2}"
 }
 
-# Sync a snippet into $1 wrapped in fence markers: replace the block in place if
-# it's already there, append it if it isn't. Replacing (rather than the older
-# append-once) is what makes a re-run pick up edits to the snippet — otherwise an
-# already-applied machine silently keeps the version it first installed.
-# Comment leader matches the target: "--" for *.lua, "#" otherwise — a "#" line
-# is a syntax error in Lua.
-# $3 (optional) distinguishes a second fenced block in a file that already
-# carries one under the plain $MARK — e.g. bindings.lua fences in both
-# window-switcher-bindings.lua (no $3) and keybind-unbinds.lua ($3=keybinds).
-sync_fenced() { # $1 target  $2 snippet-file  $3 marker-suffix
-  local mark="$MARK"; [[ -n ${3:-} ]] && mark="$MARK: $3"
-  local c='#'; [[ $1 == *.lua ]] && c='--'
-  local open="$c >>> $mark >>>" close="$c <<< $mark <<<"
-  [[ -e $1 ]] || : >"$1"
 
-  # Match the open marker as a WHOLE LINE, not $mark as a substring. $mark for a
-  # plain block ("cllpse-macos overrides") is a prefix of every suffixed one
-  # ("cllpse-macos overrides: keybinds"), so a substring test says "the block is
-  # already here" when only a SUFFIXED block is. The awk rewrite below then finds
-  # no line equal to $open, passes the file through unchanged, and — the output
-  # being non-empty — reports success. Net effect: the block is silently never
-  # installed. bindings.lua carries four blocks, so it is the file this reaches.
-  # The current call order (plain before suffixed) hides it on a fresh machine;
-  # deleting the plain block by hand and re-running is enough to surface it.
-  #
-  # -e is REQUIRED, not stylistic: $open for a .lua target starts with "--",
-  # which grep parses as end-of-options (or as a bad option) rather than as a
-  # pattern, and the test then never matches. That failure appends a duplicate
-  # block on every run instead of updating in place — and it lands only on .lua
-  # files, i.e. exactly the ones this guard exists for. The old substring test
-  # dodged it by accident: $mark carries no leading dash.
-  if ! grep -qxF -e "$open" "$1" 2>/dev/null; then
-    { printf '\n%s\n' "$open"; cat "$2"; printf '%s\n' "$close"; } >>"$1"
-    say "appended overrides block to $1"
-    return
-  fi
-
-  if diff -q <(fenced_body "$open" "$close" "$1") "$2" >/dev/null 2>&1; then
-    skip "$1 overrides block already up to date"
-    return
-  fi
-
-  local tmp; tmp=$(mktemp)
-  if ! awk -v openm="$open" -v closem="$close" -v snip="$2" '
-    $0 == openm  { print; while ((getline line < snip) > 0) print line; close(snip); f = 1; next }
-    $0 == closem { f = 0; print; next }
-    !f           { print }
-  ' "$1" >"$tmp"; then
-    rm -f "$tmp"; printf 'error: could not rewrite %s — left untouched\n' "$1" >&2; return 1
-  fi
-  # Never let a failed/empty rewrite clobber a real config file.
-  if [[ ! -s $tmp ]]; then
-    rm -f "$tmp"; printf 'error: refusing to write empty %s — left untouched\n' "$1" >&2; return 1
-  fi
-  # Write through the original file rather than mv, to keep its mode and inode.
-  cat "$tmp" >"$1"
-  rm -f "$tmp"
-  say "updated overrides block in $1"
-}
-
-# ── 0. record pre-existing state ─────────────────────────────────────────────
+# ── 0. record pre-existing state ─────────────────────────────────────────
 # revert.sh restores what this machine had before apply.sh first ran, rather
 # than hardcoding Omarchy's stock font/theme — those are only right on a machine
 # that was already stock. Written once and never overwritten, so re-running
@@ -132,16 +78,6 @@ sync_fenced() { # $1 target  $2 snippet-file  $3 marker-suffix
 # Values that are already ours are refused outright: on a machine where apply.sh
 # has run before, `omarchy font current` reports SF Mono, and recording that
 # would quietly turn revert into a no-op.
-STATE="$HOME/.local/state/cllpse-macos"
-mkdir -p "$STATE"
-
-record_prior() { # $1 state-file  $2 value  $3 value-to-refuse
-  [[ -e $1 ]] && return 0                      # first apply wins, never overwrite
-  [[ -z $2 || $2 == "$3" ]] && return 0         # nothing to record, or it's ours
-  printf '%s\n' "$2" >"$1"
-  skip "recorded pre-existing $(basename "$1"): $2"
-}
-
 record_prior "$STATE/previous-font" \
   "$(omarchy font current 2>/dev/null || true)" "SFMono Nerd Font Mono"
 
@@ -149,7 +85,7 @@ prior_theme="$(cat "$HOME/.local/state/omarchy/current/theme.name" 2>/dev/null |
 case "$prior_theme" in omarchy-cllpse-theme-*) prior_theme="" ;; esac
 record_prior "$STATE/previous-theme" "$prior_theme" ""
 
-# ── 1. symlinks ──────────────────────────────────────────────────────────────
+# ── 1. symlinks ─────────────────────────────────────────
 say "Linking themes into ~/.config/omarchy/themes/"
 mkdir -p ~/.config/omarchy/themes
 ln -sfn "$REPO/omarchy-cllpse-theme/omarchy-cllpse-theme-dark"  ~/.config/omarchy/themes/omarchy-cllpse-theme-dark
@@ -181,28 +117,12 @@ if [[ ! -f "$REPO/omarchy-cllpse-switcher/manifest.json" ]]; then
 fi
 ln -sfn "$REPO/omarchy-cllpse-switcher" ~/.config/omarchy/plugins/cllpse.window-switcher
 
-# ── 2. fonts ─────────────────────────────────────────────────────────────────
-say "Installing SF fonts -> ~/.local/share/fonts/SF/"
-mkdir -p ~/.local/share/fonts/SF
-cp -u "$HERE"/fonts/*.otf ~/.local/share/fonts/SF/
 
-# Comic Code, the editor font cursor/settings.json names. Kept in its own
-# subdirectory rather than beside the SF faces, because the step above globs
-# fonts/*.otf into ~/.local/share/fonts/SF/ and these are not SF -- the subdir
-# keeps them out of that glob and out of that directory.
-say "Installing Comic Code -> ~/.local/share/fonts/ComicCode/"
-mkdir -p ~/.local/share/fonts/ComicCode
-cp -u "$HERE"/fonts/comic-code/*.otf ~/.local/share/fonts/ComicCode/
+# ── 2. fonts + fontconfig ─────────────────────────────────────────
+run fonts
+run fontconfig
 
-say "Installing fontconfig drop-ins -> ~/.config/fontconfig/conf.d/"
-mkdir -p ~/.config/fontconfig/conf.d
-rm -f ~/.config/fontconfig/conf.d/99-sf-pro.conf     # legacy name
-rm -f ~/.config/fontconfig/conf.d/11-hinting-none.conf   # interim name
-cp "$HERE/fontconfig/conf.d/99-cllpse-macos-ui-font.conf" ~/.config/fontconfig/conf.d/99-cllpse-macos-ui-font.conf
-cp "$HERE/fontconfig/conf.d/11-cllpse-macos-hinting.conf" ~/.config/fontconfig/conf.d/11-cllpse-macos-hinting.conf
-fc-cache -f >/dev/null 2>&1
-
-# ── 3. monospace font (Omarchy's own mechanism) ──────────────────────────────
+# ── 3. monospace font (Omarchy's own mechanism) ─────────────────────────────────────────
 if [[ "$(omarchy font current 2>/dev/null)" == "SFMono Nerd Font Mono" ]]; then
   skip "omarchy font already SFMono Nerd Font Mono"
 else
@@ -212,20 +132,22 @@ fi
 say "fc-match check"
 for q in monospace sans-serif; do printf '    %-11s -> %s\n' "$q" "$(fc-match "$q")"; done
 
-# ── 4. GTK / GNOME fonts ─────────────────────────────────────────────────────
+
+# ── 4. GTK / GNOME fonts ─────────────────────────────────────────
 say "gsettings: GTK/GNOME fonts -> SF Pro / SF Mono"
 gsettings set org.gnome.desktop.interface font-name           'SFProText Nerd Font Propo 11'
 gsettings set org.gnome.desktop.interface document-font-name  'SFProText Nerd Font Propo 12'
 gsettings set org.gnome.desktop.interface monospace-font-name 'SFMono Nerd Font Mono 10'
 
-# ── 5. font hinting -> none ──────────────────────────────────────────────────
+
+# ── 5. font hinting -> none ─────────────────────────────────────────
 # fontconfig side is the 11-cllpse-macos-hinting.conf drop-in from step 2.
 # GTK/GNOME and Ghostty each read their own knob:
 say "gsettings: GTK/GNOME font-hinting -> none"
 gsettings set org.gnome.desktop.interface font-hinting 'none'
-sync_fenced ~/.config/ghostty/config "$HERE/ghostty/ghostty.conf"
+run ghostty
 
-# ── 5b. GTK window buttons -> none ───────────────────────────────────────────
+# ── 5b. GTK window buttons -> none ─────────────────────────────────────────
 # Hyprland draws no titlebars; the min/max/close a GTK/libadwaita app shows are
 # its own client-side decoration, laid out from this key (Nautilus, Files, the
 # GNOME apps). ':' = nothing either side of the divider. Omarchy's default is
@@ -234,473 +156,28 @@ sync_fenced ~/.config/ghostty/config "$HERE/ghostty/ghostty.conf"
 say "gsettings: GTK window buttons -> none"
 gsettings set org.gnome.desktop.wm.preferences button-layout ':'
 
-# ── 5c. xkb: Danish letters on the Preonic's M0 layer ────────────────────────
-# Static, single-group symbols file (no toggle, no compose) - see the file
-# itself for why level 1 on these keys is dead weight. Referenced by
-# hyprland-env.lua's kb_layout below.
-say "xkb: installing us-danish-letters -> ~/.config/xkb/symbols/"
-mkdir -p ~/.config/xkb/symbols
-cp "$HERE/xkb/symbols/us-danish-letters" ~/.config/xkb/symbols/us-danish-letters
 
-# ── 6. hypr overrides ────────────────────────────────────────────────────────
-# Each block is appended at the END of its file, which is what makes it win on
-# load order — see the notes in the snippets themselves.
-sync_fenced ~/.config/hypr/hyprland.lua  "$HERE/hypr/hyprland-env.lua"
-sync_fenced ~/.config/hypr/looknfeel.lua "$HERE/hypr/looknfeel-decoration.lua"
-sync_fenced ~/.config/hypr/bindings.lua  "$HERE/hypr/window-switcher-bindings.lua"
-sync_fenced ~/.config/hypr/input.lua     "$HERE/hypr/input-tuning.lua"
+# ── 5c. xkb: Danish letters on the Preonic's M0 layer ─────────────────────────────────────────
+run xkb
 
-# ── 6b. keybind allowlist ────────────────────────────────────────────────────
-# keybind-scan.lua sandboxes the live ~/.config/hypr/hyprland.lua (dofile'd
-# under a fake hl/o -- no interaction with the running Hyprland session, see
-# the script itself) to enumerate every bind currently in effect: Omarchy
-# defaults, the active theme, and the overrides just synced above.
-#
-# Two files, two lifecycles:
-#   keybind-current.conf    regenerated from that scan on EVERY apply --
-#                            reference only, never hand-edit, diff it against
-#                            the allowlist below to see what Omarchy
-#                            added/changed
-#   keybind-allowlist.conf  seeded from -current once, then yours -- delete
-#                            a line to have the next apply unbind it;
-#                            apply.sh never rewrites it again once it exists.
-#                            It is TRACKED IN GIT and therefore already exists
-#                            in a fresh clone, so the seeding never runs there
-#                            and a second machine is diffed against the
-#                            author's bind set rather than its own. Delete it
-#                            and re-apply to seed from this machine instead;
-#                            the file's own header covers the consequences.
-CURRENT="$HERE/hypr/keybind-current.conf"
-ALLOWLIST="$HERE/hypr/keybind-allowlist.conf"
+# ── 6. hypr overrides + keybind allowlist ─────────────────────────────────────────
+run hypr
 
-say "keybind-current.conf: rescanning every bind currently in effect"
-tmp=$(mktemp)
-lua "$HERE/hypr/keybind-scan.lua" dump >"$tmp"
-if [[ ! -s $tmp ]]; then
-  rm -f "$tmp"
-  printf 'error: keybind scan produced nothing — leaving keybind files untouched\n' >&2
-else
-  {
-    echo "# Every Hyprland keybind currently in effect, one per line as"
-    echo "# \"keys<TAB>description\". Regenerated on every apply -- do not"
-    echo "# hand-edit, edits here are discarded. Diff this against"
-    echo "# keybind-allowlist.conf to see what's new/changed; edit that file"
-    echo "# to actually prune something."
-    echo "#"
-    cat "$tmp"
-  } >"$CURRENT"
-  rm -f "$tmp"
+# ── 7. apps Omarchy doesn't theme ─────────────────────────────────────────
+run bat
+run lazygit
+run lsd
+run yazi
+run lazydocker
+run gh-dash
+run starship
+run cursor
+run hunk
+run ytm
+run bash
+run git
 
-  if [[ -e $ALLOWLIST ]]; then
-    # Note this ALWAYS fires on a fresh clone: the allowlist is tracked in git,
-    # so it exists before the first apply and the seeding branch below is
-    # unreachable until someone deletes it. That means a second machine is
-    # diffed against the author's bind set, not its own — see the file's header.
-    skip "keybind-allowlist.conf already exists — not reseeding (edit it directly to prune,"
-    skip "  or delete it and re-apply to reseed from this machine's own scan)"
-  else
-    say "seeding keybind-allowlist.conf from keybind-current.conf"
-    {
-      echo "# Your keybind whitelist. Delete a line to have the next apply run"
-      echo "# unbind it. apply.sh never rewrites this file once it exists --"
-      echo "# delete it yourself and re-apply to reseed from"
-      echo "# keybind-current.conf."
-      echo "#"
-      grep -v '^#' "$CURRENT"
-    } >"$ALLOWLIST"
-  fi
-fi
-
-if [[ -e $ALLOWLIST ]]; then
-  say "keybind-unbinds.lua: diffing keybind-current.conf against keybind-allowlist.conf"
-  {
-    echo "-- Generated by apply.sh from keybind-allowlist.conf. Do not hand-edit --"
-    echo "-- edits here are overwritten on the next apply; edit"
-    echo "-- keybind-allowlist.conf instead."
-    lua "$HERE/hypr/keybind-scan.lua" unbinds "$ALLOWLIST"
-  } >"$HERE/hypr/keybind-unbinds.lua"
-  sync_fenced ~/.config/hypr/bindings.lua "$HERE/hypr/keybind-unbinds.lua" keybinds
-fi
-
-# macOS-parity shortcuts. Must be synced AFTER keybind-unbinds.lua above:
-# some of these repurpose a combo (SUPER+LEFT/RIGHT, SUPER+SHIFT+LEFT/RIGHT)
-# that the allowlist diff just unbound from its old WM meaning -- these
-# bindings need to be the last word for that combo, not the unbind.
-sync_fenced ~/.config/hypr/bindings.lua "$HERE/hypr/macos-shortcuts.lua" macos-shortcuts
-
-# Window navigation/arrangement on CTRL+ALT instead of SUPER -- see the
-# header comment in window-management-mod.lua for why (the Preonic
-# keyboard's Gui-triggered symbol overrides were eating SUPER+UP/SHIFT+UP
-# before Hyprland ever saw them). Also synced after keybind-unbinds.lua,
-# same reasoning as macos-shortcuts.lua above, though these don't actually
-# share a chord with anything being unbound.
-sync_fenced ~/.config/hypr/bindings.lua "$HERE/hypr/window-management-mod.lua" window-management-mod
-
-# Bibata is referenced by hyprland-env.lua and the gsettings below. No sudo
-# here, so warn rather than install.
-if [[ ! -d /usr/share/icons/Bibata-Modern-Ice && ! -d ~/.local/share/icons/Bibata-Modern-Ice ]]; then
-  skip "cursor theme Bibata-Modern-Ice not found — install it with: yay -S bibata-cursor-theme-bin"
-  skip "  (AUR, so pacman -S will not find it; the cursor setting below is applied regardless)"
-fi
-say "gsettings: cursor theme -> Bibata-Modern-Ice @ 22"
-gsettings set org.gnome.desktop.interface cursor-theme 'Bibata-Modern-Ice'
-gsettings set org.gnome.desktop.interface cursor-size 22
-
-# ── 7. apps Omarchy doesn't theme ───────────────────────────────────────────
-say "bat -> ~/.config/bat/config (--theme=ansi)"
-mkdir -p ~/.config/bat; backup ~/.config/bat/config
-cp "$HERE/bat/config" ~/.config/bat/config
-
-say "lazygit -> ~/.config/lazygit/config.yml (ANSI theme)"
-mkdir -p ~/.config/lazygit; backup ~/.config/lazygit/config.yml
-cp "$HERE/lazygit/config.yml" ~/.config/lazygit/config.yml
-
-if command -v lsd >/dev/null 2>&1; then
-  say "lsd -> ~/.config/lsd/{config,colors}.yaml (ANSI theme)"
-  mkdir -p ~/.config/lsd
-  backup ~/.config/lsd/config.yaml; backup ~/.config/lsd/colors.yaml
-  cp "$HERE/lsd/config.yaml"  ~/.config/lsd/config.yaml
-  cp "$HERE/lsd/colors.yaml"  ~/.config/lsd/colors.yaml
-else
-  skip "lsd not installed — skipped ~/.config/lsd theme files"
-fi
-
-# yazi. Its own preset theme is already ANSI-based, so this is not undoing a
-# hardcoded palette -- it pins the accent to blue so yazi agrees with the other
-# TUIs, and flattens the chrome onto `reset`. See yazi/theme.toml.
-if command -v yazi >/dev/null 2>&1; then
-  say "yazi -> ~/.config/yazi/theme.toml (ANSI theme)"
-  mkdir -p ~/.config/yazi
-  backup ~/.config/yazi/theme.toml
-  cp "$HERE/yazi/theme.toml" ~/.config/yazi/theme.toml
-else
-  skip "yazi not installed — skipped ~/.config/yazi/theme.toml"
-fi
-
-# lazydocker. Same four gocui theme keys, and the same ANSI vocabulary, as
-# lazygit above.
-if command -v lazydocker >/dev/null 2>&1; then
-  say "lazydocker -> ~/.config/lazydocker/config.yml (ANSI theme)"
-  mkdir -p ~/.config/lazydocker
-  backup ~/.config/lazydocker/config.yml
-  cp "$HERE/lazydocker/config.yml" ~/.config/lazydocker/config.yml
-else
-  skip "lazydocker not installed — skipped ~/.config/lazydocker/config.yml"
-fi
-
-# gh-dash. Installed as a theme-set HOOK rather than merged once here, because
-# gh-dash cannot follow the terminal's ANSI palette: it hands colour strings to
-# termenv, which resolves an index against its own hardcoded table instead of
-# leaving slots 0-15 to the terminal. Measured on v4.25.2 -- "4" came out as
-# ESC[38;2;0;0;128m (xterm navy), not the theme's blue. So the palette is baked
-# from colors.toml on every theme-set, the way hunk and starship are.
-# The hook still MERGES rather than copies: config.yml also holds the user's own
-# prSections / issuesSections / layout, so only theme.colors is replaced.
-_ghdash_dir="${XDG_DATA_HOME:-$HOME/.local/share}/gh/extensions/gh-dash"
-if [[ -d $_ghdash_dir ]]; then
-  say "gh-dash -> ~/.config/omarchy/hooks/theme-set.d/gh-dash-colors.sh"
-  mkdir -p ~/.config/omarchy/hooks/theme-set.d
-  ln -sfn "$HERE/hooks/theme-set.d/gh-dash-colors.sh" ~/.config/omarchy/hooks/theme-set.d/gh-dash-colors.sh
-  backup "${XDG_CONFIG_HOME:-$HOME/.config}/gh-dash/config.yml"
-  "$HERE/hooks/theme-set.d/gh-dash-colors.sh" || skip "gh-dash-colors.sh produced nothing this run — left config.yml untouched"
-else
-  skip "gh-dash not installed — skipped its theme hook"
-fi
-
-# Starship has no Omarchy-aware theming of its own and no config "import"
-# mechanism to point at a themed file the way Ghostty/Alacritty/foot do, so
-# instead of a themed/*.tpl this hooks into `omarchy-hook theme-set`
-# (~/.config/omarchy/hooks/theme-set.d/), called on every `omarchy theme set`
-# — see the hook script itself for why. Backed up like bat/lazygit/lsd above
-# since it replaces the user's ~/.config/starship.toml outright; run once now
-# so the currently active theme's colour reaches it without waiting for the
-# next theme switch.
-say "starship -> ~/.config/omarchy/hooks/theme-set.d/starship-colors.sh"
-mkdir -p ~/.config/omarchy/hooks/theme-set.d
-ln -sfn "$HERE/hooks/theme-set.d/starship-colors.sh" ~/.config/omarchy/hooks/theme-set.d/starship-colors.sh
-backup ~/.config/starship.toml
-"$HERE/hooks/theme-set.d/starship-colors.sh" || skip "starship-colors.sh produced nothing this run — left ~/.config/starship.toml untouched"
-
-# Cursor's window chrome, repainted from Omarchy's own generated VS Code theme
-# so the editor frame matches every other window instead of wearing Bearded's
-# greys. Chrome only — the editor pane and syntax stay Bearded. Hook, because
-# the palette changes per theme; see the hook for the scoping.
-if [[ -d ~/.config/Cursor/User ]]; then
-  say "Cursor chrome -> ~/.config/omarchy/hooks/theme-set.d/cursor-chrome.sh"
-  mkdir -p ~/.config/omarchy/hooks/theme-set.d
-  ln -sfn "$HERE/hooks/theme-set.d/cursor-chrome.sh" ~/.config/omarchy/hooks/theme-set.d/cursor-chrome.sh
-  "$HERE/hooks/theme-set.d/cursor-chrome.sh" || skip "cursor-chrome.sh produced nothing this run"
-fi
-
-# yazi's previewer — syntect reads a .tmTheme, which is hex-only, so the
-# previewer's syntax colours are baked per theme like hunk's. Unlike the rest of
-# yazi/theme.toml (ANSI, no regeneration), this one needs the hook. See the
-# syntect_theme note in yazi/theme.toml for what the trade buys.
-if command -v yazi >/dev/null 2>&1; then
-  say "yazi previewer -> ~/.config/omarchy/hooks/theme-set.d/yazi-syntax.sh"
-  mkdir -p ~/.config/omarchy/hooks/theme-set.d ~/.config/yazi
-  ln -sfn "$HERE/hooks/theme-set.d/yazi-syntax.sh" ~/.config/omarchy/hooks/theme-set.d/yazi-syntax.sh
-  "$HERE/hooks/theme-set.d/yazi-syntax.sh" || skip "yazi-syntax.sh produced nothing this run — left the .tmTheme untouched"
-fi
-
-# hunk — the one tool here that cannot use the terminal palette (its validator
-# takes hex only, and every built-in theme is a bundled Shiki theme), so its
-# colours are BAKED from the active colors.toml on every theme-set, the same
-# hook mechanism starship uses above. The hook writes config.toml whole, which
-# is why it is backed up once before the first run.
-if command -v hunk >/dev/null 2>&1; then
-  say "hunk -> ~/.config/omarchy/hooks/theme-set.d/hunk-colors.sh"
-  mkdir -p ~/.config/omarchy/hooks/theme-set.d ~/.config/hunk
-  ln -sfn "$HERE/hooks/theme-set.d/hunk-colors.sh" ~/.config/omarchy/hooks/theme-set.d/hunk-colors.sh
-  backup ~/.config/hunk/config.toml
-  "$HERE/hooks/theme-set.d/hunk-colors.sh" || skip "hunk-colors.sh produced nothing this run — left ~/.config/hunk/config.toml untouched"
-else
-  skip "hunk not installed — skipped its theme hook (mise use -g hunk)"
-fi
-
-# ytm-player — a Textual TUI that reads theme.toml once at startup and feeds
-# those colours into Textual's own ColorSystem, so the palette has to be BAKED
-# per theme rather than picked up from the terminal. Unlike starship/hunk above,
-# this one does use a themed/*.tpl: Omarchy's renderer already resolves {{ mix }}
-# and every colors.toml key, so the hook only copies the rendered file into
-# place. It also rewrites [ui] theme, because theme.toml cannot set Textual's
-# `dark` flag and that flag drives every derived contrast token.
-if command -v ytm >/dev/null 2>&1; then
-  say "ytm-player -> ~/.config/omarchy/themed/ + theme-set.d/ytm-player.sh"
-  mkdir -p ~/.config/omarchy/themed ~/.config/omarchy/hooks/theme-set.d ~/.config/ytm-player
-  ln -sfn "$HERE/themed/ytm-player.toml.tpl" ~/.config/omarchy/themed/ytm-player.toml.tpl
-  ln -sfn "$HERE/hooks/theme-set.d/ytm-player.sh" ~/.config/omarchy/hooks/theme-set.d/ytm-player.sh
-  backup ~/.config/ytm-player/config.toml
-  "$HERE/hooks/theme-set.d/ytm-player.sh" || skip "ytm-player hook produced nothing this run — step 8's theme-set renders it"
-
-  # Preferences, as opposed to colours: the startup page, the playhead style
-  # and the clutter toggles don't change with the theme, so they are written
-  # once here rather than on every theme-set. Insert-or-replace per key, so
-  # everything we have no opinion about -- [ui] theme included, which the hook
-  # above owns -- keeps whatever ytm or the user last put there.
-  "$HERE/ytm/config-prefs.py" || skip "ytm config-prefs.py failed — left ~/.config/ytm-player/config.toml alone"
-
-  # Sign-in state. Deliberately a REPORT, not a prompt: apply.sh runs
-  # unattended end to end, and `ytm setup` is an interactive wizard that picks
-  # a browser and then an account. The keyring workaround it needs is in
-  # bash/shell.sh -- without it a session that expires can never renew itself,
-  # because ytm's try_auto_refresh() re-extracts browser cookies through the
-  # same yt-dlp path that `ytm setup` does.
-  # The sign-in command. Symlinked rather than install -m755 like keyd's helper,
-  # so edits in the repo take effect without a re-apply -- it is a script you
-  # read and tweak, not a binary something else points at.
-  say "ytm sign-in -> ~/.local/bin/cllpse-ytm-signin"
-  mkdir -p ~/.local/bin
-  ln -sfn "$HERE/ytm/cllpse-ytm-signin" ~/.local/bin/cllpse-ytm-signin
-
-  # Sign-in state is a REPORT, not a prompt: apply.sh runs unattended end to
-  # end, and `ytm setup` is an interactive wizard that picks a browser and then
-  # an account. cllpse-ytm-signin carries the keyring workaround and does its
-  # own preflight; without that workaround ytm's try_auto_refresh() can never
-  # renew a session, because it re-extracts browser cookies through the same
-  # failing yt-dlp path.
-  python3 -c 'import secretstorage' 2>/dev/null ||
-    skip "python-secretstorage missing — ytm cannot read the Chromium keyring (sudo pacman -S python-secretstorage)"
-  if [[ -s ~/.config/ytm-player/auth.json ]]; then
-    skip "ytm-player is signed in"
-  else
-    skip "ytm-player is NOT signed in — run: cllpse-ytm-signin"
-  fi
-else
-  skip "ytm-player not installed — skipped its theme template and hook (yay -S ytm-player)"
-fi
-
-# Cursor — deep-merge our editor prefs into settings.json with jq: our keys win,
-# any key we don't set is kept. Omarchy owns workbench.colorTheme (it rewrites it
-# to "Omarchy" on every `omarchy theme set`, via omarchy-theme-set-vscode), so
-# cursor/settings.json deliberately omits it. Cursor is the only editor of this
-# family installed here; VS Code / VSCodium would each want their own merge.
-cursor_settings=~/.config/Cursor/User/settings.json
-if [[ -x /usr/bin/cursor || -d ${cursor_settings%/*} ]]; then
-  mkdir -p "${cursor_settings%/*}"
-  if [[ -s $cursor_settings ]] && ! jq -e . "$cursor_settings" >/dev/null 2>&1; then
-    skip "Cursor settings.json has comments / trailing commas jq won't parse —"
-    skip "  merge $HERE/cursor/settings.json in by hand"
-  else
-    backup "$cursor_settings"
-    _merged=$(mktemp)
-    # cursor/bearded-dark-tokens.json is the third input: the syntax colours for
-    # dark mode, derived from Bearded Theme Light by
-    # cursor/derive-dark-from-light.py and scoped to the dark variant by name,
-    # so light mode is untouched. jq's `*` merges objects recursively and takes
-    # the right-hand side for arrays, which is what the textMateRules list wants.
-    _tokens="$HERE/cursor/bearded-dark-tokens.json"
-    [[ -f $_tokens ]] && jq -e . "$_tokens" >/dev/null 2>&1 || _tokens="/dev/null"
-    if [[ -s $cursor_settings ]]; then
-      if [[ $_tokens == /dev/null ]]; then
-        jq -s '.[0] * .[1]' "$cursor_settings" "$HERE/cursor/settings.json" >"$_merged" 2>/dev/null || true
-      else
-        jq -s '.[0] * .[1] * .[2]' "$cursor_settings" "$HERE/cursor/settings.json" "$_tokens" >"$_merged" 2>/dev/null || true
-      fi
-    else
-      if [[ $_tokens == /dev/null ]]; then
-        jq . "$HERE/cursor/settings.json" >"$_merged" 2>/dev/null || true
-      else
-        jq -s '.[0] * .[1]' "$HERE/cursor/settings.json" "$_tokens" >"$_merged" 2>/dev/null || true
-      fi
-    fi
-    # editor.fontSize is DERIVED, not pinned. `omarchy display text size` is the
-    # one knob for apparent text size across the desktop -- it already drives the
-    # shell base size (px), the GTK scaling factor and the terminal point size
-    # (px * 9/12) -- and VS Code's editor.fontSize is in px like the first of
-    # those, so Cursor can ride the same knob instead of holding its own number.
-    # The value in cursor/settings.json is the fallback for when the reading
-    # fails; it is not the source of truth.
-    _px="$(omarchy display text size 2>/dev/null | sed -n '1s/[^0-9]*\([0-9][0-9]*\).*/\1/p')"
-    if [[ $_px =~ ^[0-9]+$ ]] && (( _px >= 6 && _px <= 40 )); then
-      _sized=$(mktemp)
-      if jq --argjson px "$_px" '.["editor.fontSize"] = $px' "$_merged" >"$_sized" 2>/dev/null && [[ -s $_sized ]]; then
-        mv "$_sized" "$_merged"
-      else
-        rm -f "$_sized"
-        skip "could not write derived editor.fontSize — kept the value from cursor/settings.json"
-      fi
-    else
-      skip "could not read \`omarchy display text size\` — kept editor.fontSize from cursor/settings.json"
-    fi
-
-    if [[ -s $_merged ]]; then
-      mv "$_merged" "$cursor_settings"
-      say "Cursor -> $cursor_settings (jq merge, editor.fontSize ${_px:-fallback} from display text size)"
-
-      # The derivation above is a one-shot, taken during this merge. Keeping it
-      # tracking a LATER `omarchy display text size` needs a trigger, and
-      # omarchy offers none: that command fires no hook, and none of the hook
-      # dirs it does have (battery-low / font-set / post-boot / post-update /
-      # pre-refresh-pacman / theme-set) covers text size. So the trigger is a
-      # systemd path unit on the file the command writes.
-      #
-      # User units, not system: the target is $HOME/.config/Cursor. The .path
-      # is what gets enabled; it starts the oneshot .service, which is why only
-      # the former is in [Install].
-      mkdir -p ~/.local/bin ~/.config/systemd/user
-      ln -sfn "$HERE/cursor/cllpse-cursor-text-size" ~/.local/bin/cllpse-cursor-text-size
-      _units_changed=0
-      for _u in cllpse-cursor-text-size.path cllpse-cursor-text-size.service; do
-        if ! cmp -s "$HERE/cursor/$_u" ~/.config/systemd/user/"$_u"; then
-          cp "$HERE/cursor/$_u" ~/.config/systemd/user/"$_u"
-          _units_changed=1
-        fi
-      done
-      (( _units_changed )) && systemctl --user daemon-reload >/dev/null 2>&1
-      systemctl --user enable --now cllpse-cursor-text-size.path >/dev/null 2>&1 \
-        && say "Cursor text size -> follows \`omarchy display text size\` (systemd path unit)" \
-        || skip "could not enable cllpse-cursor-text-size.path — editor.fontSize will only update on apply"
-    else
-      rm -f "$_merged"
-      skip "Cursor settings merge produced nothing — left settings.json untouched"
-    fi
-  fi
-else
-  skip "Cursor not installed — skipped settings.json merge"
-fi
-
-# Cursor's window layout — NOT settings keys. Both live in
-# ~/.config/Cursor/User/globalStorage/state.vscdb, so the jq merge above cannot
-# reach them, and both get flipped by Cursor updates rolling out a new default.
-#
-#   cursor/unifiedAppLayout          enum `{ Agent: "agent", Editor: "editor" }`,
-#                                    read out of Cursor's own bundle, default
-#                                    Editor. In `agent` the editor tab bar is
-#                                    replaced by the agent pane's own strip. Set
-#                                    here by a migration latched on
-#                                    cursor/migrateEditorMode.forceUnified.
-#
-#   cursor/noTitlebarLayout.visibility
-#                                    `hide` puts `no-titlebar-layout` on <body>
-#                                    and applies a **-35px top inset to the whole
-#                                    workbench** -- exactly one tab-strip height.
-#                                    Cursor's own code:
-#                                      m = stored === "hide" && showTabs !== "none"
-#                                      body.classList.toggle("no-titlebar-layout", m)
-#                                      updateWorkbenchInsets({ top: m ? -35 : 0 })
-#                                    The intent is that the tabs themselves become
-#                                    the titlebar (there is a matching CSS rule
-#                                    giving .tabs-container `-webkit-app-region:
-#                                    drag`), but with our `window.controlsStyle`
-#                                    / `menuBarVisibility` hidden and
-#                                    `layoutControl.enabled` false the titlebar
-#                                    part is already collapsed, so the -35px eats
-#                                    the tab strip instead. Persisted from a
-#                                    `hide_titlebar_default` feature gate.
-#
-# BOTH present as "the tabs disappeared" with `workbench.editor.showTabs` unset
-# (still `multiple`, the registered default) and every `tab.*` colour correct,
-# which sends you to the chrome hook for an hour. Verified by screenshotting the
-# live window, not by reading the config.
-#
-# Each is written only over the one wrong value named below. An absent key is
-# already Cursor's default and is left absent, any other value is somebody's
-# deliberate choice and is left alone, and
-# cursor/migrateEditorMode.forceUnified is NOT cleared -- it reads as "this
-# migration already ran", so clearing it invites the migration to run again.
-#
-# Gated on Cursor being closed, same as the merge above: Cursor holds this DB
-# open and rewrites it from memory. NEITHER `pgrep` form tests for that -- the
-# process NAME is `electron` (/usr/lib/electron42/electron), so `pgrep -x cursor`
-# finds nothing, and `pgrep -f` is the whole-command-line trap in CLAUDE.md.
-cursor_running() {
-  local p exe
-  for p in /proc/[0-9]*; do
-    exe=$(readlink "$p/exe" 2>/dev/null) || continue
-    case "$exe" in */electron*|*/cursor|*/Cursor) ;; *) continue ;; esac
-    grep -qa '/share/cursor/' "$p/cmdline" 2>/dev/null && return 0
-  done
-  return 1
-}
-
-# key | value we want | the ONE value we will overwrite | state file for revert
-cursor_layout_keys=(
-  "cursor/unifiedAppLayout|editor|agent|previous-cursor-layout"
-  "cursor/noTitlebarLayout.visibility|show|hide|previous-cursor-titlebar"
-)
-
-cursor_state=~/.config/Cursor/User/globalStorage/state.vscdb
-if [[ ! -s $cursor_state ]]; then
-  : # no profile yet — nothing to correct, and Cursor starts on both defaults
-elif ! command -v sqlite3 >/dev/null 2>&1; then
-  skip "sqlite3 missing — cannot check Cursor's layout keys (sudo pacman -S sqlite)"
-elif cursor_running; then
-  skip "Cursor is running — left its layout keys alone (it rewrites state.vscdb"
-  skip "  from memory); close Cursor and re-run if its editor tabs are missing"
-else
-  for _spec in "${cursor_layout_keys[@]}"; do
-    IFS='|' read -r _key _want _wrong _file <<<"$_spec"
-    _have="$(sqlite3 "$cursor_state" \
-      "select value from ItemTable where key='$_key';" 2>/dev/null || true)"
-    [[ $_have == "$_wrong" ]] || continue
-    record_prior "$STATE/$_file" "$_have" "$_want"
-    if sqlite3 "$cursor_state" \
-         "update ItemTable set value='$_want' where key='$_key';" 2>/dev/null &&
-       [[ $(sqlite3 "$cursor_state" 'pragma integrity_check;' 2>/dev/null) == ok ]]; then
-      say "Cursor $_key -> $_want (was $_wrong; editor tabs were hidden)"
-    else
-      skip "could not write $_key — left state.vscdb alone"
-    fi
-  done
-fi
-
-sync_fenced ~/.bashrc "$HERE/bash/shell.sh"
-
-# git: route `git diff` through hunk (see git/pager.conf for why it needs no
-# guard). Fenced rather than copied, because ~/.config/git/config is Omarchy's
-# stock file plus the user's own [user] block -- identity that must not come
-# from this repo. Seed from the stock copy first if the user has none, so a
-# fresh machine doesn't end up with a git config consisting only of our block
-# (the `sync_fenced` trap in README.md's gaps table).
-mkdir -p ~/.config/git
-if [[ ! -e ~/.config/git/config && -r /usr/share/omarchy/config/git/config ]]; then
-  say "git -> seeded ~/.config/git/config from Omarchy's stock copy"
-  cp /usr/share/omarchy/config/git/config ~/.config/git/config
-fi
-sync_fenced ~/.config/git/config "$HERE/git/pager.conf"
-
-# ── 7b. display scaling + text size ──────────────────────────────────────────
+# ── 7b. display scaling + text size ─────────────────────────────────────────
 # Restore overrides/display.conf (written by ./overrides/save-display.sh). Any
 # key left empty is skipped, and a missing file skips the step entirely.
 #
@@ -741,387 +218,26 @@ if [[ -f "$HERE/display.conf" ]]; then
   done
 fi
 
+
 # ── 7c. session environment drop-ins ─────────────────────────────────────────
-# Read by the systemd user session (uwsm starts Hyprland through it), so these
-# survive application updates in a way a wrapper script inside an app directory
-# does not. Applies from the next login.
-#
-# Drop-ins this repo no longer ships, by name. Both the install loop below and
-# revert.sh iterate the REPO directory, so a file deleted from the repo becomes
-# invisible to both and the installed copy lives on forever -- which is exactly
-# what happened to the FreeType stem-darkening drop-in: removing it from the
-# repo changed nothing on any machine that had already applied, and the session
-# kept exporting FREETYPE_PROPERTIES with no line in the repo to explain it.
-# Same idiom as the legacy fontconfig names in step 2.
-for _stale in 10-cllpse-macos-font-rendering.conf; do
-  if [[ -e ~/.config/environment.d/$_stale ]]; then
-    rm -f ~/.config/environment.d/"$_stale"
-    skip "removed retired drop-in $_stale  (takes effect on next login)"
-  fi
-done
+run environment.d
 
-if [[ -d "$HERE/environment.d" ]]; then
-  say "environment.d drop-ins -> ~/.config/environment.d/"
-  mkdir -p ~/.config/environment.d
-  for f in "$HERE"/environment.d/*.conf; do
-    [[ -e $f ]] || continue
-    if cmp -s "$f" ~/.config/environment.d/"$(basename "$f")"; then
-      skip "$(basename "$f") already current"
-    else
-      cp "$f" ~/.config/environment.d/"$(basename "$f")"
-      say "installed $(basename "$f")  (takes effect on next login)"
-    fi
-  done
-fi
-
-# ── 7d. Chromium scale ───────────────────────────────────────────────────────
-# Two settings that only make sense together: the flag pins the device pixel
-# ratio to 1 (20% under DP-2's 1.25), and the preference puts page zoom back on
-# top. Page size is the product of the two — 110% ships, so 0.8 x 1.1 = 0.88;
-# 125% would be exactly 1:1 with native. Browser UI stays at 0.8 either way,
-# since zoom does not touch it. See the header of each file.
-#
-# The flag file is Omarchy's, so it takes a fenced block like every other
-# shared config here; the launcher skips "#" lines, which makes the markers
-# inert. Drop any bare copy of the flag first: it predates the fenced block on
-# this machine and would otherwise be passed twice.
-if [[ -f "$HERE/chromium/chromium-flags.conf" ]]; then
-  if [[ -f ~/.config/chromium-flags.conf ]] &&
-     grep -q '^--force-device-scale-factor=' ~/.config/chromium-flags.conf &&
-     ! grep -q "$MARK" ~/.config/chromium-flags.conf; then
-    sed -i '/^--force-device-scale-factor=/d' ~/.config/chromium-flags.conf
-    skip "dropped a pre-existing --force-device-scale-factor line"
-  fi
-  sync_fenced ~/.config/chromium-flags.conf "$HERE/chromium/chromium-flags.conf"
-
-  # A repeated --enable-features is not merged: base::CommandLine keys switches
-  # by name, so the last one wins outright and everything an earlier copy named
-  # is dropped (measured both ways round -- see the snippet's own header). Our
-  # block is appended, so it is always the last one, which means it has to
-  # restate whatever Omarchy's stock line asks for. Nothing keeps the two in
-  # step automatically, so compare them and say so rather than silently turning
-  # an Omarchy feature off on the next update.
-  #
-  # --disable-features is the same switch machinery and is checked the same
-  # way: Omarchy ships no such line today, but if it ever adds one, ours would
-  # drop it just as silently.
-  if [[ -f ~/.config/chromium-flags.conf ]]; then
-    for _switch in --enable-features --disable-features; do
-      _ours="$(grep -m1 "^$_switch=" "$HERE/chromium/chromium-flags.conf" || true)"
-      _stock="$(sed "/$MARK/,\$d" ~/.config/chromium-flags.conf | grep -m1 "^$_switch=" || true)"
-      [[ -n $_stock ]] || continue
-      _missing=""
-      while IFS= read -r _feat; do
-        [[ -n $_feat ]] || continue
-        [[ ",${_ours#*=}," == *",$_feat,"* ]] || _missing+=" $_feat"
-      done < <(tr ',' '\n' <<<"${_stock#*=}")
-      [[ -n $_missing ]] &&
-        skip "Omarchy's $_switch names${_missing} — add it to chromium/chromium-flags.conf or the last line wins and drops it"
-    done
-  fi
-fi
-
-# There is no command-line flag for default page zoom — see the script header
-# for what was checked and for the log-scale the preference is stored in.
-#
-# Recorded before it is changed, on the same terms as the font and the theme
-# above: revert.sh restores what this machine had rather than picking a zoom of
-# its own, and a value that already matches what we are about to write is
-# refused so a re-run can't turn revert into a no-op.
-if [[ -x "$HERE/chromium/default-zoom.py" ]]; then
-  _zoom="${CLLPSE_CHROMIUM_ZOOM:-110}"
-  record_prior "$STATE/previous-chromium-zoom" \
-    "$("$HERE/chromium/default-zoom.py" --print 2>/dev/null || true)" "$_zoom"
-  say "Chromium default page zoom -> ${_zoom}%"
-  "$HERE/chromium/default-zoom.py" "$_zoom" || true
-fi
-
-# The third Chromium setting with no flag and no policy: a neutral browser UI.
-# The seed Omarchy feeds Chromium as BrowserThemeColor cannot give one -- a
-# zero-chroma seed, which both of our themes ship, comes back out of Material's
-# tonal-spot scheme as a faintly cyan palette. Two profile keys are needed and
-# neither is enough alone: the system (GTK) theme for the frame and the menus,
-# grayscale for the accent the GTK theme leaves behind (the omnibox focus ring
-# is a dark teal without it). The script header has the measurements and the
-# two attempts that lose to the policy. Recorded before it is changed, on the
-# same terms as the zoom above.
-if [[ -x "$HERE/chromium/neutral-theme.py" ]]; then
-  # record_prior refuses one value, and this step can leave more than one that
-  # is ours: the grayscale half was added after the system-theme half shipped,
-  # so a machine that ran the earlier version reads back `st=1,gs=` -- half our
-  # own work, which must not be recorded as what the machine came with.
-  _prev_theme="$("$HERE/chromium/neutral-theme.py" --print 2>/dev/null || true)"
-  case "$_prev_theme" in st=1,gs=1|st=1,gs=) _prev_theme="" ;; esac
-  record_prior "$STATE/previous-chromium-theme" "$_prev_theme" ""
-  say "Chromium UI -> neutral (system theme + grayscale), not the policy's cyan"
-  "$HERE/chromium/neutral-theme.py" || true
-fi
+# ── 7d. Chromium scale, zoom and neutral UI ─────────────────────────────────────────
+run chromium user
 
 # ── 7e. Figma Desktop launcher entry ─────────────────────────────────────────
-# The app regenerates its own entry on every launch (AppRun: integrate_desktop)
-# and gets two fields wrong for this desktop: Name=Figma, where the product is
-# "Figma Desktop" (its own AppStream <name> and X-AppImage-Name agree), and
-# StartupWMClass=Figma against a live Hyprland class of "figma-desktop". Nothing
-# joins an entry to a window through that second value, which costs taskbar
-# grouping, startup notification, and the window switcher's class -> entry
-# lookup -- the switcher printed a hardcoded "Figma" for as long as that lookup
-# could not land.
-#
-# integrate_desktop() only rewrites the file when the existing Exec differs from
-# `Exec="${appimage_path}" %u`, and with APPIMAGE unset that path is
-# `readlink -f "$0"` -- here ~/Applications/figma-desktop/AppRun, which carries
-# no version. So the template's Exec matches what the app would write, on every
-# version, and the rewrite never fires. Updating Figma is therefore: extract
-# over the app directory, re-run this script.
-#
-# That only holds while AppRun is the app's OWN launcher. A wrapper displaces it
-# to AppRun.real, which changes the computed path and then needs an APPIMAGE
-# export to paper over -- a file inside the app directory, which the next
-# extraction deletes, silently handing Name and StartupWMClass back. This
-# machine carried exactly that wrapper; its other job, FIGMA_USE_WAYLAND=1, is
-# step 7c's environment.d drop-in, which no update can reach. So the wrapper is
-# removed rather than maintained, and the unwrap is idempotent and conservative:
-# it acts only when AppRun is demonstrably not the launcher and AppRun.real
-# demonstrably is.
-#
-# Not installing Figma is the normal case on another machine, so a missing app
-# directory is a skip, not an error -- nothing else here depends on the entry.
-_figma_dir=~/Applications/figma-desktop
-_figma_entry=~/.local/share/applications/figma-desktop-appimage.desktop
-_figma_tpl="$HERE/applications/figma-desktop-appimage.desktop.tpl"
-if [[ -f $_figma_tpl ]]; then
-  if [[ ! -d $_figma_dir ]]; then
-    skip "Figma Desktop not installed at $_figma_dir — entry left alone"
-  else
-    # Un-wrap, if a wrapper is in the way. `integrate_desktop` is the marker:
-    # it is in the app's launcher and in nothing else here.
-    if [[ -f $_figma_dir/AppRun.real ]] &&
-       grep -q 'integrate_desktop' "$_figma_dir/AppRun.real" 2>/dev/null &&
-       ! grep -q 'integrate_desktop' "$_figma_dir/AppRun" 2>/dev/null; then
-      say "removing the AppRun wrapper — the app's own launcher already resolves to a stable path"
-      mv -f "$_figma_dir/AppRun.real" "$_figma_dir/AppRun"
-      chmod +x "$_figma_dir/AppRun"
-      skip "FIGMA_USE_WAYLAND comes from environment.d (step 7c) instead"
-    elif [[ -f $_figma_dir/AppRun.real ]] &&
-         grep -q 'integrate_desktop' "$_figma_dir/AppRun" 2>/dev/null; then
-      # A fresh extraction restored the real AppRun and left our rename behind.
-      rm -f "$_figma_dir/AppRun.real"
-      skip "removed a stale AppRun.real left by an earlier wrapper"
-    elif [[ -e $_figma_dir/AppRun ]] &&
-         ! grep -q 'integrate_desktop' "$_figma_dir/AppRun" 2>/dev/null; then
-      # Something is standing in for the launcher and there is no AppRun.real
-      # to put back. Figma is already broken in this state (a wrapper execs a
-      # file that is gone), but it fails at launch, far from here -- so say so
-      # rather than writing an entry that points at it.
-      skip "WARNING: $_figma_dir/AppRun is not the app's own launcher and there is"
-      skip "  no AppRun.real to restore — re-extract the AppImage over that directory"
-    fi
+run applications
 
-    if [[ ! -x $_figma_dir/AppRun ]]; then
-      skip "WARNING: $_figma_dir/AppRun is missing or not executable — entry left alone"
-    else
-      _figma_rendered=$(sed "s|{{ home }}|$HOME|g" "$_figma_tpl")
-      if [[ -f $_figma_entry ]] && [[ $(cat "$_figma_entry") == "$_figma_rendered" ]]; then
-        skip "figma-desktop-appimage.desktop already current"
-      else
-        say "Figma Desktop entry -> $_figma_entry"
-        mkdir -p ~/.local/share/applications
-        backup "$_figma_entry"
-        printf '%s\n' "$_figma_rendered" > "$_figma_entry"
-        update-desktop-database ~/.local/share/applications 2>/dev/null || true
-        skip "Name=Figma Desktop, StartupWMClass=figma-desktop (the app gets both wrong)"
-      fi
-    fi
-  fi
-fi
+# ── 7f. Flat app icons for the menu ─────────────────────────────────────────
+run icons
 
-# ── 7f. Flat app icons for the menu ──────────────────────────────────────────
-# The Omarchy menu draws icons two ways. Non-app rows render `row.icon` as TEXT
-# in a Nerd Font, tinted `foreground` — that is the flat, theme-tracking look.
-# App rows instead render a plain Image of whatever the desktop entry's `Icon=`
-# resolves to (Menu.qml:1253), with no recolouring at all, so every app shows
-# its vendor's full-colour logo. Measured on this machine: 48 of 52 visible
-# entries resolve to a colour icon.
-#
-# There is no setting for this. The only lever short of forking the first-party
-# menu plugin is to make `Icon=` resolve to a file we control — and
-# AppLibrary.qml makes that easy, because it consults its OWN index (a find over
-# every XDG icon dir, svg pass then png, first hit per name) BEFORE Qt's themed
-# lookup, and `$HOME/.icons` is the first directory in both passes. A file
-# dropped there outranks every installed theme. It carries no index.theme, so
-# GTK and Qt never see it: the override reaches the Omarchy shell and nothing
-# else.
-#
-# Nothing is generated. icons/fallbacks/ holds hand-placed SVGs (or PNGs), one
-# per desktop-entry `Icon=` value; see that directory's README for the naming
-# and silhouette contract. An app with no file there simply keeps its vendor
-# icon. The sync is a theme-set hook rather than a step here because app icons
-# are never recoloured by the shell — a synced file has a fixed colour and must
-# be rewritten per theme. Run once now so the icons exist before step 8; step
-# 8's `omarchy theme set` then re-runs it as a hook.
-#
-# Neither this run nor that one relies on theme-set restarting the shell, which
-# it does NOT do — it pushes the palette in over IPC and restarts only the
-# terminal, hyprctl, btop, opencode and helix. The restart the icons need (Qt
-# caches them by URL, and the switcher indexes them once at launch) is app-
-# icons.sh's own, fired from its EXIT trap and only when a file actually
-# changed.
-# The hook is installed and run UNCONDITIONALLY, because it has two independent
-# halves and icons/fallbacks/ only governs one of them. Its colour pass copies
-# the switcher submodule's icons/ into ~/.icons/cllpse-color/apps/ for the menu,
-# which has nothing to do with this directory -- gating the whole hook on
-# icons/fallbacks/ existing would mean deleting that directory silently cost the
-# menu 75 full-colour marks as well. The hook already keeps the two halves
-# independent internally; doing otherwise here would put the coupling back at
-# the call site.
-mkdir -p ~/.config/omarchy/hooks/theme-set.d
-ln -sfn "$HERE/hooks/theme-set.d/app-icons.sh" ~/.config/omarchy/hooks/theme-set.d/app-icons.sh
-if [[ -d "$HERE/icons/fallbacks" ]]; then
-  _n=$(find "$HERE/icons/fallbacks" -maxdepth 1 \( -name '*.svg' -o -name '*.png' \) | wc -l)
-  say "app icons -> ~/.icons/cllpse-flat/apps/ ($_n hand-placed) + ~/.icons/cllpse-color/apps/ (from the switcher submodule)"
-else
-  _n=0
-  skip "no icons/fallbacks/ — the repainted half has nothing to sync"
-fi
-"$HERE/hooks/theme-set.d/app-icons.sh" || skip "app-icons.sh produced nothing this run"
-(( _n == 0 )) && skip "icons/fallbacks/ is empty — every app keeps its vendor icon"
+# ── 7f2. Post-update repair hook ─────────────────────────────────────────
+run hooks
 
-# ── 7f2. Post-update repair hook ─────────────────────────────────────────────
-# Everything this script installs lives either in directories that are ours
-# alone (~/.icons/, ~/.local/, ~/.config/hypr/) or as symlinks inside
-# directories Omarchy ships and manages (~/.config/omarchy/{hooks,themes,
-# plugins}/). The first group no Omarchy command touches. The second is exposed:
-# Omarchy ships its own content into those paths — config/omarchy/hooks/
-# theme-set.d/ carries .sample files — so a refresh, a migration, or a future
-# install step that repopulates one of them takes our symlink with it, silently.
-# The icons would simply revert to vendor logos at the next theme change with
-# nothing to say why.
-#
-# omarchy-update calls `omarchy-hook post-update` (omarchy-update:49), so a hook
-# dropped here re-links everything once per update at no scheduling cost. It is
-# idempotent, so it runs unconditionally rather than trying to detect damage.
-say "post-update repair -> ~/.config/omarchy/hooks/post-update.d/cllpse-macos-repair.sh"
-mkdir -p ~/.config/omarchy/hooks/post-update.d
-ln -sfn "$HERE/hooks/post-update.d/cllpse-macos-repair.sh" \
-  ~/.config/omarchy/hooks/post-update.d/cllpse-macos-repair.sh
+# ── 7h. Omarchy shell.json ─────────────────────────────────────────
+run omarchy
 
-# ── 7h. Omarchy shell: switcher, transparent bar, bar layout, disabled plugins ─
-# Targeted key writes into ~/.config/omarchy/shell.json, Omarchy's own
-# machine-level shell config. Deliberately still not a whole-file copy or a deep
-# merge: the file also carries `idle`, `version` and any other plugin's own
-# widget config, none of which this repo has an opinion about, and `plugins[]`
-# is an array a deep merge would replace rather than append to.
-#
-#   plugins[]         step 1 symlinks the switcher into ~/.config/omarchy/
-#                     plugins/, but that only INSTALLS it — Omarchy enables a
-#                     plugin from this array, keyed by the manifest id (the
-#                     folder name is cosmetic). Without the entry the plugin
-#                     sits there and the HUD never loads, with nothing to say so.
-#   bar.transparent   Omarchy ships false. This hands the bar's background to
-#                     the theme's [bar] background-alpha instead of the shell
-#                     painting its own — which currently changes nothing on
-#                     screen, since shell.bar.toml ships alpha 1.0, but is what
-#                     any future translucent bar needs in place first.
-#   bar.layout        the widget set and its order, from omarchy/shell-bar.json.
-#   bar.centerAnchor  which center widget is pinned to the true screen centre.
-#   disabledPlugins   first-party non-widget plugins to turn off.
-#
-# The last three used to be left alone as personal. They are owned now because
-# they are the same kind of decision as everything else here — which chrome the
-# desktop shows — and because two of them are already half-made elsewhere in
-# this repo: the keybind sweep unbinds SUPER+CTRL+V, SUPER+CTRL+E and the three
-# reminder binds, so clipboard / emojis / reminders were already unreachable
-# while still loading. Note the consequence: a bar rearranged in a settings GUI
-# after an apply is reset by the next one. Edit shell-bar.json, don't re-drag.
-#
-# disabledPlugins[] only reaches FIRST-PARTY NON-WIDGET plugins — panels and
-# services (PluginRegistry.qml:148-165). A bar widget has no off state there;
-# it is disabled by not being in bar.layout, which is how the OmaSettings widget
-# is switched off. A third-party plugin is enabled iff its id appears anywhere
-# in shell.json, so dropping it from the layout is the whole uninstall.
-#
-# Two things the layout is NOT allowed to clobber. The tray's `pinned` /
-# `hidden` arrays are genuinely per-machine — they name tray items that exist on
-# this box — so whatever the live file has is carried over onto our tray entry
-# rather than replaced; shell-bar.json keeps the entry bare on purpose. And
-# bar.centerAnchor names omarchy.clock, which is not in the layout: with the
-# anchor absent Bar.qml's `hasAnchor` is false and the whole center section just
-# centres as a block (Bar.qml:1538), so the key is inert — kept at Omarchy's
-# stock value so that re-adding a clock restores the anchoring for free.
-#
-# The pre-existing values are recorded once for revert.sh, on the same terms as
-# the font and theme above: a value that already matches what we would write is
-# refused, so a re-run can't turn revert into a no-op.
-#
-# Picked up live, with no restart needed and none available: shell.qml:134-142
-# holds a FileView on ~/.config/omarchy/shell.json with watchChanges: true and
-# onFileChanged: reload(), so a targeted key write lands as soon as it is saved.
-# (A hyprctl reload would do nothing here either way — this file is the shell's,
-# not Hyprland's. And step 8's theme-set does not restart the shell, which an
-# earlier version of this comment assumed it did.)
-shell_json=~/.config/omarchy/shell.json
-switcher_id=cllpse.window-switcher
-# The id this plugin's manifest used to declare. Omarchy enables a third-party
-# plugin iff its id appears anywhere in shell.json, so an entry left over from
-# an earlier apply keeps a plugin "enabled" that no longer exists under that
-# name. Dropped alongside the legacy symlink removed in step 1.
-switcher_id_legacy=io.eject.window-switcher
-bar_json="$HERE/omarchy/shell-bar.json"
-if [[ ! -f $shell_json ]]; then
-  skip "no $shell_json — skipped the switcher enable, bar transparency and layout"
-elif [[ ! -f $bar_json ]]; then
-  skip "no $bar_json — skipped the shell.json writes"
-else
-  _want=$(mktemp)
-  if jq --arg id "$switcher_id" --arg old "$switcher_id_legacy" --slurpfile bar "$bar_json" '
-        $bar[0] as $b
-        # The live tray entry, wherever it currently sits, for its pinned/hidden.
-        | ([ (.bar.layout // {}) | .[]? | .[]? ]
-           | map(select(.id == "omarchy.tray")) | first) as $tray
-        | .plugins = ((.plugins // [])
-            | map(select(.id != $old))
-            | if any(.id == $id) then . else . + [{ id: $id }] end)
-        | .bar.transparent = true
-        | .bar.centerAnchor = $b.bar.centerAnchor
-        | .bar.layout = ($b.bar.layout | with_entries(.value |= map(
-            if .id == "omarchy.tray" and $tray != null
-            then . + ($tray | { pinned, hidden } | with_entries(select(.value != null)))
-            else . end)))
-        | .disabledPlugins = $b.disabledPlugins
-      ' "$shell_json" >"$_want" 2>/dev/null && [[ -s $_want ]]; then
-
-    # Everything the block above would change, as one compact blob, so revert
-    # has a single thing to put back. Compared against what we are about to
-    # write rather than against shell-bar.json, so the tray carry-over doesn't
-    # read as a difference and get recorded on an already-applied machine.
-    _subset='{ layout: .bar.layout, centerAnchor: .bar.centerAnchor, disabled: .disabledPlugins }'
-    record_prior "$STATE/previous-bar-layout" \
-      "$(jq -cS "$_subset" "$shell_json" 2>/dev/null || true)" \
-      "$(jq -cS "$_subset" "$_want" 2>/dev/null || true)"
-    # NOT `.bar.transparent // empty`. jq's `//` treats FALSE as absent, so that
-    # form emits nothing for the one value that actually needs recording --
-    # Omarchy ships transparent = false, so on a stock machine record_prior got
-    # an empty string, refused it, and revert.sh was left with nothing to put
-    # back and no way to tell the bar was ever opaque. Test against null
-    # explicitly and stringify, so false records as "false".
-    record_prior "$STATE/previous-bar-transparent" \
-      "$(jq -r '.bar.transparent | if . == null then empty else tostring end' "$shell_json" 2>/dev/null || true)" "true"
-
-    if jq -e --slurpfile want "$_want" '. == $want[0]' "$shell_json" >/dev/null 2>&1; then
-      skip "shell.json already has the switcher, transparent bar, layout and disabled plugins"
-    else
-      backup "$shell_json"
-      # cat, not mv: keeps shell.json's own inode and 0600 mode.
-      cat "$_want" >"$shell_json"
-      say "shell.json -> $switcher_id enabled, bar.transparent = true, bar layout + disabledPlugins applied"
-    fi
-  else
-    skip "shell.json isn't parseable JSON — left untouched, enable the switcher by hand"
-  fi
-  rm -f "$_want"
-fi
-
-# ── 8. apply theme ───────────────────────────────────────────────────────────
+# ── 8. apply theme ─────────────────────────────────────────
 # `omarchy theme set` COPIES the theme folder into
 # ~/.local/state/omarchy/current/theme/ — it does not symlink it. So this step
 # is also what publishes any edit made to a theme folder (new background, changed
@@ -1184,113 +300,11 @@ if [[ -n $restored_bg ]]; then
   fi
 fi
 
-# ── 8b. keyd: Figma's modifier remap (needs sudo) ───────────────────────────
-# The FIRST package this script has ever depended on, and the first system
-# daemon -- worth stating plainly, because until now apply.sh installed nothing
-# and needed root for exactly one file. It is not installed here either: keyd
-# has to be present already, and this step configures it or says why it cannot.
-#
-# What it is for: Figma checks ctrlKey for deep-select (Cmd+click), canvas zoom
-# (Cmd+scroll) and its shortcuts, and ignores metaKey off macOS. The forwarder
-# in macos-shortcuts.lua covers the keys by synthesizing Ctrl, but hl.dsp has no
-# pointer-button or scroll-axis dispatcher, so click and scroll cannot be
-# translated at the compositor at all. Remapping the key below the compositor is
-# the only mechanism left. See that file's own block for the measurements.
-#
-# Nothing here remaps anything by itself. default.conf is identity-only and
-# pinned to the Preonic alone (the `*` wildcard would have swept in three
-# Pulsar 8K dongle interfaces the kernel calls keyboards); the remap exists
-# solely as a runtime `keyd bind` issued on focus, and dies with the daemon.
-if command -v keyd >/dev/null 2>&1; then
-  say "keyd -> ~/.local/bin/cllpse-figma-keyd + /etc/keyd/default.conf (sudo)"
-  mkdir -p ~/.local/bin
-  install -m755 "$HERE/keyd/cllpse-figma-keyd" ~/.local/bin/cllpse-figma-keyd
 
-  # Never clobber a keyd config this repo did not write. A machine may already
-  # be remapping keys for reasons that have nothing to do with us, and silently
-  # replacing that file would be the worst thing this script could do to a
-  # keyboard. Ours is recognised by its first line.
-  if [[ -e /etc/keyd/default.conf ]] && ! head -1 /etc/keyd/default.conf | grep -q 'installed by overrides/apply.sh'; then
-    skip "/etc/keyd/default.conf exists and is not ours — left alone"
-    skip "  merge overrides/keyd/default.conf by hand, or move yours aside and re-run"
-  elif ! keyd check "$HERE/keyd/default.conf" >/dev/null 2>&1; then
-    # Validated BEFORE it is handed to /etc, because the daemon is the one
-    # thing here that a bad file takes down: keyd exits on a parse error and
-    # exits holding no device, so the failure is a keyboard that has stopped
-    # being remapped rather than a message. `keyd check` needs no root and
-    # prints the offending line.
-    skip "overrides/keyd/default.conf does not parse — left /etc alone. Run:"
-    skip "  keyd check overrides/keyd/default.conf"
-  else
-    sudo install -Dm644 "$HERE/keyd/default.conf" /etc/keyd/default.conf
-    sudo systemctl enable --now keyd >/dev/null 2>&1 \
-      && skip "keyd service enabled and started" \
-      || skip "could not enable keyd — start it yourself: sudo systemctl enable --now keyd"
+# ── 8b. keyd: Figma's modifier remap (needs sudo) ─────────────────────────────────────────
+run keyd
 
-    # `keyd reload` -- the daemon's own command, over the same group-owned
-    # socket `keyd bind` uses, so it needs no root and does not interrupt the
-    # grab. NOT `systemctl reload`: this unit is a bare
-    # `ExecStart=/usr/bin/keyd` with no ExecReload, so
-    # `systemctl show keyd -p CanReload` says no and that request only ever
-    # fails. Either way something has to be asked, since keyd re-reads
-    # default.conf at start or on reload and at no other time -- editing
-    # overrides/keyd/default.conf reaches the daemon here and nowhere else.
-    # The restart is the fallback for a session that does not yet hold the
-    # keyd group (see the grant below); it costs a momentary ungrab.
-    keyd reload >/dev/null 2>&1 || sudo systemctl restart keyd >/dev/null 2>&1 || true
-  fi
-
-  # `keyd bind` talks to a root-owned socket whose group is keyd, so the user
-  # has to be in that group for the focus hook to work without sudo.
-  #
-  # A grant does NOT reach the running desktop, and "log out and back in" is
-  # not the fix it looks like. uwsm starts Hyprland as a unit of the systemd
-  # user manager, and with logind's stock `KillUserProcesses=no` that manager
-  # survives a logout -- so every process on the desktop keeps inheriting the
-  # group set the manager was created with. Measured on this machine: two full
-  # graphical logins after the grant, Hyprland's /proc/<pid>/status still read
-  # `Groups: 998 1000`. A reboot is what reseeds it.
-  #
-  # Which is why the helper does not wait for one: cllpse-figma-keyd falls back
-  # to `newgrp`, setuid-root and reading /etc/group directly, so the remap works
-  # in this session. The group is still granted, because it is what makes the
-  # fast path (a plain `keyd bind`) work from the next boot on.
-  if id -nG | tr ' ' '\n' | grep -qx keyd; then
-    skip "already in the keyd group"
-  else
-    sudo usermod -aG keyd "$USER" \
-      && skip "added $USER to the keyd group — this session reaches it via newgrp" \
-      || skip "could not add $USER to the keyd group — run: sudo usermod -aG keyd $USER"
-  fi
-
-  # Smoke-test the whole chain, because every link in it fails SILENTLY and the
-  # symptom is at the far end -- Cmd+scroll in Figma simply keeps not zooming.
-  # One `on` proves three things at once: the installed config parsed, it
-  # defines the `figma` layer, and this user can reach keyd's socket. Cheap,
-  # ~3ms, and it is the check that was missing when /etc/keyd/default.conf sat
-  # a revision behind the repo for half an hour: the layer had been added to
-  # overrides/keyd/default.conf but never installed, so the focus handler's
-  # `keyd bind 'leftmeta = layer(figma)'` answered `figma is not a valid layer`
-  # and exited 255 into hl.dsp.exec_raw, which discards stderr. Nothing
-  # anywhere said so until the gesture was tried.
-  #
-  # It ends with `off` and is immediately followed by 8c's reload, which
-  # re-seeds macos-shortcuts.lua's figma_keyd_on from the live focus -- so this
-  # cannot strand the two out of step even if Figma happens to be focused.
-  if [[ -x ~/.local/bin/cllpse-figma-keyd ]] && command -v keyd >/dev/null 2>&1; then
-    if ~/.local/bin/cllpse-figma-keyd on >/dev/null 2>&1; then
-      ~/.local/bin/cllpse-figma-keyd off >/dev/null 2>&1 || true
-      skip "Figma remap reaches keyd (layer bound and released)"
-    else
-      skip "the Figma remap could NOT be bound — run it by hand to see why:"
-      skip "  ~/.local/bin/cllpse-figma-keyd on"
-    fi
-  fi
-else
-  skip "keyd not installed — Figma keeps Ctrl+click / Ctrl+scroll on the pinky"
-  skip "  install it with: sudo pacman -S keyd, then re-run this script"
-fi
-# ── 8c. Reload Hyprland ──────────────────────────────────────────────────────
+# ── 8c. Reload Hyprland ─────────────────────────────────────────
 # LAST of the 8s, after keyd, and that order is load-bearing for one thing: a
 # reload rebuilds the Lua state, which makes macos-shortcuts.lua re-seed
 # `figma_keyd_on` from the current focus and dispatch the helper to match. 8b
@@ -1329,164 +343,14 @@ else
   skip "no running Hyprland — the hypr overrides apply at the next login"
 fi
 
-# ── 9. Chromium managed policy: declutter + extensions (needs sudo) ───────
-# LAST on purpose. This is the only step that needs sudo, so it runs after
-# everything else rather than stalling a run halfway through on a password
-# prompt. It used to sit between 7f2 and 7h.
-# Spellcheck / Translate / password-save-prompt / Autofill / Print / Cast /
-# QR-code / Reading-list all end up here, not in a Preferences file.
-# An earlier version of this step wrote the first five as plain Preferences
-# keys instead — a plain pref only changes the *default*, so Settings still
-# showed the toggle as changeable, and per Chrome's own docs a bare
-# `translate.enabled` pref (unlike the `TranslateEnabled` policy) never
-# suppresses the manual "Translate to…" context-menu entry, only the
-# automatic offer. Confirmed live on this machine: the pref round-tripped
-# correctly and the menu item was still there. (It also silently failed for
-# four of the five keys regardless — `browser.enable_spellchecking`,
-# `translate.enabled` and both `autofill.*` keys have dots in their real pref
-# name, and Chromium's JsonPrefStore nests dotted names into nested objects
-# on write/read; writing them as flat top-level keys with a literal dot in
-# the JSON key name — as that version did — creates a key Chromium never
-# reads. Only `credentials_enable_service`, with no dot, actually landed.)
-# The enterprise-policy names for all five (`TranslateEnabled`,
-# `SpellcheckEnabled`, `PasswordManagerEnabled`, `AutofillAddressEnabled`,
-# `AutofillCreditCardEnabled`) are confirmed present in this machine's
-# installed Chromium binary. Policy also has no "must be closed to write"
-# trap: `chromium --refresh-platform-policy --no-startup-window` reloads the
-# whole managed directory live, so a running Chromium picks this up with no
-# relaunch — the same mechanism Omarchy uses for its own color.json.
-#
-# That refresh used to come for free: omarchy-theme-set-browser runs it on
-# every theme-set, and this step sat BEFORE step 8. Now that it runs after,
-# step 8's refresh has already happened by the time this file is written, so
-# the refresh is invoked explicitly below. It mirrors that script's own
-# refresh_running_browser: `pgrep -x chromium`, where -x matches the process
-# NAME — unlike -f, which matches whole command lines and would happily match
-# this script for containing the string.
-#
-# Mirrors Omarchy's own /etc/chromium/policies/managed/ guard verbatim (see
-# omarchy-theme-set-browser-policy): only write into a policy directory that
-# already exists, since Chromium (or another Chromium-family browser sharing
-# this path) being absent means the directory won't exist either, and
-# creating one would hand a browser a managed-policy root it doesn't
-# otherwise have. `install` (no -D) leaves ownership at root:root under sudo,
-# which also matters here: a one-time Omarchy migration purges anything in
-# this directory NOT owned by root.
-#
-# DevTools is deliberately NOT in this list. DeveloperToolsAvailability=2 was
-# here originally, as part of the context-menu declutter, but it is the one key
-# whose blast radius went well past the menu: it blocks Inspect everywhere,
-# including your own local dev servers. Dropping the key restores Chromium's
-# own default (0 — DevTools available except on force-installed extensions)
-# rather than asserting a value, which is what a managed policy should do for a
-# setting we have no opinion about. "Inspect" comes back in the context menu as
-# a consequence; there is no lever that separates the two.
-#
-# ExtensionInstallForcelist pins two extensions, both by ID against Google's
-# CRX endpoint (the only update URL the Chrome Web Store serves):
-#   ddkjiahejlhfcafbddmgiahcphecmpfh  uBlock Origin Lite
-#   ghmbeldphafepmbegfdlkpapadhbakde  Proton Pass
-# Both IDs verified against the vendors' own listings, not typed from memory —
-# the store has a long tail of copycats trading on these names, and an ID is
-# the only identifier a forcelist entry actually matches on.
-#
-# uBOL rather than uBlock Origin because MV2 is gone: `grep -a` on this
-# machine's chromium binary finds no ExtensionManifestV2Availability at all
-# (Chromium 152), so the policy that used to force MV2 back on no longer
-# exists to set. uBOL installs in its Basic filtering mode and the mode is a
-# per-profile setting with no policy behind it — raise it to Optimal by hand,
-# once, in the extension's own UI. A forcelist entry controls presence, not
-# configuration.
-#
-# Proton Pass is the other half of PasswordManagerEnabled:false above: that key
-# turns off Chromium's built-in manager and save prompts, which leaves nothing
-# offering to store a credential unless something else does.
-#
-# Forced means forced: neither extension can be removed or disabled from
-# chrome://extensions while this file is in place. That is the point (they
-# survive a profile reset), but it is also the usual reason an extension looks
-# stuck — revert.sh removing this file is the supported way out, and Chromium
-# uninstalls both on the next policy refresh once it is gone.
-#
-# Note the interaction with the DevTools paragraph above: Chromium's default 0
-# means "available EXCEPT on force-installed extensions", so from here on there
-# are two extensions whose own pages and service workers cannot be inspected.
-# Pages we did not write, so this costs nothing; worth knowing before it reads
-# as a DevTools bug.
-if [[ -f "$HERE/chromium/policies-managed.json" &&
-      -d /etc/chromium/policies/managed && ! -L /etc/chromium/policies/managed ]]; then
-  dest=/etc/chromium/policies/managed/cllpse-macos.json
-  if [[ -f $dest ]] && cmp -s "$HERE/chromium/policies-managed.json" "$dest"; then
-    skip "Chromium managed policy already current"
-  else
-    say "Chromium managed policy -> $dest (sudo)"
-    sudo install -m644 "$HERE/chromium/policies-managed.json" "$dest"
-    if command -v chromium >/dev/null 2>&1 && pgrep -x chromium >/dev/null; then
-      chromium --refresh-platform-policy --no-startup-window &>/dev/null || true
-      skip "reloaded the running Chromium's managed policy (no relaunch needed)"
-    fi
-  fi
-fi
 
-# ── 10. CPU power limits (needs sudo) ────────────────────────────────────────
-# ryzenadj sets the SMU's sustained/burst power limits at runtime and NOTHING
-# persists them: they are lost on every reboot and on every resume from suspend.
-# A machine tuned by hand is therefore back at the firmware's 45W the next
-# morning, with nothing on it to say so -- which is exactly what had happened
-# here. The unit is wanted by the sleep targets as well as multi-user for that
-# second half; a plain WantedBy=multi-user.target survives a reboot and not a
-# suspend.
-#
-# Gated on the machine, not just on the tool. 52W sustained is a number for this
-# CPU in this chassis, and pushing it onto different hardware is a thermal
-# decision made by accident -- so the model and the DMI product have to match
-# before anything is written. Everything else in this repo is cosmetic if it
-# lands somewhere unexpected; this is not.
-#
-# Verification needs no root: ryzen_smu exposes the live limits as world-
-# readable floats at /sys/kernel/ryzen_smu_drv/pm_table (STAPM limit first,
-# then its value, then PPT fast, then PPT slow), which is a far better check
-# than `ryzenadj --info` since it can be read after the fact, by anything.
-_ryzen_cpu="$(grep -m1 'model name' /proc/cpuinfo || true)"
-_ryzen_product="$(cat /sys/class/dmi/id/product_name 2>/dev/null || true)"
-_ryzen_vendor="$(cat /sys/class/dmi/id/sys_vendor 2>/dev/null || true)"
-if [[ $_ryzen_cpu != *8745HS* || $_ryzen_vendor != GEEKOM || $_ryzen_product != A8 ]]; then
-  skip "CPU power limits skipped — tuned for a Ryzen 7 8745HS in a Geekom A8, this is${_ryzen_cpu:+ ${_ryzen_cpu#*: }}"
-elif ! command -v ryzenadj >/dev/null 2>&1; then
-  skip "ryzenadj missing — CPU stays at the firmware's 45W (yay -S ryzenadj, then re-run)"
-else
-  _tdp_changed=0
-  for _pair in "ryzen/ryzen-tdp.env:/etc/default/ryzen-tdp" \
-               "ryzen/ryzen-tdp.service:/etc/systemd/system/ryzen-tdp.service"; do
-    _src="$HERE/${_pair%%:*}"; _dst="${_pair#*:}"
-    if [[ -f $_dst ]] && cmp -s "$_src" "$_dst"; then
-      skip "$(basename "$_dst") already current"
-    else
-      say "CPU power limits -> $_dst (sudo)"
-      sudo install -m644 -o root -g root "$_src" "$_dst"
-      _tdp_changed=1
-    fi
-  done
+# ── 9. Chromium managed policy (needs sudo) ─────────────────────────────────────────
+run chromium policy
 
-  (( _tdp_changed )) && sudo systemctl daemon-reload
+# ── 10. CPU power limits (needs sudo) ─────────────────────────────────────────
+run ryzen
 
-  # `enable --now` is idempotent and also starts it, so the limits land in this
-  # session rather than at the next boot. A oneshot that has already run reports
-  # inactive (dead), which is success -- so the limits are read back from the
-  # SMU instead of from systemctl.
-  sudo systemctl enable --now ryzen-tdp.service >/dev/null 2>&1 || true
-  if [[ -r /sys/kernel/ryzen_smu_drv/pm_table ]]; then
-    _tdp_live="$(python3 -c "
-import struct
-f = struct.unpack('<6f', open('/sys/kernel/ryzen_smu_drv/pm_table','rb').read()[:24])
-print('%.0fW sustained, %.0fW burst' % (f[0], f[2]))" 2>/dev/null || true)"
-    [[ -n $_tdp_live ]] && skip "SMU reports ${_tdp_live}"
-  else
-    skip "ryzen_smu not loaded — limits set, but nothing to read them back from"
-  fi
-fi
-
-# ── 11. Btrfs compression level (needs sudo) ─────────────────────────────────
+# ── 11. Btrfs compression level (needs sudo) ─────────────────────────────────────────
 # Btrfs compresses every write, and zstd's level decides how hard it works.
 # Level 3 -- the kernel's default, which is what a bare `compress=zstd` selects
 # -- runs roughly 2-3x slower at compression than level 1 for ~5-10% better
