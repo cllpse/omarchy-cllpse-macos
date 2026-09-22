@@ -3,6 +3,7 @@
 # Idempotent. Re-run any time. See revert.sh to undo.
 #
 #   apply.sh            pick what to run; everything when there is no terminal
+#   apply.sh bar        reset the top bar to the declared layout, and nothing else
 #   apply.sh --all      everything, no prompt
 #   apply.sh --look     only the steps that change how it looks
 #   apply.sh <id>...    only these, always in the order below
@@ -405,6 +406,7 @@ _look_ids() { printf '%s\n' state "${LOOKNFEEL[@]}"; }
 
 # id|note|label|action|needs — execution order, and the menu's order.
 STEPS=(
+  "bar|optin|Reset the top bar to the declared layout|run:omarchy --bar-only|"
   "figma|optin|Install or update Figma Desktop (network, opt-in)|run:figma --no-apply|applications"
   "state||Record the pre-existing font and theme, for revert.sh|fn:step_state|"
   "symlinks||Symlink both themes + the window-switcher plugin|fn:step_symlinks|"
@@ -469,6 +471,7 @@ usage() {
 Apply the cllpse-macos theme + the system overrides it needs. Idempotent.
 
   apply.sh                 pick what to run (everything, if there is no terminal)
+  apply.sh bar             reset the top bar to the declared layout, and nothing else
   apply.sh --all           run everything, no prompt
   apply.sh --look          only the look-and-feel steps
   apply.sh <id> [<id>…]    run only these, in the canonical order
@@ -519,19 +522,26 @@ _load_gum_theme() {
 # string matching on what the user saw.
 choose_steps() {
   _load_gum_theme
+  # BAR is first because it is the cheapest and most repeated thing here: the
+  # bar is drag-reorderable with no setting to disable it (see omarchy/README.md
+  # (5)), so knocking a widget out of place is a thing that just happens, and
+  # the fix should be the entry your hand is already on. It writes bar.layout
+  # and bar.centerAnchor and nothing else -- no sudo, no theme-set, no restart.
+  local BAR="Reset the top bar to the declared layout"
   local LOOK="Look and feel only (fonts, theme, decoration)"
   local EVERY="Run everything" FIGMA="Install or update Figma Desktop" PICK="Choose specific steps…"
   local top
 
   if command -v gum >/dev/null 2>&1; then
-    top=$(gum choose --header "What would you like to do?" "$LOOK" "$FIGMA" "$EVERY" "$PICK" || true)
+    top=$(gum choose --header "What would you like to do?" "$BAR" "$LOOK" "$FIGMA" "$EVERY" "$PICK" || true)
   else
-    printf '  1) %s\n  2) %s\n  3) %s\n  4) %s\n' "$LOOK" "$FIGMA" "$EVERY" "$PICK" >&2
+    printf '  1) %s\n  2) %s\n  3) %s\n  4) %s\n  5) %s\n' "$BAR" "$LOOK" "$FIGMA" "$EVERY" "$PICK" >&2
     local n; read -rp "> " n || true
-    case "$n" in 1) top="$LOOK" ;; 2) top="$FIGMA" ;; 3) top="$EVERY" ;; 4) top="$PICK" ;; *) top="" ;; esac
+    case "$n" in 1) top="$BAR" ;; 2) top="$LOOK" ;; 3) top="$FIGMA" ;; 4) top="$EVERY" ;; 5) top="$PICK" ;; *) top="" ;; esac
   fi
 
   case "$top" in
+    "$BAR")   printf 'bar\n'; return 0 ;;
     "$LOOK")  _look_ids; return 0 ;;
     "$EVERY") _auto_ids; return 0 ;;
     "$FIGMA") printf 'figma\n'; return 0 ;;
@@ -540,7 +550,9 @@ choose_steps() {
   esac
 
   # Stage two: tick as many as you like. The list is everything --all would run;
-  # figma is not in it, having had its own entry above.
+  # bar and figma are not in it, both having had their own entry above -- the
+  # `optin` filter below is what leaves them out, so a new top-level entry only
+  # needs that note to stay out of here too.
   local menu=() s id note label
   for s in "${STEPS[@]}"; do
     IFS='|' read -r id note label _ _ <<<"$s"
@@ -648,7 +660,23 @@ _dedupe() {
 # Appended after selection so it is never ticked, never forgotten, and still
 # runs in its canonical position (last, after keyd) rather than where it was
 # added.
-if (( ${#SELECTED[@]} )) && (( ${#SELECTED[@]} != ${#STEPS[@]} )); then
+#
+# Steps that write nothing Hyprland reads are the exception, and `bar` is the
+# reason the exception exists: it writes bar.layout into shell.json, which the
+# shell holds a live FileView on, so there is no config for a reload to pick up
+# and reloading anyway makes the cheapest entry in the menu rebuild the whole
+# Lua state for nothing. Listed by id rather than inferred, so adding one is a
+# deliberate act -- and only skipped when EVERY selected step is in the list.
+NO_HYPR_RELOAD=(bar)
+_touches_hypr() {
+  local x y hit
+  for x in "${SELECTED[@]}"; do
+    hit=0; for y in "${NO_HYPR_RELOAD[@]}"; do [[ $x == "$y" ]] && { hit=1; break; }; done
+    (( hit )) || return 0
+  done
+  return 1
+}
+if (( ${#SELECTED[@]} )) && (( ${#SELECTED[@]} != ${#STEPS[@]} )) && _touches_hypr; then
   SELECTED+=(hypr-reload)
 fi
 

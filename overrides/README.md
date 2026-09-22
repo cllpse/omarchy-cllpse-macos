@@ -17,6 +17,7 @@ themselves when they get there. `lib.sh` refuses outright if `EUID` is 0.
 
 ```bash
 ./apply.sh                  # pick what to run, or everything if there is no terminal
+./apply.sh bar              # reset the top bar to the declared layout, and nothing else
 ./apply.sh --all            # everything, no prompt
 ./apply.sh --look           # only the steps that change how the desktop looks
 ./apply.sh cursor icons     # only these, still in the canonical order
@@ -27,9 +28,9 @@ themselves when they get there. `lib.sh` refuses outright if `EUID` is 0.
 
 **Selection is by step, not by folder** — the inline steps (gsettings, the theme
 apply, `hyprctl reload`, Btrfs) are selectable too, so `--all` is exactly the
-old behaviour. Picking is two stages. The first is a single choice — **Look and feel only**,
-**Install or update Figma Desktop**, **Run everything**, or **Choose specific
-steps…** — so
+old behaviour. Picking is two stages. The first is a single choice — **Reset the top bar to the
+declared layout**, **Look and feel only**, **Install or update Figma Desktop**,
+**Run everything**, or **Choose specific steps…** — so
 Enter acts on whatever is highlighted, no Space needed. Only the last
 opens the checklist, which is a **batch**: Space toggles as many as you like,
 Enter runs them all. Ticked rows show `☑`, unticked `☐`. Whatever you pick,
@@ -60,6 +61,21 @@ would otherwise leave the decoration, binds and input tuning sitting in the
 config unread. It is appended to any partial selection — including named ids on
 the command line — and still runs in its canonical position, last, rather than
 where it was added.
+
+The one exception is `bar`, and it is listed by id in `NO_HYPR_RELOAD` rather
+than inferred. `bar` writes `bar.layout` into `shell.json`, which the shell
+holds a live `FileView` on — there is no Hyprland config for a reload to pick
+up, and reloading anyway would make the cheapest entry in the menu rebuild the
+whole Lua state for nothing. The skip only applies when **every** selected step
+is in that list, so `apply.sh bar gtk-buttons` still reloads.
+
+`bar` is the first entry in the menu and the first step in `STEPS` because it is
+the cheapest and most repeated thing here: Omarchy's bar is drag-reorderable
+with no setting to turn that off (see [`omarchy/README.md`](omarchy/README.md)
+§5), so knocking a widget out of place is a thing that just happens. Like
+`figma` it is marked `optin`, which keeps it out of `--all` — a full run already
+writes the layout as part of the `omarchy` step — and out of the stage-two
+checklist, having had its own entry above.
 
 Ticking anything in that checklist also runs `state`, which records what the
 machine had before — only useful if it happens on the first run that changes

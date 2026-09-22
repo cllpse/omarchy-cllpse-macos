@@ -18,11 +18,19 @@
 # Relinking is idempotent and costs nothing, so it runs unconditionally rather
 # than trying to detect damage.
 #
-# Deliberately NOT repaired here: ~/.config/omarchy/shell.json (the plugins[]
-# entry and bar.transparent). That file is machine-level and personal -- bar
-# widget order, tray pinned lists -- and rewriting it from a hook that fires
-# during an update is a worse failure mode than the one it prevents. Re-run
-# apply.sh if the switcher stops loading.
+# Deliberately NOT rewritten here: ~/.config/omarchy/shell.json (the plugins[]
+# entry, bar.transparent, disabledPlugins). That file is machine-level, and
+# rewriting it from a hook that fires during an UPDATE is a worse failure mode
+# than the one it prevents. Re-run apply.sh if the switcher stops loading.
+#
+# Bar widget order used to be on that list and no longer is, which is a
+# decision reversed on purpose rather than an oversight. The bar is
+# drag-reorderable with no setting to disable it (the gate is a capability
+# test, not a config key -- see hooks/post-boot.d/cllpse-bar-layout.sh), so an
+# accidental drag was permanent. It is now declared in omarchy/shell-bar.json
+# and restored at SESSION START by that hook, which is a different moment and a
+# narrower write: bar.layout and bar.centerAnchor only, tray pinned/hidden
+# carried over. This hook still only re-LINKS it, and rewrites nothing itself.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"   # overrides/hooks/post-update.d
@@ -45,6 +53,8 @@ link "$OVERRIDES/hooks/theme-set.d/ytm-player.sh"       "$HOME/.config/omarchy/h
 # ytm's hook renders this template, which lives in Omarchy's themed/ directory
 # -- also Omarchy's territory, so it is exposed to the same repopulation.
 link "$OVERRIDES/themed/ytm-player.toml.tpl"            "$HOME/.config/omarchy/themed/ytm-player.toml.tpl"
+link "$OVERRIDES/hooks/post-boot.d/cllpse-bar-layout.sh" \
+     "$HOME/.config/omarchy/hooks/post-boot.d/cllpse-bar-layout.sh"
 link "$OVERRIDES/hooks/post-update.d/cllpse-macos-repair.sh" \
      "$HOME/.config/omarchy/hooks/post-update.d/cllpse-macos-repair.sh"
 link "$REPO/omarchy-cllpse-theme-dark"  "$HOME/.config/omarchy/themes/omarchy-cllpse-theme-dark"

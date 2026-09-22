@@ -4,7 +4,7 @@ Reference for building an Omarchy theme named **`macOS`** that reproduces the
 macOS system appearance. This document specifies *what* the values are, not how
 to apply them.
 
-**Target:** Omarchy **v4.0.2** ("Quattro"), branch **`quattro`**. The `master`
+**Target:** Omarchy **v4.0.4** ("Quattro"), branch **`quattro`**. The `master`
 branch is stale at 3.8.5 and describes an incompatible theme format (ANSI
 `color0`–`color15`, Waybar/Walker/Mako/SwayOSD). Read `quattro`.
 
@@ -319,7 +319,7 @@ The Omarchy column is [measured] from `shell.toml`; the macOS column is
 | Surface | Omarchy | macOS |
 |---|---|---|
 | bar | 1.0 | **1.0** [chosen] — opaque. 0.72 shipped first (the macOS menu bar is translucent over the wallpaper) and was taken to full opacity on request |
-| launcher | 0.95 | **1.0** [chosen] — opaque, tracking the menu below (0.85, matching Spotlight's translucency, was the original figure). *Inert on 4.0.2 either way: nothing reads `launcher.*`; the launcher is the menu plugin on `Color.menu.*`* |
+| launcher | 0.95 | **1.0** [chosen] — opaque, tracking the menu below (0.85, matching Spotlight's translucency, was the original figure). *Inert on 4.0.4 either way: nothing reads `launcher.*`; the launcher is the menu plugin on `Color.menu.*`* |
 | launcher scrim | 0.5 | **0.25** [chosen] — matched to the menu scrim below. 0.35 shipped first (macOS dims the desktop only lightly, and a switcher was thought to want more separation than a menu); measured against the menu at 0.37 vs 0.22, the mismatch was visible and the two were aligned. *Inert either way: the switcher now binds `Color.menu.scrim` directly, so this section drives nothing* |
 | menu scrim | 1.0 | **0.25** — the menu and the window switcher share this value literally: the switcher binds `Color.menu.scrim`, so retuning here moves both. It has to stay readable enough to pick the window you are switching to |
 | menu | 1.0 | **1.0** [chosen] — opaque. 0.92 ("near-opaque glass") shipped first and was taken to full opacity on request: SUPER+SPACE and the window switcher are read-at-a-glance surfaces, and at 0.92 whatever sits behind them reads through the text. Consequence: the blur rule is inert for this surface, since an opaque pixel has nothing to blur through |
@@ -364,7 +364,7 @@ Prefer scaling over hand-editing individual tokens.
 ### Corner radius
 
 Shell surfaces (menus, popovers) want ~12 — distinct from the window `rounding`
-of 26. Superseded on 4.0.2 [chosen]: the shell does not expose a corner-radius
+of 26. Superseded on 4.0.4 [chosen]: the shell does not expose a corner-radius
 config key at all. `Style.qml` reads `hyprctl getoption decoration:rounding` and
 slaves every surface to it, so shell and window radius are one value — the
 shipped 16 — and cannot be set apart.

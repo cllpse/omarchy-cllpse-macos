@@ -81,6 +81,58 @@ an empty string, refused it, and revert.sh was left with nothing to put
 back and no way to tell the bar was ever opaque. Test against null
 explicitly and stringify, so false records as "false".
 
+## 5. The bar layout is restored at session start, not defended
+
+Omarchy's bar lets you **drag a widget to reorder it**, and drag the bar itself
+to another screen edge. There is no setting to turn that off. Checked rather
+than assumed, three ways: `applyBarConfig` (`plugins/bar/Bar.qml`) reads exactly
+`position` / `transparent` / `centerAnchor` / `layout`, `builtinShellConfig`
+(`shell.qml`) defines no more, and Omarchy's own stock `shell.json` carries the
+same four keys. The reorder gate is a **capability test, not a config key**:
+
+```qml
+readonly property bool canReorder:
+  root.shell && typeof root.shell.mutateShellConfig === "function"
+```
+
+and `mutateShellConfig` is unconditional on the shell root. The only ways to
+genuinely prevent the drag are to patch a **pacman-owned** file
+(`omarchy 4.0.4-1` owns `Bar.qml`, so every package upgrade silently reverts it)
+or to fork the 2,307-line bar plugin and select it through `bar.id`. Both were
+considered and declined.
+
+So the drag is not prevented, it is made **free**. The layout is already
+declarative in [`shell-bar.json`](shell-bar.json), and
+[`../hooks/post-boot.d/cllpse-bar-layout.sh`](../hooks/post-boot.d/cllpse-bar-layout.sh)
+puts it back once per session — fired by `omarchy-hook post-boot`, which
+Omarchy dispatches from `default/hypr/autostart.lua:13`
+(`sleep 2 && omarchy-hook post-boot`). No timer, no daemon, no watcher of ours.
+`shell.json` is watched live (`shell.qml` holds a `FileView` on it with
+`watchChanges: true`), so the bar re-reads it with no restart.
+
+The hook calls `omarchy.sh --bar-only`, and that flag is the load-bearing part:
+it writes `bar.layout` and `bar.centerAnchor` and **nothing else**. A hook that
+fires every session must not re-assert `plugins[]`, `bar.transparent` or
+`disabledPlugins`, or it would silently undo a plugin the user enabled from
+Omarchy's own menu — verified by re-enabling `omarchy.emojis` by hand and
+confirming the hook left it enabled, while a full `omarchy.sh` run put it back.
+It records no prior state either: establishing what `revert.sh` restores is the
+first apply's job, and a hook that runs before `apply.sh` ever has would record
+*our* layout as the pre-existing one.
+
+The cost, stated plainly: there is no bar-change event to hang this on, so an
+accidental drag stands until the next login or until you run
+
+```bash
+bash overrides/omarchy/omarchy.sh --bar-only
+```
+
+This reverses a decision recorded in
+[`../hooks/post-update.d/cllpse-macos-repair.sh`](../hooks/post-update.d/cllpse-macos-repair.sh),
+which used to list bar widget order among the machine-level things no hook
+should rewrite. That reasoning still holds for the *update* hook and for the
+other three keys; the comment there now says which half moved and why.
+
 ## From the step table
 
 Omarchy shell config, five targeted `jq` key writes — never a whole-file copy

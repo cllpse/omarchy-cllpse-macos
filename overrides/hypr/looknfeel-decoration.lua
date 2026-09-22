@@ -270,7 +270,7 @@ hl.config({
 -- has nothing to blur through; the two scrims are at 0.25, under the
 -- ignore_alpha below, so they render sharp by design. (shell.launcher.toml sets
 -- 1.0 too, but it is not why anything here is inert: nothing reads launcher.* on
--- 4.0.2 -- the launcher IS omarchy-menu, so `menu` above already covers it.) Nothing
+-- 4.0.4 -- the launcher IS omarchy-menu, so `menu` above already covers it.) Nothing
 -- here is currently reaching the screen. It is kept, rather than deleted,
 -- because it is the entire cost of re-enabling glass: drop one alpha in a
 -- theme and that surface frosts again with no compositor-side change.

@@ -14,6 +14,7 @@
         { "id": "omarchy.system-update" },
         { "id": "omarchy.agents" },
         { "id": "omarchy.spacer", "size": 8 },
+        { "id": "omarchy.network" },
         { "id": "omarchy.audio" },
         { "id": "omarchy.monitor" }
       ]

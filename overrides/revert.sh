@@ -257,6 +257,7 @@ fi
 # created, so removing it hands every app back to its vendor icon; there is no
 # backup to restore because nothing pre-existing was replaced.
 say "Removing the post-update repair hook"
+[[ -L ~/.config/omarchy/hooks/post-boot.d/cllpse-bar-layout.sh ]] && rm -f ~/.config/omarchy/hooks/post-boot.d/cllpse-bar-layout.sh
 [[ -L ~/.config/omarchy/hooks/post-update.d/cllpse-macos-repair.sh ]] && rm -f ~/.config/omarchy/hooks/post-update.d/cllpse-macos-repair.sh
 
 say "Removing app icon drop-ins + their theme-set hook"

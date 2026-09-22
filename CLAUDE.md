@@ -20,7 +20,10 @@ here — two commits, not one. The plugin's design log stayed behind as
 deliberately: the published repo carries a user-facing README, and its history
 was started fresh so the log is not in it.
 
-Target is **Omarchy 4.0.2** (`quattro`). The `master` branch is stale at 3.8.5 and
+Target is **Omarchy 4.0.4** (`quattro`), which is what `omarchy version` and
+`pacman -Q omarchy` both report. (`/usr/share/omarchy/version` says `4.0.0.alpha`
+and is stale -- nothing reads it; don't take the version from there.) The
+`master` branch is stale at 3.8.5 and
 documents an incompatible theme format — don't read it.
 
 ---
@@ -101,13 +104,21 @@ Hinting has three separate knobs that don't share state: the fontconfig drop-in
 (Qt, Alacritty, Electron), `gsettings font-hinting` (GTK/GNOME), and Ghostty's
 own `freetype-load-flags`. Kitty hardcodes light hinting with no override.
 
-**Unreachable on 4.0.2** — don't re-litigate these:
+**Unreachable on 4.0.4** — don't re-litigate these. Re-checked against 4.0.4
+rather than carried forward on the version bump; every one still holds, and the
+probes are named so the next bump is a re-run rather than a re-derivation.
+**`Style.qml` and `Color.qml` live in `shell/Commons/`, not `shell/Ui/`** —
+guessing `Ui/` gets "No such file or directory", which reads exactly like a
+file that was removed and is not:
 - *Bar font family*: `Style.qml` hardcodes `fontFamily = "monospace"`. BUILD.md
   §4's "bar in SF Pro Text" cannot be done through config.
+  Probe: `grep -n fontFamily /usr/share/omarchy/shell/Commons/Style.qml` —
+  still `property string fontFamily: "monospace"`, line 269 on 4.0.4.
 - *Bar-only text/icon sizing*: `[bar] icon-font` / `icon-slot` / `icon-canvas` /
   `status-slot` are read by `Style.bar` but never populated by
   `applyShellValues` — dead keys. A shell-source patch was tried and fully
-  reverted.
+  reverted. Probe: each of the four greps 1 in `Commons/Style.qml` and **0** in
+  `Commons/Color.qml`; read on one side, written on neither.
 - *The whole `[launcher]` section* — a dead **section**, not just dead keys.
   `Color.qml` defines `bar`/`popups`/`tooltip`/`notifications`/`menu`/`polkit`/
   `lock`/`imagePicker` and no launcher surface; the lookups are string-keyed
@@ -121,7 +132,10 @@ own `freetype-load-flags`. Kitty hardcodes light hinting with no override.
   re-deriving: Omarchy's own `default/themed/shell.toml.tpl` ships the section
   and documents it as "applied to the launcher overlay", so the config reads
   live. Verified by enumeration — `grep -rn -i launcher /usr/share/omarchy/shell`
-  returns no key lookup.
+  returns no key lookup. The sharper probe, and the one to re-run:
+  `grep -oP 'pick\("\K[a-z]+(?=\.)' /usr/share/omarchy/shell/Commons/Color.qml
+  | sort -u` prints the surfaces that exist — on 4.0.4 that is `bar lock menu
+  notifications polkit popups tooltip`, with no `launcher` among them.
 - Font *size* is machine-level only: `~/.config/omarchy/shell.toml` `[font]
   base-size` (**13** at the time of writing, via `omarchy display text size`;
   `display/display.conf` records it for `apply.sh` to restore — and the two have drifted
@@ -617,6 +631,25 @@ default and are turned off by being *listed* in `disabledPlugins[]`
 length 0). A third-party plugin, of any kind, is enabled iff its id appears
 somewhere in the file — so dropping its widget from `bar.layout` is the whole
 uninstall as far as the shell is concerned, and only the directory is left.
+
+**The bar is drag-reorderable and nothing can turn that off — checked three
+ways, don't re-derive it.** A widget can be dragged to a new slot and the bar
+itself dragged to another screen edge. There is no setting: `applyBarConfig`
+(`plugins/bar/Bar.qml`) reads exactly `position` / `transparent` /
+`centerAnchor` / `layout`, `builtinShellConfig` (`shell.qml`) defines no more,
+and Omarchy's stock `shell.json` carries the same four. The reorder gate is a
+**capability test, not a config key** — `canReorder: root.shell && typeof
+root.shell.mutateShellConfig === "function"` — and that function is
+unconditional on the shell root. The two ways to genuinely prevent it were both
+declined: patching `Bar.qml` is patching a **pacman-owned** file (`omarchy
+4.0.4-1` owns it, so every package upgrade silently reverts it, and re-applying
+needs root), and the supported alternative — forking the bar and selecting it
+with `bar.id` / `omarchy bar use <id>` — means carrying 2,307 lines of
+`Bar.qml` + `BarModel.js` that drift from upstream in silence. What ships
+instead does not prevent the drag, it makes it free: `hooks/post-boot.d/
+cllpse-bar-layout.sh` restores the declared layout once per session via
+`omarchy-hook post-boot` (dispatched from `default/hypr/autostart.lua:13`).
+Measured against `omarchy 4.0.4-1`.
 
 The file is still machine-level, so touch it with targeted `jq` key writes,
 never a whole-file copy or a deep merge (`plugins[]` is an array, and a merge
@@ -2085,7 +2118,7 @@ outlier before the scene settled.
   can pre-compensate for it, and trying is a pessimisation.
 
   `Window.window.devicePixelRatio` does exist and is worth knowing about — Qt
-  **6.11+** only (`qquickwindow.h` `REVISION(6, 11)`; 4.0.2 ships 6.11.2), reads
+  **6.11+** only (`qquickwindow.h` `REVISION(6, 11)`; 4.0.4 ships 6.11.2), reads
   `effectiveDevicePixelRatio`, carries a NOTIFY so bindings track a monitor
   change, and needs no import beyond `QtQuick`. It simply reports the same 2
   here. Re-measure with a `PanelWindow` probe before trusting either number on
@@ -2231,9 +2264,10 @@ outlier before the scene settled.
   directory. When a script grows a second output path, grep `revert.sh` for the
   first one before assuming it is covered.
 
-- **Three lists have to agree about the theme-set hooks, and nothing made
+- **Three lists have to agree about the hooks, and nothing made
   them.** Each `overrides/<app>/<app>.sh` symlinks its own hook into
-  `~/.config/omarchy/hooks/theme-set.d/`, `revert.sh` removes it, and
+  `~/.config/omarchy/hooks/theme-set.d/` (and `omarchy.sh` one into
+  `post-boot.d/`), `revert.sh` removes it, and
   `hooks/post-update.d/cllpse-macos-repair.sh` re-links it after an
   `omarchy update` repopulates that directory (Omarchy's territory -- see
   *Hooks and plugins*). That is one set enumerated in three places, each
@@ -2250,11 +2284,19 @@ outlier before the scene settled.
 
   ```bash
   cd overrides
-  inst=$(grep -rhoP 'ln -sfn "\$HERE/hooks/theme-set\.d/\K[a-z-]+\.sh' */*.sh | sort -u)
-  rep=$(grep -oP 'theme-set\.d/\K[a-z-]+\.sh' hooks/post-update.d/cllpse-macos-repair.sh | sort -u)
-  rev=$(grep -oP 'rm -f ~/\.config/omarchy/hooks/theme-set\.d/\K[a-z-]+\.sh' revert.sh | sort -u)
+  D='(?:theme-set|post-boot)\.d/[a-z-]+\.sh'
+  inst=$(grep -rhoP "ln -sfn \"\\\$HERE/hooks/\K$D" */*.sh | sort -u)
+  rep=$(grep -oP "hooks/\K$D" hooks/post-update.d/cllpse-macos-repair.sh | sort -u)
+  rev=$(grep -oP "rm -f ~/\.config/omarchy/hooks/\K$D" revert.sh | sort -u)
   [[ $inst == "$rep" && $inst == "$rev" ]] && echo agree || printf '%s\n---\n%s\n---\n%s\n' "$inst" "$rep" "$rev"
   ```
+
+  It spans both hook directories, which it did not when only `theme-set.d`
+  existed — a check scoped to one directory answers `agree` about a hook in the
+  other while never having looked at it, which is the same silent pass the rest
+  of this entry is about. Verified both ways: `agree` (8 hooks) on the tree as
+  it stands, and, with the `post-boot.d` line deleted from a scratch copy of
+  `revert.sh`, it names `post-boot.d/cllpse-bar-layout.sh` as missing.
 
   The template symlinks are **not** in that check and have to be eyeballed:
   ytm is the only app whose hook needs a second link outside `theme-set.d/`

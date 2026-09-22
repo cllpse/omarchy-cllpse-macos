@@ -33,14 +33,18 @@ The set is therefore written out rather than described:
 | `theme-set.d/gh-dash-colors.sh` | `gh-dash/gh-dash.sh` |
 | `theme-set.d/ytm-player.sh` | `ytm/ytm.sh` |
 | `themed/ytm-player.toml.tpl` | `ytm/ytm.sh` — the only link outside `theme-set.d/`, which is why it was one of the three this hook was missing |
+| `post-boot.d/cllpse-bar-layout.sh` | `omarchy/omarchy.sh` — the only `post-boot.d` link, and the second one outside `theme-set.d/` |
 | `post-update.d/cllpse-macos-repair.sh` | itself |
 | `themes/omarchy-cllpse-theme-{dark,light}` | `apply.sh` |
 | `plugins/cllpse.window-switcher` | `apply.sh` |
 
-The first eight are also enumerated by `revert.sh`, which removes them. Three
+The first nine are also enumerated by `revert.sh`, which removes them. Three
 lists, one set, nothing enforcing it — `CLAUDE.md`'s *Three lists have to
-agree about the theme-set hooks* carries the one-liner that compares them;
-run it after adding an app.
+agree about the hooks* carries the one-liner that compares them; run it after
+adding an app. It spans `theme-set.d/` **and** `post-boot.d/`, which it did not
+when it only knew about the first: a check scoped to one directory reports
+`agree` about a hook in the other while saying nothing at all, which is the
+same silent-pass shape the entry it lives next to is about.
 
 ## From the step table
 

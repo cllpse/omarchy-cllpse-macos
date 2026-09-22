@@ -15,7 +15,7 @@ Both are **their own repositories**, added here as submodules under
 
 ## Before you run this
 
-Built against **Omarchy 4.0.2** (`quattro`). The `master` branch is stale at
+Built against **Omarchy 4.0.4** (`quattro`). The `master` branch is stale at
 3.8.5 and uses an incompatible theme format — this will not work there.
 
 `apply.sh` is idempotent and installs no packages. It makes one decision about
@@ -200,7 +200,7 @@ CLAUDE.md                 Omarchy's own mechanics and the traps already hit — 
 `apply.sh` symlinks each theme folder into `~/.config/omarchy/themes/` under the
 same name (`omarchy-cllpse-theme-dark` / `-light`).
 
-## Notes / limitations found on Omarchy 4.0.2
+## Notes / limitations found on Omarchy 4.0.4
 
 - **Fonts are machine-level, never in a theme.** `overrides/` handles: SF fonts →
   `~/.local/share/fonts/SF/`; `monospace` → SF Mono via `omarchy font set`;
@@ -328,7 +328,7 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   `omarchy-theme-set-templates`, *replacing that whole `[section]`*. Each theme
   folder ships `shell.bar.toml`, `shell.menu.toml`, `shell.notifications.toml`,
   `shell.tooltip.toml`, `shell.lock.toml` and `shell.launcher.toml` (**inert on
-  4.0.2**, see below). **Every card is α 1.0 — opaque.** The scrims are the
+  4.0.4**, see below). **Every card is α 1.0 — opaque.** The scrims are the
   exception and stay translucent at 0.25, kept low and unblurred so the window
   switcher stays usable. The switcher binds `Color.menu.scrim` rather than
   composing its own, so its dim is the menu's dim in both light and dark.
