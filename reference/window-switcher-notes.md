@@ -43,13 +43,18 @@ tests drive, and what any other caller would use.
 
 ## Input
 
-The surface is a full-screen layer surface with **no mask**, so it takes every
-click while it is up: one on a tile focuses that window, one beside the card
-dismisses the strip. Eating clicks is only a hazard for a surface that is up
-when you are not looking at it, and `visible: root.opened` means this one never
-is. (It was masked to the card once — `mask: Region { item: card }`, the idiom
-Omarchy uses for notification toasts. Toasts are passive and long-lived; a
-switcher is modal for the moment it is on screen.)
+The surface is a full-screen layer surface whose input region is **everything
+but the leftmost pixel column**, so it takes every click while it is up: one on
+a tile focuses that window, one beside the card dismisses the strip. Eating
+clicks is only a hazard for a surface that is up when you are not looking at it,
+and `visible: root.opened` means this one never is. (It was masked to the card
+once — `mask: Region { item: card }`, the idiom Omarchy uses for notification
+toasts. Toasts are passive and long-lived; a switcher is modal for the moment it
+is on screen. It was then unmasked entirely, which is what the cut-out below
+walked back by one pixel.)
+
+**That one-pixel cut-out is what the left-edge trigger rests on**, and it is not
+cosmetic — see *The left screen edge* below.
 
 **Getting the press here at all took a change on the compositor side.**
 Hyprland resolves mouse *binds* before handing a button to a layer surface, so
@@ -88,6 +93,78 @@ cursor yanking the keyboard's selection.
 
 The `MouseArea` carries `cursorShape`: a pointing hand over the tiles, closing
 on one while it is being dragged.
+
+## The left screen edge
+
+A second layer surface, one logical pixel wide and the full height of the
+output, pinned to the left edge with `exclusionMode: ExclusionMode.Ignore` and
+its own namespace (`omarchy-window-switcher-edge`). Crossing into it calls
+`open('{"action":"show"}')`. Nothing polls: the compositor sends one
+`wl_pointer.enter` when the cursor crosses in.
+
+**A polling rate is not an event rate, and that is the whole answer to "won't an
+8kHz mouse cost something".** A rate is reports *while the mouse moves*. Measured
+on the 8000Hz mouse on this machine:
+
+| | |
+|---|---|
+| cursor parked on the strip, 32s | **~0 motion events** |
+| cursor sliding along the strip | ~500 events/s |
+| client CPU, ~2500 events | **under 10ms** — under 4µs each |
+
+So the idle case — a pointer resting against the edge — is free, and the moving
+case is a few percent of one core for the fraction of a second the pointer is
+physically against the edge.
+
+**One pixel is enough because it is an edge.** Hyprland clamps the cursor to the
+output, so a fast flick cannot overshoot it: warping to `x = -9999` lands at
+`0, 400`, inside the strip, however fast the pointer was travelling. The same
+one-pixel line drawn anywhere else on screen would be missed by exactly the fast
+gesture people use.
+
+**The HUD must leave that column out of its own input region, or dismissing
+becomes a reopen loop.** Wayland delivers pointer events to exactly one surface.
+If the HUD covered `x = 0` it would take pointer focus off the strip the moment
+it mapped — and hand it *back* on dismiss, as a fresh `entered`, with the cursor
+never having moved. Every version of that needs either a latch that can tell a
+real crossing from a remap, or a settle timer. Leaving the column alone means
+the strip keeps focus throughout, no second `entered` is ever generated, and
+dismissing with the cursor still against the edge simply stays dismissed
+(verified: dismissed at `0, 640`, still closed 3.5s later; moved away and back,
+it opened again). The strip carries the click-away for its own column so nothing
+is lost.
+
+For the same reason the strip is **mapped for the whole session**, not bound to
+`opened`. A surface that unmaps and remaps gets a fresh `entered` the moment it
+comes back under a stationary cursor.
+
+**`exclusionMode: ExclusionMode.Ignore` is load-bearing**, not tidiness: an
+exclusive zone here would reserve the column and shove every window on the output
+one pixel right. Verified — with the strip mapped, windows stayed at `x = 26`.
+
+It opens with a step of **zero**, so `_openStepped(0)` lands on `_activeIndex()`
+and the window you are already in is highlighted. A TAB's step *is* the gesture;
+a pointer's is the click that follows, and pre-stepping to the MRU entry only to
+overwrite it the moment the cursor reaches the tiles is a highlight that means
+nothing. Routing it through `open()` rather than calling `_openStepped()`
+directly is what gets it the cold path for free.
+
+**The guard is `Hyprland.focusedWorkspace.hasFullscreen`, read as a function.**
+A fullscreen window is the one case where something real is drawn under the
+strip — Omarchy's `gaps_out` (24) plus `border_size` (2) put the nearest window
+edge at `x = 26`, so ordinary windows never reach it — and the one case where a
+switcher appearing because the pointer drifted left is actively unwanted. Both
+that property and `ToplevelManager.activeToplevel.fullscreen` are live, but they
+are not equally prompt: across a fullscreen toggle `hasFullscreen` was already
+`true` by the time the matching `fullscreen>>1` raw event ran, while the
+toplevel property still read `false` and caught up afterwards. Reading it as a
+function rather than binding it means it does not matter whether the property
+carries a change notification.
+
+The keyboard path is untouched by all of this: opened from the edge there is no
+key held, so the Lua `ws_watching` poll never starts and Omarchy's
+`SUPER + mouse:272` bind is never stood down. It does not need to be — there is
+no SUPER in the gesture, so a plain click reaches the surface anyway.
 
 ## Drag to arrange
 

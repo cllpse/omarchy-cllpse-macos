@@ -459,6 +459,42 @@ Utility". Everything else either agrees already or joins to no entry at all.
 The lookup is only as good as the entry's `StartupWMClass`, which is why the
 correction above is load-bearing rather than cosmetic.
 
+**The switcher has a pointer trigger now, and a mouse polling rate is not an
+event rate.** A one-pixel-wide layer surface (`omarchy-window-switcher-edge`)
+is pinned to the left edge for the whole session; crossing into it opens the
+strip with no key held. Nothing polls -- the compositor sends one
+`wl_pointer.enter`. Measured against the 8000Hz mouse on this machine, because
+"won't 8kHz cost something" is the obvious objection and the answer is no: a
+polling rate is reports *while the mouse moves*, so a cursor **parked** on the
+strip for 32s produced **~0 motion events**, and a cursor **sliding** along it
+produced ~500/s at **under 10ms of client CPU across ~2500 events** (<4us
+each). Don't re-derive this by reasoning from the rate.
+
+Four things about it are load-bearing rather than tidy, all measured:
+
+- **One pixel is enough only because it is an EDGE.** Hyprland clamps the
+  cursor to the output -- a warp to `x = -9999` lands at `0, 400` -- so a fast
+  flick cannot overshoot it. The same one-pixel line anywhere else on screen
+  would be missed by exactly the fast gesture people use.
+- **The HUD's input region stops one pixel short of it, or dismissing is a
+  reopen loop.** Wayland delivers pointer events to exactly one surface, so a
+  full-screen HUD takes focus off the strip when it maps and hands it *back* on
+  dismiss as a fresh `entered`, with the cursor never having moved. Same reason
+  the strip stays **mapped** rather than following `opened`: a surface that
+  remaps under a stationary cursor gets a fresh `entered` too. With the cut-out
+  there is no latch and no settle timer, and dismissing at `0, 640` stayed
+  dismissed 3.5s later while moving away and back reopened it.
+- **`exclusionMode: ExclusionMode.Ignore`**, or the column is reserved and every
+  window on the output shifts one pixel right. Verified: windows stayed at
+  `x = 26` with the strip mapped. That 26 is also why the strip costs nothing --
+  `gaps_out` (24) + `border_size` (2) means only the wallpaper is under it.
+- **`Hyprland.focusedWorkspace.hasFullscreen` is the fullscreen guard, and it is
+  the prompter of the two live sources.** Across a toggle it already read `true`
+  when the matching `fullscreen>>1` raw event ran, while
+  `ToplevelManager.activeToplevel.fullscreen` still read `false` and caught up a
+  beat later. Read as a function, not bound, so it doesn't matter whether the
+  property carries a change notification.
+
 Since app icons are never recoloured, a file dropped there has a **fixed**
 colour and would not survive a light/dark switch — which is why the rendering is
 a `theme-set` hook (`hooks/theme-set.d/app-icons.sh`), not a one-off in
@@ -1784,6 +1820,15 @@ and the original is kept in prose as provenance. Don't leave the two out of sync
 - **`hl.animation` `speed` is inverse**: *smaller is faster*. Every leaf in our
   block is Omarchy's stock speed halved to run 2× faster. Doubling the number
   would have made it 2× slower.
+- **`hyprctl dispatch` wraps its argument in `hl.dispatch(...)`, so it takes an
+  EXPRESSION and a statement block silently does nothing.** A multi-statement
+  chunk comes back as `return hl.dispatch(local n=0 ...)` -> `expected a
+  dispatcher`, printed on **stdout**, so a script that sends one with `>/dev/null`
+  reports success and has run no Lua at all. Cost a wrong conclusion here: a
+  cursor-warp benchmark "measured" zero events for two runs because the loop
+  driving it had never executed. Anything with more than one statement goes
+  through `hyprctl eval`. Related: `hl.timer` rejects `timeout = 0`
+  (`opts.timeout must be > 0`), so the fastest self-rescheduling loop is 1ms.
 - **`hyprctl keyword` and `hyprctl dispatch` are both Lua-only now, and the
   failure looks like the setting simply didn't take.** `keyword` prints
   `keyword can't work with non-legacy parsers. Use eval.` on stderr and changes
