@@ -187,8 +187,9 @@ overrides/icons/          all 99 app/CLI marks: icons/icons/ repainted to the th
                           file must look like
 omarchy-cllpse-plugin-switcher/  SUBMODULE -> cllpse/omarchy-cllpse-plugin-switcher. The macOS-style
                           window-switcher HUD plugin (id cllpse.window-switcher),
-                          published to the Omarchy plugin marketplace on its own.
-                          apply.sh symlinks it into ~/.config/omarchy/plugins/
+                          opened by SUPER+TAB or by throwing the pointer at the left
+                          screen edge; published to the Omarchy plugin marketplace on
+                          its own. apply.sh symlinks it into ~/.config/omarchy/plugins/
 reference/                BUILD.md (the spec) + window-switcher-notes.md (the plugin's
                           design log) + fonts.conf (BUILD's original, superseded)
 CLAUDE.md                 Omarchy's own mechanics and the traps already hit — written for
@@ -242,6 +243,27 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   (all 1.0) so the dimmed backdrop stays sharp — the windows being switched
   between remain readable. With every card opaque the blur is currently inert;
   the rule is kept so it returns if an alpha is lowered again. Additive to Omarchy's own `no_anim` layer rules.
+- **The window switcher opens from the left screen edge as well as `SUPER+TAB`.**
+  The plugin pins a one-pixel layer surface (`omarchy-window-switcher-edge`) to
+  the left edge for the whole session; crossing into it opens the strip with no
+  key held, and a click chooses. Opened that way nothing is pre-selected — the
+  strip opens on the window you are already in, because a `TAB`'s step is the
+  gesture while a pointer's is the click that follows. Nothing polls: the
+  compositor sends one `wl_pointer.enter` per crossing, and **a mouse polling
+  rate is not an event rate** — 8000Hz is reports *while the mouse moves*, so a
+  cursor parked against the edge produced ~0 events over 32s, and sliding along
+  it ~500/s at under 4µs of client CPU each. One pixel is enough only because
+  Hyprland clamps the cursor to the output (a warp to `x = -9999` lands at
+  `0,400`), so a fast flick cannot overshoot it; the same line drawn anywhere
+  else on screen would be missed by exactly that gesture. Two costs, both
+  deliberate: the leftmost pixel column no longer passes clicks through — with
+  `gaps_out = 24` plus a 2px border the nearest window edge is at `x = 26`, so
+  what is behind it is the wallpaper — and the trigger stands down while a
+  window on the focused workspace is fullscreen, so a video or a game cannot be
+  interrupted by the pointer drifting left. The HUD's own input region stops one
+  pixel short of the strip, which is what lets this work with no re-arm latch;
+  the mechanism is in
+  [`reference/window-switcher-notes.md`](reference/window-switcher-notes.md).
 - **Chromium scale is two settings that multiply, not one.**
   `overrides/chromium/chromium-flags.conf` is fenced into
   `~/.config/chromium-flags.conf` (the launcher skips `#` lines, so the markers
