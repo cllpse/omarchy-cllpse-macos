@@ -993,6 +993,10 @@ Three things about that step worth keeping:
 - **fstab is the one file in this repo whose corruption stops the machine
   booting**, so the step backs it up to `/etc/fstab.pre-cllpse`, verifies the
   result with `findmnt --verify --fstab`, and restores the backup if that fails.
+  `revert.sh` reuses that backup when it is there and writes
+  `/etc/fstab.pre-revert` when it is not -- two names on purpose, since a
+  backup taken mid-revert is not the pre-cllpse fstab (see *A rollback has to
+  read back the name the write path actually used*).
   It also bails out entirely when the machine mounts btrfs at mixed levels --
   that is a deliberate setup to leave alone, and a mixed reading is not
   something revert.sh could put back either.
@@ -2181,6 +2185,50 @@ outlier before the scene settled.
   defeated the `rmdir ~/.icons` below it, which cannot remove a non-empty
   directory. When a script grows a second output path, grep `revert.sh` for the
   first one before assuming it is covered.
+
+- **Three lists have to agree about the theme-set hooks, and nothing made
+  them.** Each `overrides/<app>/<app>.sh` symlinks its own hook into
+  `~/.config/omarchy/hooks/theme-set.d/`, `revert.sh` removes it, and
+  `hooks/post-update.d/cllpse-macos-repair.sh` re-links it after an
+  `omarchy update` repopulates that directory (Omarchy's territory -- see
+  *Hooks and plugins*). That is one set enumerated in three places, each
+  written next to a different concern, and two of them had silently fallen
+  behind: `revert.sh` removed six of seven (no `gh-dash-colors.sh`) and the
+  repair hook re-linked five (no `gh-dash-colors.sh`, no `ytm-player.sh`, and
+  not ytm's `themed/ytm-player.toml.tpl` either). Both failures invert the
+  script's own purpose rather than merely omitting something: a hook left
+  behind by revert still points into this repo, which revert does not delete,
+  so the next `omarchy theme set` -- any theme, not just ours -- repaints the
+  config revert just restored; and an update quietly stops two apps tracking
+  the theme while the other five self-heal. Same shape as the entry above, so
+  keep the check rather than the conclusion:
+
+  ```bash
+  cd overrides
+  inst=$(grep -rhoP 'ln -sfn "\$HERE/hooks/theme-set\.d/\K[a-z-]+\.sh' */*.sh | sort -u)
+  rep=$(grep -oP 'theme-set\.d/\K[a-z-]+\.sh' hooks/post-update.d/cllpse-macos-repair.sh | sort -u)
+  rev=$(grep -oP 'rm -f ~/\.config/omarchy/hooks/theme-set\.d/\K[a-z-]+\.sh' revert.sh | sort -u)
+  [[ $inst == "$rep" && $inst == "$rev" ]] && echo agree || printf '%s\n---\n%s\n---\n%s\n' "$inst" "$rep" "$rev"
+  ```
+
+  The template symlinks are **not** in that check and have to be eyeballed:
+  ytm is the only app whose hook needs a second link outside `theme-set.d/`
+  (`~/.config/omarchy/themed/ytm-player.toml.tpl`), which is exactly why it
+  was the one the repair hook missed.
+
+- **A rollback has to read back the name the write path actually used.**
+  `revert.sh`'s btrfs step backs `/etc/fstab` up only when `apply.sh`'s
+  `/etc/fstab.pre-cllpse` is absent -- and wrote that fresh backup as
+  `/etc/fstab.pre-revert`, while the `findmnt --verify` failure branch below
+  it restored from `.pre-cllpse`. So in the one branch where the backup was
+  taken, the rollback looked for a file that by construction did not exist,
+  guarded by `[[ -e ... ]] &&` so it failed silently and left the rejected
+  fstab in place -- the precise corruption the surrounding comments say the
+  step exists to prevent. The two names are still both right (a backup taken
+  mid-revert is not the pre-cllpse fstab and must not claim to be); what was
+  wrong was hardcoding one of them twice. It records the chosen path in a
+  variable now. Grep a recovery path for the literal it restores and check the
+  write path can actually produce it.
 
 - **A group granted by `usermod -aG` does not reach the session that granted
   it, a RELOGIN does not fix that, and `hl.dsp.exec_raw` hides the resulting

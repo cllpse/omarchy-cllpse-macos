@@ -225,12 +225,18 @@ if [[ -n $LOCAL_APPIMAGE ]]; then
 else
   IMG="$WORK/$ASSET_NAME"
   say "downloading $ASSET_NAME ($(( ASSET_SIZE / 1024 / 1024 )) MB)"
+  # -f only reacts to an HTTP status, so a peer that holds the socket open
+  # without sending bytes hangs here forever -- and this script is reached from
+  # apply.sh. A --max-time would have to be large enough for a slow line to
+  # fetch several hundred MB, which is no bound at all; cap the stall instead:
+  # give up after 60s below 1 KB/s.
+  _curl_limits=(--connect-timeout 30 --speed-limit 1024 --speed-time 60)
   # --progress-bar redraws with \r, which a pipe or a log turns into one very
   # long line of hashes. Only ask for it when stderr is a terminal.
   if [[ -t 2 ]]; then
-    curl -fL --progress-bar -o "$IMG" "$ASSET_URL" || die "download failed"
+    curl -fL --progress-bar "${_curl_limits[@]}" -o "$IMG" "$ASSET_URL" || die "download failed"
   else
-    curl -fsSL -o "$IMG" "$ASSET_URL" || die "download failed"
+    curl -fsSL "${_curl_limits[@]}" -o "$IMG" "$ASSET_URL" || die "download failed"
   fi
   got=$(stat -c %s "$IMG")
   (( got == ASSET_SIZE )) || die "size mismatch: expected $ASSET_SIZE bytes, got $got"

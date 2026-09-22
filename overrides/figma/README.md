@@ -28,6 +28,15 @@ it in `--all` would recurse. The picker passes `--no-apply` for the same reason.
 
 No sudo. Nothing is written outside `$HOME`.
 
+Step 4's download is bounded by a **stall**, not by a duration:
+`--connect-timeout 30 --speed-limit 1024 --speed-time 60`, i.e. give up after
+60s below 1 KB/s. `curl -f` only reacts to an HTTP status, so a peer that
+holds the socket open without sending bytes would otherwise hang here
+forever — and `apply.sh` can reach this script. A `--max-time` is the wrong
+bound: it would have to be generous enough for a slow line to pull several
+hundred MB, which is no bound at all. The two metadata calls above are small
+and fixed, so those do take `--max-time 30`.
+
 ## Upstream
 
 `IliyaBrook/figma-linux` — the official Figma Desktop Windows build, patched

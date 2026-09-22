@@ -171,6 +171,12 @@ restore ~/.config/lazydocker/config.yml
 restore ~/.config/gh-dash/config.yml
 restore ~/.config/Cursor/User/settings.json
 
+say "Removing gh-dash theme-set hook"
+[[ -L ~/.config/omarchy/hooks/theme-set.d/gh-dash-colors.sh ]] && rm -f ~/.config/omarchy/hooks/theme-set.d/gh-dash-colors.sh
+# config.yml is restored in the block above, but the symlink points into this
+# repo -- which revert.sh does not delete -- so leaving it behind means the
+# next `omarchy theme set` rewrites theme.colors and silently undoes that.
+
 say "Removing starship theme-set hook"
 [[ -L ~/.config/omarchy/hooks/theme-set.d/starship-colors.sh ]] && rm -f ~/.config/omarchy/hooks/theme-set.d/starship-colors.sh
 restore ~/.config/starship.toml
@@ -412,7 +418,15 @@ if [[ -s $STATE/previous-btrfs-compress ]]; then
   prev_compress="$(<"$STATE/previous-btrfs-compress")"
   if [[ $prev_compress =~ ^compress=zstd(:[0-9]+)?$ ]]; then
     say "restoring Btrfs compression in /etc/fstab: $prev_compress (needs sudo)"
-    [[ -e /etc/fstab.pre-cllpse ]] || sudo cp -a /etc/fstab /etc/fstab.pre-revert
+    # apply.sh's backup is the true pre-cllpse fstab, so never overwrite it;
+    # without one, back up the current file under its own name. Either way the
+    # rollback below has to read back the name that was actually written.
+    if [[ -e /etc/fstab.pre-cllpse ]]; then
+      _fstab_backup=/etc/fstab.pre-cllpse
+    else
+      _fstab_backup=/etc/fstab.pre-revert
+      sudo cp -a /etc/fstab "$_fstab_backup"
+    fi
     sudo sed -i -E "/^[^#]*[[:space:]]btrfs[[:space:]]/ s/compress=zstd(:[0-9]+)?/$prev_compress/g" /etc/fstab
     if findmnt --verify --fstab >/dev/null 2>&1; then
       while read -r mp; do
@@ -421,7 +435,7 @@ if [[ -s $STATE/previous-btrfs-compress ]]; then
       done < <(findmnt -t btrfs -no TARGET)
       rm -f "$STATE/previous-btrfs-compress"
     else
-      [[ -e /etc/fstab.pre-cllpse ]] && sudo cp -a /etc/fstab.pre-cllpse /etc/fstab
+      sudo cp -a "$_fstab_backup" /etc/fstab
       say "  findmnt --verify rejected the rewritten /etc/fstab — restored the backup"
     fi
   else
