@@ -2510,7 +2510,7 @@ clean install ended up identical.
 ## Still open
 
 - **The macOS-parity gap is audited but not implemented.**
-  [`reference/KEYBINDS-PARITY.md`](reference/KEYBINDS-PARITY.md) holds the diff
+  [`KEYBINDS-PARITY.md`](KEYBINDS-PARITY.md) holds the diff
   of the live bind set against Apple's own *Mac keyboard shortcuts* list:
   eleven chords that are free and unwired (full screen, lock, Character Viewer,
   Force Quit, the three screenshot chords, delete-word-left, paragraph

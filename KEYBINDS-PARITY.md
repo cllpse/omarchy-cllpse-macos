@@ -8,7 +8,7 @@ what is missing, what is blocked, and what was ruled out, so the next pass is a
 decision rather than a re-derivation.
 
 The chords that *are* implemented live in
-[`overrides/hypr/macos-shortcuts.lua`](../overrides/hypr/macos-shortcuts.lua),
+[`overrides/hypr/macos-shortcuts.lua`](overrides/hypr/macos-shortcuts.lua),
 and the *why* of each one lives in that file's comments. This document does not
 restate them; it covers the gap.
 

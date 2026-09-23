@@ -192,6 +192,10 @@ omarchy-cllpse-plugin-switcher/  SUBMODULE -> cllpse/omarchy-cllpse-plugin-switc
                           its own. apply.sh symlinks it into ~/.config/omarchy/plugins/
 reference/                BUILD.md (the spec) + window-switcher-notes.md (the plugin's
                           design log) + fonts.conf (BUILD's original, superseded)
+KEYBINDS-PARITY.md        the macOS keyboard gap: Apple's own shortcut list diffed against
+                          the live bind set — what is free and unwired, what the keyboard's
+                          firmware blocks, and what was ruled out. Nothing in it is
+                          implemented; it exists so the next pass is a decision
 CLAUDE.md                 Omarchy's own mechanics and the traps already hit — written for
                           an agent working in here, but it is the densest reference in the
                           repo and worth reading before changing anything
