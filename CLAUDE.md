@@ -2509,6 +2509,18 @@ clean install ended up identical.
 
 ## Still open
 
+- **The macOS-parity gap is audited but not implemented.**
+  [`reference/KEYBINDS-PARITY.md`](reference/KEYBINDS-PARITY.md) holds the diff
+  of the live bind set against Apple's own *Mac keyboard shortcuts* list:
+  eleven chords that are free and unwired (full screen, lock, Character Viewer,
+  Force Quit, the three screenshot chords, delete-word-left, paragraph
+  jump/select, Save As, paste-and-match-style), one blocked by the Preonic's
+  firmware rather than by the desktop (Cmd+Up/Down), and the families ruled out.
+  It also records the two findings that are not chords: **this machine has no
+  screenshot keybind at all** (the allowlist prunes `PRINT`), and SUPER+SHIFT+Q
+  is macOS's Log Out, which the close-every-window sweep took knowingly. Read
+  it before re-deriving any of that, and keep the open list there rather than in
+  `keybind-allowlist.conf`.
 - `revert.sh`'s restore paths have unit-tested helpers but have never been run
   end-to-end; that needs a spare machine or VM, not this one.
 - Whether Hyprland's `input.scroll_factor` reaches an Electron client at all is

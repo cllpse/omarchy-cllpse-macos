@@ -33,6 +33,11 @@ diffed against the author's bind set, not its own — see the file's header.
 
 ## 3. macOS-parity shortcuts
 
+What is *not* bound, and why, is audited in
+[`../../reference/KEYBINDS-PARITY.md`](../../reference/KEYBINDS-PARITY.md)
+against Apple's own shortcut list — including the chords that look taken in
+Omarchy's bindings but are free here because the allowlist prunes them.
+
 macOS-parity shortcuts. Must be synced AFTER keybind-unbinds.lua above:
 some of these repurpose a combo (SUPER+LEFT/RIGHT, SUPER+SHIFT+LEFT/RIGHT)
 that the allowlist diff just unbound from its old WM meaning -- these
