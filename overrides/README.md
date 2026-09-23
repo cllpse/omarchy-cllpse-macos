@@ -523,7 +523,7 @@ hypr/keybind-scan.lua         sandboxes hyprland.lua to enumerate every live bin
 hypr/keybind-allowlist.conf   seeded once from that scan, then user-owned -- delete a line to unbind it
 hypr/keybind-unbinds.lua      generated every apply from the allowlist (gitignored)
 hypr/keybind-current.conf     generated every apply, the raw scan before allowlist diffing (gitignored)
-hypr/macos-shortcuts.lua      word/line nav, close/undo/redo/save/quit synthesized as Cmd-style chords
+hypr/macos-shortcuts.lua      word/line nav, close tab / window / whole app, undo/redo/save as Cmd-style chords
 hypr/window-management-mod.lua  window nav/arrangement moved SUPER -> CTRL+ALT (Preonic firmware workaround)
 hypr/input-tuning.lua         mouse sensitivity/accel + follow_mouse = 2 (scroll-under-cursor, click-to-focus) + wheel scroll_factor 1.5, trackpad 0.35
 hypr/looknfeel-decoration.lua rounding 18 / rounding_power 2.05 (a hair off a plain arc) / border_part_of_window true / blur / border_size 2 / gaps 12,24 / groupbar off / window opacity 0.99 0.875 (the focused 1% is ~60% of the blur cost, kept deliberately; Figma fully opaque) / 3x animations, floor 1 / layer_rule blur on shell surfaces

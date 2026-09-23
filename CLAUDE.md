@@ -979,8 +979,12 @@ accelerator on Linux at all.** Read out of `app.asar`'s own menu table —
 `"CommandOrControl+Shift+W":"Close"`, but `"Command+Q":"Quit"` — which means the
 Ctrl+Q the `[figma:C]` layer used to hand it landed on nothing whatsoever. Not a
 chord Figma chose to ignore: one it never had. So `q = M-q` joins `tab = M-tab`
-as a carve-out and SUPER+Q reaches Hyprland, whose bind closes every window
-sharing the focused class — what quitting Figma means to this compositor.
+as a carve-out and SUPER+Q reaches Hyprland, whose bind closes the focused
+window. Quitting Figma outright is SUPER+SHIFT+Q, which needs no second
+carve-out: keyd(1) says "bindings are not affected by the modifiers of the
+layer in which they are defined … shift+capslock+j will produce shift+down as
+expected", so the held Shift passes through `q = M-q` and the chord arrives
+whole.
 
 **Cmd+W is deliberately *not* carved out**, and the same file says why:
 `CommandOrControl+W` → `closeActiveTab` is registered, through a menu that is
@@ -989,7 +993,24 @@ the plain `:C` fallthrough already delivers the exact chord Hyprland's own
 SUPER+W would have synthesized. A carve-out would add a compositor round-trip
 to arrive at the same Ctrl+W. Note the asymmetry this leaves: SUPER+W closes the
 Figma **tab**, not the window — `closeActiveTab` on the last tab does not close
-the window, and `CmdOrCtrl+Shift+W` is the entry that does.
+the window, and `CmdOrCtrl+Shift+W` is the entry that does. **SUPER+SHIFT+W is
+what settles that**, and needs no carve-out either: the layer hands Figma a real
+Ctrl+Shift+W, which is exactly that entry, while everywhere else the same chord
+is `macos-shortcuts.lua`'s own `hl.dsp.window.close()` on the focused window.
+
+**The close ladder is three chords, and SUPER+Q has been two of them.** It is
+SUPER+W for a tab, SUPER+Q (and its synonym SUPER+SHIFT+W) for **this window**,
+SUPER+SHIFT+Q for every window of the class. Q shipped as the window (`0b0f99a`),
+was promoted to the class-wide sweep two days later (`8eac53a`) on the grounds
+that Cmd+Q quits the app rather than the window, and was put back deliberately —
+so don't re-derive the macOS reading and flip it a third time. What the literal
+reading cost was a chord for "drop one window of a multi-window app": there
+wasn't one. Cursor is why, and the same `8eac53a` comment is why nobody saw it —
+it justified the sweep with "Ctrl+W is close this tab, or the window if it's the
+last one, in essentially every GUI app — Chromium, Nautilus, **Cursor**", and
+Cursor is the one app in that list where Ctrl+W walks the editor tabs one at a
+time and reaches the window only once the last one is gone. The claim has been
+corrected in the file.
 
 The accepted cost: while Figma is focused Hyprland never sees SUPER, so
 `SUPER + SPACE` and any other uncarved chord do nothing there. `WM_MOD` is untouched (it is
@@ -1883,7 +1904,7 @@ and the original is kept in prose as provenance. Don't leave the two out of sync
   window, because a bare `close()` closes that one anyway; the bug only shows
   up on a window that isn't focused. An unresolvable selector is inert rather
   than falling back to the active window (checked with `address:0xdeadbeef`
-  against a focused canary), which is what makes the SUPER+Q sweep in
+  against a focused canary), which is what makes the SUPER+SHIFT+Q sweep in
   `overrides/hypr/macos-shortcuts.lua` safe to run as a loop. Its companion
   `hl.get_windows({ class = … })` matches the class **exactly**, not as a
   regex — `"ghost"`, `".*ghostty.*"` and `"^chromium$"` all return 0 against
@@ -2043,8 +2064,8 @@ outlier before the scene settled.
 - **A Lua table key assigned `nil` is not stored, so `{ class = x }` with a nil
   `x` is `{}` — an EMPTY filter, which matches everything.** `hl.get_windows({
   class = active.class })` in `macos-shortcuts.lua` is the live example: with a
-  classless focused window that is `hl.get_windows({})`, and the SUPER+Q loop
-  that follows would have closed every window on every workspace. Guard the
+  classless focused window that is `hl.get_windows({})`, and the SUPER+SHIFT+Q
+  loop that follows would have closed every window on every workspace. Guard the
   value before it reaches the table, not the table afterwards. This is the
   mirror image of the exact-match note below it — the filter being strict is
   what makes a *populated* table safe, and says nothing about an empty one.

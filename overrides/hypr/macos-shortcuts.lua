@@ -103,9 +103,12 @@ o.bind("SUPER + SHIFT + RIGHT", "Select to line end (Cmd+Shift+Right)", send_sho
 -- Close/undo/redo/save -- terminal-guarded, see the note above.
 
 -- Cmd+W. Ctrl+W is "close this tab, or the window if it's the last one" in
--- essentially every GUI app -- Chromium, Nautilus, Cursor -- but in a shell it
--- is the readline word-erase, which is why this used to do nothing at all in a
--- terminal. Doing nothing was never right: terminals do have a close-tab
+-- most GUI apps -- Chromium and Nautilus both -- but in a shell it is the
+-- readline word-erase, which is why this used to do nothing at all in a
+-- terminal. (This line used to name Cursor in that list and was wrong to:
+-- Ctrl+W there closes one editor tab at a time and reaches the window only
+-- once the last one is gone. That error is what hid the missing close-window
+-- chord -- see the Cmd+Q note below.) Doing nothing was never right: terminals do have a close-tab
 -- chord, it just isn't Ctrl+W. Ghostty binds Ctrl+Shift+W to
 -- `close_tab:this` and kitty binds it to `close_window` (its word for a
 -- split), both of which fall through to closing the OS window when it is the
@@ -118,6 +121,38 @@ o.bind("SUPER + SHIFT + RIGHT", "Select to line end (Cmd+Shift+Right)", send_sho
 -- overrides/ghostty/ghostty.conf purely to synthesize it back. Not worth a
 -- second moving part unless closing individual splits turns out to matter.
 o.bind("SUPER + W", "Close tab/window (Cmd+W)", terminal_aware("CTRL", "W", "CTRL SHIFT", "W"))
+
+-- Cmd+Shift+W: close this window. A SYNONYM for SUPER + Q below, deliberately
+-- kept rather than tidied away once Q went back to meaning the window. It is
+-- the chord a tabbed app's muscle memory reaches for -- read out of the
+-- installed bundle, Cursor's own action table registers Close Window as mac
+-- `Cmd+Shift+W` (linux `Alt+F4`, with `Ctrl+Shift+W` as a secondary) -- and it
+-- is the one of the two that survives the keyd layer in Figma, where the layer
+-- hands Figma a real Ctrl+Shift+W and its own menu table answers that with
+-- `Close`, the window `closeActiveTab` never closes. Two routes to one result:
+-- this chord through the app, SUPER + Q through the compositor.
+--
+-- hl.dsp.window.close(), not a synthesized Ctrl+Shift+W, for the same reason
+-- Cmd+Q below is a close request rather than a Ctrl+Q: the compositor's polite
+-- close is what every app already answers, so this needs no chord bound
+-- app-side, and it means the WINDOW regardless of what the app's own close
+-- chord walks through first. Ctrl+Shift+W is also already spoken for here --
+-- SUPER + W forwards it to a terminal as close_tab:this -- so synthesizing it
+-- would be the one chord that collides with an existing bind. Same request as
+-- clicking the window's own close button, so an app with unsaved work still
+-- gets to prompt.
+--
+-- No terminal guard, for the same reason Cmd+Q has none: a compositor close
+-- request is not one of the destructive control characters send_shortcut_once
+-- forwards. In a terminal it takes the window and its tabs with it, which is
+-- what Cmd+Shift+W does in Terminal.app.
+--
+-- It also settles the asymmetry SUPER + W leaves in Figma (see
+-- ../keyd/default.conf): there `closeActiveTab` never closes the window, not
+-- even on the last tab, and this is the chord that does.
+o.bind("SUPER + SHIFT + W", "Close window (Cmd+Shift+W)", function()
+  hl.dispatch(hl.dsp.window.close())
+end)
 o.bind("SUPER + Z", "Undo (Cmd+Z)", unless_terminal("CTRL", "Z"))
 o.bind("SUPER + SHIFT + Z", "Redo (Cmd+Shift+Z)", unless_terminal("CTRL SHIFT", "Z"))
 o.bind("SUPER + S", "Save (Cmd+S)", unless_terminal("CTRL", "S"))
@@ -159,25 +194,52 @@ o.bind("SUPER + N", "New window (Cmd+N)", send_shortcut_once("CTRL", "N"))
 o.bind("SUPER + P", "Print / Quick Open (Cmd+P)", send_shortcut_once("CTRL", "P"))
 o.bind("SUPER + SHIFT + P", "Command palette (Cmd+Shift+P)", send_shortcut_once("CTRL SHIFT", "P"))
 
--- Quit (Cmd+Q). NOT a synthesized Ctrl+Q -- most Linux apps (Chrome, Cursor)
--- don't bind it at all, so it silently did nothing. window.kill() was the
--- other candidate but is a hard kill: confirmed live (killed a focused
--- Figma window in under a second) that it gives the app no chance to
--- intercept and prompt "save changes?" -- unacceptable given how much of
--- this workflow lives in terminals that would die instantly and silently.
--- window.close() sends the same polite close request as clicking the
--- window's own close button, which is what apps actually listen for to
--- show that prompt. No terminal guard needed: this is the same graceful
--- request already used elsewhere, not one of the harmful control
--- characters send_shortcut_once forwards for the others above.
+-- Cmd+Q. NOT a synthesized Ctrl+Q -- most Linux apps (Chrome, Cursor) don't
+-- bind it at all, so it silently did nothing. window.kill() was the other
+-- candidate but is a hard kill: confirmed live (killed a focused Figma window
+-- in under a second) that it gives the app no chance to intercept and prompt
+-- "save changes?" -- unacceptable given how much of this workflow lives in
+-- terminals that would die instantly and silently. window.close() sends the
+-- same polite close request as clicking the window's own close button, which
+-- is what apps actually listen for to show that prompt. No terminal guard
+-- needed: this is the same graceful request already used elsewhere, not one of
+-- the harmful control characters send_shortcut_once forwards for the others
+-- above.
 --
--- Cmd+Q quits the *app*, not the window -- that is the whole distinction
--- from Cmd+W above -- so this closes every window sharing the focused
--- window's class, on every workspace, not just the focused one. Hyprland has
--- no "quit application" dispatcher, but hl.get_windows() plus a close per
--- address is the same thing: each window still receives its own polite
--- request, so an app with unsaved work still gets to prompt, per window,
--- exactly as if you had clicked each close button.
+-- This closes the FOCUSED WINDOW ONLY, and that is a decision taken twice --
+-- read it before changing it back on the strength of "but Cmd+Q quits the
+-- app". The bind shipped exactly like this first (0b0f99a), was promoted to a
+-- class-wide sweep two days later (8eac53a) on precisely that reasoning, and
+-- has now been put back on purpose. The sweep is not gone, it moved one chord
+-- over to SUPER + SHIFT + Q below; what changed is which of the two sits on
+-- the key that gets hit by reflex.
+--
+-- Cursor is what decided it. With Q meaning the app there was no chord at all
+-- for "drop one of these windows": Ctrl+W in Cursor walks the editor tabs one
+-- at a time and only reaches the window once the last one is gone, so the only
+-- way out was Cmd+Q, taking every other instance with it. The comment 8eac53a
+-- wrote to justify the sweep -- "Ctrl+W is close this tab, or the window if
+-- it's the last one, in essentially every GUI app -- Chromium, Nautilus,
+-- Cursor" -- names in its own list the one app that breaks it, which is why
+-- the gap read as covered for four weeks instead of as a bug.
+o.bind("SUPER + Q", "Close window (Cmd+Q)", function()
+  hl.dispatch(hl.dsp.window.close())
+end)
+
+-- Cmd+Shift+Q: every window of the app, on every workspace -- what Cmd+Q did
+-- here until now, and what macOS itself spells Cmd+Option+W ("Close All
+-- Windows"). Kept on a Q chord rather than moved to that one because it reads
+-- as an escalation of the key beside it: Q closes this window, Shift+Q closes
+-- all of them. Hyprland has no "quit application" dispatcher, but
+-- hl.get_windows() plus a close per address is the same thing: each window
+-- still receives its own polite request, so an app with unsaved work still
+-- gets to prompt, per window, exactly as if you had clicked each close button.
+--
+-- It needs no keyd carve-out in Figma either, and that is documented rather
+-- than assumed: keyd(1) says "bindings are not affected by the modifiers of
+-- the layer in which they are defined ... shift+capslock+j will produce
+-- shift+down as expected", so the `q = M-q` carve-out in [figma:C] passes a
+-- held Shift through and Hyprland sees SUPER + SHIFT + Q.
 --
 -- Grouping is by class rather than pid, which is what macOS means by "the
 -- app": two separately launched instances of the same program quit together.
@@ -207,8 +269,8 @@ o.bind("SUPER + SHIFT + P", "Command palette (Cmd+Shift+P)", send_shortcut_once(
 -- string is the same hazard one step milder: it exact-matches every classless
 -- window rather than the focused app. Neither can reach the sweep; both fall
 -- back to the plain dispatcher, which closes the focused window and nothing
--- else -- the same fallback the empty-list race below already uses.
-o.bind("SUPER + Q", "Quit app (Cmd+Q, all its windows)", function()
+-- else -- the same fallback the empty-list race above already uses.
+o.bind("SUPER + SHIFT + Q", "Close every window of the app (Cmd+Shift+Q)", function()
   local active = hl.get_active_window()
   if not active then
     return

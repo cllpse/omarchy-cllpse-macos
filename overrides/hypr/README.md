@@ -71,8 +71,12 @@ yours from then on — delete a line to have the next apply unbind it;
 `keybind-unbinds.lua` is regenerated from the current allowlist on every
 apply, so an Omarchy update that adds new default binds gets pruned too,
 without reseeding. `macos-shortcuts.lua` (word/line navigation,
-close/undo/redo/save, quit — synthesized via `send_key_state`, guarded off
-inside terminals where forwarding Ctrl+Z/W/S would be destructive) and
+close tab/undo/redo/save — synthesized via `send_key_state`, guarded off
+inside terminals where forwarding Ctrl+Z/W/S would be destructive — plus the
+close ladder above the tab, which is graceful `hl.dsp.window.close()` requests
+rather than synthesized chords and so needs no guard: `SUPER+Q` (and its
+synonym `SUPER+SHIFT+W`) closes the focused window, `SUPER+SHIFT+Q` closes
+every window of its class) and
 `window-management-mod.lua` (window nav/arrangement moved `SUPER` →
 `CTRL+ALT`, working around the Preonic firmware's key overrides suppressing
 `SUPER` on the keys they trigger on) are synced in *after* the unbinds, so
