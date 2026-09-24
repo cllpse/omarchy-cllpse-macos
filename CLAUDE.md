@@ -474,40 +474,65 @@ The lookup is only as good as the entry's `StartupWMClass`, which is why the
 correction above is load-bearing rather than cosmetic.
 
 **The switcher has a pointer trigger now, and a mouse polling rate is not an
-event rate.** A one-pixel-wide layer surface (`omarchy-window-switcher-edge`)
-is pinned to the left edge for the whole session; crossing into it opens the
-strip with no key held. Nothing polls -- the compositor sends one
+event rate.** Four one-pixel layer surfaces (`omarchy-window-switcher-corner`),
+one per corner of the output, are mapped for the whole session; crossing into
+one opens the strip with no key held. Nothing polls -- the compositor sends one
 `wl_pointer.enter`. Measured against the 8000Hz mouse on this machine, because
 "won't 8kHz cost something" is the obvious objection and the answer is no: a
 polling rate is reports *while the mouse moves*, so a cursor **parked** on the
-strip for 32s produced **~0 motion events**, and a cursor **sliding** along it
+trigger for 32s produced **~0 motion events**, and a cursor **sliding** along it
 produced ~500/s at **under 10ms of client CPU across ~2500 events** (<4us
-each). Don't re-derive this by reasoning from the rate.
+each). Those two were measured while this was a full-height left edge, so they
+are an upper bound on four single pixels. Don't re-derive this by reasoning from
+the rate.
 
-Four things about it are load-bearing rather than tidy, all measured:
+**It WAS the whole left edge (2.1.0), and the corners are that trigger with the
+accidents taken out** -- an edge is crossed by every gesture that overshoots
+something near it, a window's left side, a scrollbar, a tab strip, so it opened
+the switcher over work aimed somewhere else. Don't "restore" the edge on the
+grounds that one pixel is easier to hit along 1280 of them than at 4: the clamp
+below is what makes either catchable, and it works in a corner too.
 
-- **One pixel is enough only because it is an EDGE.** Hyprland clamps the
-  cursor to the output -- a warp to `x = -9999` lands at `0, 400` -- so a fast
-  flick cannot overshoot it. The same one-pixel line anywhere else on screen
-  would be missed by exactly the fast gesture people use.
-- **The HUD's input region stops one pixel short of it, or dismissing is a
+Five things about it are load-bearing rather than tidy, all measured:
+
+- **One pixel is enough only because it is CLAMPED.** Hyprland pins the cursor
+  to the output, and in a corner it pins both axes at once -- on this 3072x1280
+  logical output a warp to `99999, 99999` lands at `3071, 1279`, and one to
+  `-9999, -9999` at `0, 0` -- so a fast throw cannot overshoot. The same pixel
+  anywhere else on screen would be missed by exactly the fast gesture people
+  use. (The measurement is worth repeating rather than reasoning about: a first
+  pass read `3070, 1277` and `3066, 0`, which is the physical mouse drifting
+  under the user's hand between the warp and the read, not the clamp.)
+- **The HUD's input region subtracts those four pixels, or dismissing is a
   reopen loop.** Wayland delivers pointer events to exactly one surface, so a
-  full-screen HUD takes focus off the strip when it maps and hands it *back* on
+  full-screen HUD takes focus off the corner when it maps and hands it *back* on
   dismiss as a fresh `entered`, with the cursor never having moved. Same reason
-  the strip stays **mapped** rather than following `opened`: a surface that
+  the corners stay **mapped** rather than following `opened`: a surface that
   remaps under a stationary cursor gets a fresh `entered` too. With the cut-out
-  there is no latch and no settle timer, and dismissing at `0, 640` stayed
-  dismissed 3.5s later while moving away and back reopened it.
-- **`exclusionMode: ExclusionMode.Ignore`**, or the column is reserved and every
-  window on the output shifts one pixel right. Verified: windows stayed at
-  `x = 26` with the strip mapped. That 26 is also why the strip costs nothing --
-  `gaps_out` (24) + `border_size` (2) means only the wallpaper is under it.
+  there is no latch and no settle timer -- verified after the change by
+  committing with the cursor still parked in the bottom-right corner: closed,
+  and still closed a second later.
+- **Subtracted, not inset.** `Region` takes child regions with
+  `intersection: Intersection.Subtract`, so the HUD gives up exactly the four
+  hot pixels. A 1px frame (`anchors.*Margin`) would clear the corners too and
+  is one line shorter, but every other pixel of that frame would then be a place
+  where clicking beside the card failed to dismiss it.
+- **`exclusionMode: ExclusionMode.Ignore`**, or the pixel is reserved and every
+  window on the output shifts. Verified while this was an edge: windows stayed
+  at `x = 26` with the strip mapped. That 26 is also why the trigger costs
+  nothing -- `gaps_out` (24) + `border_size` (2) means only the wallpaper is
+  under it, corners included (`hyprctl clients` puts every window at `26, 26`).
 - **`Hyprland.focusedWorkspace.hasFullscreen` is the fullscreen guard, and it is
   the prompter of the two live sources.** Across a toggle it already read `true`
   when the matching `fullscreen>>1` raw event ran, while
   `ToplevelManager.activeToplevel.fullscreen` still read `false` and caught up a
   beat later. Read as a function, not bound, so it doesn't matter whether the
   property carries a change notification.
+
+The four surfaces are one `Variants` delegate, not four blocks: the only thing
+that differs is which pair of edges each anchors to. `hyprctl layers` is how you
+check they are all there -- on 4.0.4 it prints them as `0 0 1 1`, `3071 0 1 1`,
+`0 1279 1 1`, `3071 1279 1 1`.
 
 Since app icons are never recoloured, a file dropped there has a **fixed**
 colour and would not survive a light/dark switch — which is why the rendering is

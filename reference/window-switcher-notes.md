@@ -44,17 +44,17 @@ tests drive, and what any other caller would use.
 ## Input
 
 The surface is a full-screen layer surface whose input region is **everything
-but the leftmost pixel column**, so it takes every click while it is up: one on
+but the four corner pixels**, so it takes every click while it is up: one on
 a tile focuses that window, one beside the card dismisses the strip. Eating
 clicks is only a hazard for a surface that is up when you are not looking at it,
 and `visible: root.opened` means this one never is. (It was masked to the card
 once — `mask: Region { item: card }`, the idiom Omarchy uses for notification
 toasts. Toasts are passive and long-lived; a switcher is modal for the moment it
-is on screen. It was then unmasked entirely, which is what the cut-out below
-walked back by one pixel.)
+is on screen. It was then unmasked entirely, which is what the cut-outs below
+walked back by four pixels.)
 
-**That one-pixel cut-out is what the left-edge trigger rests on**, and it is not
-cosmetic — see *The left screen edge* below.
+**Those four cut-outs are what the corner trigger rests on**, and they are not
+cosmetic — see *The screen corners* below.
 
 **Getting the press here at all took a change on the compositor side.**
 Hyprland resolves mouse *binds* before handing a button to a layer surface, so
@@ -94,53 +94,80 @@ cursor yanking the keyboard's selection.
 The `MouseArea` carries `cursorShape`: a pointing hand over the tiles, closing
 on one while it is being dragged.
 
-## The left screen edge
+## The screen corners
 
-A second layer surface, one logical pixel wide and the full height of the
-output, pinned to the left edge with `exclusionMode: ExclusionMode.Ignore` and
-its own namespace (`omarchy-window-switcher-edge`). Crossing into it calls
+Four more layer surfaces, one logical pixel square, one in each corner of the
+output, each with `exclusionMode: ExclusionMode.Ignore` and their own namespace
+(`omarchy-window-switcher-corner`). Crossing into one calls
 `open('{"action":"show"}')`. Nothing polls: the compositor sends one
-`wl_pointer.enter` when the cursor crosses in.
+`wl_pointer.enter` when the cursor crosses in. They are one `Variants` delegate
+rather than four blocks — the only thing that differs between corners is which
+pair of edges it anchors to — and `hyprctl layers` is how you check all four
+mapped: `0 0 1 1`, `3071 0 1 1`, `0 1279 1 1`, `3071 1279 1 1` on this output.
+
+**It was the whole left edge first (2.1.0), and the corners are that trigger
+with the accidents taken out.** An edge is crossed by every gesture that
+overshoots something near it — a window's left side, a scrollbar, a tab strip —
+so it kept opening the switcher over work that was aimed somewhere else. A
+corner is a place the pointer only reaches on purpose, and by the clamp below it
+is no harder to hit. Both halves of that are the reason not to walk it back.
 
 **A polling rate is not an event rate, and that is the whole answer to "won't an
 8kHz mouse cost something".** A rate is reports *while the mouse moves*. Measured
-on the 8000Hz mouse on this machine:
+on the 8000Hz mouse on this machine, while the trigger was still a full-height
+edge — so these are an upper bound on four single pixels:
 
 | | |
 |---|---|
-| cursor parked on the strip, 32s | **~0 motion events** |
-| cursor sliding along the strip | ~500 events/s |
+| cursor parked on the trigger, 32s | **~0 motion events** |
+| cursor sliding along it | ~500 events/s |
 | client CPU, ~2500 events | **under 10ms** — under 4µs each |
 
-So the idle case — a pointer resting against the edge — is free, and the moving
-case is a few percent of one core for the fraction of a second the pointer is
-physically against the edge.
+So the idle case — a pointer resting in a corner — is free, and the moving case
+is a few percent of one core for the fraction of a second the pointer is
+physically on it.
 
-**One pixel is enough because it is an edge.** Hyprland clamps the cursor to the
-output, so a fast flick cannot overshoot it: warping to `x = -9999` lands at
-`0, 400`, inside the strip, however fast the pointer was travelling. The same
-one-pixel line drawn anywhere else on screen would be missed by exactly the fast
-gesture people use.
+**One pixel is enough because the cursor is clamped, and in a corner it is
+clamped on both axes at once.** Hyprland pins the cursor to the output, so a
+fast throw cannot overshoot: on this 3072×1280 logical output a warp to
+`99999, 99999` lands at `3071, 1279` — inside the bottom-right pixel — and one
+to `-9999, -9999` lands at `0, 0`, however fast the pointer was travelling. The
+same pixel anywhere else on screen would be missed by exactly the fast gesture
+people use.
 
-**The HUD must leave that column out of its own input region, or dismissing
-becomes a reopen loop.** Wayland delivers pointer events to exactly one surface.
-If the HUD covered `x = 0` it would take pointer focus off the strip the moment
-it mapped — and hand it *back* on dismiss, as a fresh `entered`, with the cursor
-never having moved. Every version of that needs either a latch that can tell a
-real crossing from a remap, or a settle timer. Leaving the column alone means
-the strip keeps focus throughout, no second `entered` is ever generated, and
-dismissing with the cursor still against the edge simply stays dismissed
-(verified: dismissed at `0, 640`, still closed 3.5s later; moved away and back,
-it opened again). The strip carries the click-away for its own column so nothing
-is lost.
+Take that measurement rather than reasoning about it, and take it twice: a first
+pass here read `3070, 1277` and `3066, 0`, which is not the clamp but the
+physical mouse drifting a few pixels under the user's hand between the warp and
+the `hyprctl cursorpos` that followed. Warp and read back-to-back, repeatedly,
+and the numbers land on the last pixel every time.
 
-For the same reason the strip is **mapped for the whole session**, not bound to
-`opened`. A surface that unmaps and remaps gets a fresh `entered` the moment it
-comes back under a stationary cursor.
+**The HUD must leave those four pixels out of its own input region, or
+dismissing becomes a reopen loop.** Wayland delivers pointer events to exactly
+one surface. If the HUD covered a corner it would take pointer focus off that
+corner's surface the moment it mapped — and hand it *back* on dismiss, as a
+fresh `entered`, with the cursor never having moved. Every version of that needs
+either a latch that can tell a real crossing from a remap, or a settle timer.
+Leaving the pixels alone means the corner keeps focus throughout, no second
+`entered` is ever generated, and dismissing with the cursor still parked in the
+corner simply stays dismissed (verified after the change: committed with the
+cursor in the bottom-right pixel, closed, and still closed a second later).
+Each corner carries the click-away for its own pixel so nothing is lost.
+
+**Subtracted, not inset.** The mask is `Region { item: hudInput }` with four
+children at `intersection: Intersection.Subtract`, so the HUD gives up exactly
+the hot area. Insetting the whole input region by one pixel (`anchors.*Margin`
+on `hudInput`, which is what the left-edge version did with `leftMargin`) is
+shorter and would clear the corners too, but it would also make every other
+pixel of that frame a place where clicking beside the card did not dismiss it.
+
+For the same reason the corners are **mapped for the whole session**, not bound
+to `opened`. A surface that unmaps and remaps gets a fresh `entered` the moment
+it comes back under a stationary cursor.
 
 **`exclusionMode: ExclusionMode.Ignore` is load-bearing**, not tidiness: an
-exclusive zone here would reserve the column and shove every window on the output
-one pixel right. Verified — with the strip mapped, windows stayed at `x = 26`.
+exclusive zone here would reserve the pixel and shove every window on the output
+across. Verified while this was an edge — with the strip mapped, windows stayed
+at `x = 26`.
 
 It opens with a step of **zero**, so `_openStepped(0)` lands on `_activeIndex()`
 and the window you are already in is highlighted. A TAB's step *is* the gesture;
@@ -150,18 +177,18 @@ nothing. Routing it through `open()` rather than calling `_openStepped()`
 directly is what gets it the cold path for free.
 
 **The guard is `Hyprland.focusedWorkspace.hasFullscreen`, read as a function.**
-A fullscreen window is the one case where something real is drawn under the
-strip — Omarchy's `gaps_out` (24) plus `border_size` (2) put the nearest window
-edge at `x = 26`, so ordinary windows never reach it — and the one case where a
-switcher appearing because the pointer drifted left is actively unwanted. Both
-that property and `ToplevelManager.activeToplevel.fullscreen` are live, but they
-are not equally prompt: across a fullscreen toggle `hasFullscreen` was already
-`true` by the time the matching `fullscreen>>1` raw event ran, while the
+A fullscreen window is the one case where something real is drawn under a corner
+— Omarchy's `gaps_out` (24) plus `border_size` (2) put every window at `26, 26`,
+so ordinary windows never reach one — and the one case where a switcher
+appearing because the pointer was thrown into a corner is actively unwanted.
+Both that property and `ToplevelManager.activeToplevel.fullscreen` are live, but
+they are not equally prompt: across a fullscreen toggle `hasFullscreen` was
+already `true` by the time the matching `fullscreen>>1` raw event ran, while the
 toplevel property still read `false` and caught up afterwards. Reading it as a
 function rather than binding it means it does not matter whether the property
 carries a change notification.
 
-The keyboard path is untouched by all of this: opened from the edge there is no
+The keyboard path is untouched by all of this: opened from a corner there is no
 key held, so the Lua `ws_watching` poll never starts and Omarchy's
 `SUPER + mouse:272` bind is never stood down. It does not need to be — there is
 no SUPER in the gesture, so a plain click reaches the surface anyway.

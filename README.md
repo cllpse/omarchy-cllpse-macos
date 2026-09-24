@@ -247,26 +247,30 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   (all 1.0) so the dimmed backdrop stays sharp — the windows being switched
   between remain readable. With every card opaque the blur is currently inert;
   the rule is kept so it returns if an alpha is lowered again. Additive to Omarchy's own `no_anim` layer rules.
-- **The window switcher opens from the left screen edge as well as `SUPER+TAB`.**
-  The plugin pins a one-pixel layer surface (`omarchy-window-switcher-edge`) to
-  the left edge for the whole session; crossing into it opens the strip with no
-  key held, and a click chooses. Opened that way nothing is pre-selected — the
-  strip opens on the window you are already in, because a `TAB`'s step is the
-  gesture while a pointer's is the click that follows. Nothing polls: the
-  compositor sends one `wl_pointer.enter` per crossing, and **a mouse polling
-  rate is not an event rate** — 8000Hz is reports *while the mouse moves*, so a
-  cursor parked against the edge produced ~0 events over 32s, and sliding along
-  it ~500/s at under 4µs of client CPU each. One pixel is enough only because
-  Hyprland clamps the cursor to the output (a warp to `x = -9999` lands at
-  `0,400`), so a fast flick cannot overshoot it; the same line drawn anywhere
-  else on screen would be missed by exactly that gesture. Two costs, both
-  deliberate: the leftmost pixel column no longer passes clicks through — with
-  `gaps_out = 24` plus a 2px border the nearest window edge is at `x = 26`, so
-  what is behind it is the wallpaper — and the trigger stands down while a
-  window on the focused workspace is fullscreen, so a video or a game cannot be
-  interrupted by the pointer drifting left. The HUD's own input region stops one
-  pixel short of the strip, which is what lets this work with no re-arm latch;
-  the mechanism is in
+- **The window switcher opens from any screen corner as well as `SUPER+TAB`.**
+  The plugin maps four one-pixel layer surfaces
+  (`omarchy-window-switcher-corner`), one per corner of the output, for the
+  whole session; crossing into one opens
+  the strip with no key held, and a click chooses. Opened that way nothing is
+  pre-selected — the strip opens on the window you are already in, because a
+  `TAB`'s step is the gesture while a pointer's is the click that follows.
+  Nothing polls: the compositor sends one `wl_pointer.enter` per crossing, and
+  **a mouse polling rate is not an event rate** — 8000Hz is reports *while the
+  mouse moves*, so a cursor parked on the trigger produced ~0 events over 32s,
+  and sliding along it ~500/s at under 4µs of client CPU each. One pixel is
+  enough only because Hyprland clamps the cursor to the output, in a corner on
+  both axes at once (a warp to `99999,99999` lands at `3071,1279` on this
+  3072×1280 logical output), so a fast throw cannot overshoot it; the same pixel
+  anywhere else on screen would be missed by exactly that gesture. This was the
+  whole left edge first, and the corners are the same gesture with the accidents
+  taken out — an edge is crossed by anything that overshoots a window's left
+  side, a scrollbar or a tab strip. Two costs, both deliberate: the four corner
+  pixels no longer pass clicks through — with `gaps_out = 24` plus a 2px border
+  the nearest window corner is at `26,26`, so what is behind them is the
+  wallpaper — and the trigger stands down while a window on the focused
+  workspace is fullscreen, so a video or a game cannot be interrupted by a
+  pointer thrown into a corner. The HUD's own input region subtracts those four
+  pixels, which is what lets this work with no re-arm latch; the mechanism is in
   [`reference/window-switcher-notes.md`](reference/window-switcher-notes.md).
 - **Chromium scale is two settings that multiply, not one.**
   `overrides/chromium/chromium-flags.conf` is fenced into
