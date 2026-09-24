@@ -422,11 +422,18 @@ so a rebuild isn't guesswork:
 | Nautilus / GTK file-chooser window state | `dconf` | Incidental UI state, not configuration |
 
 Third-party shell plugins are not installed either — `apply.sh` has no source
-URL for any of them, and the bar layout it writes names none. That is enough to
-disable one: a third-party plugin is enabled iff its id appears somewhere in
-`shell.json`, so a layout without its widget is the uninstall as far as the shell
-is concerned, though the directory under `~/.config/omarchy/plugins/` still has
-to be deleted by hand.
+URL for any of them. The bar layout it writes names exactly one,
+`io.github.thisisgm.omapods` (an AirPods battery readout, which hides itself
+when nothing is connected); on a machine without that plugin the entry is inert,
+since `Bar.qml` resolves an unknown widget id to a null component and loads
+nothing. `apply.sh` says so rather than leaving it silent, and the two commands
+that install it — `omarchy plugin add`, then the plugin's own `setup`, which
+builds the `librepods` daemon the widget reads — are in
+[`overrides/README.md`](overrides/README.md) under *Before running `apply.sh`*.
+Leaving every other one out is enough to disable it: a third-party plugin is
+enabled iff its id appears somewhere in `shell.json`, so a layout without its
+widget is the uninstall as far as the shell is concerned, though the directory
+under `~/.config/omarchy/plugins/` still has to be deleted by hand.
 
 A settings plugin that writes its own region into `looknfeel.lua` or `input.lua`
 wins over ours if its block lands later in the file — and a plugin's block
@@ -453,10 +460,15 @@ comm -23 <(pacman -Qqe | sort -u) \
 ```
 
 That prints every explicitly-installed package Omarchy's own lists do not
-contain — 23 here. Ten of them are this repo's dependencies and are covered in
+contain — 29 here. Ten of them are this repo's dependencies and are covered in
 [`overrides/README.md`](overrides/README.md) (`bibata-cursor-theme-bin`,
 `cursor-bin`, `ghostty`, `keyd`, `lsd`, `msedit`, `python-secretstorage`,
-`ryzenadj`, `yazi`, `ytm-player`); the other thirteen are the groups below.
+`ryzenadj`, `yazi`, `ytm-player`). Four more — `cmake`, `ninja`,
+`qt6-connectivity`, `qt6-tools` — are build dependencies, not runtime ones:
+the `io.github.thisisgm.omapods` `setup` script pulls them in to compile the
+`librepods` daemon, and they are covered in the same table. They can be removed
+once it is built; the daemon in `~/.local/bin/` is what the widget needs. The
+other fifteen are the groups below.
 Anything that turns up in the command's output and not in this section is
 either new or was never wanted.
 
@@ -469,10 +481,15 @@ directly and never shells out to `dmidecode`, and the live limits are read back
 from `ryzen_smu`'s world-readable `pm_table`. They are provenance for the
 numbers in step 10, not dependencies of it.
 
-**Unrelated to this repo** — `mongodb-compass-bin`, `ngrok` and
-`capitaine-cursors`. The first two are the author's own tools; the third is a
-second cursor theme that nothing here selects (`apply.sh` sets Bibata). Listed
-only so the command's output reconciles.
+**Unrelated to this repo** — `mongodb-compass-bin`, `ngrok`,
+`capitaine-cursors`, `google-chrome` and `crush-bin`. The first two are the
+author's own tools; the third is a second cursor theme that nothing here selects
+(`apply.sh` sets Bibata). `google-chrome` is a second browser — nothing here
+themes or launches it, and the Chromium work in `overrides/chromium/` does not
+reach it. `crush-bin` is the odd one: `crush` is *also* one of the
+self-installing `~/.local/bin/` wrappers below, and that wrapper wins on `PATH`
+(`command -v crush` resolves into `~/.local/share/mise/`), so the package is
+installed and shadowed. Listed only so the command's output reconciles.
 
 **Keyboard firmware toolchain — no longer installed.** `qmk`, `avrdude`,
 `avr-gcc` and `avr-libc` were here and have since been removed, so they no

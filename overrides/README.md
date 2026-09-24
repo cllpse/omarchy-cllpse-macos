@@ -144,6 +144,7 @@ Install these first for a complete result.
 | `pacman -S` (daemon) | `keyd` | Figma's Cmd+click / Cmd+scroll (step 8b). The only dependency that is a system service rather than a program, and the only one `apply.sh` configures with **sudo** — it writes `/etc/keyd/default.conf` and adds you to the `keyd` group. Install it *before* applying, or the step skips and you re-run later |
 | `mise use -g` | `hunk` `gh` | the `git diff` pager and the generated theme its hook writes; `gh` is what the row below runs through — this machine takes it from mise rather than `pacman`, so it is missing from a package-list restore too |
 | `gh extension install` | `dlvhdr/gh-dash` | the `dash` alias, and its theme-set colour hook |
+| `omarchy plugin add` + its own `setup` | [`io.github.thisisgm.omapods`](https://github.com/thisisgm/omarchy-pods) | the AirPods widget — the one third-party plugin step 7h's `bar.layout` names, and the only entry in it this repo does not ship. Two commands, because the widget is a front end to a daemon: `omarchy plugin add https://github.com/thisisgm/omarchy-pods` clones the plugin, and `~/.config/omarchy/plugins/io.github.thisisgm.omapods/setup` builds `librepods` into `~/.local` and enables `librepods.service`. Skip `--enable`: it would place the widget on the bar itself, and the recorded layout already names it. Without the plugin the layout entry is inert; with the plugin but no daemon the icon is there and reads nothing |
 | Cursor marketplace | `beardedbear.beardedtheme` `beardedbear.beardedicons` | the Cursor colour + icon theme. The only marketplace dependency in the whole override; without them Cursor silently falls back to its defaults |
 
 `hunk`, `gh` and `gh-dash` are the three that are not packages, so a
@@ -164,6 +165,15 @@ a property of how the call is written, not a promise:
   (`|| skip`). `bibata-cursor-theme-bin` warns but the cursor theme is set in
   `gsettings`/`hl.env` anyway, so it falls back **visibly** — the one omission
   you will notice unprompted.
+- *Guarded, with a skip message pointing at the table above*:
+  `io.github.thisisgm.omapods`. The check is mechanical rather than a list —
+  a first-party widget id is `omarchy.`-prefixed, so step 7h names any other id
+  in the declared layout that has no directory under
+  `~/.config/omarchy/plugins/`. It exists because the failure is otherwise
+  completely silent: `Bar.qml` resolves an unknown widget id to a null
+  component, so the slot loads nothing and the bar looks merely one widget
+  shorter. The daemon behind it is *not* checked — `librepods` missing shows
+  up as an icon that reads nothing, which at least points at itself.
 - *Guarded, with a skip message, and the skip tells you the command*: `keyd`
   and `ytm-player`. Without `keyd`, Figma keeps Ctrl+click and Ctrl+scroll on
   the pinky; nothing else on the desktop changes, since the only remap is issued
@@ -427,7 +437,7 @@ It is **not** a complete machine build. On a clean install these are the gaps:
 |---|---|
 | **Four steps use sudo (8b's keyd config and group grant, step 9's Chromium policy, step 10's CPU power limits and step 11's `/etc/fstab` compression level), all deliberately near the end.** No package installation happens anywhere — `keyd` in particular must already be present, and step 8b skips with the `pacman -S keyd` line if it is not — see *Before running `apply.sh`* above for the full list and what each omission costs. `bibata-cursor-theme-bin` is the only one that fails loudly-ish (warned about, and the cursor theme is set in `gsettings`/`hl.env` regardless, so it falls back visibly); every other guard skips in silence. The two non-package channels, `mise` (`hunk`, `gh`) and `gh extension` (`gh-dash`), won't be restored by a `pacman -Qqe` rebuild | Cursor visibly wrong; other items silently absent |
 | **Cursor editor not installed.** The `settings.json` merge is skipped when both `/usr/bin/cursor` and `~/.config/Cursor/User/` are absent. The override carries no marketplace-extension keys, so nothing in it needs a network step | Merge skipped on a machine without Cursor |
-| **Third-party plugins are not installed.** `apply.sh` has no source URL for any of them, and step 7h's recorded `bar.layout` names none — the widgets that were there (`dizziee.system-updates`, `jankeesvw.notification-center`, `io.github.twiking.omasettings`) were removed along with the plugins. Since a third-party plugin is enabled iff its id appears somewhere in `shell.json`, a layout without it *is* the uninstall as far as the shell is concerned; the plugin directory under `~/.config/omarchy/plugins/` still has to be deleted by hand | Nothing to render, and nothing to install |
+| **Third-party plugins are not installed.** `apply.sh` has no source URL for any of them, and step 7h's recorded `bar.layout` names exactly one — `io.github.thisisgm.omapods`, whose entry is inert without the plugin, since `Bar.qml` resolves an unknown widget id to a null component. Step 7h does *say so* rather than leaving that silent, and *Before running `apply.sh`* above carries the two install commands. The other widgets that were there (`dizziee.system-updates`, `jankeesvw.notification-center`, `io.github.twiking.omasettings`) were removed along with the plugins. Since a third-party plugin is enabled iff its id appears somewhere in `shell.json`, a layout without it *is* the uninstall as far as the shell is concerned; the plugin directory under `~/.config/omarchy/plugins/` still has to be deleted by hand | Nothing to render, and nothing to install |
 | **`display.conf` values are hardware-specific** — text size 14, monitor scale 1.25, GDK scale 1 are tuned for one ~110 PPI 3840x1600 display. `gdk-scale` in particular is wrong on a HiDPI panel, where Omarchy's default of 2 is right | Wrong sizing on different hardware, applied confidently |
 | **Some settings need a relogin** — the `environment.d` drop-in (Figma → Wayland) and `OMARCHY_MENU_FONT` are read at session start | State immediately after `apply.sh` is not the final state |
 | **`sync_fenced` creates the target if absent.** If `~/.config/ghostty/config` does not exist, the file it writes contains only our block — losing Omarchy's `config-file` line that pulls in theme colours | Terminal colours silently unthemed |

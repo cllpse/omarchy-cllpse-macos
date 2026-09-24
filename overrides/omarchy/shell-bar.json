@@ -14,9 +14,11 @@
         { "id": "omarchy.system-update" },
         { "id": "omarchy.agents" },
         { "id": "omarchy.spacer", "size": 8 },
+        { "id": "omarchy.bluetooth" },
         { "id": "omarchy.network" },
         { "id": "omarchy.audio" },
-        { "id": "omarchy.monitor" }
+        { "id": "omarchy.monitor" },
+        { "id": "io.github.thisisgm.omapods" }
       ]
     }
   },

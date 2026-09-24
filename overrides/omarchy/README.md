@@ -38,6 +38,13 @@ it is disabled by not being in bar.layout, which is how the OmaSettings widget
 is switched off. A third-party plugin is enabled iff its id appears anywhere
 in shell.json, so dropping it from the layout is the whole uninstall.
 
+One third-party widget is in the layout on purpose: io.github.thisisgm.omapods,
+an AirPods battery readout that hides itself when nothing is connected. apply.sh
+installs no plugin, so on any other machine that entry is inert rather than
+broken -- Bar.qml:1788-1791 resolves an unknown widget id to a null component
+and the slot loads nothing, the same way bar.centerAnchor is inert below. That
+silence is what section 6 exists to break.
+
 Two things the layout is NOT allowed to clobber. The tray's `pinned` /
 `hidden` arrays are genuinely per-machine — they name tray items that exist on
 this box — so whatever the live file has is carried over onto our tray entry
@@ -153,5 +160,34 @@ absent `Bar.qml`'s `hasAnchor` is false and the center section just centres as
 a block (`Bar.qml:1538`), so the key is inert until a clock comes back. The
 pre-existing values are recorded once for `revert.sh`, refusing values already
 ours
+
+## 6. A declared third-party widget that isn't installed
+
+The layout is allowed to name a plugin this repo does not ship, and today it
+names one: `io.github.thisisgm.omapods`. Nothing goes wrong when it is absent
+-- which is the problem. `Bar.qml`'s slot resolves an unknown widget id to a
+null component (`Bar.qml:1788-1791`) and the `Loader` loads nothing, so a
+missing plugin is indistinguishable from a bar that was always one widget
+shorter, with no error in the shell log and no clue in `shell.json`.
+
+So the write is followed by a presence check that only *reports*. It installs
+nothing and holds no source URL, on the same terms as `keyd` -- the two
+commands live in `../README.md`, under *Before running `apply.sh`*, and the
+skip points there rather than restating them where they would drift.
+
+The test is mechanical rather than a hardcoded id, so a widget added to
+`shell-bar.json` later is covered without touching this script: a first-party
+plugin id is `omarchy.`-prefixed, so anything else in the declared layout is
+third-party, and is looked for at `~/.config/omarchy/plugins/<id>`. The folder
+name is cosmetic to Omarchy's *enable* path (which keys on the manifest id),
+but `omarchy plugin add` names the directory after the id, so it is a fair test.
+
+What is deliberately NOT checked is the daemon behind the widget. omapods is a
+front end to `librepods`, and without it the icon appears and reads nothing --
+a visible symptom that points at itself, unlike an absent widget. Checking it
+would mean a per-plugin table of backends in a script whose whole premise is
+that it knows nothing about any particular plugin.
+
+Skipped under `--bar-only`: the boot hook has no terminal to print to.
 
 Script: [`omarchy.sh`](omarchy.sh) — runnable on its own; [`../apply.sh`](../apply.sh) owns the order.

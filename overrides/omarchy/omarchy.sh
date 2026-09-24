@@ -96,3 +96,18 @@ if [[ $bar_only == false ]]; then
     ~/.config/omarchy/hooks/post-boot.d/cllpse-bar-layout.sh
 fi
 
+# See README.md (6). The declared layout may name a THIRD-PARTY widget, and an
+# id the shell cannot resolve is inert rather than an error -- Bar.qml's slot
+# resolves an unknown id to a null component and loads nothing -- so a missing
+# plugin presents as a widget that simply isn't there, with nothing on the
+# machine to say why. apply.sh installs no plugin and carries no source URL for
+# one, the same terms keyd gets, so this only names what is absent and points at
+# the table that has the command. Mechanical rather than a list: a first-party
+# id is `omarchy.`-prefixed, so anything else in the layout is third-party.
+# Skipped under --bar-only -- a boot hook has no terminal to print this to.
+if [[ $bar_only == false && -f $bar_json ]]; then
+  while read -r id; do
+    [[ -z $id || -d ~/.config/omarchy/plugins/$id ]] && continue
+    skip "$id isn't installed -- its widget won't render; overrides/README.md, 'Before running apply.sh', has the command"
+  done < <(jq -r '[.bar.layout[]?[]?.id] | map(select(startswith("omarchy.") | not)) | .[]' "$bar_json" 2>/dev/null || true)
+fi
