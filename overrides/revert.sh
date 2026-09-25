@@ -369,6 +369,44 @@ if [[ -s $STATE/previous-theme ]]; then
 else
   say "no pre-existing theme recorded — pick one:  omarchy theme set <name>"
 fi
+# Tailscale SSH (apply.sh step 7i). Turned off again ONLY if it was off before
+# this repo touched it. apply.sh records the pref verbatim, so `false` means we
+# enabled it and `true` means the machine already had it and it is not ours to
+# revoke; nothing recorded (an unreadable prefs blob at apply time) is left alone
+# on the same principle. No sudo when the operator bit is held, which is the
+# normal case on Omarchy -- omarchy-install-service-tailscale grants it.
+if [[ -s $STATE/previous-tailscale-ssh ]] && command -v tailscale >/dev/null 2>&1; then
+  prev_ssh="$(<"$STATE/previous-tailscale-ssh")"
+  if [[ $prev_ssh != false ]]; then
+    say "Tailscale SSH left on — it was already on before apply.sh ran"
+    rm -f "$STATE/previous-tailscale-ssh"
+  else
+    # A revert arriving OVER Tailscale SSH would cut its own connection right
+    # here and leave every step below this unrun, so that case is skipped rather
+    # than risked -- and the record is KEPT, so running revert.sh again from the
+    # machine itself still finishes the job. Detected from SSH_CONNECTION's
+    # client address landing in Tailscale's CGNAT range, 100.64.0.0/10, which is
+    # the shape of every tailnet IP.
+    _ssh_client="${SSH_CONNECTION:-}"; _ssh_client="${_ssh_client%% *}"
+    if [[ $_ssh_client =~ ^100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\. ]]; then
+      say "Tailscale SSH left ON: this session arrives over the tailnet ($_ssh_client)"
+      say "  turning it off now would cut this connection mid-revert. Afterwards, run:"
+      say "    tailscale set --ssh=false"
+    else
+      say "Tailscale SSH -> off (it was off before apply.sh ran)"
+      # --accept-risk=lose-ssh: `tailscale set` raises a confirmation for that
+      # risk when it judges the change would drop your own session, and this
+      # script has nobody to answer it. From a local session it never prompts at
+      # all (measured: 38ms, rc=0); the flag guards the case that cannot be
+      # reproduced without a second node on the tailnet.
+      tailscale set --ssh=false --accept-risk=lose-ssh >/dev/null 2>&1 \
+        || sudo -n tailscale set --ssh=false --accept-risk=lose-ssh >/dev/null 2>&1 \
+        || say "  could not turn it off — run: sudo tailscale set --ssh=false"
+      rm -f "$STATE/previous-tailscale-ssh"
+    fi
+  fi
+fi
+
 rmdir "$STATE" 2>/dev/null || true
 
 # keyd (apply.sh step 8b). Order matters: drop any LIVE remap first, because a

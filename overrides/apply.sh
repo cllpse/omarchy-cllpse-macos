@@ -26,8 +26,10 @@
 # Every per-folder script is also runnable on its own. They source lib.sh for
 # say/skip/backup/sync_fenced/record_prior, STATE and MARK.
 #
-# keyd and ryzenadj are the two packages this depends on and it installs
-# NEITHER -- each step configures its tool if present and says so if it is not.
+# keyd, ryzenadj and tailscale are the three packages this depends on and it
+# installs NONE of them -- each step configures its tool if present and says so
+# if it is not. Only keyd's step needs sudo; tailscale's is passwordless, since
+# Omarchy's own installer already grants this user Tailscale's operator bit.
 #
 # What each step does, and where to read about it:
 #
@@ -53,6 +55,7 @@
 #   7f.  app icons for the menu (repainted + verbatim)                 icons/
 #   7f2. post-update repair hook                                       hooks/
 #   7h.  Omarchy shell.json: switcher, bar, disabled plugins           omarchy/
+#   7i.  Tailscale SSH -- no sshd, no open port                      tailscale/
 #   8.   apply the theme                                               [inline]
 #   8b.  keyd identity config + Figma modifier remap (sudo)            keyd/
 #   8c.  hyprctl reload -- after 8b so the focus handler is seeded
@@ -438,6 +441,7 @@ STEPS=(
   "icons||App icons for the menu|run:icons|"
   "hooks||Post-update repair hook|run:hooks|"
   "omarchy||Omarchy shell.json|run:omarchy|symlinks"
+  "tailscale||Tailscale SSH — no sshd, no open port|run:tailscale|"
   "theme||Apply the theme|fn:step_theme|symlinks"
   "keyd|sudo|keyd: Figma modifier remap (sudo)|run:keyd|hypr"
   "hypr-reload|auto|hyprctl reload|fn:step_hypr_reload|"
@@ -667,7 +671,11 @@ _dedupe() {
 # and reloading anyway makes the cheapest entry in the menu rebuild the whole
 # Lua state for nothing. Listed by id rather than inferred, so adding one is a
 # deliberate act -- and only skipped when EVERY selected step is in the list.
-NO_HYPR_RELOAD=(bar)
+# tailscale is the second entry for the same reason: it writes one pref inside
+# tailscaled and nothing on disk at all, so `apply.sh tailscale` rebuilding the
+# whole Lua state would be pure cost. It is NOT in LOOKNFEEL either -- nothing
+# about it is visible.
+NO_HYPR_RELOAD=(bar tailscale)
 _touches_hypr() {
   local x y hit
   for x in "${SELECTED[@]}"; do

@@ -917,10 +917,12 @@ changes nothing; `--appimage PATH` skips the download.
 
 ### keyd
 
-**keyd is the one package this repo depends on, and the only reason is Figma.**
-`apply.sh` does not install it — step 8b configures it if present and says so if
-not — but that still makes it the first external dependency and the second sudo
-step, so the "no packages" line above is narrower than it used to be.
+**keyd was the first package this repo depended on, and the only reason is
+Figma.** `apply.sh` does not install it — step 8b configures it if present and
+says so if not — but that still made it the first external dependency and the
+second sudo step, so the "no packages" line above is narrower than it used to be.
+There are three such dependencies now: keyd, `ryzenadj` (hardware-gated, step 10)
+and `tailscale` (step 7i, and the only one of the three that needs no sudo).
 
 Why it exists: Figma tests `ctrlKey` for deep-select (Cmd+click), canvas zoom
 (Cmd+scroll) and its shortcuts, and ignores `metaKey` off macOS. The forwarder
@@ -1100,6 +1102,131 @@ Ctrl+Alt, and only the meta key is remapped), so workspaces and window
 management still work and are the way out. Corollary worth knowing: in Figma,
 `SUPER + ALT` emits Ctrl+Alt and therefore fires the WM_MOD binds.
 
+
+### Tailscale SSH
+
+**Reaching this machine from the tailnet is one preference, `RunSSH`, and it
+needs no sudo — because Omarchy already granted the operator bit.**
+`omarchy-install-service-tailscale` line 14 is
+`sudo tailscale set --operator="$USER"`, so on any machine set up the supported
+way a plain unprivileged `tailscale set --ssh` works. That is why `apply.sh` step
+7i is **not** among the four sudo steps and why those counts did not change when
+it was added; its fallback is `sudo -n`, deliberately non-interactive, so it can
+never turn the "skip the four and the run needs no password" promise into a lie.
+Measured: enabling 11ms, disabling 38ms, both rc=0, no prompt.
+
+Nothing else on the machine competes for the pref: `grep -rn -i ssh` over
+`/usr/share/omarchy/shell/plugins/panels/tailscale/` returns nothing, so the
+bar's Tailscale panel never touches `RunSSH`.
+
+**A node cannot Tailscale-SSH to itself, and every local probe therefore looks
+like a failure.** This is the first thing to know before debugging any of it.
+Measured on this machine with `RunSSH` confirmed `true`:
+
+| probe | result |
+|---|---|
+| `/dev/tcp/100.125.89.123/22` from this machine | `connection refused` |
+| `tailscale ssh cllpse@omarchy` from this machine | `Dial("omarchy", 22): connect: connection refused` |
+| `ss -ltnp` for port 22 | nothing listening |
+
+`tailscaled` intercepts TCP port 22 for its own tailnet address **inside its
+netstack, on traffic that arrived over the tunnel**, before the packet is handed
+to the kernel. A connection originating here to our own tailnet IP never
+traverses the tunnel, so nothing intercepts it and nothing answers. Two
+corollaries worth keeping: there is no kernel listener, and **`ufw` is therefore
+irrelevant** — the packet never reaches netfilter, which is why step 7i opens no
+port and leaves the firewall default-deny. (If a connection ever *is* blocked
+there, `sudo ufw allow in on tailscale0` is the whole fix, but nothing needs it.)
+End-to-end verification needs a second node; there is no way to fake one.
+
+**Three absences that read as breakage and are not.** All three were chased once
+already, in that order, before the self-SSH limitation above was understood:
+`Hostinfo.Services` never grows a `tailscale-ssh` entry; `SSH_HostKeys` stays at
+**0** in both `tailscale debug hostinfo` and the netmap's `SelfNode`; and
+`tailscale debug daemon-goroutines` shows no SSH goroutines. The server is built
+lazily on the first incoming connection, and control trims what it echoes back in
+`SelfNode`, so none of the three is evidence either way. What *does* confirm the
+daemon took it is `EditPrefs: MaskedPrefs{RunSSH=true}` in
+`journalctl -u tailscaled`, plus `tailscale.com/ssh/tailssh` in
+`strings /usr/bin/tailscaled`, which rules out a build with SSH compiled out
+(there are no `ts_omit` tags in the Arch build).
+
+**The daemon being willing is half of it; the tailnet's policy is the other, and
+it fails silently at the wrong end.** A node with `RunSSH` on and no matching
+rule accepts nothing while looking perfectly configured locally. The local read
+is `tailscale debug netmap | jq '.SSHPolicy.rules | length'`, and the node also
+needs `https://tailscale.com/cap/ssh`, which is in `SelfNode.CapMap`. A default
+tailnet carries a `check` rule (`action.holdAndDelegate`), which is what makes
+the first connection open a browser and then hold ~12h; a satisfied check shows
+up beside it as an `accept` rule with a `ruleExpires`. `tailscaled` does complain
+itself, but **only at connection time** — too late to be a check. The two
+strings, so they are greppable:
+`Unable to enable local Tailscale SSH server; not enabled on Tailnet.` and
+`Tailscale SSH enabled, but access controls don't allow anyone to access this
+device.` Their absence after enabling is a genuine positive signal, and is not
+used as the step's own test only because reading a unit's journal is a
+group-membership question.
+
+**`tailscale up` with ANY flag stops being idempotent once `RunSSH` is on, and
+Omarchy's own installer walks into it.** `up` requires the complete set of
+non-default settings, so `sudo tailscale up --accept-routes` — exactly what
+`omarchy-install-service-tailscale` runs — now **fails** rather than silently
+turning SSH off. Measured, prefs unchanged, rc=1, and it prints its own repair:
+
+```
+Error: changing settings via 'tailscale up' requires mentioning all
+non-default flags. To proceed, either re-run your command with --reset or
+use the command below to explicitly mention the current value of
+all non-default settings:
+
+	tailscale up --accept-routes --ssh
+```
+
+The refusal is the safe direction, which is why nothing guards it — but re-running
+Omarchy's Tailscale installer stops at that line until `--ssh` is added. `tailscale
+set` has no such rule (it changes only what you mention), so step 7i and
+`revert.sh` both use `set` and never `up`.
+
+**`RunSSH` is a boolean, so jq's `//` is the trap again.** `.RunSSH // empty`
+drops `false`, which is the one value worth recording — same bug this repo already
+hit on `bar.transparent`. The read is
+`if .RunSSH == null then "" else (.RunSSH | tostring) end`, so `""` means
+unreadable and `false` means `false`. `record_prior` is called with an **empty**
+`$3` rather than `"true"`: the usual guard (never record our own value) is
+unreachable here because `record_prior` writes once, while passing `"true"` would
+make a machine that already had SSH on record nothing — collapsing "was already
+on", "prefs unreadable" and "never ran" into one absent file.
+
+**Both `tailscale debug prefs` and `tailscale debug netmap` are debug
+subcommands, and there is no stable CLI that reads a pref.** `tailscale status
+--json` does not carry `RunSSH`. So step 7i's idempotence and its policy check
+both rest on `debug` output, which is the fragile part of it — every use is
+guarded and degrades to a skip line rather than an error. If a Tailscale upgrade
+changes either shape, the step reports it could not read the pref and does
+nothing, which is the right failure.
+
+**Turning it off can prompt: `--accept-risk=lose-ssh`.** `tailscale set` raises
+that risk when it judges the change would drop your own session, and a script has
+nobody to answer. From a local session it never prompts (measured, 38ms, rc=0);
+`revert.sh` passes the flag for the case that cannot be reproduced without a
+second node, *and* refuses outright when `SSH_CONNECTION`'s client address falls
+in `100.64.0.0/10`, since cutting the connection there would leave the rest of
+the revert unrun. The CGNAT test is unit-tested at both `/10` boundaries.
+
+**Taildrop was already working and is a separate mechanism.**
+`omarchy-tailscale-receive.service` is a **user** unit, enabled and active out of
+Omarchy's installer, dropping files into `~/Downloads`. So "reach this machine"
+was already half-solved before any of this; nothing here touches it.
+
+**The OpenSSH road not taken.** Omarchy ships `omarchy-setup-security-sshd`,
+which installs and enables `sshd`, adds `ufw limit 22/tcp`, authorizes a key from
+GitHub or a paste, and then disables password auth (validating with `sshd -t` and
+`sshd -T` first, and only after a key exists). It is a good script; the reason it
+is not used is that its firewall rule opens 22 on **every** interface, LAN
+included, and it introduces an `authorized_keys` to distribute and rotate.
+`omarchy-remove-security-sshd` is the matching undo. A tighter variant — `sshd`
+plus `ufw allow in on tailscale0 to any port 22` — is the middle option if
+Tailscale-specific auth ever stops being wanted.
 
 ### Hardware
 
@@ -2585,9 +2712,12 @@ full machine build — it installs no packages, no third-party plugins,
 `display/display.conf` carries values tuned for one specific display, and step 10's CPU
 power limits are measured for one CPU in one chassis (gated on both, so they are
 inert elsewhere rather than wrong elsewhere). Several
-settings only take effect after a relogin. `overrides/README.md` has the full
-list under *What apply.sh does and does not guarantee*; read it before assuming a
-clean install ended up identical.
+settings only take effect after a relogin. Step 7i needs a tailnet that is
+already logged in — it gates on `.BackendState` reading `Running`, so on a clean
+install it does nothing until `omarchy-install-service-tailscale` has run, and
+even then it cannot prove itself (see *Tailscale SSH* above). `overrides/README.md`
+has the full list under *What apply.sh does and does not guarantee*; read it
+before assuming a clean install ended up identical.
 
 ## Still open
 

@@ -409,6 +409,20 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
 - **`omarchy font set`** (Style ▸ Font) rewrites `~/.config/fontconfig/fonts.conf`
   wholesale — re-run `overrides/apply.sh` if you ever use it. It leaves
   `conf.d/99-cllpse-macos-ui-font.conf` alone.
+- **Tailscale SSH is one preference, and a node cannot SSH to itself.** Step 7i
+  turns on `RunSSH` so the rest of the tailnet can reach this machine's shell —
+  no `sshd`, no host keys, no `authorized_keys`, and `ufw` stays default-deny
+  with port 22 shut on every interface, because `tailscaled` answers 22 for its
+  own tailnet address inside its netstack, on tunnelled traffic only. That same
+  mechanism makes every *local* probe look broken: connecting to your own tailnet
+  IP on port 22 is refused and `ss` shows nothing listening. Neither is a fault
+  and neither can be made to work — confirming it needs a second node on the
+  tailnet. The step needs no sudo, since `omarchy-install-service-tailscale`
+  already granted this user Tailscale's operator bit. One gotcha it creates:
+  `tailscale up` demands the complete set of non-default flags, so
+  `sudo tailscale up --accept-routes` — what that installer runs — fails until
+  `--ssh` is added to it. It refuses rather than silently turning SSH back off.
+  Full detail in [`overrides/tailscale/README.md`](overrides/tailscale/README.md).
 
 ## Also on the author's machine (not installed by `apply.sh`)
 
@@ -601,9 +615,9 @@ drop-in instead (step 7c), which no update can reach.
 
 Two things worth knowing after an update: the entry change needs no relogin, but
 `environment.d` does, so a *first* install wants a logout before Figma runs as a
-native Wayland client at the right scale. And `keyd` — the one package this repo
-depends on, for Figma's `Cmd`+click and `Cmd`+scroll — is configured by step 8b
-and not installed by it. Step 8b also installs a `keyd.service` drop-in that
+native Wayland client at the right scale. And `keyd` — one of the three packages
+this repo depends on and installs none of, for Figma's `Cmd`+click and
+`Cmd`+scroll — is configured by step 8b and not installed by it. Step 8b also installs a `keyd.service` drop-in that
 restarts the daemon after a segfault, because keyd 2.6.0-5 dumped core twice in
 four days here and the packaged unit carries no restart policy at all. That
 matters more than it sounds: this repo's keyd config is identity-only, so a dead
