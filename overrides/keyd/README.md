@@ -36,20 +36,84 @@ exits holding no device, so the failure is a keyboard that has stopped
 being remapped rather than a message. `keyd check` needs no root and
 prints the offending line.
 
-## 4. `keyd reload` -- the daemon's own command
+## 4. The packaged unit has NO restart policy
 
-`keyd reload` -- the daemon's own command, over the same group-owned
-socket `keyd bind` uses, so it needs no root and does not interrupt the
-grab. NOT `systemctl reload`: this unit is a bare
-`ExecStart=/usr/bin/keyd` with no ExecReload, so
-`systemctl show keyd -p CanReload` says no and that request only ever
-fails. Either way something has to be asked, since keyd re-reads
-default.conf at start or on reload and at no other time -- editing
-overrides/keyd/default.conf reaches the daemon here and nowhere else.
-The restart is the fallback for a session that does not yet hold the
-keyd group (see the grant below); it costs a momentary ungrab.
+The packaged unit has NO restart policy, so a keyd segfault is permanent, and
+this repo installs `/etc/systemd/system/keyd.service.d/restart.conf` to fix
+that. `/usr/lib/systemd/system/keyd.service` is four lines -- `Type=simple`,
+`ExecStart=/usr/bin/keyd`, nothing else -- and keyd 2.6.0-5 dumped core here
+twice in four days (2026-09-19 19:54:33 and 2026-09-22 17:27:27), both times
+within seconds of a config reparse and with a byte-identical stack. The second
+one was not noticed for two days and twenty hours.
 
-## 5. `keyd bind` talks to a root-owned socket whose
+Nothing about it was loud, by construction. `default.conf` is identity-only, so
+**a dead keyd is a stock keyboard** -- the only thing lost is the runtime
+`leftmeta = layer(figma)` bind, i.e. Cmd+click and Cmd+scroll in Figma and
+nothing else anywhere. There is no symptom until you next reach for a Figma
+gesture.
+
+The drop-in's own comments carry the reasoning for `RestartSec=1` and for the
+five-in-sixty start limit; the short version is that an unbounded
+`Restart=on-failure` would turn a config keyd genuinely cannot survive into a
+silent respawn loop that looks exactly like a working service. Past the limit
+the unit sits in `failed`, and the helper's notification is the backstop --
+which is correctly scoped rather than lazy: it fires when Figma takes focus,
+which is the only moment a missing remap costs anything.
+
+Installed before anything else here touches the daemon, so the policy is
+already in force for the restart below, and gated on a real difference because
+`systemctl daemon-reload` is not free.
+
+## 5. Published ONLY when the file actually changed
+
+Published ONLY when the file actually changed. keyd re-reads `default.conf` at
+start and on reload and at no other time, so this step is still the one thing
+that publishes an edit to `overrides/keyd/default.conf` -- but an unchanged
+file needs no publishing, and poking the daemon regardless is what made every
+idempotent re-run of `apply.sh` a roll of the dice against the crash above.
+Measured: `default.conf` has changed **three times ever** (2026-09-12 ×2,
+2026-09-23), against **fifteen** reloads in the journal — so at least twelve
+published nothing and existed only to be a chance to crash. Two of the fifteen
+did. Re-run the count with:
+
+```bash
+journalctl -u keyd --no-pager -o short-iso \
+| grep -E "CONFIG: parsing|Started key remapping" \
+| awk '/Started key remapping/ { started=1; next }
+       /CONFIG: parsing/ { if (started) { starts++; started=0 }
+                           else { reloads++; print "reload: " $1 } }
+       END { print "starts: " starts "  reloads: " reloads }'
+```
+
+A bare count of `CONFIG: parsing` is **not** that number — keyd logs the same
+line at startup, and here 14 of the 29 were starts.
+
+And it is a `systemctl restart`, not the `keyd reload` this step used to
+prefer. That preference had two good reasons and neither survives here: reload
+needs no root, but this step is already in a sudo context by the time it runs;
+and reload does not interrupt the grab, but `apply.sh` step 8c reloads Hyprland
+straight afterwards anyway, precisely so `macos-shortcuts.lua` re-seeds against
+the daemon this step restarted. A restart is also a fresh process rather than
+an in-place reparse, which sidesteps the path both crashes came out of --
+**that last part is a hypothesis, not a measurement.** Both crashes followed a
+reparse within seconds, but only 2 of 15 reloads crashed, so the trigger is
+unconfirmed. The change is taken because it costs nothing, not because it is
+proven.
+
+`systemctl reload` was never an option either way: the unit has no
+`ExecReload`, so `systemctl show keyd -p CanReload` says `no` and the request
+only ever fails.
+
+## 6. `reset-failed` before starting
+
+`reset-failed` before starting, or a unit that exhausted the drop-in's start
+limit refuses to come up and this step reports a failure it could have cleared
+itself. It runs unconditionally, which also covers the state this machine
+actually sat in for two days: config unchanged, nothing to publish, daemon
+dead. Without it the gate in (5) would correctly decide there was nothing to
+do and leave a corpse running nothing.
+
+## 7. `keyd bind` talks to a root-owned socket whose
 
 `keyd bind` talks to a root-owned socket whose group is keyd, so the user
 has to be in that group for the focus hook to work without sudo.
@@ -67,7 +131,7 @@ to `newgrp`, setuid-root and reading /etc/group directly, so the remap works
 in this session. The group is still granted, because it is what makes the
 fast path (a plain `keyd bind`) work from the next boot on.
 
-## 6. Smoke-test the whole chain
+## 8. Smoke-test the whole chain
 
 Smoke-test the whole chain, because every link in it fails SILENTLY and the
 symptom is at the far end -- Cmd+scroll in Figma simply keeps not zooming.
@@ -79,6 +143,26 @@ overrides/keyd/default.conf but never installed, so the focus handler's
 `keyd bind 'leftmeta = layer(figma)'` answered `figma is not a valid layer`
 and exited 255 into hl.dsp.exec_raw, which discards stderr. Nothing
 anywhere said so until the gesture was tried.
+
+Three things about its shape. `off` is attempted **even when `on` failed**, so
+a half-completed test cannot walk away leaving leftmeta bound. The daemon's
+liveness is asserted **after both**, because a bind returning 0 proves only
+that keyd was alive when it answered: on 2026-09-22 this test printed its
+success line at 17:27:24 and keyd dumped core at 17:27:27, so `apply.sh`
+reported a working chain over a daemon three seconds from death. That is this
+repo's own recurring bug -- *a test that aborts early reports zero failures* --
+arriving from a new direction, and `died` is a distinct outcome from `bind`
+because "the bind was refused" and "the bind was accepted and killed it" want
+completely different next steps.
+
+And liveness is checked **before** the test as well, which is not the
+redundancy it looks like. Without it, a daemon that was already dead going in
+fails the after-check and is reported as *the bind was accepted and then it
+crashed* -- a precise, confident claim about a mechanism that never happened.
+Found by running this step against exactly that state rather than by reading
+it: with keyd down, the run named a crash-during-test that had not occurred.
+A wrong diagnosis is worse here than no diagnosis, because the whole reason
+this step exists is that the far end of the chain is silent.
 
 It ends with `off` and is immediately followed by 8c's reload, which
 re-seeds macos-shortcuts.lua's figma_keyd_on from the live focus -- so this

@@ -401,6 +401,25 @@ if [[ -f $keyd_conf ]] && head -1 "$keyd_conf" | grep -q 'installed by overrides
   say "  keyd left installed and enabled — remove it yourself if nothing else needs it:"
   say "    sudo systemctl disable --now keyd && sudo pacman -Rs keyd"
 fi
+
+# The restart drop-in is ours outright -- the packaged unit carries no restart
+# policy at all -- so it goes back with the rest. Removed on its own terms
+# rather than inside the block above: that one is gated on OUR default.conf
+# still being in place, and a machine whose keyd config was replaced by hand
+# would otherwise keep this file forever, which is the shape of the
+# cllpse-color leftover. The directory goes too, but only with rmdir, so a
+# drop-in somebody else put there survives.
+keyd_dropin=/etc/systemd/system/keyd.service.d/restart.conf
+if [[ -f $keyd_dropin ]] && grep -q 'installed by overrides/keyd/keyd.sh' "$keyd_dropin"; then
+  say "Removing the keyd restart drop-in this repo installed (needs sudo): $keyd_dropin"
+  if sudo rm -f "$keyd_dropin"; then
+    sudo rmdir /etc/systemd/system/keyd.service.d 2>/dev/null || true
+    sudo systemctl daemon-reload >/dev/null 2>&1 || true
+    say "  keyd is back to the packaged unit — a segfault will stay down again"
+  else
+    say "  could not remove $keyd_dropin — remove it yourself"
+  fi
+fi
 # Group membership is deliberately NOT revoked: the user may have joined the
 # keyd group for their own reasons, and dropping someone from a group they
 # might rely on is not this script's call. To undo it by hand:

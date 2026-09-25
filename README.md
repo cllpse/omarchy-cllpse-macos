@@ -603,4 +603,9 @@ Two things worth knowing after an update: the entry change needs no relogin, but
 `environment.d` does, so a *first* install wants a logout before Figma runs as a
 native Wayland client at the right scale. And `keyd` — the one package this repo
 depends on, for Figma's `Cmd`+click and `Cmd`+scroll — is configured by step 8b
-and not installed by it.
+and not installed by it. Step 8b also installs a `keyd.service` drop-in that
+restarts the daemon after a segfault, because keyd 2.6.0-5 dumped core twice in
+four days here and the packaged unit carries no restart policy at all. That
+matters more than it sounds: this repo's keyd config is identity-only, so a dead
+keyd is simply a stock keyboard, and the only thing lost is `Cmd`+click and
+`Cmd`+scroll inside Figma — nothing says so until you next reach for one.

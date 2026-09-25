@@ -512,10 +512,35 @@ end
 local figma_keyd_on = figma_focused()
 set_figma_keyd(figma_keyd_on)
 
+-- LEVEL-triggered going in, edge-triggered coming out, and the asymmetry is
+-- the whole point.
+--
+-- `figma_keyd_on` is this file's BELIEF about a daemon it cannot interrogate.
+-- keyd has `listen` and `monitor` and no way whatsoever to report its runtime
+-- binds, so a disagreement between the two is undetectable from here -- and
+-- keyd restarts underneath us for real: it segfaulted twice in four days, and
+-- keyd.service.d/restart.conf now deliberately respawns it, which drops every
+-- runtime bind by design.
+--
+-- A plain `want == figma_keyd_on` guard LATCHES on that. Crash while Figma has
+-- focus and this still says `on` against a daemon holding nothing; focusing
+-- Figma again compares true against true, skips the dispatch, and the remap
+-- never comes back for the life of the session. That is a silent, permanent
+-- loss of Cmd+click and Cmd+scroll whose only cure is a hyprctl reload.
+--
+-- So the `on` direction re-asserts unconditionally and cannot drift for longer
+-- than one focus event, while `off` keeps its guard: the skipped case is
+-- want=false against state=false, which is focus moving between two non-Figma
+-- windows -- the common case, and the one worth keeping free. Dropping `off`
+-- is safe to repeat anyway (a `keyd bind reset` against a daemon holding
+-- nothing is a no-op), it just is not worth a spawn.
+--
+-- Cost of the change: one ~3ms helper spawn per focus INTO Figma, rather than
+-- per Figma boundary crossing. Still human-rate, and still no daemon.
 hl.on("window.active", function()
   local want = figma_focused()
 
-  if want == figma_keyd_on then
+  if not want and not figma_keyd_on then
     return
   end
 

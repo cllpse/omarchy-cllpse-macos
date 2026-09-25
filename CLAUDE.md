@@ -946,18 +946,61 @@ worst failure here, below.
 socket as `keyd bind`, so it needs **no root** and does not interrupt the grab
 (verified as this user: rc=0). What does not exist is `systemctl reload keyd` —
 the unit is a bare `ExecStart=/usr/bin/keyd` with no `ExecReload`, so
-`systemctl show keyd -p CanReload` says `no` and that request only ever fails;
-`apply.sh` step 8b asks `keyd reload` first and falls back to
-`sudo systemctl restart keyd` for a session that does not yet hold the group.
+`systemctl show keyd -p CanReload` says `no` and that request only ever fails.
+Step 8b **used to** ask `keyd reload` first and fall back to
+`sudo systemctl restart keyd`; it now restarts outright, and only when the file
+changed — see the segfault entry below for why.
 Either way something has to ask: editing `overrides/keyd/default.conf` reaches
-the daemon at step 8b's `sudo install` + reload and nowhere else — the same
+the daemon at step 8b's `sudo install` + restart and nowhere else — the same
 publish-step relationship `omarchy theme set` has to a theme folder. Live
 example, cost half an hour: the `[figma:C]` layer was added to the repo file
 while `/etc` kept the previous revision, so the focus handler's bind answered
 `figma is not a valid layer` and exited 255 into `hl.dsp.exec_raw`, which
 discards stderr. Nothing said so until Cmd+scroll was tried in Figma. Step 8b
 now ends with a smoke test (`cllpse-figma-keyd on` then `off`) that proves
-config-parsed + layer-present + socket-reachable in one call.
+config-parsed + layer-present + socket-reachable in one call — and, since
+2026-09-25, that the daemon is still alive afterwards.
+
+**keyd 2.6.0-5 segfaults, the packaged unit does not restart it, and the
+symptom is silence.** Measured twice in four days: cores at 2026-09-19 19:54:33
+and 2026-09-22 17:27:27, byte-identical stacks
+(`keyd+0xbecf` ← `+0x13c56` ← `+0x8495` ← `+0x2c80`), each within seconds of a
+`CONFIG: parsing` line — i.e. of step 8b's reload. The second went unnoticed for
+**two days and twenty hours**. Four things made that possible and each is now
+closed:
+
+- *`/usr/lib/systemd/system/keyd.service` is four lines* — `Type=simple`,
+  `ExecStart`, no `Restart=`, no start limit — so one SIGSEGV is permanent.
+  `overrides/keyd/keyd.service.d/restart.conf` adds `Restart=on-failure`,
+  `RestartSec=1` and a 5-in-60 start limit. The limit is not decoration: an
+  unbounded restart turns a config keyd genuinely cannot survive into a respawn
+  loop that looks like a working service.
+- *The config was republished on every run.* `default.conf` has changed **three
+  times ever** against **15** reloads in the journal, so at least 12 published
+  nothing and existed only as a chance to crash. Step 8b now `cmp -s`es first
+  and leaves the daemon alone otherwise. Count them with the probe in
+  `overrides/keyd/README.md` (5) — a bare `grep -c 'CONFIG: parsing'` is the
+  wrong number, since keyd logs that line at startup too (here 14 of 29).
+- *A restart replaced the reload.* Reload's two advantages — no root, no ungrab
+  — both evaporate inside step 8b, which is already in sudo and is already
+  followed by 8c's Hyprland reload. A fresh process also avoids the in-place
+  reparse both crashes came out of. **That last clause is a hypothesis**: only 2
+  of 15 reloads crashed, so the trigger is unconfirmed, and the change was taken
+  because it is free rather than because it is proven. Reproducing it is now
+  safe (the drop-in catches the crash) and is the measurement to take.
+- *The smoke test could not fail.* It asserted the bind returned 0, which on
+  2026-09-22 printed success at 17:27:24 over a daemon that dumped core at
+  17:27:27. It now attempts `off` even when `on` failed, then checks
+  `systemctl is-active`, and reports `died` distinctly from `bind`.
+
+What is deliberately **not** built is a crash notification. `[main]` is empty
+and `[ids]` pins the Preonic alone, so **a dead keyd is a stock keyboard** —
+nothing outside Figma loses anything. `cllpse-figma-keyd`'s own once-per-session
+notification already fires on Figma focus, which is exactly when a missing remap
+starts costing something. It worked, too: the stamp
+(`$XDG_RUNTIME_DIR/cllpse-figma-keyd.failed`) was written 2026-09-23 11:24, the
+morning after the crash. The gap was survival, not detection — don't add a
+second channel.
 
 **`keyd check <file>` validates a config without root**, which is worth using
 before anything reaches `/etc`: keyd *exits* on a parse error, and it exits
@@ -968,10 +1011,24 @@ the running daemon) and `keyd monitor` (live key events) — `keyd -h` lists the
 there is still no way to query the runtime binds themselves.
 
 **No daemon.** `hl.on("window.active", …)` fires on every focus change and
-`hl.get_active_window().class` identifies the app, so a state guard means a
-process spawns only when the Figma boundary is actually crossed. The event's own
+`hl.get_active_window().class` identifies the app, so a state guard keeps the
+spawns down to focus events that involve Figma at all. The event's own
 callback argument is **userdata, not a table** — reading `.class` off it gets
 nothing, which is why the handler calls `get_active_window()` instead.
+
+**That guard is LEVEL-triggered going in and edge-triggered coming out, and the
+asymmetry is load-bearing.** `figma_keyd_on` is a *belief* about a daemon that
+cannot be interrogated — keyd has `listen` and `monitor` and no way at all to
+report its runtime binds — and keyd restarts underneath it for real, now by
+design as well as by segfault. A plain `want == figma_keyd_on` guard latches on
+that: crash while Figma is focused and the state still says `on` against a
+daemon holding nothing, after which focusing Figma compares `true` against
+`true`, skips, and the remap never returns for the life of the session. So the
+`on` direction re-asserts unconditionally and cannot drift past one focus event;
+only `want=false` against `state=false` — focus moving between two non-Figma
+windows, the common case — still returns early. Cost is one ~3ms spawn per focus
+*into* Figma rather than per boundary crossing. Don't "optimise" it back to a
+symmetric comparison.
 
 Three things that are easy to get wrong here, all handled in
 `macos-shortcuts.lua`: the state must be **seeded from the current focus** at
@@ -2008,7 +2065,7 @@ outlier before the scene settled.
   `ghostty +show-config --default` showed five settings in that config were
   restating defaults verbatim. Most tools have an equivalent.
 - **Ghostty has no inline comments.** `#` only opens a comment at the start of a
-  line, so `copy-on-select = false  # default: true` parses the entire trailing
+  line, so `copy-on-select = clipboard  # default: true` parses the entire trailing
   string as the value and Ghostty rejects the line at startup — seven keys in
   `overrides/ghostty/ghostty.conf` were silently inert this way. Put the note on
   its own line above the key, and check the result with `ghostty
