@@ -182,7 +182,7 @@ overrides/<name>/         one directory per override, each owning BOTH its scrip
                           <name>.sh (runnable on its own) and README.md (why). apply.sh is an
                           orchestrator that sources lib.sh and calls them in order; the order,
                           and the system-level steps with no folder, stay in apply.sh.
-overrides/icons/          all 99 app/CLI marks: icons/icons/ repainted to the theme, icons/verbatim/ untouched.
+overrides/icons/          all 100 app/CLI marks: icons/icons/ repainted to the theme, icons/verbatim/ untouched.
                           AGENTS.md is how to add one, icons/README.md is what a
                           file must look like
 omarchy-cllpse-plugin-switcher/  SUBMODULE -> cllpse/omarchy-cllpse-plugin-switcher. The macOS-style
@@ -325,7 +325,7 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   `overrides/icons/icons/` holds the marks repainted to the theme and
   `overrides/icons/verbatim/` the full-colour ones, which `app-icons.sh` copies
   untouched into `~/.icons/cllpse-color/apps/` for the menu. The switcher
-  submodule carries the same 99 marks for its own tiles, so a new one is added
+  submodule carries the same 100 marks for its own tiles, so a new one is added
   in both repos.
   The menu is the consumer that can only be served this way, because it draws a
   plain image and cannot recolour anything. **Adding or updating one:

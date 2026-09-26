@@ -5,7 +5,7 @@ contract — what a file must look like, and which directory it belongs in. This
 file is how you find out *which* files are worth adding, and how to make a new
 one sit correctly beside the ones already here.
 
-**Ship the set as it is.** The 24 silhouettes in `icons/` and the 75 full-colour marks in `verbatim/` — and the same 99
+**Ship the set as it is.** The 24 silhouettes in `icons/` and the 76 full-colour marks in `verbatim/` — and the same 100
 ones in the switcher submodule — are aligned and committed. Do not run a bulk
 pass over either. Everything below applies to
 marks you are **adding**; a sweep that "fixes" the existing set is how `hunk`
@@ -13,7 +13,7 @@ lost its background box once already.
 
 ## Keeping the two repos in step
 
-Both this repo and the plugin carry all 99 marks, and nothing enforces that they
+Both this repo and the plugin carry all 100 marks, and nothing enforces that they
 match — the de-duplication that once made the plugin the single source was
 deliberately undone when both were asked to be complete. So a mark added or
 refitted in one silently diverges from the other. It happened the day the split
@@ -54,8 +54,8 @@ cannot recolour anything, so it needs the repainted copies `app-icons.sh` writes
 out of `icons/`.
 
 **The full-colour marks are in this repository too, so a colour mark is added
-twice.** `verbatim/` here holds 75 of them; the switcher submodule,
-`omarchy-cllpse-plugin-switcher/icons/`, holds the same 75 among all 99 it ships
+twice.** `verbatim/` here holds 76 of them; the switcher submodule,
+`omarchy-cllpse-plugin-switcher/icons/`, holds the same 76 among all 100 it ships
 for its own tiles. The plugin draws its own copy directly, and `app-icons.sh`
 copies the one here verbatim into `~/.icons/cllpse-color/apps/` so the menu gets
 the mark too. There was a period when only the submodule had them —
@@ -173,7 +173,7 @@ PY
 ```
 
 Run from the repository root. Baseline on this machine at the time of writing:
-**93 candidates, 99 overridden, 1364 vendor names, 14 missing.** A run that
+**106 candidates, 100 overridden, 1373 vendor names, 14 missing.** A run that
 reports wildly more has lost a filter.
 
 Then use judgement. `npx`, `corepack` and `codex-code-mode-host` are shims

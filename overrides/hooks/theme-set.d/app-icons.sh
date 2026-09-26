@@ -37,7 +37,7 @@ set -euo pipefail
 HERE="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 FLAT_IN="$HERE/../../icons/icons"
 # Marks that keep their own colours, held in THIS repo so the menu does not
-# depend on the submodule being checked out. The plugin carries the same 75 for
+# depend on the submodule being checked out. The plugin carries the same 76 for
 # its own tiles; these are a copy, and the two are kept in step by hand.
 #
 # The menu is the only reason this pass exists. It draws a plain Image out of

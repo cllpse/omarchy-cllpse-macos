@@ -252,7 +252,7 @@ one keeps its vendor icon.
 **There are two drop-in sources, both in this repo, and the split is the whole
 mechanism.** `icons/icons/` — 24 silhouettes — is **repainted** to the active
 palette by `app-icons.sh` and lands in `~/.icons/cllpse-flat/apps/`.
-`icons/verbatim/` — 75 full-colour marks — is copied unchanged, no ImageMagick
+`icons/verbatim/` — 76 full-colour marks — is copied unchanged, no ImageMagick
 and no palette, into `~/.icons/cllpse-color/apps/` by the same script. The
 repaint is keyed on the DIRECTORY, never on anything inside a file, so a
 multi-hue logo in the first would come out flattened. Both land under `*/apps/*`
@@ -304,7 +304,7 @@ which nothing here creates or manages), then `~/.icons/cllpse-flat/apps/` —
 ours, and read by the plugin as a documented *optional integration* rather than
 a dependency — then everything the `*/apps/*` sweep finds including
 `~/.icons/cllpse-color/apps/` — which `app-icons.sh` fills **from the plugin's
-own `icons/`**, so that source and the last one are the same 75 files — and
+own `icons/`**, so that source and the last one are the same 76 files — and
 finally those marks as the plugin reads them directly. Emptying
 `overrides/icons/` therefore cannot leave the switcher short of anything.
 
@@ -447,7 +447,7 @@ like a pass. It now sets a `finished` flag as its last statement and the
 watchdog exits non-zero if it is unset. Any harness lifting code out of a larger
 component needs that tripwire, or its silence means nothing.
 
-**Both repos carry all 99 marks, and nothing enforces that they match.** The
+**Both repos carry all 100 marks, and nothing enforces that they match.** The
 plugin holds them in one `icons/`; this repo splits them by treatment across
 `icons/icons/` and `icons/verbatim/`. That duplication was removed once, making
 the plugin the single source precisely so two copies could not diverge, and then

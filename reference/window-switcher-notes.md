@@ -543,7 +543,7 @@ window set:
   The path mattered then: it was *not* under `flatIconDir`, so the icon was
   drawn in its own colours rather than repainted, and that was the whole point
   of that directory. **Both halves of that are gone now.** The plugin ships all
-  75 of those marks itself, and it recolours nothing at all, so a mark is drawn
+  76 of those marks itself, and it recolours nothing at all, so a mark is drawn
   as authored wherever it resolves from and the directory it came from decides
   nothing. Resolution still goes through the same indexes a window class does,
   in the same order, so a terminal icon and an app tile can never disagree
