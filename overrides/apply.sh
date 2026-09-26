@@ -431,6 +431,7 @@ STEPS=(
   "gh-dash||gh-dash|run:gh-dash|"
   "starship||starship|run:starship|"
   "cursor||Cursor|run:cursor|"
+  "pi||Pi agent: OpenRouter auto-router|run:pi|"
   "hunk||hunk|run:hunk|"
   "ytm||ytm-player|run:ytm|"
   "bash||bash aliases + fzf|run:bash|"
