@@ -1,0 +1,9 @@
+{
+  "defaultThinkingLevel": "low",
+  "modelThinkingLevels": {
+    "openrouter/moonshotai/kimi-k2.6": "low",
+    "openrouter/anthropic/claude-sonnet-4-5": "medium"
+  },
+  "showCacheMissNotices": true,
+  "cacheWarming": "idle"
+}
