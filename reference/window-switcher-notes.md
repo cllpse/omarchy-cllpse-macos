@@ -536,9 +536,10 @@ window set:
   space — which is the one guess in the file, on the grounds that nothing else
   on this machine titles itself that way. If something starts, tighten that line.
 - **The marks came from `../icons/color/`** — the verbatim set, the one the
-  Figma logo lives in; it lives in the plugin repo now, and `app-icons.sh` reads
-  it from there — reached through that sync to
-  `~/.icons/cllpse-color/apps/`, which the plugin's vendor sweep already covers.
+  Figma logo lives in; it lives in both repos now, the plugin's own `icons/` and
+  `overrides/icons/verbatim/`, which is what `app-icons.sh` reads — reached
+  through that sync to `~/.icons/cllpse-color/apps/`, which the plugin's vendor
+  sweep already covers.
   The path mattered then: it was *not* under `flatIconDir`, so the icon was
   drawn in its own colours rather than repainted, and that was the whole point
   of that directory. **Both halves of that are gone now.** The plugin ships all

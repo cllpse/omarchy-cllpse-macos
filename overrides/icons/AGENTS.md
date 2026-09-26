@@ -53,19 +53,24 @@ The menu is the consumer that **only** we can serve: it draws a plain image and
 cannot recolour anything, so it needs the repainted copies `app-icons.sh` writes
 out of `icons/`.
 
-**The full-colour marks are not in this repository any more.** They live in the
-switcher submodule, `omarchy-cllpse-plugin-switcher/icons/` — all 75 of them. The
-plugin draws them directly, and `app-icons.sh` copies the same files verbatim
-into `~/.icons/cllpse-color/apps/` so the menu gets them too. `overrides/icons/
-color/` used to hold a second copy; it was deleted, because two copies of
-identical artwork in two repos drift. Add a colour mark **there**, and both
-surfaces have it from one file. That repo's `AGENTS.md` is the contract for
-fitting one.
+**The full-colour marks are in this repository too, so a colour mark is added
+twice.** `verbatim/` here holds 75 of them; the switcher submodule,
+`omarchy-cllpse-plugin-switcher/icons/`, holds the same 75 among all 99 it ships
+for its own tiles. The plugin draws its own copy directly, and `app-icons.sh`
+copies the one here verbatim into `~/.icons/cllpse-color/apps/` so the menu gets
+the mark too. There was a period when only the submodule had them —
+`overrides/icons/color/` was deleted precisely so two copies of identical artwork
+could not drift — and that de-duplication was **undone deliberately** when both
+repos were asked to be complete. So the drift check above is the price, and the
+two copies have to be written in the same pass. The submodule's `AGENTS.md` is
+the contract for fitting one, and nothing in this directory's own silhouette
+contract applies to a verbatim mark.
 
-So this directory is now only about the repainted set. The switcher still reads
-`~/.icons/cllpse-flat/apps/` as an optional integration, so a mark added to
-`icons/` does reach both surfaces — but it draws every icon exactly as
-authored, so nothing here has to care whether a mark is flat or full-colour.
+So this directory is two sets and only `icons/` is repainted. The switcher also
+reads `~/.icons/cllpse-flat/apps/` as an optional integration, so a mark added to
+`icons/` reaches both surfaces as well — but it draws every icon exactly as
+authored, so nothing on that path has to care whether a mark is flat or
+full-colour.
 
 Its alias table moved too: command-to-icon mappings now live in
 `icon-aliases.json` at the plugin root, not in `Hud.qml`. Adding a mark here

@@ -322,10 +322,11 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   is a file, not a setting: `$HOME/.icons` is the first directory Omarchy's icon
   index scans and carries no `index.theme`, so a drop-in reaches the shell
   without touching GTK or Qt, and an app with no file keeps its vendor icon.
-  `overrides/icons/icons/` holds the marks repainted to the theme. The
-  full-colour ones are **not here**: they live in the switcher submodule, which
-  ships all 75 and is what `app-icons.sh` copies verbatim into
-  `~/.icons/cllpse-color/apps/` for the menu — one set of files, both surfaces.
+  `overrides/icons/icons/` holds the marks repainted to the theme and
+  `overrides/icons/verbatim/` the full-colour ones, which `app-icons.sh` copies
+  untouched into `~/.icons/cllpse-color/apps/` for the menu. The switcher
+  submodule carries the same 99 marks for its own tiles, so a new one is added
+  in both repos.
   The menu is the consumer that can only be served this way, because it draws a
   plain image and cannot recolour anything. **Adding or updating one:
   [`overrides/icons/AGENTS.md`](overrides/icons/AGENTS.md)** for the workflow,
