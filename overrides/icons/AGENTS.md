@@ -147,7 +147,8 @@ ps top man less more tee basename dirname realpath stat date seq yes""".split())
 # gap analysis only.
 ALIAS = {"diff":"hunk","log":"hunk","dash":"gh","edit":"msedit","ls":"lsd",
          "claude":"claude-code","node":"nodejs","python3":"python","sqlite3":"sqlite",
-         "psql":"postgresql","ytm":"youtube-music","youtuimusic":"youtube-music"}
+         "psql":"postgresql","ytm":"youtube-music","youtuimusic":"youtube-music",
+         "π":"pi"}
 cands = collections.defaultdict(set)
 def add(name, src):
     if name in NOISE: return
