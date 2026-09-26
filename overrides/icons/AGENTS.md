@@ -174,7 +174,7 @@ PY
 ```
 
 Run from the repository root. Baseline on this machine at the time of writing:
-**106 candidates, 100 overridden, 1373 vendor names, 14 missing.** A run that
+**106 candidates, 100 overridden, 1374 vendor names, 14 missing.** A run that
 reports wildly more has lost a filter.
 
 Then use judgement. `npx`, `corepack` and `codex-code-mode-host` are shims
