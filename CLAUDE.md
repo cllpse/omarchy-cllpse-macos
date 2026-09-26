@@ -2386,7 +2386,23 @@ outlier before the scene settled.
   are gone: `icons/` is SVG-only, every drop-in is edge-to-edge in a **square
   `viewBox`**, and `Hud.qml` draws the Image at `iconDrawn` — `iconSize * 0.9`, a
   flat optical trim with no ratio in it. Don't re-add a compensation factor;
-  square the file's viewBox instead.
+  square the file's viewBox instead. **One mark is inset on purpose and is the
+  only one**: `pi` fills 74% of its box, because a solid blocky mark reads
+  heavier than the thin-stroked marks beside it. Its file carries an XML comment
+  saying so, and the scaling check in both `AGENTS.md`s prints a `tighten to:`
+  line for it that is the script working rather than a finding.
+- **An XML comment cannot contain `--`, and an icon that breaks that rule is
+  skipped in silence.** The note explaining why `pi` is inset was written with a
+  `--` in it; XML forbids a double hyphen inside a comment, so **both** QtSvg and
+  rsvg reject the whole document (`Double hyphen within comment`) — and the
+  switcher's behaviour for a file that fails to parse is to draw the Nerd Font
+  glyph, with no error anywhere. Caught before committing by rendering the file
+  through the renderer that actually draws it: `QT_QPA_PLATFORM=offscreen qml6`
+  on a throwaway `.qml` holding one `Image`, reporting through the **exit code**
+  (`Qt.exit(status)`, `Image.Ready == 1`) because `console.log` printed nothing
+  under that binary. Worth keeping as the probe for any icon question that is
+  really a Qt question — rsvg agreeing is not the same as Qt agreeing, and here
+  they only happened to agree.
 - **`String.fromCharCode` is 16-bit and silently truncates.** The switcher's
   `glyphFor` builds its glyph from a hex codepoint, which was fine while every
   entry sat in the Font Awesome PUA (≤ U+FFFF), but the Material Design range

@@ -256,7 +256,11 @@ Apply the printed `viewBox`, **and `width`/`height` with it** — if they disagr
 with the new canvas, rsvg reintroduces the original aspect and the change does
 nothing. Reference points: `com.mitchellh.ghostty` fills 99% x 100%;
 `figma-desktop` filled 52% x 78% before it was tightened, which is exactly how
-much smaller than its neighbours it looked.
+much smaller than its neighbours it looked. `pi` fills 74% x 74% and is the one
+mark that is **supposed** to — inset on purpose, because a solid blocky mark
+reads heavier than the thin-stroked ones beside it, and its own file carries an
+XML comment saying so. A `tighten to:` line for that one is the script working,
+not a finding.
 
 A wide wordmark (`npm`, `bat`, `systemd`) correctly fills its long axis and stays
 short. That is the logo, not padding — do not stretch it.
