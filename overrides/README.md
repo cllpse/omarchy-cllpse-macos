@@ -94,9 +94,10 @@ picker follows a theme switch with no relogin.
 Some steps are inert or actively wrong alone: `monospace` points the monospace
 font at a family `fonts` installs, `theme` asks Omarchy to set a theme
 `symlinks` puts in place, `omarchy` enables a plugin id whose directory is that
-same symlink, `keyd` defines the `figma:C` layer that `hypr`'s
-`macos-shortcuts.lua` is what actually binds, and `figma` installs the app whose
-launcher entry `applications` corrects. `--list` shows what each one needs.
+same symlink, `keyd` defines the `figma:C` / `figma_ctrl:C` layers that
+`hypr`'s `macos-shortcuts.lua` actually binds, and `figma` installs the app
+whose launcher entry `applications` corrects. `--list` shows what each one
+needs.
 
 Order is always the canonical one regardless of what you pick or the order you
 name it in: several steps only work after an earlier one — `hypr-reload` reloads
@@ -276,7 +277,7 @@ script works the same whether you run it by hand or `apply.sh` calls it.
 | 7h | Five targeted `jq` writes into `shell.json`: the switcher plugin, a transparent bar, the recorded bar layout, disabled first-party plugins. **Full detail: [`omarchy/README.md`](omarchy/README.md).** | `~/.config/omarchy/shell.json` |
 | 7i | Tailscale SSH: one `RunSSH` pref so other tailnet nodes can reach this machine's shell — **no** `sshd`, host keys, `authorized_keys` or open port, and `ufw` untouched. Needs no sudo (Omarchy's installer already granted the operator bit) and never prompts. Also warns when the tailnet's policy allows nobody. **Full detail: [`tailscale/README.md`](tailscale/README.md).** | `RunSSH` in tailscaled's prefs, and nothing on disk |
 | 8 | Apply the theme — refreshes whichever cllpse-macos theme is already active, else sets dark | `omarchy theme set …` |
-| 8b | keyd, for Figma alone: an identity config, the inert `[figma:C]` layer, the focus helper and the group grant, plus a `keyd.service` drop-in that restarts the daemon on a segfault (it has one, twice measured, and the packaged unit has no restart policy at all). The config is published — and the daemon disturbed — only when the file actually changed. Needs **sudo**. **Full detail: [`keyd/README.md`](keyd/README.md).** | `/etc/keyd/default.conf`, `/etc/systemd/system/keyd.service.d/restart.conf`, `~/.local/bin/cllpse-figma-keyd`, the `keyd` group |
+| 8b | keyd, for Figma alone: an identity config, the inert `[figma:C]` and `[figma_ctrl:C]` layers, the focus helper and the group grant, plus a `keyd.service` drop-in that restarts the daemon on a segfault (it has one, twice measured, and the packaged unit has no restart policy at all). The config is published — and the daemon disturbed — only when the file actually changed. Needs **sudo**. **Full detail: [`keyd/README.md`](keyd/README.md).** | `/etc/keyd/default.conf`, `/etc/systemd/system/keyd.service.d/restart.conf`, `~/.local/bin/cllpse-figma-keyd`, the `keyd` group |
 | 8c | `hyprctl reload` — determinism, since autoreload already covers the hypr files. After 8b on purpose: a keyd restart drops every runtime bind, and the reload is what makes `macos-shortcuts.lua` re-seed its remap state from the live focus | the running compositor |
 | 9 | Chromium managed policy: context-menu declutter plus two force-installed extensions. Needs **sudo**. **Full detail: [`chromium/README.md`](chromium/README.md).** | `/etc/chromium/policies/managed/cllpse-macos.json` |
 | 10 | CPU power limits via `ryzenadj`, reapplied at boot and on resume. Hardware-gated. Needs **sudo**. **Full detail: [`ryzen/README.md`](ryzen/README.md).** | `/etc/default/ryzen-tdp`, `/etc/systemd/system/ryzen-tdp.service` |
@@ -553,7 +554,7 @@ chromium/chromium-flags.conf  --force-device-scale-factor=1 + --enable-features=
 chromium/chromium_prefs.py    shared plumbing for the two profile-preference scripts below
 chromium/default-zoom.py      default page zoom -> 110% (no flag exists; it is a profile preference)
 chromium/neutral-theme.py     system (GTK) theme + grayscale -> a neutral browser UI (the theme-colour policy can only give a tinted palette)
-keyd/default.conf             identity config pinned to the Preonic, plus the inert [figma:C] layer the runtime bind activates (installed to /etc with sudo)
+keyd/default.conf             identity config pinned to the Preonic, plus the inert [figma:C] / [figma_ctrl:C] layers the runtime bind activates (installed to /etc with sudo)
 keyd/keyd.service.d/restart.conf  Restart=on-failure + a 5-in-60 start limit for keyd, which ships with no restart policy and segfaults (installed to /etc/systemd/system with sudo)
 keyd/cllpse-figma-keyd        toggles that layer in the running daemon on Figma focus; diagnoses its own failures, since it is only ever reached through exec_raw
 figma/figma.sh                installs/updates the AppImage repack, and is the ONLY thing here that writes inside the app directory: it reapplies the Electron argv cap (electron/electron#52020) that keeps figma:// login working under FIGMA_USE_WAYLAND=1 -- see the follow-ups section

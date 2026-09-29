@@ -20,6 +20,9 @@ Nothing here remaps anything by itself. default.conf is identity-only and
 pinned to the Preonic alone (the `*` wildcard would have swept in three
 Pulsar 8K dongle interfaces the kernel calls keyboards); the remap exists
 solely as a runtime `keyd bind` issued on focus, and dies with the daemon.
+That runtime bind covers two layers: `leftmeta` (so Cmd is Ctrl, for click,
+scroll and the app's own shortcuts) and `leftcontrol` (so Ctrl+C toggles the
+eyedropper, as it does on macOS, instead of copying).
 
 ## 2. Never clobber a keyd config this repo did
 
@@ -48,9 +51,9 @@ one was not noticed for two days and twenty hours.
 
 Nothing about it was loud, by construction. `default.conf` is identity-only, so
 **a dead keyd is a stock keyboard** -- the only thing lost is the runtime
-`leftmeta = layer(figma)` bind, i.e. Cmd+click and Cmd+scroll in Figma and
-nothing else anywhere. There is no symptom until you next reach for a Figma
-gesture.
+`leftmeta`/`leftcontrol` layer binds, i.e. Cmd+click, Cmd+scroll and the
+eyedropper chord in Figma and nothing else anywhere. There is no symptom
+until you next reach for a Figma gesture.
 
 The drop-in's own comments carry the reasoning for `RestartSec=1` and for the
 five-in-sixty start limit; the short version is that an unbounded
@@ -136,16 +139,16 @@ fast path (a plain `keyd bind`) work from the next boot on.
 Smoke-test the whole chain, because every link in it fails SILENTLY and the
 symptom is at the far end -- Cmd+scroll in Figma simply keeps not zooming.
 One `on` proves three things at once: the installed config parsed, it
-defines the `figma` layer, and this user can reach keyd's socket. Cheap,
-~3ms, and it is the check that was missing when /etc/keyd/default.conf sat
-a revision behind the repo for half an hour: the layer had been added to
-overrides/keyd/default.conf but never installed, so the focus handler's
-`keyd bind 'leftmeta = layer(figma)'` answered `figma is not a valid layer`
-and exited 255 into hl.dsp.exec_raw, which discards stderr. Nothing
-anywhere said so until the gesture was tried.
+defines the `figma` and `figma_ctrl` layers, and this user can reach keyd's
+socket. Cheap, ~3ms, and it is the check that was missing when
+/etc/keyd/default.conf sat a revision behind the repo for half an hour: the
+layer had been added to overrides/keyd/default.conf but never installed, so
+the focus handler's `keyd bind 'leftmeta = layer(figma)'` answered `figma is
+not a valid layer` and exited 255 into hl.dsp.exec_raw, which discards
+stderr. Nothing anywhere said so until the gesture was tried.
 
 Three things about its shape. `off` is attempted **even when `on` failed**, so
-a half-completed test cannot walk away leaving leftmeta bound. The daemon's
+a half-completed test cannot walk away leaving the layers bound. The daemon's
 liveness is asserted **after both**, because a bind returning 0 proves only
 that keyd was alive when it answered: on 2026-09-22 this test printed its
 success line at 17:27:24 and keyd dumped core at 17:27:27, so `apply.sh`
@@ -171,15 +174,16 @@ cannot strand the two out of step even if Figma happens to be focused.
 ## From the step table
 
 keyd, for Figma alone: an identity `default.conf` pinned to the Preonic that
-also *defines* the inert `[figma:C]` layer, the focus helper, and the `keyd`
-group grant. Nothing is remapped until Figma takes focus, at which point
-`macos-shortcuts.lua` binds `leftmeta = layer(figma)` in the running daemon
-and drops it again on blur — Figma reads `ctrlKey` and ignores `metaKey` off
+also *defines* the inert `[figma:C]` and `[figma_ctrl:C]` layers, the focus
+helper, and the `keyd` group grant. Nothing is remapped until Figma takes
+focus, at which point `macos-shortcuts.lua` binds `leftmeta = layer(figma)`
+and `leftcontrol = layer(figma_ctrl)` in the running daemon and drops them
+again on blur — Figma reads `ctrlKey` and ignores `metaKey` off
 macOS, and Hyprland has no pointer-button or scroll-axis dispatcher to
 translate Cmd+click / Cmd+scroll with. Needs **sudo**. keyd re-reads that
 config only at start, so this step's `systemctl restart` is the *only* thing
-that publishes an edit to `keyd/default.conf`; it ends by binding the layer
-and releasing it as a smoke test, because every link in the chain fails
+that publishes an edit to `keyd/default.conf`; it ends by binding the layers
+and releasing them as a smoke test, because every link in the chain fails
 silently
 
 Script: [`keyd.sh`](keyd.sh) — runnable on its own; [`../apply.sh`](../apply.sh) owns the order.

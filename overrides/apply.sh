@@ -355,8 +355,8 @@ echo "    • relaunch running GTK/Qt apps + the bar for hintnone"
 echo "    • light theme:  omarchy theme set omarchy-cllpse-theme-light"
 echo "    • the spellcheck/translate/password/autofill/Print/Cast/QR/reading-list policy (9)"
 echo "      already refreshed live if Chromium was running — no relaunch needed"
-echo "    • Figma's Cmd+click / Cmd+scroll work now — the focus hook reaches keyd"
-echo "      through newgrp, since a granted group never reaches a running desktop"
+echo "    • Figma's Cmd+click / Cmd+scroll / Ctrl+C (eyedropper) work now — the focus"
+echo "      hook reaches keyd through newgrp, since a granted group never reaches a"
 echo "      (the systemd user manager outlives a logout; only a reboot reseeds it)."
 echo "    • Btrfs zstd:1 (11) applies to NEW writes only — existing extents keep"
 echo "      the level they were written at, and defragmenting to rewrite them"
@@ -622,9 +622,10 @@ esac
 # the monospace font at a family `fonts` installs, so on its own it names a font
 # that is not there. `theme` asks Omarchy to set a theme `symlinks` puts in
 # place. `omarchy` enables a plugin id whose directory is that same symlink.
-# `keyd` defines the figma:C layer that hypr's macos-shortcuts.lua is what
-# actually binds. `figma` installs the app whose launcher entry `applications`
-# corrects, which is why figma.sh normally calls apply.sh itself.
+# `keyd` defines the figma:C and figma_ctrl:C layers that hypr's
+# macos-shortcuts.lua actually binds. `figma` installs the app whose launcher
+# entry `applications` corrects, which is why figma.sh normally calls apply.sh
+# itself.
 #
 # Rather than refuse a selection, pull the missing ones in and say so. The loop
 # repeats because a prerequisite can have its own.

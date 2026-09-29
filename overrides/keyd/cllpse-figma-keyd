@@ -102,15 +102,23 @@ fail() {
   fi
 }
 
-# layer(figma), not leftcontrol. The layer is defined in
-# /etc/keyd/default.conf and is inert until this line activates it; `:C` makes
-# it behave as Control everywhere except the keys it maps explicitly, which is
-# what keeps SUPER + TAB reaching the window switcher instead of vanishing into
-# Figma. keyd cannot CREATE a layer at runtime, only bind to one, which is why
-# the definition has to live on disk. Binding leftcontrol directly also drew a
-# "you should use layer(control) instead" warning on every single call.
+# Two layers, both defined in /etc/keyd/default.conf and inert until this line
+# activates them; keyd cannot CREATE a layer at runtime, only bind to one,
+# which is why the definitions have to live on disk.
+#
+#   leftmeta    -> figma       `:C`, so Cmd IS Ctrl in Figma
+#   leftcontrol -> figma_ctrl  `:C` plus `c = i`, so Ctrl+C toggles the
+#                              eyedropper instead of copying, as on macOS
+#
+# The second is not part of the first because the first is only active while
+# leftmeta is HELD -- a bare physical Control+C never enters it. Binding
+# leftcontrol to a `:C` layer (rather than to a plain key) is what keeps
+# Control on every other chord and avoids keyd's "you should use
+# layer(control) instead" warning on every call. Both binds go in one
+# invocation so a missing config layer fails the pair together instead of
+# leaving Cmd remapped and Ctrl not.
 case ${1:-} in
-  on)  bind=('leftmeta = layer(figma)') ;;
+  on)  bind=('leftmeta = layer(figma)' 'leftcontrol = layer(figma_ctrl)') ;;
   off) bind=(reset) ;;
   *)   printf 'usage: %s on|off\n' "${0##*/}" >&2; exit 2 ;;
 esac
