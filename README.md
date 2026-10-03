@@ -491,6 +491,10 @@ either new or was never wanted.
 is what the CPU power limits were measured with (a 90s all-core `matrixprod`
 run: 11379 bogo ops/s at 52W sustained, 4474 MHz, 88.5 °C peak), and
 `dmidecode` is how the machine was identified while writing the step's guard.
+The limit now ships at 50W: a longer all-core load, caught by a temperature
+logger rather than a benchmark, held the CPU pinned at its 92 °C setpoint for
+~40 minutes while drawing only 51.3W of the 52W, so the extra two watts were
+buying heat rather than clock.
 Neither is needed to *run* anything — `apply.sh` reads `/sys/class/dmi/id/`
 directly and never shells out to `dmidecode`, and the live limits are read back
 from `ryzen_smu`'s world-readable `pm_table`. They are provenance for the

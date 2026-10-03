@@ -12,7 +12,7 @@ here. The unit is wanted by the sleep targets as well as multi-user for that
 second half; a plain WantedBy=multi-user.target survives a reboot and not a
 suspend.
 
-Gated on the machine, not just on the tool. 52W sustained is a number for this
+Gated on the machine, not just on the tool. 50W sustained is a number for this
 CPU in this chassis, and pushing it onto different hardware is a thermal
 decision made by accident -- so the model and the DMI product have to match
 before anything is written. Everything else in this repo is cosmetic if it
@@ -32,12 +32,14 @@ SMU instead of from systemctl.
 
 ## From the step table
 
-CPU power limits: `ryzenadj` at 52W sustained / 58W burst, reapplied at **boot
+CPU power limits: `ryzenadj` at 50W sustained / 58W burst, reapplied at **boot
 and on resume** by `ryzen-tdp.service` — runtime SMU settings persist across
 neither, so a machine tuned by hand is back at the firmware's 45W the next
 morning with nothing on it to say so. **Hardware-gated**: the step refuses
-unless `/proc/cpuinfo` reads 8745HS and DMI reads GEEKOM/A8, because 52W is a
-number for one chassis, not a general setting. Needs **sudo**, and does not
+unless `/proc/cpuinfo` reads 8745HS and DMI reads GEEKOM/A8, because 50W is a
+number for one chassis, not a general setting. It was 52W until a 40-minute
+all-core load held Tctl pinned at the firmware's 92°C while drawing only 51.3W
+of it — see `ryzen-tdp.env` for the measurement. Needs **sudo**, and does not
 install `ryzenadj`
 
 Script: [`ryzen.sh`](ryzen.sh) — runnable on its own; [`../apply.sh`](../apply.sh) owns the order.

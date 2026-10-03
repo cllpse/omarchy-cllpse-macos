@@ -559,7 +559,7 @@ keyd/keyd.service.d/restart.conf  Restart=on-failure + a 5-in-60 start limit for
 keyd/cllpse-figma-keyd        toggles that layer in the running daemon on Figma focus; diagnoses its own failures, since it is only ever reached through exec_raw
 figma/figma.sh                installs/updates the AppImage repack, and is the ONLY thing here that writes inside the app directory: it reapplies the Electron argv cap (electron/electron#52020) that keeps figma:// login working under FIGMA_USE_WAYLAND=1 -- see the follow-ups section
 tailscale/tailscale.sh        turns Tailscale SSH on, once, recording what the machine had first; verifies the pref read back and the tailnet policy, and states plainly that it cannot test the connection (a node cannot Tailscale-SSH to itself)
-ryzen/ryzen-tdp.env           the power limits themselves: 52W sustained / 58W burst, with the measurements behind them (installed to /etc/default/ryzen-tdp with sudo)
+ryzen/ryzen-tdp.env           the power limits themselves: 50W sustained / 58W burst, with the measurements behind them (installed to /etc/default/ryzen-tdp with sudo)
 ryzen/ryzen-tdp.service       reapplies them at boot AND on resume -- ryzenadj's settings survive neither (installed to /etc/systemd/system with sudo)
 chromium/policies-managed.json  spellcheck/translate/password/autofill/Print/Cast/QR-code/Reading-list off, plus ExtensionInstallForcelist pinning uBlock Origin Lite + Proton Pass (managed policy, installed to /etc with sudo). DevTools deliberately absent — see the follow-ups section
 omarchy/shell-bar.json        the recorded bar: widget layout, centerAnchor, disabledPlugins (jq-written into shell.json by step 7h)
