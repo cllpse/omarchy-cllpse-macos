@@ -496,6 +496,9 @@ The limit now ships at 50W: a longer all-core load, caught by a temperature
 logger rather than a benchmark, held the CPU pinned at its 92 °C setpoint for
 ~40 minutes while drawing only 51.3W of the 52W, so the extra two watts were
 buying heat rather than clock.
+The 58W burst limit was measured rather than carried over: `burst-bench.py`
+found 62W 1.1% faster than 58W on a ~5s all-core burst and no faster on a ~12s
+one, where its shorter burst window gives the lead back.
 Neither is needed to *run* the step — `apply.sh` reads `/sys/class/dmi/id/`
 directly and never shells out to `dmidecode`, and the live limits are read back
 from `ryzen_smu`'s world-readable `pm_table`. They are provenance for the

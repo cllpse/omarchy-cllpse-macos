@@ -67,6 +67,30 @@ Smoke-tested at 58W only: a ~3s burst averaged 56W, so the burst limit is in
 play for loads that short, and two ~1s runs differed by 9% (1.010s vs 1.106s)
 where two ~3s runs agreed to 0.1%.
 
+Run on 2026-10-03 at the defaults:
+
+| burst | ~5s run | vs 58W | peak Tctl | avg MHz |
+|---|---|---|---|---|
+| 50W | 5.165s | +3.3% | 74.4°C | 4431 |
+| 54W | 5.079s | +1.6% | 76.0°C | 4510 |
+| 58W | 5.000s | -- | 79.9°C | 4566 |
+| 62W | 4.943s | -1.1% | 82.0°C | 4614 |
+
+No two ranges overlapped, every round came out in the same order, and the clock
+moves with the timing, so this is the limit and not noise. 50W is no burst at
+all (PPT fast equal to the sustained limit), so 58W's whole contribution is
+3.3%: ~165ms on a 5s load, 12°C under the setpoint. Each watt bought ~0.4% up
+to 58W and ~0.3% past it. `--limits 58,62 --sizes 12` then compared the top two
+on a ~12s load: 11.924s at 58W against 11.949s at 62W, inside 58W's own
+11.892-11.991s range, with 62W drawing 1.4W more and peaking ~2°C hotter. A
+higher fast limit spends the PPT slow budget sooner. Back-calculated from the
+average draw (not traced), 62W stopped bursting at ~8.5s and 58W at ~10.5s, and
+those two seconds leave 62W ~30ms ahead on paper, under the ~100ms spread of
+58W's own runs. Both windows are longer than the 100ms trace's because this run
+started from a cooler idle (PPT slow ~4.6W), and the window grows the further
+the average has to climb. 58W stays: the watts past it buy ~60ms on a 5s load
+and nothing measurable on a 12s one.
+
 ## From the step table
 
 CPU power limits: `ryzenadj` at 50W sustained / 58W burst, reapplied at **boot
@@ -76,7 +100,9 @@ morning with nothing on it to say so. **Hardware-gated**: the step refuses
 unless `/proc/cpuinfo` reads 8745HS and DMI reads GEEKOM/A8, because 50W is a
 number for one chassis, not a general setting. It was 52W until a 40-minute
 all-core load held Tctl pinned at the firmware's 92°C while drawing only 51.3W
-of it — see `ryzen-tdp.env` for the measurement. Needs **sudo**, and does not
+of it — see `ryzen-tdp.env` for the measurement. 58W burst was measured against
+50, 54 and 62W with `burst-bench.py` (§3): 62W is 1.1% faster on a ~5s burst
+and no faster on a ~12s one. Needs **sudo**, and does not
 install `ryzenadj`
 
 Script: [`ryzen.sh`](ryzen.sh) — runnable on its own; [`../apply.sh`](../apply.sh) owns the order.
