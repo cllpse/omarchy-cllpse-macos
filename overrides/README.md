@@ -561,6 +561,7 @@ figma/figma.sh                installs/updates the AppImage repack, and is the O
 tailscale/tailscale.sh        turns Tailscale SSH on, once, recording what the machine had first; verifies the pref read back and the tailnet policy, and states plainly that it cannot test the connection (a node cannot Tailscale-SSH to itself)
 ryzen/ryzen-tdp.env           the power limits themselves: 50W sustained / 58W burst, with the measurements behind them (installed to /etc/default/ryzen-tdp with sudo)
 ryzen/ryzen-tdp.service       reapplies them at boot AND on resume -- ryzenadj's settings survive neither (installed to /etc/systemd/system with sudo)
+ryzen/burst-bench.py          times fixed all-core work at several burst limits, to test the 58W figure; needs sudo, restores the env file's limits on exit, not run by apply.sh
 chromium/policies-managed.json  spellcheck/translate/password/autofill/Print/Cast/QR-code/Reading-list off, plus ExtensionInstallForcelist pinning uBlock Origin Lite + Proton Pass (managed policy, installed to /etc with sudo). DevTools deliberately absent — see the follow-ups section
 omarchy/shell-bar.json        the recorded bar: widget layout, centerAnchor, disabledPlugins (jq-written into shell.json by step 7h)
 icons/icons/              app icons REPAINTED to the theme: <Icon=>.svg placed by hand; see its README for the naming + silhouette contract

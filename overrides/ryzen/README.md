@@ -30,6 +30,29 @@ session rather than at the next boot. A oneshot that has already run reports
 inactive (dead), which is success -- so the limits are read back from the
 SMU instead of from systemctl.
 
+## 3. Measuring the burst limit: `burst-bench.py`
+
+The sustained limit was settled by thermal-log catching a long load pinned at
+92°C. The burst limit can't be settled that way: it acts in the first seconds
+of a load, until the PPT slow average catches up, and thermal-log samples every
+10s. [`burst-bench.py`](burst-bench.py) times a fixed amount of all-core work
+(`stress-ng` matrixprod, a fixed `--cpu-ops` count, so a faster limit shows up
+as a shorter run) at each burst limit, in ~1s, ~3s and ~10s sizes calibrated at
+the configured limit. The limits are shuffled within every round so drift lands
+on all of them, and each run waits for Tctl and the PPT slow average to return
+to idle first, since both decide how much burst the next run gets. Defaults:
+50/54/58/62W × 3 sizes × 5 rounds = 60 runs, ~25 min, raw runs to
+`~/.local/share/burst-bench/`.
+
+It needs sudo for `ryzenadj`, holds Omarchy's idle off for the duration (the
+screensaver is a CPU load of its own and starts at 150s), and restarts
+`ryzen-tdp.service` on exit, Ctrl-C included, so the env file's limits are what
+it leaves behind. Same hardware guard as `ryzen.sh`. Not run by `apply.sh`.
+
+Smoke-tested at 58W only: a ~3s burst averaged 56W, so the burst limit is in
+play for loads that short, and two ~1s runs differed by 9% (1.010s vs 1.106s)
+where two ~3s runs agreed to 0.1% -- the 1s size needs every one of its rounds.
+
 ## From the step table
 
 CPU power limits: `ryzenadj` at 50W sustained / 58W burst, reapplied at **boot
