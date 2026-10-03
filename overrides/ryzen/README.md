@@ -1,6 +1,6 @@
 # CPU power limits
 
-ryzenadj sustained/burst limits, reapplied at boot and on resume by a systemd unit. Hardware-gated, and needs sudo.
+ryzenadj sustained/burst limits, reapplied at boot and on resume by a systemd unit. Hardware-gated, opt-in, and needs sudo.
 
 ## 1. ryzenadj sets the SMU's sustained/burst power limits at
 
@@ -102,7 +102,8 @@ number for one chassis, not a general setting. It was 52W until a 40-minute
 all-core load held Tctl pinned at the firmware's 92°C while drawing only 51.3W
 of it — see `ryzen-tdp.env` for the measurement. 58W burst was measured against
 50, 54 and 62W with `burst-bench.py` (§3): 62W is 1.1% faster on a ~5s burst
-and no faster on a ~12s one. Needs **sudo**, and does not
-install `ryzenadj`
+and no faster on a ~12s one. **Opt-in**: `--all` and **Run everything** skip
+it; run `apply.sh ryzen`, or tick it under **Choose specific steps…**. Needs
+**sudo**, and does not install `ryzenadj`
 
 Script: [`ryzen.sh`](ryzen.sh) — runnable on its own; [`../apply.sh`](../apply.sh) owns the order.

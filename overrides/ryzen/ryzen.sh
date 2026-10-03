@@ -2,9 +2,9 @@
 # CPU power limits (sudo)
 #
 # See README.md in this directory for what this does and why.
-# Runnable on its own, and called by ../apply.sh. $HERE is bound to overrides/
-# (not this folder), so every path below reads exactly as it did when this
-# lived in apply.sh.
+# Runnable on its own, and called by ../apply.sh only when asked for: the step
+# is opt-in, so --all skips it. $HERE is bound to overrides/ (not this folder),
+# so every path below reads exactly as it did when this lived in apply.sh.
 set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib.sh"
 HERE="$OVERRIDES"

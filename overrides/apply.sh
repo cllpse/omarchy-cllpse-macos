@@ -61,7 +61,7 @@
 #   8c.  hyprctl reload -- after 8b so the focus handler is seeded
 #        against the keyd that is now running                          [inline]
 #   9.   Chromium managed policy (sudo)                                chromium/ (policy)
-#   10.  CPU power limits (sudo), hardware-gated                       ryzen/
+#   10.  CPU power limits (sudo), hardware-gated, opt-in               ryzen/
 #   11.  Btrfs compression level (sudo) -- last, and the only step
 #        that edits a file the machine will not boot without           [inline]
 
@@ -361,8 +361,13 @@ echo "      (the systemd user manager outlives a logout; only a reboot reseeds i
 echo "    • Btrfs zstd:1 (11) applies to NEW writes only — existing extents keep"
 echo "      the level they were written at, and defragmenting to rewrite them"
 echo "      would unshare Snapper's snapshot extents, so it is not done here"
-echo "    • CPU power limits (10) are live now and reapplied at boot and on resume;"
-echo "      systemctl status ryzen-tdp, values in /etc/default/ryzen-tdp"
+if _want ryzen; then
+  echo "    • CPU power limits (10) are live now and reapplied at boot and on resume;"
+  echo "      systemctl status ryzen-tdp, values in /etc/default/ryzen-tdp"
+else
+  echo "    • CPU power limits (10) are opt-in and were not part of this run:"
+  echo "      apply.sh ryzen"
+fi
 echo "    • boot splash / login screen (needs sudo, not run by this script):"
 echo "        omarchy plymouth set by theme omarchy-cllpse-theme-dark   # or -light"
 
@@ -447,7 +452,7 @@ STEPS=(
   "keyd|sudo|keyd: Figma modifier remap (sudo)|run:keyd|hypr"
   "hypr-reload|auto|hyprctl reload|fn:step_hypr_reload|"
   "chromium-policy|sudo|Chromium managed policy (sudo)|run:chromium policy|"
-  "ryzen|sudo|CPU power limits (sudo)|run:ryzen|"
+  "ryzen|optin|CPU power limits (sudo)|run:ryzen|"
   "btrfs|sudo|Btrfs compression level (sudo)|fn:step_btrfs|"
 )
 
@@ -461,7 +466,9 @@ _ids()   { printf '%s\n' "${STEPS[@]}" | cut -d'|' -f1; }
 # What a bare --all runs: everything except the opt-in steps. figma reaches
 # the NETWORK and installs an application, which apply.sh otherwise never
 # does -- and figma.sh finishes by calling `apply.sh --all` itself, so having
-# it in --all would recurse.
+# it in --all would recurse. ryzen writes the CPU's power limits: a thermal
+# decision for one machine, made by asking for it rather than swept up in a
+# full run (figma.sh's included).
 _auto_ids() { printf '%s\n' "${STEPS[@]}" | awk -F'|' '$2!="optin"{print $1}'; }
 
 _validate_look() {
@@ -554,14 +561,15 @@ choose_steps() {
     *)        return 0 ;;   # cancelled
   esac
 
-  # Stage two: tick as many as you like. The list is everything --all would run;
-  # bar and figma are not in it, both having had their own entry above -- the
-  # `optin` filter below is what leaves them out, so a new top-level entry only
-  # needs that note to stay out of here too.
+  # Stage two: tick as many as you like. The list is everything --all would run,
+  # plus ryzen. bar and figma are not in it, both having had their own entry
+  # above; ryzen is opt-in too but has no entry of its own, so this is where it
+  # is opted into. That is why the filter names bar and figma rather than
+  # skipping every `optin` step -- a new top-level entry has to be added to it.
   local menu=() s id note label
   for s in "${STEPS[@]}"; do
     IFS='|' read -r id note label _ _ <<<"$s"
-    [[ $note == optin || $note == auto ]] && continue
+    [[ $note == auto || $id == bar || $id == figma ]] && continue
     menu+=("$(printf '%-18s %s%s' "$id" "$label" "${note:+  ($note)}")")
   done
 

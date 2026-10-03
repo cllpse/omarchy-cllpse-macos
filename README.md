@@ -20,7 +20,8 @@ Built against **Omarchy 4.0.4** (`quattro`). The `master` branch is stale at
 
 `apply.sh` is idempotent and installs no packages. It makes one decision about
 your hardware — the CPU power limits in step 10 — and gates it on the exact CPU
-and chassis it was measured on, so it is inert anywhere else. Four steps need
+and chassis it was measured on, so it is inert anywhere else. That step is also
+opt-in: `--all` skips it, and `apply.sh ryzen` runs it. Four steps need
 sudo (keyd, the Chromium managed policy, those power limits, and the Btrfs
 compression level in `/etc/fstab`) and everything else is user-level. Six things to settle first; everything after
 them can be handed to an agent.

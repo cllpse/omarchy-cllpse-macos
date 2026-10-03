@@ -77,6 +77,13 @@ with no setting to turn that off (see [`omarchy/README.md`](omarchy/README.md)
 writes the layout as part of the `omarchy` step — and out of the stage-two
 checklist, having had its own entry above.
 
+`ryzen` is `optin` too, for a different reason: it writes the CPU's power
+limits, a thermal decision for one machine that should be made by asking for it
+rather than swept up in a full run (`figma.sh`'s `--all` included). It has no
+top-level entry, so it stays in the checklist; the checklist skips `bar` and
+`figma` by id rather than skipping every `optin` step. Run it with
+`apply.sh ryzen` or by ticking it.
+
 Ticking anything in that checklist also runs `state`, which records what the
 machine had before — only useful if it happens on the first run that changes
 something, so it rides along rather than being yours to remember. A numbered
@@ -280,7 +287,7 @@ script works the same whether you run it by hand or `apply.sh` calls it.
 | 8b | keyd, for Figma alone: an identity config, the inert `[figma:C]` and `[figma_ctrl:C]` layers, the focus helper and the group grant, plus a `keyd.service` drop-in that restarts the daemon on a segfault (it has one, twice measured, and the packaged unit has no restart policy at all). The config is published — and the daemon disturbed — only when the file actually changed. Needs **sudo**. **Full detail: [`keyd/README.md`](keyd/README.md).** | `/etc/keyd/default.conf`, `/etc/systemd/system/keyd.service.d/restart.conf`, `~/.local/bin/cllpse-figma-keyd`, the `keyd` group |
 | 8c | `hyprctl reload` — determinism, since autoreload already covers the hypr files. After 8b on purpose: a keyd restart drops every runtime bind, and the reload is what makes `macos-shortcuts.lua` re-seed its remap state from the live focus | the running compositor |
 | 9 | Chromium managed policy: context-menu declutter plus two force-installed extensions. Needs **sudo**. **Full detail: [`chromium/README.md`](chromium/README.md).** | `/etc/chromium/policies/managed/cllpse-macos.json` |
-| 10 | CPU power limits via `ryzenadj`, reapplied at boot and on resume. Hardware-gated. Needs **sudo**. **Full detail: [`ryzen/README.md`](ryzen/README.md).** | `/etc/default/ryzen-tdp`, `/etc/systemd/system/ryzen-tdp.service` |
+| 10 | CPU power limits via `ryzenadj`, reapplied at boot and on resume. Hardware-gated, and **opt-in**: `--all` skips it; `apply.sh ryzen` or the checklist runs it. Needs **sudo**. **Full detail: [`ryzen/README.md`](ryzen/README.md).** | `/etc/default/ryzen-tdp`, `/etc/systemd/system/ryzen-tdp.service` |
 | 11 | Btrfs compression: `compress=zstd` (a bare `zstd` is the kernel's level 3) → `compress=zstd:1` on every btrfs line in `/etc/fstab`, then a live `mount -o remount` of each so it doesn't wait for a reboot. Level 3 costs ~2–3× the CPU of level 1 at compression for ~5–10% better ratio — the wrong trade on a disk that is 4% full and a CPU that is thermally capped. Backs `/etc/fstab` up first, rewrites **only** lines whose FS-type field is `btrfs` (a commented line, a `compress-force=`, or the same string on an ext4 line are all left alone — tested), and verifies with `findmnt --verify` before leaving it in place, restoring the backup if that fails. Bails out entirely if the machine mounts btrfs at mixed levels. Needs **sudo** | `/etc/fstab`, plus a live remount of each btrfs mountpoint |
 
 `7\*` is not a separate step in the script — starship, the Cursor chrome repaint, yazi's syntect theme, hunk and ytm-player are all theme-set hooks installed from inside step 7. It is split out here because a hook behaves differently from a config file: it re-runs on every `omarchy theme set`.
