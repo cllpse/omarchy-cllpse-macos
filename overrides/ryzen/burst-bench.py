@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Time short all-core bursts at several burst (PPT fast) limits.
 
-  burst-bench.py                        50/54/58/62W x ~1/3/10s bursts x 5 rounds, ~25 min
+  burst-bench.py                        50/54/58/62W x one ~5s burst x 3 rounds, ~6 min
   burst-bench.py --limits 54,58 --rounds 3
   burst-bench.py --summarize FILE.csv   re-print the table from a finished run
 
@@ -114,7 +114,7 @@ def idle(method):
                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
-def baseline(seconds=5):
+def window(seconds=2):
     temps, slows = [], []
     end = time.monotonic() + seconds
     while time.monotonic() < end:
@@ -124,11 +124,28 @@ def baseline(seconds=5):
     return statistics.median(temps), statistics.median(slows)
 
 
+# Idle is wherever Tctl and the PPT slow average stop falling. Taken as a
+# snapshot instead, a start soon after any load -- a build, the previous run of
+# this -- read 67C and 22.6W against a real idle of ~47C and ~9W, and every
+# cool-down gate built on it waited a third as long as it should have.
+def baseline(max_wait=90):
+    end = time.monotonic() + max_wait
+    prev = window()
+    while time.monotonic() < end:
+        cur = window()
+        if prev[0] - cur[0] < 0.5 and prev[1] - cur[1] < 0.3:
+            return cur
+        prev = cur
+    return prev
+
+
 # A burst's speed depends on where it starts: the die's temperature, and how
 # much of the PPT slow average the last run left behind (the fast limit only
 # holds until that average catches up). Every run therefore waits for both to
 # come back near idle, judged on a 2s mean because Tctl jumps on any wakeup.
-def cool_down(base_t, base_slow, min_wait=15, max_wait=180):
+# Measured after a 10s burst: the slow average decays with a ~5s time constant
+# and is back within 3W of idle after ~12s; Tctl is within 5C by then too.
+def cool_down(base_t, base_slow, min_wait=3, max_wait=120):
     start = time.monotonic()
     window = deque(maxlen=20)
     while True:
@@ -137,7 +154,7 @@ def cool_down(base_t, base_slow, min_wait=15, max_wait=180):
         if waited >= min_wait and len(window) == window.maxlen:
             t = statistics.mean(w[0] for w in window)
             s = statistics.mean(w[1] for w in window)
-            if t <= base_t + 4 and s <= base_slow + 4:
+            if t <= base_t + 5 and s <= base_slow + 3:
                 return waited, True
         if waited >= max_wait:
             return waited, False
@@ -204,8 +221,12 @@ def summarize(rows):
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--limits", default="50,54,58,62", help="burst limits to test, in W")
-    ap.add_argument("--sizes", default="1,3,10", help="burst lengths in seconds, at the current limit")
-    ap.add_argument("--rounds", type=int, default=5)
+    # One size by default: from idle the burst lasts ~8.6s at 58W (~7s at 62W,
+    # ~11.5s at 54W), so a ~5s run is all burst at every limit tested. Shorter
+    # runs measure the same thing plus stress-ng's startup jitter; longer ones
+    # mix in the sustained limit and take the longest to cool down from.
+    ap.add_argument("--sizes", default="5", help="burst lengths in seconds, at the current limit")
+    ap.add_argument("--rounds", type=int, default=3)
     ap.add_argument("--summarize", metavar="CSV", help="print the table from a finished run and exit")
     a = ap.parse_args()
 
@@ -221,7 +242,8 @@ def main():
     sizes = [float(x) for x in a.sizes.split(",")]
     ref = configured_fast()
     runs = a.rounds * len(sizes) * len(limits)
-    est = runs * (20 + statistics.mean(sizes)) / 60  # cool-down measured at ~15-20s
+    # A ~5s run took ~21s to cool down from; plus ~1 min to settle and calibrate.
+    est = runs * 5 * statistics.mean(sizes) / 60 + 1
     print(f"burst-bench: {runs} runs, roughly {est:.0f} min. Limits {limits}W against the"
           f" configured {ref}W.\nLeave the machine alone until it finishes -- any other load"
           f" lands in the timings.")
@@ -250,9 +272,11 @@ def main():
     out = OUT_DIR / f"burst-{time.strftime('%Y%m%d-%H%M%S')}.csv"
     rows, rejected = [], set()
     try:
-        print("measuring idle baseline...")
+        print("waiting for idle to settle...")
         base_t, base_slow = baseline()
         print(f"  idle: Tctl {base_t:.1f}°C, PPT slow {base_slow:.1f}W")
+        if base_slow > 15:
+            print("  warning: idle draw is high -- something else is running")
 
         set_fast(ref)
         cool_down(base_t, base_slow)

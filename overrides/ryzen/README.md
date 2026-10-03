@@ -37,12 +37,26 @@ The sustained limit was settled by thermal-log catching a long load pinned at
 of a load, until the PPT slow average catches up, and thermal-log samples every
 10s. [`burst-bench.py`](burst-bench.py) times a fixed amount of all-core work
 (`stress-ng` matrixprod, a fixed `--cpu-ops` count, so a faster limit shows up
-as a shorter run) at each burst limit, in ~1s, ~3s and ~10s sizes calibrated at
-the configured limit. The limits are shuffled within every round so drift lands
-on all of them, and each run waits for Tctl and the PPT slow average to return
-to idle first, since both decide how much burst the next run gets. Defaults:
-50/54/58/62W × 3 sizes × 5 rounds = 60 runs, ~25 min, raw runs to
-`~/.local/share/burst-bench/`.
+as a shorter run) at each burst limit. The limits are shuffled within every
+round so drift lands on all of them, and each run waits for Tctl and the PPT
+slow average to return near idle first, since both decide how much burst the
+next run gets. Defaults: 50/54/58/62W × one ~5s size × 3 rounds = 12 runs,
+~6 min, raw runs to `~/.local/share/burst-bench/`; `--sizes` and `--rounds`
+take more.
+
+Why one ~5s size: sampled at 100ms from idle, a 58W burst held 58W for ~8.6s
+before the PPT slow average reached 50W and pulled it down. That average moves
+with a ~5s time constant, which puts the window at ~11.5s for 54W and ~7s for
+62W -- so ~5s is all burst at every limit tested. A first version also ran ~1s
+and ~10s sizes over 5 rounds, 60 runs and ~25 min: the 1s runs measured the
+same window plus `stress-ng`'s startup jitter, and the 10s ones mixed in the
+sustained limit and had the longest cool-down. The same trace sized the
+cool-down gate: after a 10s burst the slow average was within 3W of idle, and
+Tctl within 5°C, after ~12s. In practice a ~5s run waits ~21s, Tctl's last few
+degrees being the slow part, and three runs at 58W agreed to 1.1%
+(4.792-4.844s). The idle those gates compare against is taken once Tctl and
+the slow average stop falling, not as a snapshot: started straight after a
+load, a snapshot read 67°C and 22.6W against a real ~48°C and ~9W.
 
 It needs sudo for `ryzenadj`, holds Omarchy's idle off for the duration (the
 screensaver is a CPU load of its own and starts at 150s), and restarts
@@ -51,7 +65,7 @@ it leaves behind. Same hardware guard as `ryzen.sh`. Not run by `apply.sh`.
 
 Smoke-tested at 58W only: a ~3s burst averaged 56W, so the burst limit is in
 play for loads that short, and two ~1s runs differed by 9% (1.010s vs 1.106s)
-where two ~3s runs agreed to 0.1% -- the 1s size needs every one of its rounds.
+where two ~3s runs agreed to 0.1%.
 
 ## From the step table
 
