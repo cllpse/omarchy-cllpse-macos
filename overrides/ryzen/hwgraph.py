@@ -20,7 +20,8 @@ from collections import deque
 INTERVAL = 1.0
 HISTORY = 2000
 BLOCKS = " ▁▂▃▄▅▆▇█"
-AXIS = 6
+NAME = 6  # title column: device name, then its readings
+AXIS = 6  # scale column at the right end, beside the newest reading
 
 
 def die(msg):
@@ -121,19 +122,23 @@ def put(win, y, x, text, attr=0):
 
 def title(win, y, name, parts):
     put(win, y, 0, name, curses.A_BOLD)
-    x = AXIS
+    x = NAME
     for text, attr in parts:
         put(win, y, x, text, attr)
         x += len(text) + 3
 
 
+def rule(win, y, w):
+    put(win, y, 0, "─" * w, curses.A_DIM)
+
+
 def graph(win, y, h, w, hist, lo, hi, top, bottom, attr):
-    put(win, y, 0, top.rjust(AXIS - 1), curses.A_DIM)
-    if h > 1:
-        put(win, y + h - 1, 0, bottom.rjust(AXIS - 1), curses.A_DIM)
     width = w - AXIS
+    put(win, y, width + 1, top, curses.A_DIM)
+    if h > 1:
+        put(win, y + h - 1, width + 1, bottom, curses.A_DIM)
     values = list(hist)[-width:]
-    x0 = AXIS + width - len(values)
+    x0 = width - len(values)
     for i, v in enumerate(values):
         frac = min(max((v - lo) / (hi - lo), 0), 1)
         eighths = round(frac * h * 8)
@@ -147,7 +152,7 @@ def draw(win, cpu, rams, ssd, c):
     win.erase()
     rows, cols = win.getmaxyx()
     # CPU has two graphs, every other device one; each device has a title,
-    # there is a gap between devices and one between CPU's two graphs
+    # there is a rule between devices and a gap between CPU's two graphs
     devices = 2 + len(rams)
     gh = (rows - 2 * devices) // (devices + 1)
     if gh < 1 or cols < AXIS + 10:
@@ -163,11 +168,13 @@ def draw(win, cpu, rams, ssd, c):
         graph(win, 1, gh, cols, cpu.util, 0, 100, "100%", "0%", c["util"])
         graph(win, gh + 2, gh, cols, cpu.freq, 0, cpu.fmax,
               f"{cpu.fmax:.1f}G", "0G", c["freq"])
+        rule(win, 2 * gh + 2, cols)
         y = 2 * gh + 3
         for n, ram in enumerate(rams, 1):
             title(win, y, f"RAM {n}", [(f"{ram.temp[-1]:.1f}°C", c["ram"])])
             graph(win, y + 1, gh, cols, ram.temp, 20, ram.crit,
                   f"{ram.crit:.0f}°", "20°", c["ram"])
+            rule(win, y + gh + 1, cols)
             y += gh + 2
         title(win, y, "SSD", [
             (f"{ssd.busy[-1]:.0f}% busy", c["ssd"]),
