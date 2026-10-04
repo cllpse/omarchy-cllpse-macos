@@ -115,10 +115,9 @@ def put(win, y, x, text, attr=0):
         pass  # writing the bottom-right cell always raises
 
 
-def label(win, y, name, fields, attr):
-    """Device name, then `key: value` fields with the values in its colour."""
+def label(win, y, name, fields, attr, x=NAME):
+    """Graph name, then `key: value` fields from column x, values in colour."""
     put(win, y, 0, name, curses.A_BOLD)
-    x = NAME
     for i, (key, value) in enumerate(fields):
         sep = ", " if i < len(fields) - 1 else ""
         for text, a in ((f"{key}: ", curses.A_DIM), (value, attr), (sep, curses.A_DIM)):
@@ -191,9 +190,11 @@ def draw(win, clock, cpu, rams, ssd, c):
         put(win, 0, 0, "sampling…", curses.A_DIM)
     else:
         width = cols - AXIS  # samples a graph shows
-        label(win, 0, "CPU", clock_fields(clock, width), c["freq"])
+        names = ("CPU - frequency", "CPU - temperature")
+        at = len(max(names, key=len)) + 2  # one column for both CPU rows
+        label(win, 0, names[0], clock_fields(clock, width), c["freq"], at)
         graph(win, 1, gh, cols, clock.hist, clock.scale, c["freq"])
-        label(win, gh + 1, "", temp_fields(cpu, width), c["cpu"])
+        label(win, gh + 1, names[1], temp_fields(cpu, width), c["cpu"], at)
         graph(win, gh + 2, gh, cols, cpu.hist, cpu.scale, c["cpu"])
         y = 2 * gh + 3
         rows_below = [(f"RAM {n}", ram, "ram") for n, ram in enumerate(rams, 1)]

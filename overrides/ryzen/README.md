@@ -114,7 +114,9 @@ idles at 16-27°C, under the RAM floor. The first version (2026-10-04) also
 graphed CPU utilisation and SSD busy time, with read/write MB/s; they were
 dropped to keep the screen to clocks and heat.
 
-Every graph has a label row above it with three figures. *window* is the mean
+Every graph has a label row above it with three figures, the CPU's two named
+*CPU - frequency* and *CPU - temperature*, with both rows' figures starting
+two spaces past the longer name. *window* is the mean
 of the samples the graph is showing, so it follows history as it scrolls off
 the left edge, and a wider window averages over longer. *overall* is the mean
 since hwgraph started and *peak* the highest reading since then. Both are kept
