@@ -20,7 +20,6 @@ from collections import deque
 INTERVAL = 1.0
 HISTORY = 2000
 BLOCKS = " ▁▂▃▄▅▆▇█"
-NAME = 6  # label column: device name, then its figures
 AXIS = 6  # scale column at the right end, beside the newest reading
 DOT = "┈"  # gridline, drawn at the vertical centre of a cell
 
@@ -115,7 +114,7 @@ def put(win, y, x, text, attr=0):
         pass  # writing the bottom-right cell always raises
 
 
-def label(win, y, name, fields, attr, x=NAME):
+def label(win, y, name, fields, attr, x):
     """Graph name, then `key: value` fields from column x, values in colour."""
     put(win, y, 0, name, curses.A_BOLD)
     for i, (key, value) in enumerate(fields):
@@ -190,17 +189,19 @@ def draw(win, clock, cpu, rams, ssd, c):
         put(win, 0, 0, "sampling…", curses.A_DIM)
     else:
         width = cols - AXIS  # samples a graph shows
-        names = ("CPU - frequency", "CPU - temperature")
-        at = len(max(names, key=len)) + 2  # one column for both CPU rows
+        below = [(f"RAM #{n} - temperature", ram, "ram")
+                 for n, ram in enumerate(rams, 1)]
+        below.append(("SSD - temperature", ssd, "ssd"))
+        names = ["CPU - frequency", "CPU - temperature"] + [b[0] for b in below]
+        at = len(max(names, key=len)) + 2  # one figures column for every row
         label(win, 0, names[0], clock_fields(clock, width), c["freq"], at)
         graph(win, 1, gh, cols, clock.hist, clock.scale, c["freq"])
         label(win, gh + 1, names[1], temp_fields(cpu, width), c["cpu"], at)
         graph(win, gh + 2, gh, cols, cpu.hist, cpu.scale, c["cpu"])
         y = 2 * gh + 3
-        rows_below = [(f"RAM {n}", ram, "ram") for n, ram in enumerate(rams, 1)]
-        for name, sensor, color in rows_below + [("SSD", ssd, "ssd")]:
+        for name, sensor, color in below:
             rule(win, y - 1, cols)
-            label(win, y, name, temp_fields(sensor, width), c[color])
+            label(win, y, name, temp_fields(sensor, width), c[color], at)
             graph(win, y + 1, gh, cols, sensor.hist, sensor.scale, c[color])
             y += gh + 2
     win.refresh()
