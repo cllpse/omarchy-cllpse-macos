@@ -4,9 +4,10 @@
   hwgraph.py                            q quits
 
 CPU graphs its average clock and Tctl; each RAM stick and the SSD graph their
-temperature. Every temperature is titled with its peak across the graph and
-its peak since start. See README.md (4) in this directory for the sensors,
-the scales, and why not btop or s-tui. Needs no root.
+temperature. Every graph is labelled window (the mean of what it shows),
+overall (the mean since start) and peak (the highest since start). See
+README.md (4) in this directory for the sensors, the scales, and why not
+btop or s-tui. Needs no root.
 """
 import curses
 import glob
@@ -19,7 +20,7 @@ from collections import deque
 INTERVAL = 1.0
 HISTORY = 2000
 BLOCKS = " ▁▂▃▄▅▆▇█"
-NAME = 6  # title column: device name, then its readings
+NAME = 6  # label column: device name, then its figures
 AXIS = 6  # scale column at the right end, beside the newest reading
 DOT = "┈"  # gridline, drawn at the vertical centre of a cell
 
@@ -51,42 +52,53 @@ def hwmons(name):
     return sorted(found)
 
 
-class Clock:
-    """Average and fastest core clock, from every core's scaling_cur_freq."""
+class Series:
+    """One reading's history, with its peak and mean since start kept apart
+    from it, so neither forgets when the history fills."""
+
+    def __init__(self, scale):
+        self.scale = scale
+        self.hist = deque(maxlen=HISTORY)
+        self.peak = float("-inf")
+        self.total = 0.0
+        self.count = 0
+
+    def add(self, v):
+        self.hist.append(v)
+        self.peak = max(self.peak, v)
+        self.total += v
+        self.count += 1
+
+    def stats(self, width):
+        """(window, overall, peak): mean of the last `width` samples, which is
+        what the graph shows; mean since start; highest since start."""
+        shown = list(self.hist)[-width:]
+        return sum(shown) / len(shown), self.total / self.count, self.peak
+
+
+class Clock(Series):
+    """Average core clock, from every core's scaling_cur_freq."""
 
     def __init__(self):
         cpus = glob.glob("/sys/devices/system/cpu/cpu[0-9]*/cpufreq")
         self.cur = [c + "/scaling_cur_freq" for c in cpus]
         top = max(int(read(c + "/cpuinfo_max_freq")) for c in cpus) / 1e6
-        self.scale = (0, math.ceil(top), GHZ_STEPS, "G")
-        self.hist = deque(maxlen=HISTORY)
+        super().__init__((0, math.ceil(top), GHZ_STEPS, "G"))
 
     def sample(self):
         ghz = [int(read(c)) / 1e6 for c in self.cur]
-        self.hist.append(sum(ghz) / len(ghz))
-        self.peak = max(ghz)
+        self.add(sum(ghz) / len(ghz))
 
 
-class Sensor:
-    """One hwmon's temp1, in °C, and the highest it has read since start."""
+class Sensor(Series):
+    """One hwmon's temp1, in °C."""
 
     def __init__(self, hwmon, scale):
+        super().__init__(scale)
         self.hwmon = hwmon
-        self.scale = scale
-        self.hist = deque(maxlen=HISTORY)
-        self.peak = float("-inf")
 
     def sample(self):
-        t = int(read(self.hwmon + "/temp1_input")) / 1000
-        self.hist.append(t)
-        self.peak = max(self.peak, t)
-
-
-def readings(sensor, width, attr):
-    """Now, the peak across the samples the graph shows, the peak since start."""
-    shown = max(list(sensor.hist)[-width:])
-    return [(f"{sensor.hist[-1]:.1f}°C", attr),
-            (f"peak {shown:.1f}° visible  {sensor.peak:.1f}° overall", curses.A_DIM)]
+        self.add(int(read(self.hwmon + "/temp1_input")) / 1000)
 
 
 def first(name, scale, what):
@@ -103,12 +115,27 @@ def put(win, y, x, text, attr=0):
         pass  # writing the bottom-right cell always raises
 
 
-def title(win, y, name, parts):
+def label(win, y, name, fields, attr):
+    """Device name, then `key: value` fields with the values in its colour."""
     put(win, y, 0, name, curses.A_BOLD)
     x = NAME
-    for text, attr in parts:
-        put(win, y, x, text, attr)
-        x += len(text) + 3
+    for i, (key, value) in enumerate(fields):
+        sep = ", " if i < len(fields) - 1 else ""
+        for text, a in ((f"{key}: ", curses.A_DIM), (value, attr), (sep, curses.A_DIM)):
+            put(win, y, x, text, a)
+            x += len(text)
+
+
+def clock_fields(clock, width):
+    window, overall, peak = clock.stats(width)
+    return [("window", f"{window:.2f}GHz"), ("peak", f"{peak:.2f}GHz"),
+            ("overall", f"{overall:.2f}GHz")]
+
+
+def temp_fields(sensor, width):
+    window, overall, peak = sensor.stats(width)
+    return [("window", f"{window:.1f}°"), ("overall", f"{overall:.1f}°"),
+            ("peak", f"{peak:.1f}°")]
 
 
 def rule(win, y, w):
@@ -154,8 +181,8 @@ def graph(win, y, h, w, hist, scale, attr):
 def draw(win, clock, cpu, rams, ssd, c):
     win.erase()
     rows, cols = win.getmaxyx()
-    # CPU has two graphs, every other device one; each device has a title,
-    # there is a rule between devices and a gap between CPU's two graphs
+    # CPU has two graphs, every other device one; every graph has a label
+    # row above it, and there is a rule between devices
     devices = 2 + len(rams)
     gh = (rows - 2 * devices) // (devices + 1)
     if gh < 2 or cols < AXIS + 10:
@@ -164,17 +191,15 @@ def draw(win, clock, cpu, rams, ssd, c):
         put(win, 0, 0, "sampling…", curses.A_DIM)
     else:
         width = cols - AXIS  # samples a graph shows
-        title(win, 0, "CPU", [
-            (f"{clock.hist[-1]:.2f} GHz avg  {clock.peak:.2f} fastest", c["freq"]),
-            *readings(cpu, width, c["cpu"]),
-        ])
+        label(win, 0, "CPU", clock_fields(clock, width), c["freq"])
         graph(win, 1, gh, cols, clock.hist, clock.scale, c["freq"])
+        label(win, gh + 1, "", temp_fields(cpu, width), c["cpu"])
         graph(win, gh + 2, gh, cols, cpu.hist, cpu.scale, c["cpu"])
         y = 2 * gh + 3
         rows_below = [(f"RAM {n}", ram, "ram") for n, ram in enumerate(rams, 1)]
         for name, sensor, color in rows_below + [("SSD", ssd, "ssd")]:
             rule(win, y - 1, cols)
-            title(win, y, name, readings(sensor, width, c[color]))
+            label(win, y, name, temp_fields(sensor, width), c[color])
             graph(win, y + 1, gh, cols, sensor.hist, sensor.scale, c[color])
             y += gh + 2
     win.refresh()

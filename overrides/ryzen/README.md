@@ -100,8 +100,8 @@ is the live view for this folder's numbers, where thermal-log is the record and
 `burst-bench.py` the measurement. Not run by `apply.sh`.
 
 The CPU gets two graphs. Its clock is the average of every core's
-`scaling_cur_freq` on 0-5 GHz (`cpuinfo_max_freq` is 4.97), with the fastest
-core in the label. Its temperature is Tctl from `k10temp` on 30-100°C, which
+`scaling_cur_freq` on 0-5 GHz (`cpuinfo_max_freq` is 4.97). Its
+temperature is Tctl from `k10temp` on 30-100°C, which
 keeps the firmware's 92°C setpoint on the scale. Everything else graphs
 temperature only. For a RAM stick that is all it reports of its own: usage is
 system-wide and the clock is fixed. The readings come from the `spd5118`
@@ -114,12 +114,16 @@ idles at 16-27°C, under the RAM floor. The first version (2026-10-04) also
 graphed CPU utilisation and SSD busy time, with read/write MB/s; they were
 dropped to keep the screen to clocks and heat.
 
-Every temperature's title carries two peaks after the current reading.
-*visible* is the highest across the samples the graph is showing, so it
-forgets as history scrolls off the left edge, and a wider window remembers
-longer. *overall* is the highest since hwgraph started, kept apart from the
-2000-sample history so it never forgets. The CPU's fastest-core clock is
-labelled *fastest* rather than *peak* so the word means one thing.
+Every graph has a label row above it with three figures. *window* is the mean
+of the samples the graph is showing, so it follows history as it scrolls off
+the left edge, and a wider window averages over longer. *overall* is the mean
+since hwgraph started and *peak* the highest reading since then. Both are kept
+apart from the 2000-sample history, so neither forgets. The clock reads
+window, peak, overall and every temperature window, overall, peak.
+All three figures are of the graphed series, so the clock's peak is of the
+all-core average, not of one core. The label used to show the current reading,
+the fastest core, and the highest temperature across the graph; the current
+reading is now only the rightmost bar.
 
 Gridlines are dotted (`┈`), and every one is labelled. A label can only sit in
 the middle of a terminal row, so the scale is fitted to put every line there

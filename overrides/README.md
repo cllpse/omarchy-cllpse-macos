@@ -569,7 +569,7 @@ tailscale/tailscale.sh        turns Tailscale SSH on, once, recording what the m
 ryzen/ryzen-tdp.env           the power limits themselves: 50W sustained / 58W burst, with the measurements behind them (installed to /etc/default/ryzen-tdp with sudo)
 ryzen/ryzen-tdp.service       reapplies them at boot AND on resume -- ryzenadj's settings survive neither (installed to /etc/systemd/system with sudo)
 ryzen/burst-bench.py          times fixed all-core work at several burst limits, which is what settled the 58W figure; needs sudo, restores the env file's limits on exit, not run by apply.sh
-ryzen/hwgraph.py              live curses graphs with dotted, labelled gridlines: CPU clock + Tctl, each RAM stick's and the SSD's temperature, each temperature with its visible and overall peak; no root, no deps, not run by apply.sh
+ryzen/hwgraph.py              live curses graphs with dotted, labelled gridlines: CPU clock + Tctl, each RAM stick's and the SSD's temperature, each labelled with its mean across the graph, mean since start and peak since start; no root, no deps, not run by apply.sh
 chromium/policies-managed.json  spellcheck/translate/password/autofill/Print/Cast/QR-code/Reading-list off, plus ExtensionInstallForcelist pinning uBlock Origin Lite + Proton Pass (managed policy, installed to /etc with sudo). DevTools deliberately absent — see the follow-ups section
 omarchy/shell-bar.json        the recorded bar: widget layout, centerAnchor, disabledPlugins (jq-written into shell.json by step 7h)
 icons/icons/              app icons REPAINTED to the theme: <Icon=>.svg placed by hand; see its README for the naming + silhouette contract
