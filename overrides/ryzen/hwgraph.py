@@ -3,11 +3,9 @@
 
   hwgraph.py                            q quits
 
-CPU graphs utilisation and average clock. A RAM stick reports nothing of its
-own but temperature (usage is system-wide, the clock is fixed), so that is
-what each stick graphs. SSD graphs busy time: the share of each second with
-I/O in flight. See README.md (4) in this directory for why these and not
-btop or s-tui. Needs no root.
+CPU graphs its average clock and Tctl; each RAM stick and the SSD graph their
+temperature. See README.md (4) in this directory for the sensors, the scales,
+and why not btop or s-tui. Needs no root.
 """
 import curses
 import glob
@@ -22,6 +20,16 @@ HISTORY = 2000
 BLOCKS = " ▁▂▃▄▅▆▇█"
 NAME = 6  # title column: device name, then its readings
 AXIS = 6  # scale column at the right end, beside the newest reading
+DOT = "┈"  # gridline, drawn at the vertical centre of a cell
+
+# Scales are (low, high, gridline steps finest first, unit). Tctl has no crit
+# file; the firmware holds it at 92°C. From 25°C every RAM step lands on the
+# sticks' 55°C temp1_max as well as their 85°C crit. The SSD's Composite
+# sensor idles at 16-27°C, hence its lower floor.
+GHZ_STEPS = (0.5, 1, 2.5)
+CPU_TEMP = (30, 100, (5, 10, 35), "°")
+RAM_FLOOR, RAM_STEPS = 25, (5, 10, 15, 30)
+SSD_TEMP = (15, 85, (5, 10, 35), "°")
 
 
 def die(msg):
@@ -42,75 +50,39 @@ def hwmons(name):
     return sorted(found)
 
 
-def temp(hwmon):
-    return int(read(hwmon + "/temp1_input")) / 1000
+class Clock:
+    """Average and fastest core clock, from every core's scaling_cur_freq."""
 
-
-class Cpu:
     def __init__(self):
-        found = hwmons("k10temp")
-        if not found:
-            die("no k10temp sensor -- the CPU row reads an AMD CPU's Tctl")
-        self.hwmon = found[0][1]
         cpus = glob.glob("/sys/devices/system/cpu/cpu[0-9]*/cpufreq")
         self.cur = [c + "/scaling_cur_freq" for c in cpus]
-        self.fmax = max(int(read(c + "/cpuinfo_max_freq")) for c in cpus) / 1e6
-        self.prev = self._stat()
-        self.util = deque(maxlen=HISTORY)
-        self.freq = deque(maxlen=HISTORY)
+        top = max(int(read(c + "/cpuinfo_max_freq")) for c in cpus) / 1e6
+        self.scale = (0, math.ceil(top), GHZ_STEPS, "G")
+        self.hist = deque(maxlen=HISTORY)
 
-    def _stat(self):
-        # user nice system idle iowait irq softirq steal; guest is inside user
-        v = [int(x) for x in read("/proc/stat").split("\n", 1)[0].split()[1:9]]
-        return sum(v), v[3] + v[4]
-
-    def sample(self, dt):
-        total, idle = self._stat()
-        dtotal = total - self.prev[0]
-        busy = 1 - (idle - self.prev[1]) / dtotal if dtotal else 0
-        self.prev = (total, idle)
-        self.util.append(100 * busy)
+    def sample(self):
         ghz = [int(read(c)) / 1e6 for c in self.cur]
-        self.freq.append(sum(ghz) / len(ghz))
+        self.hist.append(sum(ghz) / len(ghz))
         self.peak = max(ghz)
-        self.temp = temp(self.hwmon)
 
 
-class Ram:
-    def __init__(self, hwmon):
+class Sensor:
+    """One hwmon's temp1, in °C."""
+
+    def __init__(self, hwmon, scale):
         self.hwmon = hwmon
-        self.crit = int(read(hwmon + "/temp1_crit")) / 1000
-        self.temp = deque(maxlen=HISTORY)
+        self.scale = scale
+        self.hist = deque(maxlen=HISTORY)
 
-    def sample(self, dt):
-        self.temp.append(temp(self.hwmon))
+    def sample(self):
+        self.hist.append(int(read(self.hwmon + "/temp1_input")) / 1000)
 
 
-class Ssd:
-    def __init__(self):
-        blocks = sorted(glob.glob("/sys/block/nvme*n1"))
-        if not blocks:
-            die("no NVMe drive in /sys/block")
-        controller = os.path.basename(blocks[0])[:-2]  # nvme0n1 -> nvme0
-        self.stat = blocks[0] + "/stat"
-        self.hwmon = next((h for d, h in hwmons("nvme")
-                           if os.path.basename(d) == controller), None)
-        if self.hwmon is None:
-            die(f"no temperature sensor for {controller}")
-        self.prev = self._stat()
-        self.busy = deque(maxlen=HISTORY)
-
-    def _stat(self):
-        f = [int(x) for x in read(self.stat).split()]
-        return f[2], f[6], f[9]  # sectors read, sectors written, ms busy
-
-    def sample(self, dt):
-        r, w, ms = self._stat()
-        self.busy.append(min(100, (ms - self.prev[2]) / (dt * 10)))
-        self.read_mb = (r - self.prev[0]) * 512 / dt / 1e6
-        self.write_mb = (w - self.prev[1]) * 512 / dt / 1e6
-        self.prev = (r, w, ms)
-        self.temp = temp(self.hwmon)
+def first(name, scale, what):
+    found = hwmons(name)
+    if not found:
+        die(f"no {name} sensor -- {what}")
+    return Sensor(found[0][1], scale)
 
 
 def put(win, y, x, text, attr=0):
@@ -132,56 +104,67 @@ def rule(win, y, w):
     put(win, y, 0, "─" * w, curses.A_DIM)
 
 
-def graph(win, y, h, w, hist, lo, hi, top, bottom, attr):
+def grid(span, steps, h):
+    """(step, lines - 1, rows between lines) for the finest step that fits."""
+    for step in (*steps, span):
+        n = span / step
+        if abs(n - round(n)) < 1e-9 and (h - 1) // round(n) >= 1:
+            return step, round(n), (h - 1) // round(n)
+
+
+def graph(win, y, h, w, hist, scale, attr):
+    """Bars against dotted gridlines. A label can only sit mid-row, so every
+    line does too: the scale runs from the middle of the bottom row to the
+    middle of the top one, the lines a whole number of rows apart, and the
+    rows that don't divide evenly are left blank below. A bar's top is what
+    reads against the lines, so a bar stands on the bottom edge, half a row
+    under the low line, rather than starting at it, where nothing finer than
+    a half-block could be drawn."""
+    lo, hi, steps, unit = scale
+    step, n, d = grid(hi - lo, steps, h)
+    h = n * d + 1
     width = w - AXIS
-    put(win, y, width + 1, top, curses.A_DIM)
-    if h > 1:
-        put(win, y + h - 1, width + 1, bottom, curses.A_DIM)
+    bottom = y + h - 1
+    for k in range(n + 1):
+        put(win, bottom - k * d, 0, DOT * width, curses.A_DIM)
+        put(win, bottom - k * d, width + 1, f"{lo + k * step:g}{unit}", curses.A_DIM)
     values = list(hist)[-width:]
     x0 = width - len(values)
     for i, v in enumerate(values):
-        frac = min(max((v - lo) / (hi - lo), 0), 1)
-        eighths = round(frac * h * 8)
+        if v <= lo:
+            continue
+        top = 0.5 + min((v - lo) / (hi - lo), 1) * (h - 1)  # rows above bottom
         for row in range(h):
-            fill = min(max(eighths - row * 8, 0), 8)
+            fill = min(max(round((top - row) * 8), 0), 8)
             if fill:
-                put(win, y + h - 1 - row, x0 + i, BLOCKS[fill], attr)
+                put(win, bottom - row, x0 + i, BLOCKS[fill], attr)
 
 
-def draw(win, cpu, rams, ssd, c):
+def draw(win, clock, cpu, rams, ssd, c):
     win.erase()
     rows, cols = win.getmaxyx()
     # CPU has two graphs, every other device one; each device has a title,
     # there is a rule between devices and a gap between CPU's two graphs
     devices = 2 + len(rams)
     gh = (rows - 2 * devices) // (devices + 1)
-    if gh < 1 or cols < AXIS + 10:
+    if gh < 2 or cols < AXIS + 10:
         put(win, 0, 0, "window too small")
-    elif not cpu.util:
+    elif not clock.hist:
         put(win, 0, 0, "sampling…", curses.A_DIM)
     else:
         title(win, 0, "CPU", [
-            (f"{cpu.util[-1]:.0f}%", c["util"]),
-            (f"{cpu.freq[-1]:.2f} GHz avg  {cpu.peak:.2f} peak", c["freq"]),
-            (f"{cpu.temp:.0f}°C", curses.A_DIM),
+            (f"{clock.hist[-1]:.2f} GHz avg  {clock.peak:.2f} peak", c["freq"]),
+            (f"{cpu.hist[-1]:.1f}°C", c["cpu"]),
         ])
-        graph(win, 1, gh, cols, cpu.util, 0, 100, "100%", "0%", c["util"])
-        graph(win, gh + 2, gh, cols, cpu.freq, 0, cpu.fmax,
-              f"{cpu.fmax:.1f}G", "0G", c["freq"])
-        rule(win, 2 * gh + 2, cols)
+        graph(win, 1, gh, cols, clock.hist, clock.scale, c["freq"])
+        graph(win, gh + 2, gh, cols, cpu.hist, cpu.scale, c["cpu"])
         y = 2 * gh + 3
-        for n, ram in enumerate(rams, 1):
-            title(win, y, f"RAM {n}", [(f"{ram.temp[-1]:.1f}°C", c["ram"])])
-            graph(win, y + 1, gh, cols, ram.temp, 20, ram.crit,
-                  f"{ram.crit:.0f}°", "20°", c["ram"])
-            rule(win, y + gh + 1, cols)
+        rows_below = [(f"RAM {n}", ram, "ram") for n, ram in enumerate(rams, 1)]
+        for name, sensor, color in rows_below + [("SSD", ssd, "ssd")]:
+            rule(win, y - 1, cols)
+            title(win, y, name, [(f"{sensor.hist[-1]:.1f}°C", c[color])])
+            graph(win, y + 1, gh, cols, sensor.hist, sensor.scale, c[color])
             y += gh + 2
-        title(win, y, "SSD", [
-            (f"{ssd.busy[-1]:.0f}% busy", c["ssd"]),
-            (f"R {ssd.read_mb:.1f} MB/s  W {ssd.write_mb:.1f} MB/s", curses.A_DIM),
-            (f"{ssd.temp:.0f}°C", curses.A_DIM),
-        ])
-        graph(win, y + 1, gh, cols, ssd.busy, 0, 100, "100%", "0%", c["ssd"])
     win.refresh()
 
 
@@ -189,27 +172,31 @@ def main(win):
     curses.curs_set(0)
     curses.start_color()
     curses.use_default_colors()
-    names = ("util", "freq", "ram", "ssd")
-    colors = (curses.COLOR_BLUE, curses.COLOR_MAGENTA,
+    names = ("freq", "cpu", "ram", "ssd")
+    colors = (curses.COLOR_MAGENTA, curses.COLOR_BLUE,
               curses.COLOR_YELLOW, curses.COLOR_GREEN)
     c = {}
     for pair, (name, color) in enumerate(zip(names, colors), 1):
         curses.init_pair(pair, color, -1)
         c[name] = curses.color_pair(pair)
 
-    cpu, ssd = Cpu(), Ssd()
-    rams = [Ram(h) for _, h in hwmons("spd5118")]
-    devices = [cpu, *rams, ssd]
+    clock = Clock()
+    cpu = first("k10temp", CPU_TEMP, "the CPU row reads an AMD CPU's Tctl")
+    ssd = first("nvme", SSD_TEMP, "the SSD row reads an NVMe drive's Composite")
+    rams = [Sensor(h, (RAM_FLOOR, int(read(h + "/temp1_crit")) / 1000,
+                       RAM_STEPS, "°"))
+            for _, h in hwmons("spd5118")]
+    devices = [clock, cpu, *rams, ssd]
     last = time.monotonic()
     while True:
-        draw(win, cpu, rams, ssd, c)
+        draw(win, clock, cpu, rams, ssd, c)
         win.timeout(max(0, math.ceil((last + INTERVAL - time.monotonic()) * 1000)))
         if win.getch() == ord("q"):
             break
         now = time.monotonic()
         if now >= last + INTERVAL - 0.005:
             for d in devices:
-                d.sample(now - last)
+                d.sample()
             last = now
 
 

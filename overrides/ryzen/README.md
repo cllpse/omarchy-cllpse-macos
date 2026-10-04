@@ -94,32 +94,47 @@ and nothing measurable on a 12s one.
 ## 4. Watching it live: `hwgraph.py`
 
 [`hwgraph.py`](hwgraph.py) graphs the CPU, each RAM stick and the SSD on one
-screen, one column per second, newest on the right. Standard-library curses,
-no root, `q` quits. It is the live view for this folder's numbers, where
-thermal-log is the record and `burst-bench.py` the measurement. Not run by
-`apply.sh`.
+screen, one column per second, newest on the right, each scale at the right
+end beside the newest reading. Standard-library curses, no root, `q` quits. It
+is the live view for this folder's numbers, where thermal-log is the record and
+`burst-bench.py` the measurement. Not run by `apply.sh`.
 
-The CPU gets two graphs: utilisation from `/proc/stat`, and the average of
-every core's `scaling_cur_freq` against `cpuinfo_max_freq` (4.97 GHz). Its
-label adds the fastest core and Tctl. Each RAM stick graphs temperature and
-nothing else, because that is all a stick reports of its own: usage is
+The CPU gets two graphs. Its clock is the average of every core's
+`scaling_cur_freq` on 0-5 GHz (`cpuinfo_max_freq` is 4.97), with the fastest
+core in the label. Its temperature is Tctl from `k10temp` on 30-100°C, which
+keeps the firmware's 92°C setpoint on the scale. Everything else graphs
+temperature only. For a RAM stick that is all it reports of its own: usage is
 system-wide and the clock is fixed. The readings come from the `spd5118`
 driver, the SPD hub on each DDR5 SODIMM, which loads by itself on this kernel.
-Sticks are ordered by I²C address (0x50, then 0x51) and drawn from 20°C to the
-sticks' own `temp1_crit`, 85°C. They sit at ~44-48°C against a `temp1_max` of
-55°C, so a flat bar is the normal picture. The SSD graphs busy time, the
-`io_ticks` delta in `/sys/block/nvme0n1/stat` over the interval: the share of
-each second with I/O in flight. Its label adds read/write MB/s and the drive's
-Composite temperature.
+Sticks are ordered by I²C address (0x50, then 0x51) and drawn from 25°C to the
+sticks' own `temp1_crit`, 85°C, a floor chosen so every gridline step also
+lands on their 55°C `temp1_max`. They sit at ~44-49°C. The SSD graphs the
+drive's Composite sensor (`temp1` of its `nvme` hwmon) on 15-85°C, because it
+idles at 16-27°C, under the RAM floor. The first version (2026-10-04) also
+graphed CPU utilisation and SSD busy time, with read/write MB/s; they were
+dropped to keep the screen to clocks and heat.
+
+Gridlines are dotted (`┈`), and every one is labelled. A label can only sit in
+the middle of a terminal row, so the scale is fitted to put every line there
+too. It runs from the middle of the bottom row to the middle of the top one,
+with the lines a whole number of rows apart, at the finest step that fits:
+1 GHz and 10°C in a full-height window, three lines per graph in a half-height
+tile. Rows that don't divide evenly are left blank below. Bars stand on the
+graph's bottom edge, half a row under the lowest line, because a block can
+only grow from a cell's bottom. Starting them at the line instead hid any
+reading in the lowest quarter-row. A bar's top is what reads against the
+lines. Drawing each line at its exact sub-row height in braille was tried
+first and dropped, because labels then sat up to 3/8 of a row off their line,
+above some and below others.
 
 It exists because neither tool already installed or packaged gives that
 picture, checked on 2026-10-04. btop 1.4.7 graphs one temperature
 (`cpu_sensor`), so pointing it at a stick replaces Tctl, and it prints the
 clock as text. s-tui reads every sensor and shows all of them at once, 16
-cores of clock and utilisation plus every hwmon on the board, and it has no
-disk I/O at all. Sensors are found by hwmon name rather than number, so boot
-order doesn't matter. A missing `k10temp` or NVMe exits with a message, and
-with no `spd5118` the RAM rows are left out.
+cores of clock and utilisation plus every hwmon on the board. Sensors are found
+by hwmon name rather than number, so boot order doesn't matter. A missing
+`k10temp` or `nvme` sensor exits with a message, and with no `spd5118` the RAM
+rows are left out.
 
 ## From the step table
 
