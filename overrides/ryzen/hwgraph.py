@@ -72,7 +72,12 @@ class Series:
         """(window, overall, peak): mean of the last `width` samples, which is
         what the graph shows; mean since start; highest since start."""
         shown = list(self.hist)[-width:]
-        return sum(shown) / len(shown), self.total / self.count, self.peak
+        # Summed the way total is: sum() compensates since 3.12, and the two
+        # then round apart at .x5 while the graph still holds every sample
+        window = 0.0
+        for v in shown:
+            window += v
+        return window / len(shown), self.total / self.count, self.peak
 
 
 class Clock(Series):
