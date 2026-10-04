@@ -4,8 +4,9 @@
   hwgraph.py                            q quits
 
 CPU graphs its average clock and Tctl; each RAM stick and the SSD graph their
-temperature. See README.md (4) in this directory for the sensors, the scales,
-and why not btop or s-tui. Needs no root.
+temperature. Every temperature is titled with its peak across the graph and
+its peak since start. See README.md (4) in this directory for the sensors,
+the scales, and why not btop or s-tui. Needs no root.
 """
 import curses
 import glob
@@ -67,15 +68,25 @@ class Clock:
 
 
 class Sensor:
-    """One hwmon's temp1, in °C."""
+    """One hwmon's temp1, in °C, and the highest it has read since start."""
 
     def __init__(self, hwmon, scale):
         self.hwmon = hwmon
         self.scale = scale
         self.hist = deque(maxlen=HISTORY)
+        self.peak = float("-inf")
 
     def sample(self):
-        self.hist.append(int(read(self.hwmon + "/temp1_input")) / 1000)
+        t = int(read(self.hwmon + "/temp1_input")) / 1000
+        self.hist.append(t)
+        self.peak = max(self.peak, t)
+
+
+def readings(sensor, width, attr):
+    """Now, the peak across the samples the graph shows, the peak since start."""
+    shown = max(list(sensor.hist)[-width:])
+    return [(f"{sensor.hist[-1]:.1f}°C", attr),
+            (f"peak {shown:.1f}° visible  {sensor.peak:.1f}° overall", curses.A_DIM)]
 
 
 def first(name, scale, what):
@@ -152,9 +163,10 @@ def draw(win, clock, cpu, rams, ssd, c):
     elif not clock.hist:
         put(win, 0, 0, "sampling…", curses.A_DIM)
     else:
+        width = cols - AXIS  # samples a graph shows
         title(win, 0, "CPU", [
-            (f"{clock.hist[-1]:.2f} GHz avg  {clock.peak:.2f} peak", c["freq"]),
-            (f"{cpu.hist[-1]:.1f}°C", c["cpu"]),
+            (f"{clock.hist[-1]:.2f} GHz avg  {clock.peak:.2f} fastest", c["freq"]),
+            *readings(cpu, width, c["cpu"]),
         ])
         graph(win, 1, gh, cols, clock.hist, clock.scale, c["freq"])
         graph(win, gh + 2, gh, cols, cpu.hist, cpu.scale, c["cpu"])
@@ -162,7 +174,7 @@ def draw(win, clock, cpu, rams, ssd, c):
         rows_below = [(f"RAM {n}", ram, "ram") for n, ram in enumerate(rams, 1)]
         for name, sensor, color in rows_below + [("SSD", ssd, "ssd")]:
             rule(win, y - 1, cols)
-            title(win, y, name, [(f"{sensor.hist[-1]:.1f}°C", c[color])])
+            title(win, y, name, readings(sensor, width, c[color]))
             graph(win, y + 1, gh, cols, sensor.hist, sensor.scale, c[color])
             y += gh + 2
     win.refresh()

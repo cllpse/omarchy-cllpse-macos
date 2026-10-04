@@ -114,6 +114,13 @@ idles at 16-27°C, under the RAM floor. The first version (2026-10-04) also
 graphed CPU utilisation and SSD busy time, with read/write MB/s; they were
 dropped to keep the screen to clocks and heat.
 
+Every temperature's title carries two peaks after the current reading.
+*visible* is the highest across the samples the graph is showing, so it
+forgets as history scrolls off the left edge, and a wider window remembers
+longer. *overall* is the highest since hwgraph started, kept apart from the
+2000-sample history so it never forgets. The CPU's fastest-core clock is
+labelled *fastest* rather than *peak* so the word means one thing.
+
 Gridlines are dotted (`┈`), and every one is labelled. A label can only sit in
 the middle of a terminal row, so the scale is fitted to put every line there
 too. It runs from the middle of the bottom row to the middle of the top one,
