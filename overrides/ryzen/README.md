@@ -91,6 +91,36 @@ started from a cooler idle (PPT slow ~4.6W), and the window grows the further
 the average has to climb. 58W stays: the watts past it buy ~60ms on a 5s load
 and nothing measurable on a 12s one.
 
+## 4. Watching it live: `hwgraph.py`
+
+[`hwgraph.py`](hwgraph.py) graphs the CPU, each RAM stick and the SSD on one
+screen, one column per second, newest on the right. Standard-library curses,
+no root, `q` quits. It is the live view for this folder's numbers, where
+thermal-log is the record and `burst-bench.py` the measurement. Not run by
+`apply.sh`.
+
+The CPU gets two graphs: utilisation from `/proc/stat`, and the average of
+every core's `scaling_cur_freq` against `cpuinfo_max_freq` (4.97 GHz). Its
+label adds the fastest core and Tctl. Each RAM stick graphs temperature and
+nothing else, because that is all a stick reports of its own: usage is
+system-wide and the clock is fixed. The readings come from the `spd5118`
+driver, the SPD hub on each DDR5 SODIMM, which loads by itself on this kernel.
+Sticks are ordered by I²C address (0x50, then 0x51) and drawn from 20°C to the
+sticks' own `temp1_crit`, 85°C. They sit at ~44-48°C against a `temp1_max` of
+55°C, so a flat bar is the normal picture. The SSD graphs busy time, the
+`io_ticks` delta in `/sys/block/nvme0n1/stat` over the interval: the share of
+each second with I/O in flight. Its label adds read/write MB/s and the drive's
+Composite temperature.
+
+It exists because neither tool already installed or packaged gives that
+picture, checked on 2026-10-04. btop 1.4.7 graphs one temperature
+(`cpu_sensor`), so pointing it at a stick replaces Tctl, and it prints the
+clock as text. s-tui reads every sensor and shows all of them at once, 16
+cores of clock and utilisation plus every hwmon on the board, and it has no
+disk I/O at all. Sensors are found by hwmon name rather than number, so boot
+order doesn't matter. A missing `k10temp` or NVMe exits with a message, and
+with no `spd5118` the RAM rows are left out.
+
 ## From the step table
 
 CPU power limits: `ryzenadj` at 50W sustained / 58W burst, reapplied at **boot
