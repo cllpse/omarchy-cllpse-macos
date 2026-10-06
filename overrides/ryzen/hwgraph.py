@@ -21,7 +21,7 @@ INTERVAL = 1.0
 HISTORY = 2000
 BLOCKS = " ▁▂▃▄▅▆▇█"
 AXIS = 6  # scale column at the right end, beside the newest reading
-DOT = "·"  # gridline: one round dot per cell, at the row's vertical centre
+DOT = "┄"  # gridline: three dashes per cell, at the row's vertical centre
 
 # Scales are (low, high, gridline steps finest first, unit). Every temperature
 # span takes a 15° step, which is what fits the ~6 rows a graph gets at full
@@ -33,7 +33,7 @@ GHZ_STEPS = (0.5, 1, 2.5)
 CPU_TEMP = (25, 100, (5, 15, 25), "°")
 RAM_FLOOR, RAM_STEPS = 25, (5, 10, 15, 30)
 SSD_TEMP = (15, 90, (5, 15, 25), "°")
-GAP = 2  # blank rows under every graph, where the window has them to spare
+GAP = 4  # blank rows between graphs, where the window has them to spare
 
 
 def die(msg):
@@ -192,7 +192,7 @@ def draw(win, clock, cpu, rams, ssd, c):
                for n, ram in enumerate(rams, 1)]
     graphs.append(("SSD - temperature", ssd, "ssd", "°", 1))
     for gap in range(GAP, -1, -1):  # a short window gives up blank rows first
-        gh = (rows - len(graphs) * (1 + gap)) // len(graphs)
+        gh = (rows - len(graphs) - (len(graphs) - 1) * gap) // len(graphs)
         if gh >= 2:
             break
     if gh < 2 or cols < AXIS + 10:

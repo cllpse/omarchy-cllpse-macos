@@ -133,20 +133,23 @@ core. The label used to show the current reading, the fastest core, and the
 highest temperature across the graph; the current reading is now only the
 rightmost bar.
 
-Gridlines are dotted, one middle dot (`·`, U+00B7) per cell, and every one is
-labelled. They were `┈` (U+2508) until 2026-10-06, which Ghostty draws as four
-tiny dashes a cell, so it read as a faint solid hairline rather than dots. A
-label can only sit in the middle of a terminal row, so the scale is fitted to
-put every line there too. It runs from the middle of the bottom row to the
-middle of the top one, with the lines a whole number of rows apart, at the
-finest step that fits: 1 GHz, 15°C for the CPU and SSD and 10°C for the RAM
-in a full-height window, only the top and bottom lines in a quarter-height
-tile. Every graph is followed by two blank rows, and those alone separate the
-devices. A solid rule above each of RAM #1, RAM #2 and SSD was dropped on
-2026-10-06, and the three rows it freed are what bring the RAM back to 10°C.
-A window too short for two blank rows gets one, then none, before it gives up
-graph height. Blocks stack by the rows their graphs actually use, so the gaps
-stay even and any spare rows collect at the bottom. Bars stand on the graph's
+Gridlines are `┄` (U+2504), three dashes a cell, and every one is labelled.
+They were `┈` (U+2508) until 2026-10-06, which Ghostty draws as four tiny
+dashes a cell, so it read as a faint solid hairline. A middle dot (`·`, U+00B7)
+was tried next and replaced the same day: U+2504's coarser dashes were the
+choice. A label can only sit in the middle of a terminal row, so the scale is
+fitted to put every line there too. It runs from the middle of the bottom row
+to the middle of the top one, with the lines a whole number of rows apart, at
+the finest step that fits: 1 GHz and 15°C in a full-height window, only the
+top and bottom lines in a quarter-height tile. Four blank rows separate each
+graph from the next, and nothing else separates the devices. A solid rule
+above each of RAM #1, RAM #2 and SSD was dropped on 2026-10-06. There are no
+blank rows under the last graph, since none are needed there, which leaves
+each graph 6 rows at full height. With two blank rows under every graph
+before, each had 7, and the RAM 10°C steps. A window too short for four blank
+rows takes three, then two, and so on down to none, before it gives up graph
+height. Blocks stack by the rows their graphs actually use, so the gaps stay
+even and any spare rows collect at the bottom. Bars stand on the graph's
 bottom edge, half
 a row under the lowest line, because a block can only grow from a cell's
 bottom. Starting them at the line instead hid any reading in the lowest
