@@ -100,46 +100,54 @@ is the live view for this folder's numbers, where thermal-log is the record and
 `burst-bench.py` the measurement. Not run by `apply.sh`.
 
 The CPU gets two graphs. Its clock is the average of every core's
-`scaling_cur_freq` on 0-5 GHz (`cpuinfo_max_freq` is 4.97). Its
-temperature is Tctl from `k10temp` on 30-100°C, which
-keeps the firmware's 92°C setpoint on the scale. Everything else graphs
-temperature only. For a RAM stick that is all it reports of its own: usage is
-system-wide and the clock is fixed. The readings come from the `spd5118`
-driver, the SPD hub on each DDR5 SODIMM, which loads by itself on this kernel.
-Sticks are ordered by I²C address (0x50, then 0x51) and drawn from 25°C to the
-sticks' own `temp1_crit`, 85°C, a floor chosen so every gridline step also
-lands on their 55°C `temp1_max`. They sit at ~44-49°C. The SSD graphs the
-drive's Composite sensor (`temp1` of its `nvme` hwmon) on 15-85°C, because it
-idles at 16-27°C, under the RAM floor. The first version (2026-10-04) also
-graphed CPU utilisation and SSD busy time, with read/write MB/s; they were
-dropped to keep the screen to clocks and heat.
+`scaling_cur_freq` on 0-5 GHz (`cpuinfo_max_freq` is 4.97). Its temperature is
+Tctl from `k10temp` on 25-100°C, which keeps the firmware's 92°C setpoint on
+the scale. Everything else graphs temperature only. For a RAM stick that is
+all it reports of its own: usage is system-wide and the clock is fixed. The
+readings come from the `spd5118` driver, the SPD hub on each DDR5 SODIMM,
+which loads by itself on this kernel. Sticks are ordered by I²C address (0x50,
+then 0x51) and drawn from 25°C to the sticks' own `temp1_crit`, 85°C, a floor
+chosen so every gridline step also lands on their 55°C `temp1_max`. They sit
+at ~44-49°C. The SSD graphs the drive's Composite sensor (`temp1` of its
+`nvme` hwmon) on 15-90°C: it idles at 16-27°C, under the RAM floor, and the
+top line sits on its own 89.85°C `temp1_max`. The CPU and SSD scales were
+30-100°C and 15-85°C until 2026-10-06. Two blank rows under every graph left
+each one ~6 rows at full height, where those spans' only fitting step was 35°.
+Both were retuned so a 15° step fits, and the CPU's lines now fall on the same
+values as the RAM's. The first version (2026-10-04) also graphed CPU
+utilisation and SSD busy time, with read/write MB/s; they were dropped to keep
+the screen to clocks and heat.
 
 Every graph has a label row above it, naming what it graphs (*CPU -
 frequency*, *CPU - temperature*, *RAM #1 - temperature* and so on), then three
-figures. Every row's figures start two spaces past the longest name, so they
-line up down the screen. *window* is the mean
-of the samples the graph is showing, so it follows history as it scrolls off
-the left edge, and a wider window averages over longer. *overall* is the mean
-since hwgraph started and *peak* the highest reading since then. Both are kept
-apart from the 2000-sample history, so neither forgets. The clock reads
-window, peak, overall and every temperature window, overall, peak.
-All three figures are of the graphed series, so the clock's peak is of the
-all-core average, not of one core. The label used to show the current reading,
-the fastest core, and the highest temperature across the graph; the current
-reading is now only the rightmost bar.
+figures: *window*, *overall* and *peak*, in that order on every row. The
+figures are set in columns, the first two spaces past the longest name, so
+each of the three lines up down the screen. (The clock read window, peak,
+overall until the columns came in.) *window* is the mean of the samples the
+graph is showing, so it follows history as it scrolls off the left edge, and
+a wider window averages over longer. *overall* is the mean since hwgraph
+started and *peak* the highest reading since then. Both are kept apart from
+the 2000-sample history, so neither forgets. All three figures are of the
+graphed series, so the clock's peak is of the all-core average, not of one
+core. The label used to show the current reading, the fastest core, and the
+highest temperature across the graph; the current reading is now only the
+rightmost bar.
 
 Gridlines are dotted (`┈`), and every one is labelled. A label can only sit in
 the middle of a terminal row, so the scale is fitted to put every line there
 too. It runs from the middle of the bottom row to the middle of the top one,
 with the lines a whole number of rows apart, at the finest step that fits:
-1 GHz and 10°C in a full-height window, three lines per graph in a half-height
-tile. Rows that don't divide evenly are left blank below. Bars stand on the
-graph's bottom edge, half a row under the lowest line, because a block can
-only grow from a cell's bottom. Starting them at the line instead hid any
-reading in the lowest quarter-row. A bar's top is what reads against the
-lines. Drawing each line at its exact sub-row height in braille was tried
-first and dropped, because labels then sat up to 3/8 of a row off their line,
-above some and below others.
+1 GHz and 15°C in a full-height window, only the top and bottom lines in a
+quarter-height tile. Every graph is followed by two blank rows. A window too
+short for that gets one, then none, before it gives up graph height. Blocks
+stack by the rows their graphs actually use, so the gaps stay even and any
+spare rows collect at the bottom. Bars stand on the graph's bottom edge, half
+a row under the lowest line, because a block can only grow from a cell's
+bottom. Starting them at the line instead hid any reading in the lowest
+quarter-row. A bar's top is what reads against the lines. Drawing each line
+at its exact sub-row height in braille was tried first and dropped, because
+labels then sat up to 3/8 of a row off their line, above some and below
+others.
 
 It exists because neither tool already installed or packaged gives that
 picture, checked on 2026-10-04. btop 1.4.7 graphs one temperature

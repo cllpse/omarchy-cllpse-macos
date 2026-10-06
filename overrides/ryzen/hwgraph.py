@@ -23,14 +23,17 @@ BLOCKS = " ▁▂▃▄▅▆▇█"
 AXIS = 6  # scale column at the right end, beside the newest reading
 DOT = "┈"  # gridline, drawn at the vertical centre of a cell
 
-# Scales are (low, high, gridline steps finest first, unit). Tctl has no crit
-# file; the firmware holds it at 92°C. From 25°C every RAM step lands on the
-# sticks' 55°C temp1_max as well as their 85°C crit. The SSD's Composite
-# sensor idles at 16-27°C, hence its lower floor.
+# Scales are (low, high, gridline steps finest first, unit). Every temperature
+# span takes a 15° step, which is what fits the ~6 rows a graph gets at full
+# height. Tctl has no crit file; the firmware holds it at 92°C. From 25°C
+# every RAM step lands on the sticks' 55°C temp1_max as well as their 85°C
+# crit, and CPU's lines fall on the same values. The SSD's Composite sensor
+# idles at 16-27°C, hence its lower floor, and tops out at its 89.85°C max.
 GHZ_STEPS = (0.5, 1, 2.5)
-CPU_TEMP = (30, 100, (5, 10, 35), "°")
+CPU_TEMP = (25, 100, (5, 15, 25), "°")
 RAM_FLOOR, RAM_STEPS = 25, (5, 10, 15, 30)
-SSD_TEMP = (15, 85, (5, 10, 35), "°")
+SSD_TEMP = (15, 90, (5, 15, 25), "°")
+GAP = 2  # blank rows under every graph, where the window has them to spare
 
 
 def die(msg):
@@ -119,26 +122,27 @@ def put(win, y, x, text, attr=0):
         pass  # writing the bottom-right cell always raises
 
 
-def label(win, y, name, fields, attr, x):
-    """Graph name, then `key: value` fields from column x, values in colour."""
-    put(win, y, 0, name, curses.A_BOLD)
-    for i, (key, value) in enumerate(fields):
-        sep = ", " if i < len(fields) - 1 else ""
-        for text, a in ((f"{key}: ", curses.A_DIM), (value, attr), (sep, curses.A_DIM)):
-            put(win, y, x, text, a)
-            x += len(text)
+def fields(series, width, unit, places):
+    window, overall, peak = series.stats(width)
+    return [(key, f"{v:.{places}f}{unit}")
+            for key, v in (("window", window), ("overall", overall), ("peak", peak))]
 
 
-def clock_fields(clock, width):
-    window, overall, peak = clock.stats(width)
-    return [("window", f"{window:.2f}GHz"), ("peak", f"{peak:.2f}GHz"),
-            ("overall", f"{overall:.2f}GHz")]
-
-
-def temp_fields(sensor, width):
-    window, overall, peak = sensor.stats(width)
-    return [("window", f"{window:.1f}°"), ("overall", f"{overall:.1f}°"),
-            ("peak", f"{peak:.1f}°")]
+def labels(win, rows):
+    """Every graph's label row: its name, then `key: value` fields in columns
+    that line up down the screen, the values in the graph's colour."""
+    at = max(len(name) for _, name, _, _ in rows) + 2
+    widths = [max(len(f"{key}: {value}, ") for key, value in column)
+              for column in zip(*(f for _, _, f, _ in rows))]
+    for y, name, row, attr in rows:
+        put(win, y, 0, name, curses.A_BOLD)
+        x = at
+        for i, ((key, value), w) in enumerate(zip(row, widths)):
+            put(win, y, x, f"{key}: ", curses.A_DIM)
+            put(win, y, x + len(key) + 2, value, attr)
+            if i < len(row) - 1:
+                put(win, y, x + len(key) + 2 + len(value), ",", curses.A_DIM)
+            x += w
 
 
 def rule(win, y, w):
@@ -160,7 +164,7 @@ def graph(win, y, h, w, hist, scale, attr):
     rows that don't divide evenly are left blank below. A bar's top is what
     reads against the lines, so a bar stands on the bottom edge, half a row
     under the low line, rather than starting at it, where nothing finer than
-    a half-block could be drawn."""
+    a half-block could be drawn. Returns the rows it used."""
     lo, hi, steps, unit = scale
     step, n, d = grid(hi - lo, steps, h)
     h = n * d + 1
@@ -179,36 +183,39 @@ def graph(win, y, h, w, hist, scale, attr):
             fill = min(max(round((top - row) * 8), 0), 8)
             if fill:
                 put(win, bottom - row, x0 + i, BLOCKS[fill], attr)
+    return h
 
 
 def draw(win, clock, cpu, rams, ssd, c):
     win.erase()
     rows, cols = win.getmaxyx()
-    # CPU has two graphs, every other device one; every graph has a label
-    # row above it, and there is a rule between devices
-    devices = 2 + len(rams)
-    gh = (rows - 2 * devices) // (devices + 1)
+    # (name, series, colour, unit, decimals); the CPU's two share a device,
+    # every later graph starts a new one under a rule
+    graphs = [("CPU - frequency", clock, "freq", "GHz", 2),
+              ("CPU - temperature", cpu, "cpu", "°", 1)]
+    graphs += [(f"RAM #{n} - temperature", ram, "ram", "°", 1)
+               for n, ram in enumerate(rams, 1)]
+    graphs.append(("SSD - temperature", ssd, "ssd", "°", 1))
+    rules = len(graphs) - 2
+    for gap in range(GAP, -1, -1):  # a short window gives up blank rows first
+        gh = (rows - len(graphs) * (1 + gap) - rules) // len(graphs)
+        if gh >= 2:
+            break
     if gh < 2 or cols < AXIS + 10:
         put(win, 0, 0, "window too small")
     elif not clock.hist:
         put(win, 0, 0, "sampling…", curses.A_DIM)
     else:
         width = cols - AXIS  # samples a graph shows
-        below = [(f"RAM #{n} - temperature", ram, "ram")
-                 for n, ram in enumerate(rams, 1)]
-        below.append(("SSD - temperature", ssd, "ssd"))
-        names = ["CPU - frequency", "CPU - temperature"] + [b[0] for b in below]
-        at = len(max(names, key=len)) + 2  # one figures column for every row
-        label(win, 0, names[0], clock_fields(clock, width), c["freq"], at)
-        graph(win, 1, gh, cols, clock.hist, clock.scale, c["freq"])
-        label(win, gh + 1, names[1], temp_fields(cpu, width), c["cpu"], at)
-        graph(win, gh + 2, gh, cols, cpu.hist, cpu.scale, c["cpu"])
-        y = 2 * gh + 3
-        for name, sensor, color in below:
-            rule(win, y - 1, cols)
-            label(win, y, name, temp_fields(sensor, width), c[color], at)
-            graph(win, y + 1, gh, cols, sensor.hist, sensor.scale, c[color])
-            y += gh + 2
+        rows_out, y = [], 0
+        for i, (name, series, color, unit, places) in enumerate(graphs):
+            if i >= 2:
+                rule(win, y, cols)
+                y += 1
+            rows_out.append((y, name, fields(series, width, unit, places), c[color]))
+            y += 1 + graph(win, y + 1, gh, cols, series.hist, series.scale, c[color])
+            y += gap
+        labels(win, rows_out)
     win.refresh()
 
 
