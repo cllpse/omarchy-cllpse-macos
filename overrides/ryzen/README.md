@@ -100,7 +100,11 @@ is the live view for this folder's numbers, where thermal-log is the record and
 `burst-bench.py` the measurement. Not run by `apply.sh`.
 
 The CPU gets two graphs. Its clock is the average of every core's
-`scaling_cur_freq` on 0-5 GHz (`cpuinfo_max_freq` is 4.97). Its temperature is
+`scaling_cur_freq` on 0-5 GHz (`cpuinfo_max_freq` is 4.97). The scale reads
+0, 2GHz, 3GHz, 4GHz and 5GHz. The 1 GHz line is left out but the scale stays
+linear, so the row between 0 and 2GHz has no line. A window too short for
+1 GHz steps shows only 0 and 5GHz. The 2.5 GHz fallback went along with the
+1 GHz line, since "2.5GHz" is wider than the scale column. Its temperature is
 Tctl from `k10temp` on 25-100°C, which keeps the firmware's 92°C setpoint on
 the scale. Everything else graphs temperature only. For a RAM stick that is
 all it reports of its own: usage is system-wide and the clock is fixed. The
@@ -139,18 +143,28 @@ dashes a cell, so it read as a faint solid hairline. A middle dot (`·`, U+00B7)
 was tried next and replaced the same day: U+2504's coarser dashes were the
 choice. A label can only sit in the middle of a terminal row, so the scale is
 fitted to put every line there too. It runs from the middle of the bottom row
-to the middle of the top one, with the lines a whole number of rows apart, at
-the finest step that fits: 1 GHz and 15°C in a full-height window, only the
-top and bottom lines in a quarter-height tile. Four blank rows separate each
-graph from the next, and nothing else separates the devices. A solid rule
-above each of RAM #1, RAM #2 and SSD was dropped on 2026-10-06. There are no
-blank rows under the last graph, since none are needed there, which leaves
-each graph 6 rows at full height. With two blank rows under every graph
-before, each had 7, and the RAM 10°C steps. A window too short for four blank
-rows takes three, then two, and so on down to none, before it gives up graph
-height. Blocks stack by the rows their graphs actually use, so the gaps stay
-even and any spare rows collect at the bottom. Bars stand on the graph's
-bottom edge, half
+to the middle of the top one, with the lines a whole number of rows apart.
+Four blank rows separate each graph from the next, and nothing else separates
+the devices: a solid rule above each of RAM #1, RAM #2 and SSD was dropped on
+2026-10-06. There are none under the last graph, where they would separate
+nothing. A window too short for four takes three, then two, and so on down to
+none, before any graph is cut to fewer than its low and high lines.
+
+The rows that are left go to the graphs by need, not in equal shares. Every
+graph starts with only its low and high lines. The one with the fewest lines
+then takes its next finer grid, the cheapest first on a tie, while rows last.
+The two RAM sticks share one scale and move together. Rows still spare
+stretch the shortest graph. The full-height tile on this screen is 49 rows
+(read with `stty size` on the live terminal), which leaves 28 for graphs.
+That is exactly enough for the clock's 0, 2GHz...5GHz (6 rows), 15°C for the
+CPU and SSD (6 each), and 15°C for the RAM (5 each). An equal split gave every
+graph 5, so the clock showed only 0 and 5GHz and the CPU and SSD 25°C. The
+equal split's earlier sizes were worked out for 51 rows, not 49, so what was
+claimed for them (6 rows a graph, then 7 with the RAM at 10°C) was a row
+out. A quarter-height tile (25 rows) gets two blank rows, a 25°C grid for the
+CPU, and only low and high lines for the rest. Blocks stack by the rows their
+graphs use, and any spare rows collect at the bottom. Bars stand on the
+graph's bottom edge, half
 a row under the lowest line, because a block can only grow from a cell's
 bottom. Starting them at the line instead hid any reading in the lowest
 quarter-row. A bar's top is what reads against the lines. Drawing each line

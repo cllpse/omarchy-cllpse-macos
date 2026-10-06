@@ -15,7 +15,7 @@ import math
 import os
 import sys
 import time
-from collections import deque
+from collections import deque, namedtuple
 
 INTERVAL = 1.0
 HISTORY = 2000
@@ -23,16 +23,31 @@ BLOCKS = " ▁▂▃▄▅▆▇█"
 AXIS = 6  # scale column at the right end, beside the newest reading
 DOT = "┄"  # gridline: three dashes per cell, at the row's vertical centre
 
-# Scales are (low, high, gridline steps finest first, unit). Every temperature
-# span takes a 15° step, which is what fits the ~6 rows a graph gets at full
-# height. Tctl has no crit file; the firmware holds it at 92°C. From 25°C
-# every RAM step lands on the sticks' 55°C temp1_max as well as their 85°C
-# crit, and CPU's lines fall on the same values. The SSD's Composite sensor
-# idles at 16-27°C, hence its lower floor, and tops out at its 89.85°C max.
-GHZ_STEPS = (0.5, 1, 2.5)
-CPU_TEMP = (25, 100, (5, 15, 25), "°")
+# A scale's gridline steps are finest first; label turns a line's value into
+# its text, and skip lists values that get no line. Every temperature span
+# takes a 15° step, which with the clock's 1 GHz fits the 28 rows a 49-row
+# window leaves for graphs. Tctl has no crit file; the firmware holds it at
+# 92°C. From 25°C every RAM step lands on the sticks' 55°C temp1_max as well
+# as their 85°C crit, and CPU's lines fall on the same values. The SSD's
+# Composite sensor idles at 16-27°C, hence its lower floor, and tops out at
+# its 89.85°C max.
+# The clock reads 0, 2GHz ... 5GHz: its 1 GHz line is left out, and the
+# scale stays linear, so the row between 0 and 2GHz has no line.
+Scale = namedtuple("Scale", "lo hi steps label skip", defaults=((),))
+
+
+def degrees(v):
+    return f"{v:g}°"
+
+
+def gigahertz(v):
+    return f"{v:g}GHz" if v else "0"
+
+
+GHZ_STEPS, GHZ_SKIP = (1,), (1,)
+CPU_TEMP = Scale(25, 100, (5, 15, 25), degrees)
 RAM_FLOOR, RAM_STEPS = 25, (5, 10, 15, 30)
-SSD_TEMP = (15, 90, (5, 15, 25), "°")
+SSD_TEMP = Scale(15, 90, (5, 15, 25), degrees)
 GAP = 4  # blank rows between graphs, where the window has them to spare
 
 
@@ -90,7 +105,7 @@ class Clock(Series):
         cpus = glob.glob("/sys/devices/system/cpu/cpu[0-9]*/cpufreq")
         self.cur = [c + "/scaling_cur_freq" for c in cpus]
         top = max(int(read(c + "/cpuinfo_max_freq")) for c in cpus) / 1e6
-        super().__init__((0, math.ceil(top), GHZ_STEPS, "G"))
+        super().__init__(Scale(0, math.ceil(top), GHZ_STEPS, gigahertz, GHZ_SKIP))
 
     def sample(self):
         ghz = [int(read(c)) / 1e6 for c in self.cur]
@@ -145,30 +160,72 @@ def labels(win, rows):
             x += w
 
 
-def grid(span, steps, h):
-    """(step, lines - 1, rows between lines) for the finest step that fits."""
-    for step in (*steps, span):
-        n = span / step
-        if abs(n - round(n)) < 1e-9 and (h - 1) // round(n) >= 1:
-            return step, round(n), (h - 1) // round(n)
+def grids(scale):
+    """(lines - 1, step) for every step that divides the span, coarsest first."""
+    span = scale.hi - scale.lo
+    return sorted({(round(span / s), s) for s in (*scale.steps, span)
+                   if abs(span / s - round(span / s)) < 1e-9})
 
 
-def graph(win, y, h, w, hist, scale, attr):
+def layout(scales, budget):
+    """(step, lines - 1, rows between lines) for each graph, in budget rows.
+    Every graph starts with only its low and high lines. The one with the
+    fewest lines then takes its next finer grid, the cheapest first on a
+    tie, while rows last, so no graph is left coarse to make another fine.
+    Rows still spare stretch the shortest graph's line spacing. Graphs on
+    the same scale (the RAM sticks) move together, so they always match."""
+    groups = {}
+    for i, s in enumerate(scales):
+        groups.setdefault(s, []).append(i)
+    groups = list(groups.values())  # top graph first
+    opts = [grids(scales[g[0]]) for g in groups]
+    pick, d = [0] * len(groups), [1] * len(groups)
+    used = 2 * len(scales)
+    while True:
+        finer = [(o[p][0], (o[p + 1][0] - o[p][0]) * len(g), k)
+                 for k, (g, o, p) in enumerate(zip(groups, opts, pick))
+                 if p + 1 < len(o)]
+        finer = [f for f in finer if used + f[1] <= budget]
+        if not finer:
+            break
+        _, extra, k = min(finer)
+        pick[k] += 1
+        used += extra
+    while True:
+        n = [o[p][0] for o, p in zip(opts, pick)]
+        taller = [(n[k] * d[k] + 1, k) for k, g in enumerate(groups)
+                  if used + n[k] * len(g) <= budget]
+        if not taller:
+            break
+        _, k = min(taller)
+        d[k] += 1
+        used += n[k] * len(groups[k])
+    spec = [None] * len(scales)
+    for k, g in enumerate(groups):
+        for i in g:
+            spec[i] = (opts[k][pick[k]][1], opts[k][pick[k]][0], d[k])
+    return spec
+
+
+def graph(win, y, w, hist, scale, spec, attr):
     """Bars against dotted gridlines. A label can only sit mid-row, so every
     line does too: the scale runs from the middle of the bottom row to the
-    middle of the top one, the lines a whole number of rows apart, and the
-    rows that don't divide evenly are left blank below. A bar's top is what
-    reads against the lines, so a bar stands on the bottom edge, half a row
-    under the low line, rather than starting at it, where nothing finer than
-    a half-block could be drawn. Returns the rows it used."""
-    lo, hi, steps, unit = scale
-    step, n, d = grid(hi - lo, steps, h)
+    middle of the top one, the lines a whole number of rows apart, as spec
+    (from layout) says. A bar's top is what reads against the lines, so a
+    bar stands on the bottom edge, half a row under the low line, rather
+    than starting at it, where nothing finer than a half-block could be
+    drawn. Returns the rows it used."""
+    lo, hi = scale.lo, scale.hi
+    step, n, d = spec
     h = n * d + 1
     width = w - AXIS
     bottom = y + h - 1
     for k in range(n + 1):
+        v = lo + k * step
+        if any(abs(v - s) < 1e-9 for s in scale.skip):
+            continue
         put(win, bottom - k * d, 0, DOT * width, curses.A_DIM)
-        put(win, bottom - k * d, width + 1, f"{lo + k * step:g}{unit}", curses.A_DIM)
+        put(win, bottom - k * d, width + 1, scale.label(v), curses.A_DIM)
     values = list(hist)[-width:]
     x0 = width - len(values)
     for i, v in enumerate(values):
@@ -191,20 +248,23 @@ def draw(win, clock, cpu, rams, ssd, c):
     graphs += [(f"RAM #{n} - temperature", ram, "ram", "°", 1)
                for n, ram in enumerate(rams, 1)]
     graphs.append(("SSD - temperature", ssd, "ssd", "°", 1))
-    for gap in range(GAP, -1, -1):  # a short window gives up blank rows first
-        gh = (rows - len(graphs) - (len(graphs) - 1) * gap) // len(graphs)
-        if gh >= 2:
+    # rows for graphs: all of them but a label each and the gaps between;
+    # a short window gives up blank rows before graphs drop below two rows
+    for gap in range(GAP, -1, -1):
+        budget = rows - len(graphs) - (len(graphs) - 1) * gap
+        if budget >= 2 * len(graphs):
             break
-    if gh < 2 or cols < AXIS + 10:
+    if budget < 2 * len(graphs) or cols < AXIS + 10:
         put(win, 0, 0, "window too small")
     elif not clock.hist:
         put(win, 0, 0, "sampling…", curses.A_DIM)
     else:
         width = cols - AXIS  # samples a graph shows
+        specs = layout([g[1].scale for g in graphs], budget)
         rows_out, y = [], 0
-        for name, series, color, unit, places in graphs:
+        for (name, series, color, unit, places), spec in zip(graphs, specs):
             rows_out.append((y, name, fields(series, width, unit, places), c[color]))
-            y += 1 + graph(win, y + 1, gh, cols, series.hist, series.scale, c[color])
+            y += 1 + graph(win, y + 1, cols, series.hist, series.scale, spec, c[color])
             y += gap
         labels(win, rows_out)
     win.refresh()
@@ -225,8 +285,8 @@ def main(win):
     clock = Clock()
     cpu = first("k10temp", CPU_TEMP, "the CPU row reads an AMD CPU's Tctl")
     ssd = first("nvme", SSD_TEMP, "the SSD row reads an NVMe drive's Composite")
-    rams = [Sensor(h, (RAM_FLOOR, int(read(h + "/temp1_crit")) / 1000,
-                       RAM_STEPS, "°"))
+    rams = [Sensor(h, Scale(RAM_FLOOR, int(read(h + "/temp1_crit")) / 1000,
+                            RAM_STEPS, degrees))
             for _, h in hwmons("spd5118")]
     devices = [clock, cpu, *rams, ssd]
     last = time.monotonic()
