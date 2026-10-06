@@ -21,7 +21,7 @@ INTERVAL = 1.0
 HISTORY = 2000
 BLOCKS = " ▁▂▃▄▅▆▇█"
 AXIS = 6  # scale column at the right end, beside the newest reading
-DOT = "┈"  # gridline, drawn at the vertical centre of a cell
+DOT = "·"  # gridline: one round dot per cell, at the row's vertical centre
 
 # Scales are (low, high, gridline steps finest first, unit). Every temperature
 # span takes a 15° step, which is what fits the ~6 rows a graph gets at full
@@ -145,10 +145,6 @@ def labels(win, rows):
             x += w
 
 
-def rule(win, y, w):
-    put(win, y, 0, "─" * w, curses.A_DIM)
-
-
 def grid(span, steps, h):
     """(step, lines - 1, rows between lines) for the finest step that fits."""
     for step in (*steps, span):
@@ -189,16 +185,14 @@ def graph(win, y, h, w, hist, scale, attr):
 def draw(win, clock, cpu, rams, ssd, c):
     win.erase()
     rows, cols = win.getmaxyx()
-    # (name, series, colour, unit, decimals); the CPU's two share a device,
-    # every later graph starts a new one under a rule
+    # (name, series, colour, unit, decimals), top to bottom
     graphs = [("CPU - frequency", clock, "freq", "GHz", 2),
               ("CPU - temperature", cpu, "cpu", "°", 1)]
     graphs += [(f"RAM #{n} - temperature", ram, "ram", "°", 1)
                for n, ram in enumerate(rams, 1)]
     graphs.append(("SSD - temperature", ssd, "ssd", "°", 1))
-    rules = len(graphs) - 2
     for gap in range(GAP, -1, -1):  # a short window gives up blank rows first
-        gh = (rows - len(graphs) * (1 + gap) - rules) // len(graphs)
+        gh = (rows - len(graphs) * (1 + gap)) // len(graphs)
         if gh >= 2:
             break
     if gh < 2 or cols < AXIS + 10:
@@ -208,10 +202,7 @@ def draw(win, clock, cpu, rams, ssd, c):
     else:
         width = cols - AXIS  # samples a graph shows
         rows_out, y = [], 0
-        for i, (name, series, color, unit, places) in enumerate(graphs):
-            if i >= 2:
-                rule(win, y, cols)
-                y += 1
+        for name, series, color, unit, places in graphs:
             rows_out.append((y, name, fields(series, width, unit, places), c[color]))
             y += 1 + graph(win, y + 1, gh, cols, series.hist, series.scale, c[color])
             y += gap

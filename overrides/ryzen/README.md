@@ -133,15 +133,21 @@ core. The label used to show the current reading, the fastest core, and the
 highest temperature across the graph; the current reading is now only the
 rightmost bar.
 
-Gridlines are dotted (`┈`), and every one is labelled. A label can only sit in
-the middle of a terminal row, so the scale is fitted to put every line there
-too. It runs from the middle of the bottom row to the middle of the top one,
-with the lines a whole number of rows apart, at the finest step that fits:
-1 GHz and 15°C in a full-height window, only the top and bottom lines in a
-quarter-height tile. Every graph is followed by two blank rows. A window too
-short for that gets one, then none, before it gives up graph height. Blocks
-stack by the rows their graphs actually use, so the gaps stay even and any
-spare rows collect at the bottom. Bars stand on the graph's bottom edge, half
+Gridlines are dotted, one middle dot (`·`, U+00B7) per cell, and every one is
+labelled. They were `┈` (U+2508) until 2026-10-06, which Ghostty draws as four
+tiny dashes a cell, so it read as a faint solid hairline rather than dots. A
+label can only sit in the middle of a terminal row, so the scale is fitted to
+put every line there too. It runs from the middle of the bottom row to the
+middle of the top one, with the lines a whole number of rows apart, at the
+finest step that fits: 1 GHz, 15°C for the CPU and SSD and 10°C for the RAM
+in a full-height window, only the top and bottom lines in a quarter-height
+tile. Every graph is followed by two blank rows, and those alone separate the
+devices. A solid rule above each of RAM #1, RAM #2 and SSD was dropped on
+2026-10-06, and the three rows it freed are what bring the RAM back to 10°C.
+A window too short for two blank rows gets one, then none, before it gives up
+graph height. Blocks stack by the rows their graphs actually use, so the gaps
+stay even and any spare rows collect at the bottom. Bars stand on the graph's
+bottom edge, half
 a row under the lowest line, because a block can only grow from a cell's
 bottom. Starting them at the line instead hid any reading in the lowest
 quarter-row. A bar's top is what reads against the lines. Drawing each line
