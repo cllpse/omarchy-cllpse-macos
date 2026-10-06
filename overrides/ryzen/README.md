@@ -100,27 +100,40 @@ is the live view for this folder's numbers, where thermal-log is the record and
 `burst-bench.py` the measurement. Not run by `apply.sh`.
 
 The CPU gets two graphs. Its clock is the average of every core's
-`scaling_cur_freq` on 0-5 GHz (`cpuinfo_max_freq` is 4.97). The scale reads
-0, 2GHz, 3GHz, 4GHz and 5GHz. The 1 GHz line is left out but the scale stays
-linear, so the row between 0 and 2GHz has no line. A window too short for
-1 GHz steps shows only 0 and 5GHz. The 2.5 GHz fallback went along with the
-1 GHz line, since "2.5GHz" is wider than the scale column. Its temperature is
-Tctl from `k10temp` on 25-100°C, which keeps the firmware's 92°C setpoint on
-the scale. Everything else graphs temperature only. For a RAM stick that is
-all it reports of its own: usage is system-wide and the clock is fixed. The
-readings come from the `spd5118` driver, the SPD hub on each DDR5 SODIMM,
-which loads by itself on this kernel. Sticks are ordered by I²C address (0x50,
-then 0x51) and drawn from 25°C to the sticks' own `temp1_crit`, 85°C, a floor
-chosen so every gridline step also lands on their 55°C `temp1_max`. They sit
-at ~44-49°C. The SSD graphs the drive's Composite sensor (`temp1` of its
-`nvme` hwmon) on 15-90°C: it idles at 16-27°C, under the RAM floor, and the
-top line sits on its own 89.85°C `temp1_max`. The CPU and SSD scales were
-30-100°C and 15-85°C until 2026-10-06. Two blank rows under every graph left
-each one ~6 rows at full height, where those spans' only fitting step was 35°.
-Both were retuned so a 15° step fits, and the CPU's lines now fall on the same
-values as the RAM's. The first version (2026-10-04) also graphed CPU
-utilisation and SSD busy time, with read/write MB/s; they were dropped to keep
-the screen to clocks and heat.
+`scaling_cur_freq` on 0-5 GHz (`cpuinfo_max_freq` is 4.97), labelled 0, 1GHz
+... 5GHz. For part of 2026-10-06 the 1 GHz line was left out. Its 2.5 GHz
+fallback went then and stayed gone, since "2.5GHz" is wider than the scale
+column, so a window too short for 1 GHz steps shows only 0 and 5GHz. Its
+temperature is Tctl from `k10temp` on 17-92°C. Everything else graphs
+temperature only. For a RAM stick that is all it reports of its own: usage is
+system-wide and the clock is fixed. The readings come from the `spd5118`
+driver, the SPD hub on each DDR5 SODIMM, which loads by itself on this kernel.
+Sticks are ordered by I²C address (0x50, then 0x51) and drawn from 25°C to the
+sticks' own `temp1_crit`, 85°C, a floor chosen so every gridline step also
+lands on their 55°C `temp1_max`. They sit at ~42-49°C. The SSD graphs the
+drive's Composite sensor (`temp1` of its `nvme` hwmon) on 15-90°C: it idles at
+16-27°C, under the RAM floor, and the top line sits on its own 89.85°C
+`temp1_max`. The CPU and SSD scales were 30-100°C and 15-85°C until
+2026-10-06. Two blank rows under every graph left each one ~6 rows at full
+height, where those spans' only fitting step was 35°, so both were retuned for
+a 15° step, the CPU to 25-100°C. The first version (2026-10-04) also graphed
+CPU utilisation and SSD busy time, with read/write MB/s; they were dropped to
+keep the screen to clocks and heat.
+
+The CPU and RAM graphs each draw their throttle point as a red dotted line,
+with a red label. For the CPU that is 92°C Tctl. The SMU's thermal limits in
+`ryzen_smu`'s `pm_table` all read 92.00, and the 49-minute all-core load in
+[`ryzen-tdp.env`](ryzen-tdp.env) held Tctl at exactly 92.0°C for ~40 minutes,
+the thermal limit rather than the power limit setting the clock. (`k10temp`
+has no crit file to read it from, so the 92 is a constant.) For the RAM it is
+85°C, read from each stick's `temp1_crit`. That is the top of DDR5's normal
+operating range: above it JEDEC has the DRAM refreshed twice as often, which
+costs bandwidth and is the nearest a stick comes to throttling. Its clock does
+not change. A label can only sit mid-row, so a red line has to land on a
+gridline. Each is its scale's top, with the steps counting down from it. That
+is why the CPU moved from 25-100°C to 17-92°C (17, 32, 47, 62, 77, 92 at full
+height), where its lines had fallen on the RAM's 25, 40, 55, 70, 85. The SSD's
+top line is the drive's own warning temperature, and is left grey.
 
 Every graph has a label row above it, naming what it graphs (*CPU -
 frequency*, *CPU - temperature*, *RAM #1 - temperature* and so on), then three
@@ -156,13 +169,13 @@ then takes its next finer grid, the cheapest first on a tie, while rows last.
 The two RAM sticks share one scale and move together. Rows still spare
 stretch the shortest graph. The full-height tile on this screen is 49 rows
 (read with `stty size` on the live terminal), which leaves 28 for graphs.
-That is exactly enough for the clock's 0, 2GHz...5GHz (6 rows), 15°C for the
+That is exactly enough for the clock's 0, 1GHz...5GHz (6 rows), 15°C for the
 CPU and SSD (6 each), and 15°C for the RAM (5 each). An equal split gave every
 graph 5, so the clock showed only 0 and 5GHz and the CPU and SSD 25°C. The
 equal split's earlier sizes were worked out for 51 rows, not 49, so what was
 claimed for them (6 rows a graph, then 7 with the RAM at 10°C) was a row
 out. A quarter-height tile (25 rows) gets two blank rows, a 25°C grid for the
-CPU, and only low and high lines for the rest. Blocks stack by the rows their
+CPU (17, 42, 67, 92), and only low and high lines for the rest. Blocks stack by the rows their
 graphs use, and any spare rows collect at the bottom. Bars stand on the
 graph's bottom edge, half
 a row under the lowest line, because a block can only grow from a cell's

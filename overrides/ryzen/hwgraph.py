@@ -24,16 +24,21 @@ AXIS = 6  # scale column at the right end, beside the newest reading
 DOT = "┄"  # gridline: three dashes per cell, at the row's vertical centre
 
 # A scale's gridline steps are finest first; label turns a line's value into
-# its text, and skip lists values that get no line. Every temperature span
+# its text, and limit is where the part throttles, drawn red. A line can only
+# sit mid-row, so a limit has to land on one: the CPU's and RAM's are each
+# their scale's top, counting down from it in steps. Every temperature span
 # takes a 15° step, which with the clock's 1 GHz fits the 28 rows a 49-row
-# window leaves for graphs. Tctl has no crit file; the firmware holds it at
-# 92°C. From 25°C every RAM step lands on the sticks' 55°C temp1_max as well
-# as their 85°C crit, and CPU's lines fall on the same values. The SSD's
-# Composite sensor idles at 16-27°C, hence its lower floor, and tops out at
-# its 89.85°C max.
-# The clock reads 0, 2GHz ... 5GHz: its 1 GHz line is left out, and the
-# scale stays linear, so the row between 0 and 2GHz has no line.
-Scale = namedtuple("Scale", "lo hi steps label skip", defaults=((),))
+# window leaves for graphs.
+#
+# CPU throttles at 92°C Tctl: the SMU's thermal limits in ryzen_smu's
+# pm_table all read 92.00, and a 40-minute all-core load held Tctl at
+# exactly 92.0 (ryzen-tdp.env). Tctl has no crit file to read it from.
+# RAM throttles at its temp1_crit, 85°C, the top of DDR5's normal range:
+# above it JEDEC doubles the refresh rate, which costs bandwidth. From 25°C
+# every RAM step also lands on the sticks' 55°C temp1_max. The SSD's
+# Composite sensor idles at 16-27°C, hence its floor; it tops out at its
+# 89.85°C max.
+Scale = namedtuple("Scale", "lo hi steps label limit", defaults=(None,))
 
 
 def degrees(v):
@@ -44,8 +49,10 @@ def gigahertz(v):
     return f"{v:g}GHz" if v else "0"
 
 
-GHZ_STEPS, GHZ_SKIP = (1,), (1,)
-CPU_TEMP = Scale(25, 100, (5, 15, 25), degrees)
+GHZ_STEPS = (1,)
+CPU_THROTTLE = 92
+CPU_TEMP = Scale(CPU_THROTTLE - 75, CPU_THROTTLE, (5, 15, 25), degrees,
+                 CPU_THROTTLE)
 RAM_FLOOR, RAM_STEPS = 25, (5, 10, 15, 30)
 SSD_TEMP = Scale(15, 90, (5, 15, 25), degrees)
 GAP = 4  # blank rows between graphs, where the window has them to spare
@@ -105,7 +112,7 @@ class Clock(Series):
         cpus = glob.glob("/sys/devices/system/cpu/cpu[0-9]*/cpufreq")
         self.cur = [c + "/scaling_cur_freq" for c in cpus]
         top = max(int(read(c + "/cpuinfo_max_freq")) for c in cpus) / 1e6
-        super().__init__(Scale(0, math.ceil(top), GHZ_STEPS, gigahertz, GHZ_SKIP))
+        super().__init__(Scale(0, math.ceil(top), GHZ_STEPS, gigahertz))
 
     def sample(self):
         ghz = [int(read(c)) / 1e6 for c in self.cur]
@@ -207,14 +214,14 @@ def layout(scales, budget):
     return spec
 
 
-def graph(win, y, w, hist, scale, spec, attr):
-    """Bars against dotted gridlines. A label can only sit mid-row, so every
-    line does too: the scale runs from the middle of the bottom row to the
-    middle of the top one, the lines a whole number of rows apart, as spec
-    (from layout) says. A bar's top is what reads against the lines, so a
-    bar stands on the bottom edge, half a row under the low line, rather
-    than starting at it, where nothing finer than a half-block could be
-    drawn. Returns the rows it used."""
+def graph(win, y, w, hist, scale, spec, attr, hot):
+    """Bars against dotted gridlines, the scale's limit line and label in
+    hot. A label can only sit mid-row, so every line does too: the scale
+    runs from the middle of the bottom row to the middle of the top one, the
+    lines a whole number of rows apart, as spec (from layout) says. A bar's
+    top is what reads against the lines, so a bar stands on the bottom edge,
+    half a row under the low line, rather than starting at it, where nothing
+    finer than a half-block could be drawn. Returns the rows it used."""
     lo, hi = scale.lo, scale.hi
     step, n, d = spec
     h = n * d + 1
@@ -222,10 +229,10 @@ def graph(win, y, w, hist, scale, spec, attr):
     bottom = y + h - 1
     for k in range(n + 1):
         v = lo + k * step
-        if any(abs(v - s) < 1e-9 for s in scale.skip):
-            continue
-        put(win, bottom - k * d, 0, DOT * width, curses.A_DIM)
-        put(win, bottom - k * d, width + 1, scale.label(v), curses.A_DIM)
+        line = hot if scale.limit is not None and abs(v - scale.limit) < 1e-9 \
+            else curses.A_DIM
+        put(win, bottom - k * d, 0, DOT * width, line)
+        put(win, bottom - k * d, width + 1, scale.label(v), line)
     values = list(hist)[-width:]
     x0 = width - len(values)
     for i, v in enumerate(values):
@@ -264,7 +271,8 @@ def draw(win, clock, cpu, rams, ssd, c):
         rows_out, y = [], 0
         for (name, series, color, unit, places), spec in zip(graphs, specs):
             rows_out.append((y, name, fields(series, width, unit, places), c[color]))
-            y += 1 + graph(win, y + 1, cols, series.hist, series.scale, spec, c[color])
+            y += 1 + graph(win, y + 1, cols, series.hist, series.scale, spec,
+                           c[color], c["hot"])
             y += gap
         labels(win, rows_out)
     win.refresh()
@@ -274,9 +282,9 @@ def main(win):
     curses.curs_set(0)
     curses.start_color()
     curses.use_default_colors()
-    names = ("freq", "cpu", "ram", "ssd")
+    names = ("freq", "cpu", "ram", "ssd", "hot")
     colors = (curses.COLOR_MAGENTA, curses.COLOR_BLUE,
-              curses.COLOR_YELLOW, curses.COLOR_GREEN)
+              curses.COLOR_YELLOW, curses.COLOR_GREEN, curses.COLOR_RED)
     c = {}
     for pair, (name, color) in enumerate(zip(names, colors), 1):
         curses.init_pair(pair, color, -1)
@@ -285,9 +293,10 @@ def main(win):
     clock = Clock()
     cpu = first("k10temp", CPU_TEMP, "the CPU row reads an AMD CPU's Tctl")
     ssd = first("nvme", SSD_TEMP, "the SSD row reads an NVMe drive's Composite")
-    rams = [Sensor(h, Scale(RAM_FLOOR, int(read(h + "/temp1_crit")) / 1000,
-                            RAM_STEPS, degrees))
-            for _, h in hwmons("spd5118")]
+    rams = []
+    for _, h in hwmons("spd5118"):
+        crit = int(read(h + "/temp1_crit")) / 1000
+        rams.append(Sensor(h, Scale(RAM_FLOOR, crit, RAM_STEPS, degrees, crit)))
     devices = [clock, cpu, *rams, ssd]
     last = time.monotonic()
     while True:
