@@ -130,7 +130,7 @@ core's `scaling_cur_freq` on 2.5-5 GHz (`cpuinfo_max_freq` is 4.97), six lines
 for four lines like every other graph (2-5 GHz), then went to half-GHz steps
 for six. The scale column widened from six cells to seven for "2.5GHz".
 
-Under the clock, *CPU - power* is a label row with no graph: current,
+Under the clock, *CPU – power* is a label row with no graph: current,
 overall and peak of the PPT slow value, the long-average package power that
 the sustained limit holds. It comes from `ryzen_smu`'s `pm_table`, where
 RyzenAdj reads the limit at `0x10` and the value at `0x14` on every table
@@ -210,8 +210,9 @@ the RAM's; it reads 17, 32, 47, 62, 77, 92 (17, 42, 67, 92 while every graph
 had four lines). The SSD's
 top line is the drive's own warning temperature, and is left grey.
 
-Every graph has a label row above it, naming what it graphs (*CPU -
-frequency*, *CPU - temperature*, *RAM #1 - temperature* and so on), then three
+Every graph has a label row above it, naming what it graphs (*CPU –
+frequency*, *CPU – temperature*, *RAM #1 – temperature* and so on; en dashes
+since 2026-10-07, hyphens before), then three
 figures: *current*, *overall* and *peak*, in that order on every row. The
 figures are set in columns, the first two spaces past the longest name, so
 each of the three lines up down the screen. *current* is the latest reading,
@@ -236,7 +237,9 @@ fitted to put every line there too. It runs from the middle of the bottom row
 to the middle of the top one, with the lines a whole number of rows apart.
 Up to three blank rows separate each block from the next (four from
 2026-10-06 to 2026-10-07): the most, up to three, that still leaves every
-graph all six lines. Nothing else separates the devices: a solid rule above
+graph all six lines. The power line is the exception: a label-only block
+sits one blank row under the graph above it, so it reads as part of the
+clock's block. Nothing else separates the devices: a solid rule above
 each of RAM #1, RAM #2 and SSD was dropped on 2026-10-06. There are none
 under the last graph, where they would separate nothing. A window too short
 for six lines everywhere even with no gaps takes the widest gap that still
@@ -249,11 +252,13 @@ the cheapest first on a tie, while rows last. The two RAM sticks share one
 scale and move together. Rows still spare stretch every graph's line spacing
 together, or none, so the graphs keep one height. The full-height tile on
 this screen is 49 rows (read with `stty size` on the live terminal). Five
-graphs of six rows and six labels are 36 rows. Three-row gaps would need 51,
-so the gaps there are two (46 rows, three spare at the bottom); at 51 rows or
-more they are three. A quarter-height tile (25 rows) gets one blank row and
-six lines on the clock only. While every graph had four lines (2026-10-07),
-the 49-row tile fit three-row gaps with four rows to spare.
+graphs of six rows and six labels are 36 rows; one blank row above the power
+line and three-row gaps between the other blocks are 13 more, 49 exactly.
+With the power line spaced like every other block, three-row gaps needed 51,
+so the 49-row tile got two-row gaps for the few hours that lasted. A
+quarter-height tile (25 rows) gets two-row gaps and only low and high lines.
+While every graph had four lines (2026-10-07), the 49-row tile fit three-row
+gaps with four rows to spare.
 
 Until 2026-10-07 each scale had several candidate steps, and the finest that
 fit won. That gave the 49-row tile 1 GHz, 25 W, 25°C for the CPU and SSD and

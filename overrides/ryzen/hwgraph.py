@@ -77,6 +77,7 @@ RAM_STEP = 10  # down from the 85°C crit: 35, 45, 55, 65, 75, 85
 SSD_TEMP = Scale(15, 90, (15,), degrees)
 GAP = 3  # blank rows between blocks: the most, up to this, that leaves every
          # graph its full grid
+TIGHT = 1  # blank rows between a graph and a label-only block under it
 
 
 def die(msg):
@@ -384,10 +385,14 @@ def draw(win, graphs, c):
     full = [grids(s)[-1][0] for s in scales]  # each scale's finest grid
     # rows for graphs: all of them but a label each and the gaps between.
     # The gap is the widest, up to GAP, that leaves every graph its full
-    # grid; failing that, the widest that leaves each its low and high lines
+    # grid; failing that, the widest that leaves each its low and high lines.
+    # A label-only block sits TIGHT rows under the block above, not a gap.
+    def above(block, g):
+        return g if block.plot else min(TIGHT, g)
+
     gap = specs = None
     for g in range(GAP, -1, -1):
-        budget = rows - len(graphs) - (len(graphs) - 1) * g
+        budget = rows - len(graphs) - sum(above(b, g) for b in graphs[1:])
         if budget < 2 * len(plotted):
             continue
         fit = layout(scales, budget)
@@ -403,7 +408,9 @@ def draw(win, graphs, c):
     else:
         specs = iter(specs)
         rows_out, y = [], 0
-        for g in graphs:
+        for i, g in enumerate(graphs):
+            if i:
+                y += above(g, gap)
             s = g.series
             rows_out.append((y, g.name, fields(s, g.unit, g.places, c["hot"]),
                              c[g.color]))
@@ -411,7 +418,6 @@ def draw(win, graphs, c):
             if g.plot:
                 y += graph(win, y, cols, s.hist, s.scale, next(specs),
                            c[g.color], c["hot"])
-            y += gap
         labels(win, rows_out)
     win.refresh()
 
@@ -429,13 +435,13 @@ def main(win):
         c[name] = curses.color_pair(pair)
 
     # top to bottom; column names the series in the log
-    graphs = [Graph("CPU - frequency", Clock(), "freq", "GHz", 2, "clock_ghz")]
+    graphs = [Graph("CPU – frequency", Clock(), "freq", "GHz", 2, "clock_ghz")]
     try:
-        graphs.append(Graph("CPU - power", Power(), "power", "W", 1, "cpu_w",
+        graphs.append(Graph("CPU – power", Power(), "power", "W", 1, "cpu_w",
                             plot=False))
     except (OSError, struct.error):
         pass  # no ryzen_smu module: no power block
-    graphs.append(Graph("CPU - temperature",
+    graphs.append(Graph("CPU – temperature",
                         first("k10temp", CPU_TEMP,
                               "the CPU row reads an AMD CPU's Tctl"),
                         "cpu", "°", 1, "cpu_c"))
@@ -443,9 +449,9 @@ def main(win):
         crit = int(read(h + "/temp1_crit")) / 1000
         ram = Sensor(h, Scale(crit - 5 * RAM_STEP, crit, (RAM_STEP,), degrees,
                               crit))
-        graphs.append(Graph(f"RAM #{n} - temperature", ram, "ram", "°", 1,
+        graphs.append(Graph(f"RAM #{n} – temperature", ram, "ram", "°", 1,
                             f"ram{n}_c"))
-    graphs.append(Graph("SSD - temperature",
+    graphs.append(Graph("SSD – temperature",
                         first("nvme", SSD_TEMP,
                               "the SSD row reads an NVMe drive's Composite"),
                         "ssd", "°", 1, "ssd_c"))
