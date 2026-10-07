@@ -4,8 +4,8 @@
   hwgraph.py                            q quits
 
 CPU graphs its average clock and Tctl; each RAM stick and the SSD graph their
-temperature. Every graph is labelled window (the mean of what it shows),
-overall (the mean since start) and peak (the highest since start). See
+temperature. Every graph is labelled current (the latest reading), overall
+(the mean since start) and peak (the highest since start). See
 README.md (4) in this directory for the sensors, the scales, and why not
 btop or s-tui. Needs no root.
 """
@@ -96,16 +96,10 @@ class Series:
         self.total += v
         self.count += 1
 
-    def stats(self, width):
-        """(window, overall, peak): mean of the last `width` samples, which is
-        what the graph shows; mean since start; highest since start."""
-        shown = list(self.hist)[-width:]
-        # Summed the way total is: sum() compensates since 3.12, and the two
-        # then round apart at .x5 while the graph still holds every sample
-        window = 0.0
-        for v in shown:
-            window += v
-        return window / len(shown), self.total / self.count, self.peak
+    def stats(self):
+        """(current, overall, peak): the latest reading, the mean since start
+        and the highest since start."""
+        return self.hist[-1], self.total / self.count, self.peak
 
 
 class Clock(Series):
@@ -147,10 +141,10 @@ def put(win, y, x, text, attr=0):
         pass  # writing the bottom-right cell always raises
 
 
-def fields(series, width, unit, places):
-    window, overall, peak = series.stats(width)
+def fields(series, unit, places):
+    current, overall, peak = series.stats()
     return [(key, f"{v:.{places}f}{unit}")
-            for key, v in (("window", window), ("overall", overall), ("peak", peak))]
+            for key, v in (("current", current), ("overall", overall), ("peak", peak))]
 
 
 def labels(win, rows):
@@ -269,11 +263,10 @@ def draw(win, clock, cpu, rams, ssd, c):
     elif not clock.hist:
         put(win, 0, 0, "sampling…", curses.A_DIM)
     else:
-        width = cols - AXIS  # samples a graph shows
         specs = layout([g[1].scale for g in graphs], budget)
         rows_out, y = [], 0
         for (name, series, color, unit, places), spec in zip(graphs, specs):
-            rows_out.append((y, name, fields(series, width, unit, places), c[color]))
+            rows_out.append((y, name, fields(series, unit, places), c[color]))
             y += 1 + graph(win, y + 1, cols, series.hist, series.scale, spec,
                            c[color], c["hot"])
             y += gap

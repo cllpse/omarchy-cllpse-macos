@@ -163,18 +163,16 @@ top line is the drive's own warning temperature, and is left grey.
 
 Every graph has a label row above it, naming what it graphs (*CPU -
 frequency*, *CPU - temperature*, *RAM #1 - temperature* and so on), then three
-figures: *window*, *overall* and *peak*, in that order on every row. The
+figures: *current*, *overall* and *peak*, in that order on every row. The
 figures are set in columns, the first two spaces past the longest name, so
-each of the three lines up down the screen. (The clock read window, peak,
-overall until the columns came in.) *window* is the mean of the samples the
-graph is showing, so it follows history as it scrolls off the left edge, and
-a wider window averages over longer. *overall* is the mean since hwgraph
-started and *peak* the highest reading since then. Both are kept apart from
-the 2000-sample history, so neither forgets. All three figures are of the
-graphed series, so the clock's peak is of the all-core average, not of one
-core. The label used to show the current reading, the fastest core, and the
-highest temperature across the graph; the current reading is now only the
-rightmost bar.
+each of the three lines up down the screen. *current* is the latest reading,
+the rightmost bar. *overall* is the mean since hwgraph started and *peak* the
+highest reading since then. Both are kept apart from the 2000-sample history,
+so neither forgets. All three figures are of the graphed series, so the
+clock's peak is of the all-core average, not of one core. From 2026-10-06 to
+2026-10-07 the first figure was *window*, the mean of the samples the graph
+was showing. Before that, the label showed the current reading, the fastest
+core and the highest temperature across the graph.
 
 Gridlines are `┄` (U+2504), three dashes a cell, and every one is labelled.
 They were `┈` (U+2508) until 2026-10-06, which Ghostty draws as four tiny
