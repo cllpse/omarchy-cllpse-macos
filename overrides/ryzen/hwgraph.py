@@ -345,9 +345,11 @@ def layout(scales, budget):
     return spec
 
 
-def graph(win, y, w, hist, scale, spec, attr, hot):
+def graph(win, y, w, hist, scale, spec, attr, hot, places):
     """Soft bars against dotted gridlines, the scale's limit line and label
-    in hot. A label can only sit mid-row, so every gridline does too: the
+    in hot. A bar that reaches the limit is drawn in hot too, by the same
+    rule as the label's current (compared at `places` decimals, as
+    displayed). A label can only sit mid-row, so every gridline does too: the
     scale runs from the middle of the bottom row to the middle of the top
     one, the lines a whole number of rows apart, as spec (from layout) says.
     One sample a column, in eighth-blocks: the cell holding a bar's top is
@@ -369,17 +371,19 @@ def graph(win, y, w, hist, scale, spec, attr, hot):
         put(win, bottom - k * d, width + 1, scale.label(v).rjust(AXIS - 1), line)
     values = list(hist)[-width:]
     x0 = width - len(values)
-    body = attr | curses.A_DIM
     for i, v in enumerate(values):
         if v is None:
             continue
+        colour = hot if scale.limit is not None and \
+            round(v, places) >= scale.limit else attr
         pos = 0.5 + (v - lo) / (hi - lo) * (h - 1)  # rows above the bottom edge
         eighths = round(min(max(pos, 0), h) * 8)
         for row in range(h):
             fill = min(max(eighths - row * 8, 0), 8)
             if fill:
                 top = eighths <= (row + 1) * 8
-                put(win, bottom - row, x0 + i, BLOCKS[fill], attr if top else body)
+                put(win, bottom - row, x0 + i, BLOCKS[fill],
+                    colour if top else colour | curses.A_DIM)
     return h
 
 
@@ -423,7 +427,7 @@ def draw(win, graphs, c):
             y += 1
             if g.plot:
                 y += graph(win, y, cols, s.hist, s.scale, next(specs),
-                           c[g.color], c["hot"])
+                           c[g.color], c["hot"], g.places)
         labels(win, rows_out)
     win.refresh()
 

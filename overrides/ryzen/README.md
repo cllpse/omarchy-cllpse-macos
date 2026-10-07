@@ -280,7 +280,10 @@ are dimmed, so the top edge is what reads and the body recedes. A bar
 stands on the graph's bottom edge, half a row under the low line, since a
 block can only grow from a cell's bottom; starting it at the line hid any
 reading in the lowest quarter-row. A reading off the scale is cut at the
-edge, and a break is a blank column.
+edge, and a break is a blank column. On the CPU and RAM temperatures a bar
+whose reading reaches the red throttle line is red, bright top and dimmed
+body, by the same rule as *current*: compared as displayed, so a column is
+red exactly when its reading would print red.
 
 The style was picked on 2026-10-07 from renders of the log side by side.
 Solid bars, the first style, read as blocky. A braille line, two samples a
