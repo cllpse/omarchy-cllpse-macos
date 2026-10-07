@@ -103,7 +103,8 @@ is the live view for this folder's numbers, where thermal-log is the record and
 `burst-bench.py` the measurement. Not run by `apply.sh`.
 
 Every sample is also appended to a CSV a day in `~/.local/state/hwgraph/`
-(`$XDG_STATE_HOME/hwgraph/`), as `time,clock_ghz,cpu_c,ram1_c,ram2_c,ssd_c`.
+(`$XDG_STATE_HOME/hwgraph/`), as
+`time,clock_ghz,cpu_w,cpu_c,ram1_c,ram2_c,ssd_c`, a failed reading left empty.
 On start hwgraph replays the last 24 hours of it, so the graphs, *overall*
 and *peak* survive a restart. Where samples are more than 5 s apart (hwgraph
 closed, or the machine asleep) the graph draws one blank column instead of
@@ -113,16 +114,37 @@ deleted. The window is 24 hours because replay cost scales with it: a day at
 and ~4.7 s. Only the first hwgraph running writes (an `flock` on `lock` in
 the same directory). A second one replays and shows without logging, so no
 sample is logged twice. A crash's half-written last line is closed off with
-a newline on the next run and skipped on replay. A change in columns (a RAM
-stick added or removed) sets the day's file aside as `<date>.<time>.old`
-rather than mixing the two.
+a newline on the next run and skipped on replay. Replay matches columns by
+name, so a file from a run with other columns (a RAM stick added, or the log
+from before `cpu_w` existed) still replays, empty for what it lacks. When the
+columns change mid-day, the day's file is renamed `<date>.<time>.csv` rather
+than mixed with the new one, and replays from there.
 
-The CPU gets two graphs. Its clock is the average of every core's
+The CPU gets three graphs. Its clock is the average of every core's
 `scaling_cur_freq` on 0-5 GHz (`cpuinfo_max_freq` is 4.97), labelled 0, 1GHz
 ... 5GHz. For part of 2026-10-06 the 1 GHz line was left out. Its 2.5 GHz
 fallback went then and stayed gone, since "2.5GHz" is wider than the scale
-column, so a window too short for 1 GHz steps shows only 0 and 5GHz. Its
-temperature is Tctl from `k10temp` on 17-92°C. Everything else graphs
+column, so a window too short for 1 GHz steps shows only 0 and 5GHz.
+
+Under the clock, *CPU - power* graphs the PPT slow value, the long-average
+package power that the sustained limit holds. It comes from `ryzen_smu`'s
+`pm_table`, where RyzenAdj reads the limit at `0x10` and the value at `0x14`
+on every table version. The limit, 50 W from `ryzen-tdp`, is read at start and
+is the scale's red top line, each whole-watt divisor of it a candidate step;
+*current* turns red at it like the temperatures do. With no `ryzen_smu` module
+the block is left out. It graphs the slow value rather than the burst (PPT
+fast) value because that is the one the limit applies to: under load it sits
+flat on the red line, where the fast value wobbles either side of it. That is
+what the clock's wobble is. Under a 16-thread `stress-ng` matrixprod run on
+2026-10-07, 8 minutes in, PPT slow read 50.0 of 50 W in every sample while
+Tctl ran 87-89.6°C and the clock 4.22-4.44 GHz. The fast value moved
+48-52.5 W, STAPM was 42.6 of 50 W and climbing, and the VRM currents and the
+skin temperature had headroom. So the CPU was power-limited, not thermally
+throttled, about 3°C under its 92°C limit, which is what lowering the
+sustained limit from 52 W was for. Its higher peak comes from the opening
+seconds, when it bursts towards 58 W until the slow average catches up (§3).
+
+Its temperature is Tctl from `k10temp` on 17-92°C. Everything else graphs
 temperature only. For a RAM stick that is all it reports of its own: usage is
 system-wide and the clock is fixed. The readings come from the `spd5118`
 driver, the SPD hub on each DDR5 SODIMM, which loads by itself on this kernel.
@@ -214,14 +236,19 @@ graph starts with only its low and high lines. The one with the fewest lines
 then takes its next finer grid, the cheapest first on a tie, while rows last.
 The two RAM sticks share one scale and move together. Rows still spare
 stretch the shortest graph. The full-height tile on this screen is 49 rows
-(read with `stty size` on the live terminal), which leaves 28 for graphs.
-That is exactly enough for the clock's 0, 1GHz...5GHz (6 rows), 15°C for the
-CPU and SSD (6 each), and 15°C for the RAM (5 each). An equal split gave every
+(read with `stty size` on the live terminal). With six graphs and four-row
+gaps that leaves 23 for graphs: the clock keeps 1 GHz (6 rows), and the power
+gets 25 W, the CPU and SSD 25°C, and the RAM 30°C. Before the power graph
+there were five, which left 28: exactly enough for the clock's 1 GHz, 15°C
+for the CPU and SSD (6 rows each) and 15°C for the RAM (5 each). Three-row
+gaps would give 28 again (power 10 W, CPU 15°C), and two-row gaps 33 (RAM
+15°C too); the gaps stay at the four rows chosen on 2026-10-06. An equal split gave every
 graph 5, so the clock showed only 0 and 5GHz and the CPU and SSD 25°C. The
 equal split's earlier sizes were worked out for 51 rows, not 49, so what was
 claimed for them (6 rows a graph, then 7 with the RAM at 10°C) was a row
-out. A quarter-height tile (25 rows) gets two blank rows, a 25°C grid for the
-CPU (17, 42, 67, 92), and only low and high lines for the rest. Blocks stack by the rows their
+out. A quarter-height tile (25 rows) gets one blank row between graphs, a
+25 W grid for the power, and only low and high lines for the rest. Blocks
+stack by the rows their
 graphs use, and any spare rows collect at the bottom. Bars stand on the
 graph's bottom edge, half
 a row under the lowest line, because a block can only grow from a cell's

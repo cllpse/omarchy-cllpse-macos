@@ -3,7 +3,8 @@
 
   hwgraph.py                            q quits
 
-CPU graphs its average clock and Tctl; each RAM stick and the SSD graph their
+CPU graphs its average clock, its sustained power against its limit (with
+ryzen_smu loaded) and Tctl; each RAM stick and the SSD graph their
 temperature. Every graph is labelled current (the latest reading), overall
 (the mean) and peak (the highest). Every sample is logged to LOG_DIR, and a
 restart replays the last LOG_HOURS of it, so overall and peak cover that and
@@ -15,6 +16,7 @@ import fcntl
 import glob
 import math
 import os
+import struct
 import sys
 import time
 from collections import deque, namedtuple
@@ -29,14 +31,15 @@ LOG_HOURS = 24  # what a restart replays: ~0.7 s to load; a week took ~5 s
 BREAK = 5  # seconds without a sample that draw as a blank column
 BLOCKS = " ▁▂▃▄▅▆▇█"
 AXIS = 6  # scale column at the right end, beside the newest reading
+PM_TABLE = "/sys/kernel/ryzen_smu_drv/pm_table"
 DOT = "┄"  # gridline: three dashes per cell, at the row's vertical centre
 
 # A scale's gridline steps are finest first; label turns a line's value into
 # its text, and limit is where the part throttles, drawn red. A line can only
 # sit mid-row, so a limit has to land on one: the CPU's and RAM's are each
 # their scale's top, counting down from it in steps. Every temperature span
-# takes a 15° step, which with the clock's 1 GHz fits the 28 rows a 49-row
-# window leaves for graphs.
+# can take a 15° step, which with the clock's 1 GHz fit the 28 rows a 49-row
+# window left for five graphs; layout() picks what fits.
 #
 # CPU throttles at 92°C Tctl, Geekom's firmware limit under AMD's 100°C
 # Tjmax: pm_table 0x004C0009's Tctl limit (offset 0x40, per RyzenAdj) reads
@@ -49,7 +52,10 @@ DOT = "┄"  # gridline: three dashes per cell, at the row's vertical centre
 # sticks' 55°C temp1_max, the hub's alarm threshold. The SSD's
 # Composite sensor idles at 16-27°C, hence its floor; it tops out at its
 # 89.85°C max.
+# Power is limited at the PPT slow limit, read live, which tops its scale:
+# every whole-watt divisor of it is a candidate step.
 Scale = namedtuple("Scale", "lo hi steps label limit", defaults=(None,))
+Graph = namedtuple("Graph", "name series color unit places column")
 
 
 def degrees(v):
@@ -58,6 +64,10 @@ def degrees(v):
 
 def gigahertz(v):
     return f"{v:g}GHz" if v else "0"
+
+
+def watts(v):
+    return f"{v:g}W" if v else "0"
 
 
 GHZ_STEPS = (1,)
@@ -110,7 +120,10 @@ class Series:
 
     def stats(self):
         """(current, overall, peak): the latest reading, the mean and the
-        highest, over the replayed log and everything since."""
+        highest, over the replayed log and everything since. None where
+        there is nothing yet, as for a column the log didn't have."""
+        if not self.count:
+            return None, None, None
         return self.hist[-1], self.total / self.count, self.peak
 
 
@@ -139,6 +152,29 @@ class Sensor(Series):
         return int(read(self.hwmon + "/temp1_input")) / 1000
 
 
+class Power(Series):
+    """The CPU's PPT slow value, the long-average package power its
+    sustained limit holds, from ryzen_smu's pm_table: RyzenAdj reads the
+    limit at 0x10 and the value at 0x14 on every table version. The limit
+    tops the scale; a pm_table that isn't there raises OSError."""
+
+    def __init__(self):
+        limit = round(self._table()[0])
+        steps = tuple(d for d in range(1, limit) if limit % d == 0)
+        super().__init__(Scale(0, limit, steps, watts, limit))
+
+    @staticmethod
+    def _table():
+        with open(PM_TABLE, "rb") as f:
+            return struct.unpack("<2f", f.read(0x18)[0x10:0x18])
+
+    def measure(self):
+        try:
+            return self._table()[1]
+        except (OSError, struct.error):
+            return None  # logged empty, drawn as a break
+
+
 class Log:
     """Every sample, appended to one CSV a day in LOG_DIR. A file with
     nothing newer than LOG_HOURS is deleted. Only the first hwgraph running
@@ -158,26 +194,28 @@ class Log:
 
     def replay(self, since):
         """(time, values) for every sample logged at or after `since`, oldest
-        first, from files with this run's columns. A line torn by a crash
-        doesn't parse and is skipped."""
-        width = self.header.count(",") + 1
-        for path in sorted(LOG_DIR.glob("????-??-??.csv")):
+        first, values in this run's column order. Columns are matched by
+        name, so a file from a run with other columns still replays, None
+        for what it lacks; an empty field is None too. A line torn by a
+        crash doesn't parse and is skipped."""
+        columns = self.header.split(",")[1:]
+        for path in sorted(LOG_DIR.glob("????-??-??*.csv")):
             if path.stat().st_mtime < since:
                 continue
             with open(path) as f:
-                if f.readline().rstrip("\n") != self.header:
-                    continue
+                names = f.readline().rstrip("\n").split(",")
+                at = [names.index(c) if c in names else None for c in columns]
                 for line in f:
-                    parts = line.split(",")
-                    if len(parts) != width:
+                    parts = line.rstrip("\n").split(",")
+                    if len(parts) != len(names):
                         continue
                     try:
                         t = float(parts[0])
-                        values = [float(p) for p in parts[1:]]
+                        row = [float(p) if p else None for p in parts]
                     except ValueError:
                         continue
                     if t >= since:
-                        yield t, values
+                        yield t, [None if i is None else row[i] for i in at]
 
     def write(self, t, values):
         if not self.writes:
@@ -185,12 +223,14 @@ class Log:
         day = date.fromtimestamp(t)
         if day != self.day:
             self._open(day, t)
-        self.file.write(f"{t:.2f}," + ",".join(f"{v:g}" for v in values) + "\n")
+        fields = ("" if v is None else f"{v:g}" for v in values)
+        self.file.write(f"{t:.2f}," + ",".join(fields) + "\n")
         self.file.flush()
 
     def _open(self, day, now):
-        """Today's file, a header on a new one. One with other columns (a RAM
-        stick added or removed) is set aside as .old rather than mixed."""
+        """Today's file, a header on a new one. One with other columns (a
+        sensor added or removed) is renamed <date>.<time>.csv rather than
+        mixed; it sorts before the new one and still replays."""
         if self.file:
             self.file.close()
         path = LOG_DIR / f"{day.isoformat()}.csv"
@@ -202,7 +242,7 @@ class Log:
                     f.seek(-1, os.SEEK_END)
                     torn = f.read(1) != b"\n"
             if head != self.header:
-                path.rename(path.with_name(f"{path.stem}.{int(now)}.old"))
+                path.rename(path.with_name(f"{path.stem}.{int(now)}.csv"))
         new = not path.exists()
         self.file = open(path, "a")
         if new:
@@ -211,7 +251,7 @@ class Log:
             self.file.write("\n")  # finish a crash's half line on its own
         self.day = day
         for old in LOG_DIR.iterdir():
-            if old.suffix in (".csv", ".old") and \
+            if old.suffix == ".csv" and \
                     old.stat().st_mtime < now - LOG_HOURS * 3600:
                 old.unlink()
 
@@ -234,11 +274,12 @@ def fields(series, unit, places, hot):
     """(key, text, colour) for current, overall and peak. current turns hot
     once it reaches the scale's limit, compared as displayed, so a 92.0°
     on screen is red even when the reading underneath is 91.96; the rest
-    keep the graph's colour (None)."""
+    keep the graph's colour (None). A figure there's nothing for yet (a
+    break last, or a column the replayed log lacked) reads as a dash."""
     current, overall, peak = series.stats()
     limit = series.scale.limit
-    reached = limit is not None and round(current, places) >= limit
-    return [(key, f"{v:.{places}f}{unit}", a)
+    reached = None not in (limit, current) and round(current, places) >= limit
+    return [(key, "–" if v is None else f"{v:.{places}f}{unit}", a)
             for key, v, a in (("current", current, hot if reached else None),
                               ("overall", overall, None), ("peak", peak, None))]
 
@@ -340,15 +381,9 @@ def graph(win, y, w, hist, scale, spec, attr, hot):
     return h
 
 
-def draw(win, clock, cpu, rams, ssd, c):
+def draw(win, graphs, c):
     win.erase()
     rows, cols = win.getmaxyx()
-    # (name, series, colour, unit, decimals), top to bottom
-    graphs = [("CPU - frequency", clock, "freq", "GHz", 2),
-              ("CPU - temperature", cpu, "cpu", "°", 1)]
-    graphs += [(f"RAM #{n} - temperature", ram, "ram", "°", 1)
-               for n, ram in enumerate(rams, 1)]
-    graphs.append(("SSD - temperature", ssd, "ssd", "°", 1))
     # rows for graphs: all of them but a label each and the gaps between;
     # a short window gives up blank rows before graphs drop below two rows
     for gap in range(GAP, -1, -1):
@@ -357,16 +392,17 @@ def draw(win, clock, cpu, rams, ssd, c):
             break
     if budget < 2 * len(graphs) or cols < AXIS + 10:
         put(win, 0, 0, "window too small")
-    elif not clock.hist:
+    elif not graphs[0].series.hist:
         put(win, 0, 0, "sampling…", curses.A_DIM)
     else:
-        specs = layout([g[1].scale for g in graphs], budget)
+        specs = layout([g.series.scale for g in graphs], budget)
         rows_out, y = [], 0
-        for (name, series, color, unit, places), spec in zip(graphs, specs):
-            rows_out.append((y, name, fields(series, unit, places, c["hot"]),
-                             c[color]))
-            y += 1 + graph(win, y + 1, cols, series.hist, series.scale, spec,
-                           c[color], c["hot"])
+        for g, spec in zip(graphs, specs):
+            s = g.series
+            rows_out.append((y, g.name, fields(s, g.unit, g.places, c["hot"]),
+                             c[g.color]))
+            y += 1 + graph(win, y + 1, cols, s.hist, s.scale, spec,
+                           c[g.color], c["hot"])
             y += gap
         labels(win, rows_out)
     win.refresh()
@@ -376,33 +412,48 @@ def main(win):
     curses.curs_set(0)
     curses.start_color()
     curses.use_default_colors()
-    names = ("freq", "cpu", "ram", "ssd", "hot")
-    colors = (curses.COLOR_MAGENTA, curses.COLOR_BLUE,
+    names = ("freq", "power", "cpu", "ram", "ssd", "hot")
+    colors = (curses.COLOR_MAGENTA, curses.COLOR_CYAN, curses.COLOR_BLUE,
               curses.COLOR_YELLOW, curses.COLOR_GREEN, curses.COLOR_RED)
     c = {}
     for pair, (name, color) in enumerate(zip(names, colors), 1):
         curses.init_pair(pair, color, -1)
         c[name] = curses.color_pair(pair)
 
-    clock = Clock()
-    cpu = first("k10temp", CPU_TEMP, "the CPU row reads an AMD CPU's Tctl")
-    ssd = first("nvme", SSD_TEMP, "the SSD row reads an NVMe drive's Composite")
-    rams = []
-    for _, h in hwmons("spd5118"):
+    # top to bottom; column names the series in the log
+    graphs = [Graph("CPU - frequency", Clock(), "freq", "GHz", 2, "clock_ghz")]
+    try:
+        graphs.append(Graph("CPU - power", Power(), "power", "W", 1, "cpu_w"))
+    except (OSError, struct.error):
+        pass  # no ryzen_smu module: no power block
+    graphs.append(Graph("CPU - temperature",
+                        first("k10temp", CPU_TEMP,
+                              "the CPU row reads an AMD CPU's Tctl"),
+                        "cpu", "°", 1, "cpu_c"))
+    for n, (_, h) in enumerate(hwmons("spd5118"), 1):
         crit = int(read(h + "/temp1_crit")) / 1000
-        rams.append(Sensor(h, Scale(RAM_FLOOR, crit, RAM_STEPS, degrees, crit)))
-    devices = [clock, cpu, *rams, ssd]
-    log = Log(["clock_ghz", "cpu_c",
-               *(f"ram{n}_c" for n in range(1, len(rams) + 1)), "ssd_c"])
+        ram = Sensor(h, Scale(RAM_FLOOR, crit, RAM_STEPS, degrees, crit))
+        graphs.append(Graph(f"RAM #{n} - temperature", ram, "ram", "°", 1,
+                            f"ram{n}_c"))
+    graphs.append(Graph("SSD - temperature",
+                        first("nvme", SSD_TEMP,
+                              "the SSD row reads an NVMe drive's Composite"),
+                        "ssd", "°", 1, "ssd_c"))
+    devices = [g.series for g in graphs]
+    log = Log([g.column for g in graphs])
 
     def sampled(t, values, before):
         """Hand one sample to every series, a break first if it follows the
-        one before by more than BREAK seconds."""
+        one before by more than BREAK seconds. None, a reading that failed
+        or a column the log lacked, is a break for that series alone."""
         if before is not None and t - before > BREAK:
             for d in devices:
                 d.gap()
         for d, v in zip(devices, values):
-            d.add(v)
+            if v is None:
+                d.gap()
+            else:
+                d.add(v)
         return t
 
     put(win, 0, 0, "loading history…", curses.A_DIM)
@@ -412,7 +463,7 @@ def main(win):
         stamp = sampled(t, values, stamp)
     last = time.monotonic()
     while True:
-        draw(win, clock, cpu, rams, ssd, c)
+        draw(win, graphs, c)
         win.timeout(max(0, math.ceil((last + INTERVAL - time.monotonic()) * 1000)))
         if win.getch() == ord("q"):
             break
