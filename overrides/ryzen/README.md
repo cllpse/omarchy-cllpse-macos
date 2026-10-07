@@ -166,7 +166,10 @@ frequency*, *CPU - temperature*, *RAM #1 - temperature* and so on), then three
 figures: *current*, *overall* and *peak*, in that order on every row. The
 figures are set in columns, the first two spaces past the longest name, so
 each of the three lines up down the screen. *current* is the latest reading,
-the rightmost bar. *overall* is the mean since hwgraph started and *peak* the
+the rightmost bar. On the CPU and RAM temperatures it turns red once it
+reaches the graph's red throttle line, compared as displayed, so a `92.0°` on
+screen is red even when the reading underneath is 91.96. *overall* is the
+mean since hwgraph started and *peak* the
 highest reading since then. Both are kept apart from the 2000-sample history,
 so neither forgets. All three figures are of the graphed series, so the
 clock's peak is of the all-core average, not of one core. From 2026-10-06 to

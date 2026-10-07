@@ -141,24 +141,32 @@ def put(win, y, x, text, attr=0):
         pass  # writing the bottom-right cell always raises
 
 
-def fields(series, unit, places):
+def fields(series, unit, places, hot):
+    """(key, text, colour) for current, overall and peak. current turns hot
+    once it reaches the scale's limit, compared as displayed, so a 92.0°
+    on screen is red even when the reading underneath is 91.96; the rest
+    keep the graph's colour (None)."""
     current, overall, peak = series.stats()
-    return [(key, f"{v:.{places}f}{unit}")
-            for key, v in (("current", current), ("overall", overall), ("peak", peak))]
+    limit = series.scale.limit
+    reached = limit is not None and round(current, places) >= limit
+    return [(key, f"{v:.{places}f}{unit}", a)
+            for key, v, a in (("current", current, hot if reached else None),
+                              ("overall", overall, None), ("peak", peak, None))]
 
 
 def labels(win, rows):
     """Every graph's label row: its name, then `key: value` fields in columns
-    that line up down the screen, the values in the graph's colour."""
+    that line up down the screen, the values in the graph's colour unless a
+    field brings its own."""
     at = max(len(name) for _, name, _, _ in rows) + 2
-    widths = [max(len(f"{key}: {value}, ") for key, value in column)
+    widths = [max(len(f"{key}: {value}, ") for key, value, _ in column)
               for column in zip(*(f for _, _, f, _ in rows))]
     for y, name, row, attr in rows:
         put(win, y, 0, name, curses.A_BOLD)
         x = at
-        for i, ((key, value), w) in enumerate(zip(row, widths)):
+        for i, ((key, value, own), w) in enumerate(zip(row, widths)):
             put(win, y, x, f"{key}: ", curses.A_DIM)
-            put(win, y, x + len(key) + 2, value, attr)
+            put(win, y, x + len(key) + 2, value, own or attr)
             if i < len(row) - 1:
                 put(win, y, x + len(key) + 2 + len(value), ",", curses.A_DIM)
             x += w
@@ -266,7 +274,8 @@ def draw(win, clock, cpu, rams, ssd, c):
         specs = layout([g[1].scale for g in graphs], budget)
         rows_out, y = [], 0
         for (name, series, color, unit, places), spec in zip(graphs, specs):
-            rows_out.append((y, name, fields(series, unit, places), c[color]))
+            rows_out.append((y, name, fields(series, unit, places, c["hot"]),
+                             c[color]))
             y += 1 + graph(win, y + 1, cols, series.hist, series.scale, spec,
                            c[color], c["hot"])
             y += gap
