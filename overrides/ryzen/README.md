@@ -108,7 +108,8 @@ is the live view for this folder's numbers, where thermal-log is the record and
 
 Every sample is also appended to a CSV a day in `~/.local/state/hwgraph/`
 (`$XDG_STATE_HOME/hwgraph/`), as
-`time,clock_ghz,cpu_w,cpu_c,ram1_c,ram2_c,ssd_c`, a failed reading left empty.
+`time,clock_ghz,cpu_w,cpu_c,ram_ghz,ram1_c,ram2_c,ssd_c`, a failed reading
+left empty.
 On start hwgraph replays the last 24 hours of it, so the graphs, *overall*
 and *peak* survive a restart. Where samples are more than 5 s apart (hwgraph
 closed, or the machine asleep) the graph draws one blank column instead of
@@ -125,12 +126,13 @@ columns change mid-day, the day's file is renamed `<date>.<time>.csv` rather
 than mixed with the new one, and replays from there.
 
 The CPU gets two graphs and a power line. Its clock is the average of every
-core's `scaling_cur_freq` on 2.5-5 GHz (`cpuinfo_max_freq` is 4.97), six lines
-0.5 GHz apart, so an idle average under 2.5 GHz shows little or no bar. Its
-scale ran
-0-5 GHz in whole GHz until 2026-10-07, lost the 0 and 1 GHz lines that day
-for four lines like every other graph (2-5 GHz), then went to half-GHz steps
-for six. The scale column widened from six cells to seven for "2.5GHz".
+core's `scaling_cur_freq` on 2-5 GHz (`cpuinfo_max_freq` is 4.97), four lines
+1 GHz apart, so an idle average under 2 GHz shows little or no bar. Its scale
+ran 0-5 GHz in whole GHz until 2026-10-07. That day it lost the 0 and 1 GHz
+lines for four lines like every other graph (2-5 GHz), went to half-GHz steps
+for six (2.5-5 GHz), and came back to 2-5 GHz when every graph went back to
+four to make room for the memory clock. The scale column is seven cells wide
+for "2.5GHz" and the memory clock's "1.6GHz".
 
 Under the clock, *CPU – power* is a label row with no graph: current,
 overall and peak of the PPT slow value, the long-average package power that
@@ -153,14 +155,26 @@ throttled, about 3°C under its 92°C limit, which is what lowering the
 sustained limit from 52 W was for. Its higher peak comes from the opening
 seconds, when it bursts towards 58 W until the slow average catches up (§3).
 
-Its temperature is Tctl from `k10temp` on 17-92°C. Everything else graphs
-temperature only. For a RAM stick that is all it reports of its own: usage is
-system-wide and the clock is fixed. The readings come from the `spd5118`
+Its temperature is Tctl from `k10temp` on 17-92°C.
+
+*RAM – frequency* graphs the memory clock (MCLK) from the GPU driver's
+`pp_dpm_mclk` (`/sys/class/drm/card1/device/`, world-readable), the level it
+marks `*`. Its levels here are 1000 and 2800 MHz; 2800 is DDR5-5600, the data
+rate being twice the clock. The scale runs from the lowest level to the
+highest in four lines (1, 1.6, 2.2, 2.8 GHz). The clock is not fixed: sampled
+every 500 ms on 2026-10-07, it sat at 1000 MHz in 11 of 12 samples and stepped
+to 2800 for one, under a 16-thread CPU load that barely touches memory, so it
+rises on memory demand and falls back. It is one clock for both sticks. Each
+stick's graph is temperature only: usage is system-wide, and the clock is
+shared. With no `pp_dpm_mclk` the graph is left out.
+
+The temperature readings for the sticks come from the `spd5118`
 driver, the SPD hub on each DDR5 SODIMM, which loads by itself on this kernel.
 Sticks are ordered by I²C address (0x50, then 0x51) and drawn up to the
-sticks' own `temp1_crit`, 85°C, in six lines 10°C apart (35-85), which puts
-one on their 55°C `temp1_max`. On 2026-10-07 the steps were 15°C from 25°C,
-then 20°C (25, 45, 65, 85) for four lines. They sit at ~42-58°C. The SSD graphs the
+sticks' own `temp1_crit`, 85°C, in four lines 20°C apart (25, 45, 65, 85).
+On 2026-10-07 the steps were 15°C from 25°C, then 20°C for four lines, then
+10°C (35-85, which put one on their 55°C `temp1_max`) for six, then 20°C
+again. They sit at ~42-58°C. The SSD graphs the
 drive's Composite sensor (`temp1` of its `nvme` hwmon) on 15-90°C: it idles at
 16-27°C, under the RAM floor, and the top line sits on its own 89.85°C
 `temp1_max`. The CPU and SSD scales were 30-100°C and 15-85°C until
@@ -208,8 +222,8 @@ Micron's datasheet ties throttling to it.
 A label can only sit mid-row, so a red line has to land on a
 gridline. Each is its scale's top, with the steps counting down from it. That
 is why the CPU moved from 25-100°C to 17-92°C, where its lines had fallen on
-the RAM's; it reads 17, 32, 47, 62, 77, 92 (17, 42, 67, 92 while every graph
-had four lines). The SSD's
+the RAM's; it reads 17, 42, 67, 92 (17, 32, 47, 62, 77, 92 while every graph
+had six lines). The SSD's
 top line is the drive's own warning temperature, and is left grey.
 
 Every graph has a label row above it, naming what it graphs (*CPU –
@@ -239,28 +253,28 @@ fitted to put every line there too. It runs from the middle of the bottom row
 to the middle of the top one, with the lines a whole number of rows apart.
 Up to three blank rows separate each block from the next (four from
 2026-10-06 to 2026-10-07): the most, up to three, that still leaves every
-graph all six lines. The power line is the exception: a label-only block
+graph all four lines. The power line is the exception: a label-only block
 sits one blank row under the graph above it, so it reads as part of the
 clock's block. Nothing else separates the devices: a solid rule above
 each of RAM #1, RAM #2 and SSD was dropped on 2026-10-06. There are none
 under the last graph, where they would separate nothing. A window too short
-for six lines everywhere even with no gaps takes the widest gap that still
+for four lines everywhere even with no gaps takes the widest gap that still
 gives each graph its low and high lines.
 
-Every graphed scale has one step, the one that gives it six lines. The
+Every graphed scale has one step, the one that gives it four lines. The
 rows that are left go to the graphs by need. Every graph starts with only
-its low and high lines. The one with the fewest lines then takes its six,
+its low and high lines. The one with the fewest lines then takes its four,
 the cheapest first on a tie, while rows last. The two RAM sticks share one
 scale and move together. Rows still spare stretch every graph's line spacing
 together, or none, so the graphs keep one height. The full-height tile on
-this screen is 49 rows (read with `stty size` on the live terminal). Five
-graphs of six rows and six labels are 36 rows; one blank row above the power
-line and three-row gaps between the other blocks are 13 more, 49 exactly.
-With the power line spaced like every other block, three-row gaps needed 51,
-so the 49-row tile got two-row gaps for the few hours that lasted. A
-quarter-height tile (25 rows) gets two-row gaps and only low and high lines.
-While every graph had four lines (2026-10-07), the 49-row tile fit three-row
-gaps with four rows to spare.
+this screen is 49 rows (read with `stty size` on the live terminal). Six
+graphs of four rows and seven labels are 31 rows; one blank row above the
+power line and three-row gaps between the other blocks are 16 more, 47, with
+two spare at the bottom. A quarter-height tile (25 rows) gets two-row gaps and
+only low and high lines. For a few hours on 2026-10-07 every graph had six
+lines, with five graphs: 49 rows exactly with the power line tucked under the
+clock, and before that tuck the 49-row tile got two-row gaps (three needed
+51). The memory clock's graph took those rows back, at four lines a graph.
 
 Until 2026-10-07 each scale had several candidate steps, and the finest that
 fit won. That gave the 49-row tile 1 GHz, 25 W, 25°C for the CPU and SSD and

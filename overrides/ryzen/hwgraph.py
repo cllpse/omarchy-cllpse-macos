@@ -4,8 +4,8 @@
   hwgraph.py                            q quits
 
 CPU graphs its average clock and Tctl, with its sustained power as a label
-line (with ryzen_smu loaded); each RAM stick and the SSD graph their
-temperature. Every graph is labelled current (the latest reading), overall
+line (with ryzen_smu loaded); RAM graphs its memory clock, and each stick
+and the SSD their temperature. Every graph is labelled current (the latest reading), overall
 (the mean) and peak (the highest). Every sample is logged to LOG_DIR, and a
 restart replays the last LOG_HOURS of it, so overall and peak cover that and
 everything since. See README.md (4) in this directory for the sensors, the
@@ -38,9 +38,10 @@ DOT = "┄"  # gridline: three dashes per cell, at the row's vertical centre
 # its text, and limit is where the part throttles, drawn red. A line can only
 # sit mid-row, so a limit has to land on one: the CPU's and RAM's are each
 # their scale's top, counting down from it in steps. Every graphed scale
-# takes six lines, one step: the clock 2.5-5 GHz in 0.5, the CPU 17-92°C and
-# the SSD 15-90°C in 15, the RAM 35-85°C in 10. A window too short for six
-# falls back to the low and high lines.
+# takes four lines, one step: the clock 2-5 GHz in 1, the memory clock its
+# lowest to highest DPM level, the CPU 17-92°C and the SSD 15-90°C in 25,
+# the RAM 25-85°C in 20. A window too short for four falls back to the low
+# and high lines.
 #
 # CPU throttles at 92°C Tctl, Geekom's firmware limit under AMD's 100°C
 # Tjmax: pm_table 0x004C0009's Tctl limit (offset 0x40, per RyzenAdj) reads
@@ -70,11 +71,11 @@ def watts(v):
     return f"{v:g}W"
 
 
-GHZ_FLOOR, GHZ_STEP = 2.5, 0.5
+GHZ_FLOOR, GHZ_STEP = 2, 1
 CPU_THROTTLE = 92
-CPU_TEMP = Scale(CPU_THROTTLE - 75, CPU_THROTTLE, (15,), degrees, CPU_THROTTLE)
-RAM_STEP = 10  # down from the 85°C crit: 35, 45, 55, 65, 75, 85
-SSD_TEMP = Scale(15, 90, (15,), degrees)
+CPU_TEMP = Scale(CPU_THROTTLE - 75, CPU_THROTTLE, (25,), degrees, CPU_THROTTLE)
+RAM_STEP = 20  # down from the 85°C crit: 25, 45, 65, 85
+SSD_TEMP = Scale(15, 90, (25,), degrees)
 GAP = 3  # blank rows between blocks: the most, up to this, that leaves every
          # graph its full grid
 TIGHT = 1  # blank rows between a graph and a label-only block under it
@@ -151,6 +152,39 @@ class Sensor(Series):
 
     def measure(self):
         return int(read(self.hwmon + "/temp1_input")) / 1000
+
+
+class MemClock(Series):
+    """The memory clock (MCLK) as the GPU driver reports it in pp_dpm_mclk,
+    the level marked *, in GHz. It steps between the table's levels (1000
+    and 2800 MHz here; 2800 is DDR5-5600, the data rate being twice the
+    clock) as memory demand comes and goes. The scale runs from the lowest
+    level to the highest in four lines. No pp_dpm_mclk raises OSError."""
+
+    def __init__(self):
+        found = sorted(glob.glob("/sys/class/drm/card*/device/pp_dpm_mclk"))
+        if not found:
+            raise OSError("no pp_dpm_mclk")
+        self.path = found[0]
+        levels = [mhz / 1000 for mhz, _ in self._levels()]
+        lo, hi = min(levels), max(levels)
+        if hi <= lo:
+            raise ValueError("one memory clock level: nothing to graph")
+        super().__init__(Scale(lo, hi, ((hi - lo) / 3,), gigahertz))
+
+    def _levels(self):
+        """(MHz, current) per line: '1: 2800Mhz *'."""
+        out = []
+        for line in read(self.path).splitlines():
+            mhz = line.split()[1].lower().removesuffix("mhz")
+            out.append((int(mhz), line.rstrip().endswith("*")))
+        return out
+
+    def measure(self):
+        try:
+            return next(mhz for mhz, now in self._levels() if now) / 1000
+        except (OSError, ValueError, IndexError, StopIteration):
+            return None  # logged empty, drawn as a break
 
 
 class Power(Series):
@@ -455,9 +489,14 @@ def main(win):
                         first("k10temp", CPU_TEMP,
                               "the CPU row reads an AMD CPU's Tctl"),
                         "cpu", "°", 1, "cpu_c"))
+    try:
+        graphs.append(Graph("RAM – frequency", MemClock(), "freq", "GHz", 2,
+                            "ram_ghz"))
+    except (OSError, ValueError):
+        pass  # no amdgpu clock table: no RAM frequency graph
     for n, (_, h) in enumerate(hwmons("spd5118"), 1):
         crit = int(read(h + "/temp1_crit")) / 1000
-        ram = Sensor(h, Scale(crit - 5 * RAM_STEP, crit, (RAM_STEP,), degrees,
+        ram = Sensor(h, Scale(crit - 3 * RAM_STEP, crit, (RAM_STEP,), degrees,
                               crit))
         graphs.append(Graph(f"RAM #{n} – temperature", ram, "ram", "°", 1,
                             f"ram{n}_c"))
