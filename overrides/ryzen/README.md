@@ -121,15 +121,41 @@ CPU utilisation and SSD busy time, with read/write MB/s; they were dropped to
 keep the screen to clocks and heat.
 
 The CPU and RAM graphs each draw their throttle point as a red dotted line,
-with a red label. For the CPU that is 92°C Tctl. The SMU's thermal limits in
-`ryzen_smu`'s `pm_table` all read 92.00, and the 49-minute all-core load in
+with a red label. Both values were checked against the machine and its
+vendors' specs on 2026-10-07.
+
+For the CPU the limit is 92°C Tctl. This is Geekom's firmware limit (BIOS
+0.62), under the 100°C maximum operating temperature (Tjmax) AMD lists for
+the [Ryzen 7 8745HS](https://www.amd.com/en/products/processors/laptop/ryzen/8000-series/amd-ryzen-7-8745hs.html).
+`ryzen_smu`'s `pm_table` is version `0x004C0009` here.
+[RyzenAdj](https://github.com/FlyGoat/RyzenAdj/blob/master/lib/api.c) reads
+that version's Tctl limit (`get_tctl_temp`) from offset `0x40` and its live
+value from `0x44`. `0x40` reads 92.00, and `0x44` tracks `k10temp` (42.1
+against 44.2 on a fresh read; the first read after idle returns a stale
+table). The two skin-temperature (STT) limits beside it read 92.00 too. The
+`ryzen-tdp` unit passes no `--tctl-temp`, so nothing here sets the limit. It
+is also what a real load does: the all-core run in
 [`ryzen-tdp.env`](ryzen-tdp.env) held Tctl at exactly 92.0°C for ~40 minutes,
 the thermal limit rather than the power limit setting the clock. (`k10temp`
-has no crit file to read it from, so the 92 is a constant.) For the RAM it is
-85°C, read from each stick's `temp1_crit`. That is the top of DDR5's normal
-operating range: above it JEDEC has the DRAM refreshed twice as often, which
-costs bandwidth and is the nearest a stick comes to throttling. Its clock does
-not change. A label can only sit mid-row, so a red line has to land on a
+has no crit file to read it from, so the 92 is a constant.)
+
+For the RAM the limit is 85°C, read from each stick's `temp1_crit`. Their SPD
+data identifies both sticks as Crucial CT16G56C46S5: DDR5-5600 CL46 SODIMMs
+with Micron DRAM, the laptop form factor of plain DDR5 rather than soldered
+LPDDR5. Micron's
+[DDR5 SODIMM datasheet](https://www.farnell.com/datasheets/4530576.pdf)
+(`ddr5_sodimm_core.pdf`, Rev. F 05/23) puts the DRAM's commercial operating
+case temperature at 0-85°C. Above 85°C, up to 95°C, the DRAM "must be
+refreshed externally at 2X refresh", which costs bandwidth and is the nearest
+a stick comes to throttling; its clock does not change. The same datasheet
+rates the modules' X5R capacitors to 85°C, so 85°C is also the stick's own
+ceiling. One caveat: those are DRAM case temperatures, measured at the
+centre of each DRAM package. What hwgraph graphs is the sensor in the SPD hub
+chip on the same stick, so it approximates them rather than measuring them.
+The sticks' 55°C `temp1_max` is the hub's alarm threshold; nothing in
+Micron's datasheet ties throttling to it.
+
+A label can only sit mid-row, so a red line has to land on a
 gridline. Each is its scale's top, with the steps counting down from it. That
 is why the CPU moved from 25-100°C to 17-92°C (17, 32, 47, 62, 77, 92 at full
 height), where its lines had fallen on the RAM's 25, 40, 55, 70, 85. The SSD's

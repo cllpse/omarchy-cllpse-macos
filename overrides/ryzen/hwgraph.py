@@ -30,12 +30,15 @@ DOT = "┄"  # gridline: three dashes per cell, at the row's vertical centre
 # takes a 15° step, which with the clock's 1 GHz fits the 28 rows a 49-row
 # window leaves for graphs.
 #
-# CPU throttles at 92°C Tctl: the SMU's thermal limits in ryzen_smu's
-# pm_table all read 92.00, and a 40-minute all-core load held Tctl at
-# exactly 92.0 (ryzen-tdp.env). Tctl has no crit file to read it from.
-# RAM throttles at its temp1_crit, 85°C, the top of DDR5's normal range:
-# above it JEDEC doubles the refresh rate, which costs bandwidth. From 25°C
-# every RAM step also lands on the sticks' 55°C temp1_max. The SSD's
+# CPU throttles at 92°C Tctl, Geekom's firmware limit under AMD's 100°C
+# Tjmax: pm_table 0x004C0009's Tctl limit (offset 0x40, per RyzenAdj) reads
+# 92.00, and a 40-minute all-core load held Tctl at exactly 92.0
+# (ryzen-tdp.env). Tctl has no crit file to read it from.
+# RAM throttles at its temp1_crit, 85°C: the Crucial/Micron SODIMMs' DRAM
+# case limit, above which Micron's datasheet requires 2X refresh, and the
+# rating of the modules' X5R capacitors. The hub sensor graphed approximates
+# the DRAM case temperature. From 25°C every RAM step also lands on the
+# sticks' 55°C temp1_max, the hub's alarm threshold. The SSD's
 # Composite sensor idles at 16-27°C, hence its floor; it tops out at its
 # 89.85°C max.
 Scale = namedtuple("Scale", "lo hi steps label limit", defaults=(None,))
