@@ -102,6 +102,21 @@ Standard-library curses, no root, `q` quits. It
 is the live view for this folder's numbers, where thermal-log is the record and
 `burst-bench.py` the measurement. Not run by `apply.sh`.
 
+Every sample is also appended to a CSV a day in `~/.local/state/hwgraph/`
+(`$XDG_STATE_HOME/hwgraph/`), as `time,clock_ghz,cpu_c,ram1_c,ram2_c,ssd_c`.
+On start hwgraph replays the last 24 hours of it, so the graphs, *overall*
+and *peak* survive a restart. Where samples are more than 5 s apart (hwgraph
+closed, or the machine asleep) the graph draws one blank column instead of
+joining old readings to new ones. A file with nothing in the last 24 hours is
+deleted. The window is 24 hours because replay cost scales with it: a day at
+500 ms is 172,800 rows, ~6.7 MB, replaying in ~0.65 s, where a week was 65 MB
+and ~4.7 s. Only the first hwgraph running writes (an `flock` on `lock` in
+the same directory). A second one replays and shows without logging, so no
+sample is logged twice. A crash's half-written last line is closed off with
+a newline on the next run and skipped on replay. A change in columns (a RAM
+stick added or removed) sets the day's file aside as `<date>.<time>.old`
+rather than mixing the two.
+
 The CPU gets two graphs. Its clock is the average of every core's
 `scaling_cur_freq` on 0-5 GHz (`cpuinfo_max_freq` is 4.97), labelled 0, 1GHz
 ... 5GHz. For part of 2026-10-06 the 1 GHz line was left out. Its 2.5 GHz
@@ -172,9 +187,10 @@ each of the three lines up down the screen. *current* is the latest reading,
 the rightmost bar. On the CPU and RAM temperatures it turns red once it
 reaches the graph's red throttle line, compared as displayed, so a `92.0°` on
 screen is red even when the reading underneath is 91.96. *overall* is the
-mean since hwgraph started and *peak* the
-highest reading since then. Both are kept apart from the 2000-sample history,
-so neither forgets. All three figures are of the graphed series, so the
+mean and *peak* the highest reading over the replayed 24 hours and everything
+since. They meant "since hwgraph started" until the log came in on
+2026-10-07. Both are kept apart from the 2000-sample history, so neither
+forgets. All three figures are of the graphed series, so the
 clock's peak is of the all-core average, not of one core. From 2026-10-06 to
 2026-10-07 the first figure was *window*, the mean of the samples the graph
 was showing. Before that, the label showed the current reading, the fastest

@@ -5,20 +5,28 @@
 
 CPU graphs its average clock and Tctl; each RAM stick and the SSD graph their
 temperature. Every graph is labelled current (the latest reading), overall
-(the mean since start) and peak (the highest since start). See
-README.md (4) in this directory for the sensors, the scales, and why not
-btop or s-tui. Needs no root.
+(the mean) and peak (the highest). Every sample is logged to LOG_DIR, and a
+restart replays the last LOG_HOURS of it, so overall and peak cover that and
+everything since. See README.md (4) in this directory for the sensors, the
+scales, and why not btop or s-tui. Needs no root.
 """
 import curses
+import fcntl
 import glob
 import math
 import os
 import sys
 import time
 from collections import deque, namedtuple
+from datetime import date
+from pathlib import Path
 
 INTERVAL = 0.5  # seconds between samples; one graph column each
 HISTORY = 2000
+LOG_DIR = Path(os.environ.get("XDG_STATE_HOME")
+               or Path.home() / ".local/state") / "hwgraph"
+LOG_HOURS = 24  # what a restart replays: ~0.7 s to load; a week took ~5 s
+BREAK = 5  # seconds without a sample that draw as a blank column
 BLOCKS = " ▁▂▃▄▅▆▇█"
 AXIS = 6  # scale column at the right end, beside the newest reading
 DOT = "┄"  # gridline: three dashes per cell, at the row's vertical centre
@@ -80,8 +88,9 @@ def hwmons(name):
 
 
 class Series:
-    """One reading's history, with its peak and mean since start kept apart
-    from it, so neither forgets when the history fills."""
+    """One reading's history, with its peak and mean kept apart from it, so
+    neither forgets when the history fills. None in the history is a break:
+    hwgraph wasn't sampling (closed, or the machine asleep)."""
 
     def __init__(self, scale):
         self.scale = scale
@@ -96,9 +105,12 @@ class Series:
         self.total += v
         self.count += 1
 
+    def gap(self):
+        self.hist.append(None)
+
     def stats(self):
-        """(current, overall, peak): the latest reading, the mean since start
-        and the highest since start."""
+        """(current, overall, peak): the latest reading, the mean and the
+        highest, over the replayed log and everything since."""
         return self.hist[-1], self.total / self.count, self.peak
 
 
@@ -111,9 +123,9 @@ class Clock(Series):
         top = max(int(read(c + "/cpuinfo_max_freq")) for c in cpus) / 1e6
         super().__init__(Scale(0, math.ceil(top), GHZ_STEPS, gigahertz))
 
-    def sample(self):
+    def measure(self):
         ghz = [int(read(c)) / 1e6 for c in self.cur]
-        self.add(sum(ghz) / len(ghz))
+        return sum(ghz) / len(ghz)
 
 
 class Sensor(Series):
@@ -123,8 +135,85 @@ class Sensor(Series):
         super().__init__(scale)
         self.hwmon = hwmon
 
-    def sample(self):
-        self.add(int(read(self.hwmon + "/temp1_input")) / 1000)
+    def measure(self):
+        return int(read(self.hwmon + "/temp1_input")) / 1000
+
+
+class Log:
+    """Every sample, appended to one CSV a day in LOG_DIR. A file with
+    nothing newer than LOG_HOURS is deleted. Only the first hwgraph running
+    holds the lock and writes; a second one replays and shows, adding
+    nothing, so no sample is logged twice."""
+
+    def __init__(self, columns):
+        self.header = ",".join(("time", *columns))
+        LOG_DIR.mkdir(parents=True, exist_ok=True)
+        self.lock = open(LOG_DIR / "lock", "w")
+        try:
+            fcntl.flock(self.lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            self.writes = True
+        except BlockingIOError:
+            self.writes = False
+        self.day = self.file = None
+
+    def replay(self, since):
+        """(time, values) for every sample logged at or after `since`, oldest
+        first, from files with this run's columns. A line torn by a crash
+        doesn't parse and is skipped."""
+        width = self.header.count(",") + 1
+        for path in sorted(LOG_DIR.glob("????-??-??.csv")):
+            if path.stat().st_mtime < since:
+                continue
+            with open(path) as f:
+                if f.readline().rstrip("\n") != self.header:
+                    continue
+                for line in f:
+                    parts = line.split(",")
+                    if len(parts) != width:
+                        continue
+                    try:
+                        t = float(parts[0])
+                        values = [float(p) for p in parts[1:]]
+                    except ValueError:
+                        continue
+                    if t >= since:
+                        yield t, values
+
+    def write(self, t, values):
+        if not self.writes:
+            return
+        day = date.fromtimestamp(t)
+        if day != self.day:
+            self._open(day, t)
+        self.file.write(f"{t:.2f}," + ",".join(f"{v:g}" for v in values) + "\n")
+        self.file.flush()
+
+    def _open(self, day, now):
+        """Today's file, a header on a new one. One with other columns (a RAM
+        stick added or removed) is set aside as .old rather than mixed."""
+        if self.file:
+            self.file.close()
+        path = LOG_DIR / f"{day.isoformat()}.csv"
+        torn = False
+        if path.exists():
+            with open(path, "rb") as f:
+                head = f.readline().decode(errors="replace").rstrip("\n")
+                if f.seek(0, os.SEEK_END):
+                    f.seek(-1, os.SEEK_END)
+                    torn = f.read(1) != b"\n"
+            if head != self.header:
+                path.rename(path.with_name(f"{path.stem}.{int(now)}.old"))
+        new = not path.exists()
+        self.file = open(path, "a")
+        if new:
+            self.file.write(self.header + "\n")
+        elif torn:
+            self.file.write("\n")  # finish a crash's half line on its own
+        self.day = day
+        for old in LOG_DIR.iterdir():
+            if old.suffix in (".csv", ".old") and \
+                    old.stat().st_mtime < now - LOG_HOURS * 3600:
+                old.unlink()
 
 
 def first(name, scale, what):
@@ -241,7 +330,7 @@ def graph(win, y, w, hist, scale, spec, attr, hot):
     values = list(hist)[-width:]
     x0 = width - len(values)
     for i, v in enumerate(values):
-        if v <= lo:
+        if v is None or v <= lo:  # a break, or nothing to draw
             continue
         top = 0.5 + min((v - lo) / (hi - lo), 1) * (h - 1)  # rows above bottom
         for row in range(h):
@@ -303,6 +392,24 @@ def main(win):
         crit = int(read(h + "/temp1_crit")) / 1000
         rams.append(Sensor(h, Scale(RAM_FLOOR, crit, RAM_STEPS, degrees, crit)))
     devices = [clock, cpu, *rams, ssd]
+    log = Log(["clock_ghz", "cpu_c",
+               *(f"ram{n}_c" for n in range(1, len(rams) + 1)), "ssd_c"])
+
+    def sampled(t, values, before):
+        """Hand one sample to every series, a break first if it follows the
+        one before by more than BREAK seconds."""
+        if before is not None and t - before > BREAK:
+            for d in devices:
+                d.gap()
+        for d, v in zip(devices, values):
+            d.add(v)
+        return t
+
+    put(win, 0, 0, "loading history…", curses.A_DIM)
+    win.refresh()
+    stamp = None  # wall-clock time of the newest sample, replayed or live
+    for t, values in log.replay(time.time() - LOG_HOURS * 3600):
+        stamp = sampled(t, values, stamp)
     last = time.monotonic()
     while True:
         draw(win, clock, cpu, rams, ssd, c)
@@ -311,8 +418,10 @@ def main(win):
             break
         now = time.monotonic()
         if now >= last + INTERVAL - 0.005:
-            for d in devices:
-                d.sample()
+            t = time.time()
+            values = [d.measure() for d in devices]
+            stamp = sampled(t, values, stamp)
+            log.write(t, values)
             last = now
 
 
