@@ -36,10 +36,11 @@ DOT = "┄"  # gridline: three dashes per cell, at the row's vertical centre
 
 # A scale's gridline steps are finest first; label turns a line's value into
 # its text, and limit is where the part throttles, drawn red. A line can only
-# sit mid-row, so a limit has to land on one: the CPU's and RAM's are each
-# their scale's top, counting down from it in steps. Every temperature span
-# can take a 15° step, which with the clock's 1 GHz fit the 28 rows a 49-row
-# window left for five graphs; layout() picks what fits.
+# sit mid-row, so a limit has to land on one: the CPU's, power's and RAM's
+# are each their scale's top, counting down from it in steps. Every scale
+# takes four lines, one step: the clock 2-5 GHz, power the 30 W under its
+# limit, and the temperatures their whole span. A window too short for four
+# falls back to the low and high lines.
 #
 # CPU throttles at 92°C Tctl, Geekom's firmware limit under AMD's 100°C
 # Tjmax: pm_table 0x004C0009's Tctl limit (offset 0x40, per RyzenAdj) reads
@@ -48,12 +49,9 @@ DOT = "┄"  # gridline: three dashes per cell, at the row's vertical centre
 # RAM throttles at its temp1_crit, 85°C: the Crucial/Micron SODIMMs' DRAM
 # case limit, above which Micron's datasheet requires 2X refresh, and the
 # rating of the modules' X5R capacitors. The hub sensor graphed approximates
-# the DRAM case temperature. From 25°C every RAM step also lands on the
-# sticks' 55°C temp1_max, the hub's alarm threshold. The SSD's
-# Composite sensor idles at 16-27°C, hence its floor; it tops out at its
-# 89.85°C max.
-# Power is limited at the PPT slow limit, read live, which tops its scale:
-# every whole-watt divisor of it is a candidate step.
+# the DRAM case temperature. The SSD's Composite sensor idles at 16-27°C,
+# hence its floor; it tops out at its 89.85°C max.
+# Power is limited at the PPT slow limit, read live, which tops its scale.
 Scale = namedtuple("Scale", "lo hi steps label limit", defaults=(None,))
 Graph = namedtuple("Graph", "name series color unit places column")
 
@@ -63,20 +61,20 @@ def degrees(v):
 
 
 def gigahertz(v):
-    return f"{v:g}GHz" if v else "0"
+    return f"{v:g}GHz"
 
 
 def watts(v):
-    return f"{v:g}W" if v else "0"
+    return f"{v:g}W"
 
 
-GHZ_STEPS = (1,)
+GHZ_FLOOR, GHZ_STEP = 2, 1
+POWER_STEP = 10  # 30 W under the limit: 20, 30, 40, 50 at 50 W
 CPU_THROTTLE = 92
-CPU_TEMP = Scale(CPU_THROTTLE - 75, CPU_THROTTLE, (5, 15, 25), degrees,
-                 CPU_THROTTLE)
-RAM_FLOOR, RAM_STEPS = 25, (5, 10, 15, 30)
-SSD_TEMP = Scale(15, 90, (5, 15, 25), degrees)
-GAP = 4  # blank rows between graphs, where the window has them to spare
+CPU_TEMP = Scale(CPU_THROTTLE - 75, CPU_THROTTLE, (25,), degrees, CPU_THROTTLE)
+RAM_STEP = 20  # down from the 85°C crit: 25, 45, 65, 85
+SSD_TEMP = Scale(15, 90, (25,), degrees)
+GAP = 3  # blank rows between graphs, where the window has them to spare
 
 
 def die(msg):
@@ -134,7 +132,7 @@ class Clock(Series):
         cpus = glob.glob("/sys/devices/system/cpu/cpu[0-9]*/cpufreq")
         self.cur = [c + "/scaling_cur_freq" for c in cpus]
         top = max(int(read(c + "/cpuinfo_max_freq")) for c in cpus) / 1e6
-        super().__init__(Scale(0, math.ceil(top), GHZ_STEPS, gigahertz))
+        super().__init__(Scale(GHZ_FLOOR, math.ceil(top), (GHZ_STEP,), gigahertz))
 
     def measure(self):
         ghz = [int(read(c)) / 1e6 for c in self.cur]
@@ -160,8 +158,8 @@ class Power(Series):
 
     def __init__(self):
         limit = round(self._table()[0])
-        steps = tuple(d for d in range(1, limit) if limit % d == 0)
-        super().__init__(Scale(0, limit, steps, watts, limit))
+        super().__init__(Scale(limit - 3 * POWER_STEP, limit, (POWER_STEP,),
+                               watts, limit))
 
     @staticmethod
     def _table():
@@ -314,14 +312,15 @@ def layout(scales, budget):
     Every graph starts with only its low and high lines. The one with the
     fewest lines then takes its next finer grid, the cheapest first on a
     tie, while rows last, so no graph is left coarse to make another fine.
-    Rows still spare stretch the shortest graph's line spacing. Graphs on
-    the same scale (the RAM sticks) move together, so they always match."""
+    Rows still spare stretch every graph's line spacing together, or none,
+    so the graphs keep one height. Graphs on the same scale (the RAM
+    sticks) move together, so they always match."""
     groups = {}
     for i, s in enumerate(scales):
         groups.setdefault(s, []).append(i)
     groups = list(groups.values())  # top graph first
     opts = [grids(scales[g[0]]) for g in groups]
-    pick, d = [0] * len(groups), [1] * len(groups)
+    pick, d = [0] * len(groups), 1
     used = 2 * len(scales)
     while True:
         finer = [(o[p][0], (o[p + 1][0] - o[p][0]) * len(g), k)
@@ -333,19 +332,14 @@ def layout(scales, budget):
         _, extra, k = min(finer)
         pick[k] += 1
         used += extra
-    while True:
-        n = [o[p][0] for o, p in zip(opts, pick)]
-        taller = [(n[k] * d[k] + 1, k) for k, g in enumerate(groups)
-                  if used + n[k] * len(g) <= budget]
-        if not taller:
-            break
-        _, k = min(taller)
-        d[k] += 1
-        used += n[k] * len(groups[k])
+    taller = sum(o[p][0] * len(g) for g, o, p in zip(groups, opts, pick))
+    while used + taller <= budget:  # one more row between every graph's lines
+        d += 1
+        used += taller
     spec = [None] * len(scales)
     for k, g in enumerate(groups):
         for i in g:
-            spec[i] = (opts[k][pick[k]][1], opts[k][pick[k]][0], d[k])
+            spec[i] = (opts[k][pick[k]][1], opts[k][pick[k]][0], d)
     return spec
 
 
@@ -432,7 +426,8 @@ def main(win):
                         "cpu", "°", 1, "cpu_c"))
     for n, (_, h) in enumerate(hwmons("spd5118"), 1):
         crit = int(read(h + "/temp1_crit")) / 1000
-        ram = Sensor(h, Scale(RAM_FLOOR, crit, RAM_STEPS, degrees, crit))
+        ram = Sensor(h, Scale(crit - 3 * RAM_STEP, crit, (RAM_STEP,), degrees,
+                              crit))
         graphs.append(Graph(f"RAM #{n} - temperature", ram, "ram", "°", 1,
                             f"ram{n}_c"))
     graphs.append(Graph("SSD - temperature",
