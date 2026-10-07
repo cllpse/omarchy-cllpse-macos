@@ -12,7 +12,7 @@ here. The unit is wanted by the sleep targets as well as multi-user for that
 second half; a plain WantedBy=multi-user.target survives a reboot and not a
 suspend.
 
-Gated on the machine, not just on the tool. 52W sustained is a number for this
+Gated on the machine, not just on the tool. 50W sustained is a number for this
 CPU in this chassis, and pushing it onto different hardware is a thermal
 decision made by accident -- so the model and the DMI product have to match
 before anything is written. Everything else in this repo is cosmetic if it
@@ -67,9 +67,10 @@ Smoke-tested at 58W only: a ~3s burst averaged 56W, so the burst limit is in
 play for loads that short, and two ~1s runs differed by 9% (1.010s vs 1.106s)
 where two ~3s runs agreed to 0.1%.
 
-Run on 2026-10-03 at the defaults, with the sustained limit at 50W (52W
-since 2026-10-07; a higher sustained limit lengthens every burst window a
-little, since the slow average has further to climb):
+Run on 2026-10-03 at the defaults, with the sustained limit at 50W (as it is
+again; it was 52W for part of 2026-10-07, and a higher sustained limit
+lengthens every burst window a little, the slow average having further to
+climb):
 
 | burst | ~5s run | vs 58W | peak Tctl | avg MHz |
 |---|---|---|---|---|
@@ -135,7 +136,7 @@ Under the clock, *CPU – power* is a label row with no graph: current,
 overall and peak of the PPT slow value, the long-average package power that
 the sustained limit holds. It comes from `ryzen_smu`'s `pm_table`, where
 RyzenAdj reads the limit at `0x10` and the value at `0x14` on every table
-version. The limit, 52 W from `ryzen-tdp`, is read at start, and *current*
+version. The limit, 50 W from `ryzen-tdp`, is read at start, and *current*
 turns red at it like the temperatures do at theirs. With no `ryzen_smu`
 module the line is left out. On 2026-10-07 it was a graph for a few hours,
 the limit its red top line (0-50 W, then 20-50 W for four lines, 22-52 W
@@ -300,15 +301,16 @@ rows are left out.
 
 ## From the step table
 
-CPU power limits: `ryzenadj` at 52W sustained / 58W burst, reapplied at **boot
+CPU power limits: `ryzenadj` at 50W sustained / 58W burst, reapplied at **boot
 and on resume** by `ryzen-tdp.service` — runtime SMU settings persist across
 neither, so a machine tuned by hand is back at the firmware's 45W the next
 morning with nothing on it to say so. **Hardware-gated**: the step refuses
-unless `/proc/cpuinfo` reads 8745HS and DMI reads GEEKOM/A8, because 52W is a
-number for one chassis, not a general setting. It was 50W from 2026-10-02,
-after a 40-minute all-core load held Tctl pinned at the firmware's 92°C while
-drawing only 51.3W of 52W, and back to 52W on 2026-10-07, after hwgraph showed
-50W power-limited ~3°C under 92°C — see `ryzen-tdp.env` for both. 58W burst was measured against
+unless `/proc/cpuinfo` reads 8745HS and DMI reads GEEKOM/A8, because 50W is a
+number for one chassis, not a general setting. It was 52W until a 40-minute
+all-core load held Tctl pinned at the firmware's 92°C while drawing only
+51.3W of it (2026-10-02). It was tried at 52W again on 2026-10-07, when 50W
+showed ~3°C of margin, and pinned at 92°C within 6.5 minutes — see
+`ryzen-tdp.env` for both. 58W burst was measured against
 50, 54 and 62W with `burst-bench.py` (§3): 62W is 1.1% faster on a ~5s burst
 and no faster on a ~12s one. **Opt-in**: `--all` and **Run everything** skip
 it; run `apply.sh ryzen`, or tick it under **Choose specific steps…**. Needs
