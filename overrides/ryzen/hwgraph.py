@@ -28,8 +28,9 @@ HISTORY = 2000
 LOG_DIR = Path(os.environ.get("XDG_STATE_HOME")
                or Path.home() / ".local/state") / "hwgraph"
 LOG_HOURS = 24  # what a restart replays: ~0.7 s to load; a week took ~5 s
-BREAK = 5  # seconds without a sample that draw as a blank column
-BLOCKS = " ▁▂▃▄▅▆▇█"
+BREAK = 5  # seconds without a sample that break the line
+# braille dot bits in a cell's left and right column, bottom dot first
+BRAILLE = ((0x40, 0x04, 0x02, 0x01), (0x80, 0x20, 0x10, 0x08))
 AXIS = 7  # scale column at the right end, labels right-aligned in it ("2.5GHz")
 PM_TABLE = "/sys/kernel/ryzen_smu_drv/pm_table"
 DOT = "┄"  # gridline: three dashes per cell, at the row's vertical centre
@@ -346,13 +347,16 @@ def layout(scales, budget):
 
 
 def graph(win, y, w, hist, scale, spec, attr, hot):
-    """Bars against dotted gridlines, the scale's limit line and label in
-    hot. A label can only sit mid-row, so every line does too: the scale
-    runs from the middle of the bottom row to the middle of the top one, the
-    lines a whole number of rows apart, as spec (from layout) says. A bar's
-    top is what reads against the lines, so a bar stands on the bottom edge,
-    half a row under the low line, rather than starting at it, where nothing
-    finer than a half-block could be drawn. Returns the rows it used."""
+    """A braille line against dotted gridlines, the scale's limit line and
+    label in hot. A label can only sit mid-row, so every gridline does too:
+    the scale runs from the middle of the bottom row to the middle of the
+    top one, the lines a whole number of rows apart, as spec (from layout)
+    says. A braille cell is 2 dots wide and 4 tall, so each column holds two
+    samples, and a reading lands within an eighth of a row of its height.
+    Each sample's dot joins the one before it with a vertical run, so the
+    line stays unbroken through a step; a break (None) leaves a gap. A
+    reading off the scale sits in the half row beyond its end line.
+    Returns the rows it used."""
     lo, hi = scale.lo, scale.hi
     step, n, d = spec
     h = n * d + 1
@@ -364,16 +368,26 @@ def graph(win, y, w, hist, scale, spec, attr, hot):
             else curses.A_DIM
         put(win, bottom - k * d, 0, DOT * width, line)
         put(win, bottom - k * d, width + 1, scale.label(v).rjust(AXIS - 1), line)
-    values = list(hist)[-width:]
-    x0 = width - len(values)
+    cells = [[0] * width for _ in range(h)]
+    values = list(hist)[-2 * width:]
+    start = 2 * width - len(values)
+    before = None
     for i, v in enumerate(values):
-        if v is None or v <= lo:  # a break, or nothing to draw
+        if v is None:
+            before = None
             continue
-        top = 0.5 + min((v - lo) / (hi - lo), 1) * (h - 1)  # rows above bottom
-        for row in range(h):
-            fill = min(max(round((top - row) * 8), 0), 8)
-            if fill:
-                put(win, bottom - row, x0 + i, BLOCKS[fill], attr)
+        pos = 0.5 + (v - lo) / (hi - lo) * (h - 1)  # rows above the bottom edge
+        dot = min(max(int(pos * 4), 0), 4 * h - 1)  # quarter rows, 0 = lowest
+        x, right = divmod(start + i, 2)
+        column = BRAILLE[right]
+        for q in range(min(dot, before if before is not None else dot),
+                       max(dot, before if before is not None else dot) + 1):
+            cells[h - 1 - q // 4][x] |= column[q % 4]
+        before = dot
+    for r, row in enumerate(cells):
+        for x, bits in enumerate(row):
+            if bits:
+                put(win, y + r, x, chr(0x2800 + bits), attr)
     return h
 
 
