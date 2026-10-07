@@ -3,8 +3,8 @@
 
   hwgraph.py                            q quits
 
-CPU graphs its average clock, its sustained power against its limit (with
-ryzen_smu loaded) and Tctl; each RAM stick and the SSD graph their
+CPU graphs its average clock and Tctl, with its sustained power as a label
+line (with ryzen_smu loaded); each RAM stick and the SSD graph their
 temperature. Every graph is labelled current (the latest reading), overall
 (the mean) and peak (the highest). Every sample is logged to LOG_DIR, and a
 restart replays the last LOG_HOURS of it, so overall and peak cover that and
@@ -30,16 +30,16 @@ LOG_DIR = Path(os.environ.get("XDG_STATE_HOME")
 LOG_HOURS = 24  # what a restart replays: ~0.7 s to load; a week took ~5 s
 BREAK = 5  # seconds without a sample that draw as a blank column
 BLOCKS = " ▁▂▃▄▅▆▇█"
-AXIS = 6  # scale column at the right end, labels right-aligned in it
+AXIS = 7  # scale column at the right end, labels right-aligned in it ("2.5GHz")
 PM_TABLE = "/sys/kernel/ryzen_smu_drv/pm_table"
 DOT = "┄"  # gridline: three dashes per cell, at the row's vertical centre
 
 # A scale's gridline steps are finest first; label turns a line's value into
 # its text, and limit is where the part throttles, drawn red. A line can only
-# sit mid-row, so a limit has to land on one: the CPU's, power's and RAM's
-# are each their scale's top, counting down from it in steps. Every scale
-# takes four lines, one step: the clock 2-5 GHz, power the 30 W under its
-# limit, and the temperatures their whole span. A window too short for four
+# sit mid-row, so a limit has to land on one: the CPU's and RAM's are each
+# their scale's top, counting down from it in steps. Every graphed scale
+# takes six lines, one step: the clock 2.5-5 GHz in 0.5, the CPU 17-92°C and
+# the SSD 15-90°C in 15, the RAM 35-85°C in 10. A window too short for six
 # falls back to the low and high lines.
 #
 # CPU throttles at 92°C Tctl, Geekom's firmware limit under AMD's 100°C
@@ -51,9 +51,11 @@ DOT = "┄"  # gridline: three dashes per cell, at the row's vertical centre
 # rating of the modules' X5R capacitors. The hub sensor graphed approximates
 # the DRAM case temperature. The SSD's Composite sensor idles at 16-27°C,
 # hence its floor; it tops out at its 89.85°C max.
-# Power is limited at the PPT slow limit, read live, which tops its scale.
+# Power is limited at the PPT slow limit, read live. It has a label row and
+# no graph (plot False): its current turns red at the limit all the same.
 Scale = namedtuple("Scale", "lo hi steps label limit", defaults=(None,))
-Graph = namedtuple("Graph", "name series color unit places column")
+Graph = namedtuple("Graph", "name series color unit places column plot",
+                   defaults=(True,))
 
 
 def degrees(v):
@@ -68,13 +70,13 @@ def watts(v):
     return f"{v:g}W"
 
 
-GHZ_FLOOR, GHZ_STEP = 2, 1
-POWER_STEP = 10  # 30 W under the limit: 22, 32, 42, 52 at 52 W
+GHZ_FLOOR, GHZ_STEP = 2.5, 0.5
 CPU_THROTTLE = 92
-CPU_TEMP = Scale(CPU_THROTTLE - 75, CPU_THROTTLE, (25,), degrees, CPU_THROTTLE)
-RAM_STEP = 20  # down from the 85°C crit: 25, 45, 65, 85
-SSD_TEMP = Scale(15, 90, (25,), degrees)
-GAP = 3  # blank rows between graphs, where the window has them to spare
+CPU_TEMP = Scale(CPU_THROTTLE - 75, CPU_THROTTLE, (15,), degrees, CPU_THROTTLE)
+RAM_STEP = 10  # down from the 85°C crit: 35, 45, 55, 65, 75, 85
+SSD_TEMP = Scale(15, 90, (15,), degrees)
+GAP = 3  # blank rows between blocks: the most, up to this, that leaves every
+         # graph its full grid
 
 
 def die(msg):
@@ -158,8 +160,7 @@ class Power(Series):
 
     def __init__(self):
         limit = round(self._table()[0])
-        super().__init__(Scale(limit - 3 * POWER_STEP, limit, (POWER_STEP,),
-                               watts, limit))
+        super().__init__(Scale(0, limit, (), watts, limit))  # never plotted
 
     @staticmethod
     def _table():
@@ -378,24 +379,37 @@ def graph(win, y, w, hist, scale, spec, attr, hot):
 def draw(win, graphs, c):
     win.erase()
     rows, cols = win.getmaxyx()
-    # rows for graphs: all of them but a label each and the gaps between;
-    # a short window gives up blank rows before graphs drop below two rows
-    for gap in range(GAP, -1, -1):
-        budget = rows - len(graphs) - (len(graphs) - 1) * gap
-        if budget >= 2 * len(graphs):
+    plotted = [g for g in graphs if g.plot]
+    scales = [g.series.scale for g in plotted]
+    full = [grids(s)[-1][0] for s in scales]  # each scale's finest grid
+    # rows for graphs: all of them but a label each and the gaps between.
+    # The gap is the widest, up to GAP, that leaves every graph its full
+    # grid; failing that, the widest that leaves each its low and high lines
+    gap = specs = None
+    for g in range(GAP, -1, -1):
+        budget = rows - len(graphs) - (len(graphs) - 1) * g
+        if budget < 2 * len(plotted):
+            continue
+        fit = layout(scales, budget)
+        if [n for _, n, _ in fit] == full:
+            gap, specs = g, fit
             break
-    if budget < 2 * len(graphs) or cols < AXIS + 10:
+        if gap is None:
+            gap, specs = g, fit
+    if specs is None or cols < AXIS + 10:
         put(win, 0, 0, "window too small")
     elif not graphs[0].series.hist:
         put(win, 0, 0, "sampling…", curses.A_DIM)
     else:
-        specs = layout([g.series.scale for g in graphs], budget)
+        specs = iter(specs)
         rows_out, y = [], 0
-        for g, spec in zip(graphs, specs):
+        for g in graphs:
             s = g.series
             rows_out.append((y, g.name, fields(s, g.unit, g.places, c["hot"]),
                              c[g.color]))
-            y += 1 + graph(win, y + 1, cols, s.hist, s.scale, spec,
+            y += 1
+            if g.plot:
+                y += graph(win, y, cols, s.hist, s.scale, next(specs),
                            c[g.color], c["hot"])
             y += gap
         labels(win, rows_out)
@@ -417,7 +431,8 @@ def main(win):
     # top to bottom; column names the series in the log
     graphs = [Graph("CPU - frequency", Clock(), "freq", "GHz", 2, "clock_ghz")]
     try:
-        graphs.append(Graph("CPU - power", Power(), "power", "W", 1, "cpu_w"))
+        graphs.append(Graph("CPU - power", Power(), "power", "W", 1, "cpu_w",
+                            plot=False))
     except (OSError, struct.error):
         pass  # no ryzen_smu module: no power block
     graphs.append(Graph("CPU - temperature",
@@ -426,7 +441,7 @@ def main(win):
                         "cpu", "°", 1, "cpu_c"))
     for n, (_, h) in enumerate(hwmons("spd5118"), 1):
         crit = int(read(h + "/temp1_crit")) / 1000
-        ram = Sensor(h, Scale(crit - 3 * RAM_STEP, crit, (RAM_STEP,), degrees,
+        ram = Sensor(h, Scale(crit - 5 * RAM_STEP, crit, (RAM_STEP,), degrees,
                               crit))
         graphs.append(Graph(f"RAM #{n} - temperature", ram, "ram", "°", 1,
                             f"ram{n}_c"))

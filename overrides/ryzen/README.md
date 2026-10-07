@@ -123,25 +123,25 @@ from before `cpu_w` existed) still replays, empty for what it lacks. When the
 columns change mid-day, the day's file is renamed `<date>.<time>.csv` rather
 than mixed with the new one, and replays from there.
 
-The CPU gets three graphs. Its clock is the average of every core's
-`scaling_cur_freq` on 2-5 GHz (`cpuinfo_max_freq` is 4.97), labelled 2GHz
-... 5GHz; an average under 2 GHz draws no bar. Its 0 and 1 GHz lines were
-stripped on 2026-10-07 to give it four lines like every other graph. For part
-of 2026-10-06 only the 1 GHz line was left out, and the 2.5 GHz fallback went
-then and stayed gone, since "2.5GHz" is wider than the scale column.
+The CPU gets two graphs and a power line. Its clock is the average of every
+core's `scaling_cur_freq` on 2.5-5 GHz (`cpuinfo_max_freq` is 4.97), six lines
+0.5 GHz apart, so an idle average under 2.5 GHz draws no bar. Its scale ran
+0-5 GHz in whole GHz until 2026-10-07, lost the 0 and 1 GHz lines that day
+for four lines like every other graph (2-5 GHz), then went to half-GHz steps
+for six. The scale column widened from six cells to seven for "2.5GHz".
 
-Under the clock, *CPU - power* graphs the PPT slow value, the long-average
-package power that the sustained limit holds. It comes from `ryzen_smu`'s
-`pm_table`, where RyzenAdj reads the limit at `0x10` and the value at `0x14`
-on every table version. The limit, 52 W from `ryzen-tdp`, is read at start and
-is the scale's red top line, with the other three lines 10 W apart below it
-(22, 32, 42, 52 W; 20-50 W while the limit was 50 W), so idle power, under
-22 W, draws no bar. Until 2026-10-07
-the scale ran from 0 W, but 0-50 W can't take four whole-watt lines. *current*
-turns red at the limit like the temperatures do. With no `ryzen_smu` module
-the block is left out. It graphs the slow value rather than the burst (PPT
-fast) value because that is the one the limit applies to: under load it sits
-flat on the red line, where the fast value wobbles either side of it. That is
+Under the clock, *CPU - power* is a label row with no graph: current,
+overall and peak of the PPT slow value, the long-average package power that
+the sustained limit holds. It comes from `ryzen_smu`'s `pm_table`, where
+RyzenAdj reads the limit at `0x10` and the value at `0x14` on every table
+version. The limit, 52 W from `ryzen-tdp`, is read at start, and *current*
+turns red at it like the temperatures do at theirs. With no `ryzen_smu`
+module the line is left out. On 2026-10-07 it was a graph for a few hours,
+the limit its red top line (0-50 W, then 20-50 W for four lines, 22-52 W
+after the limit moved), before the graph went to give the others their six
+lines. It reads the slow value rather than the burst (PPT fast) value because
+that is the one the limit applies to: under load it sits flat on the limit,
+where the fast value wobbles either side of it. That is
 what the clock's wobble is. Under a 16-thread `stress-ng` matrixprod run on
 2026-10-07, 8 minutes in, at the 50 W limit then, PPT slow read 50.0 of 50 W in every sample while
 Tctl ran 87-89.6°C and the clock 4.22-4.44 GHz. The fast value moved
@@ -156,9 +156,9 @@ temperature only. For a RAM stick that is all it reports of its own: usage is
 system-wide and the clock is fixed. The readings come from the `spd5118`
 driver, the SPD hub on each DDR5 SODIMM, which loads by itself on this kernel.
 Sticks are ordered by I²C address (0x50, then 0x51) and drawn up to the
-sticks' own `temp1_crit`, 85°C, in four lines 20°C apart (25, 45, 65, 85).
-Until 2026-10-07 the steps came from 25°C in 15°C, which also put a line on
-their 55°C `temp1_max`. They sit at ~42-58°C. The SSD graphs the
+sticks' own `temp1_crit`, 85°C, in six lines 10°C apart (35-85), which puts
+one on their 55°C `temp1_max`. On 2026-10-07 the steps were 15°C from 25°C,
+then 20°C (25, 45, 65, 85) for four lines. They sit at ~42-58°C. The SSD graphs the
 drive's Composite sensor (`temp1` of its `nvme` hwmon) on 15-90°C: it idles at
 16-27°C, under the RAM floor, and the top line sits on its own 89.85°C
 `temp1_max`. The CPU and SSD scales were 30-100°C and 15-85°C until
@@ -206,7 +206,8 @@ Micron's datasheet ties throttling to it.
 A label can only sit mid-row, so a red line has to land on a
 gridline. Each is its scale's top, with the steps counting down from it. That
 is why the CPU moved from 25-100°C to 17-92°C, where its lines had fallen on
-the RAM's; it reads 17, 42, 67, 92. The SSD's
+the RAM's; it reads 17, 32, 47, 62, 77, 92 (17, 42, 67, 92 while every graph
+had four lines). The SSD's
 top line is the drive's own warning temperature, and is left grey.
 
 Every graph has a label row above it, naming what it graphs (*CPU -
@@ -233,24 +234,26 @@ was tried next and replaced the same day: U+2504's coarser dashes were the
 choice. A label can only sit in the middle of a terminal row, so the scale is
 fitted to put every line there too. It runs from the middle of the bottom row
 to the middle of the top one, with the lines a whole number of rows apart.
-Three blank rows separate each graph from the next (four from 2026-10-06 to
-2026-10-07), and nothing else separates the devices: a solid rule above each
-of RAM #1, RAM #2 and SSD was dropped on 2026-10-06. There are none under the
-last graph, where they would separate nothing. A window too short for three
-takes two, then one, then none, before any graph is cut to fewer than its low
-and high lines.
+Up to three blank rows separate each block from the next (four from
+2026-10-06 to 2026-10-07): the most, up to three, that still leaves every
+graph all six lines. Nothing else separates the devices: a solid rule above
+each of RAM #1, RAM #2 and SSD was dropped on 2026-10-06. There are none
+under the last graph, where they would separate nothing. A window too short
+for six lines everywhere even with no gaps takes the widest gap that still
+gives each graph its low and high lines.
 
-Every scale has one step, the one that gives it four lines. The rows that
-are left go to the graphs by need. Every graph starts with only its low and
-high lines. The one with the fewest lines then takes its four, the cheapest
-first on a tie, while rows last. The two RAM sticks share one scale and move
-together. Rows still spare stretch every graph's line spacing together, or
-none, so the graphs keep one height. The full-height tile on this screen is
-49 rows (read with `stty size` on the live terminal). Six labels and five
-three-row gaps leave 28 rows for graphs: four lines at four rows a graph is
-24, and the four spare collect at the bottom. A 70-row window stretches every
-graph to seven rows. A quarter-height tile (25 rows) gets one blank row
-between graphs and room for four lines on the clock only.
+Every graphed scale has one step, the one that gives it six lines. The
+rows that are left go to the graphs by need. Every graph starts with only
+its low and high lines. The one with the fewest lines then takes its six,
+the cheapest first on a tie, while rows last. The two RAM sticks share one
+scale and move together. Rows still spare stretch every graph's line spacing
+together, or none, so the graphs keep one height. The full-height tile on
+this screen is 49 rows (read with `stty size` on the live terminal). Five
+graphs of six rows and six labels are 36 rows. Three-row gaps would need 51,
+so the gaps there are two (46 rows, three spare at the bottom); at 51 rows or
+more they are three. A quarter-height tile (25 rows) gets one blank row and
+six lines on the clock only. While every graph had four lines (2026-10-07),
+the 49-row tile fit three-row gaps with four rows to spare.
 
 Until 2026-10-07 each scale had several candidate steps, and the finest that
 fit won. That gave the 49-row tile 1 GHz, 25 W, 25°C for the CPU and SSD and
