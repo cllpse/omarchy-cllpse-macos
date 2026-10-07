@@ -94,8 +94,11 @@ and nothing measurable on a 12s one.
 ## 4. Watching it live: `hwgraph.py`
 
 [`hwgraph.py`](hwgraph.py) graphs the CPU, each RAM stick and the SSD on one
-screen, one column per second, newest on the right, each scale at the right
-end beside the newest reading. Standard-library curses, no root, `q` quits. It
+screen, sampling every 500 ms, one column per sample, newest on the right,
+each scale at the right end beside the newest reading. It sampled once a
+second until 2026-10-07; at 500 ms a graph shows half as long a stretch (the
+107-column tile, ~50 s), and the 2000-sample history holds ~17 minutes.
+Standard-library curses, no root, `q` quits. It
 is the live view for this folder's numbers, where thermal-log is the record and
 `burst-bench.py` the measurement. Not run by `apply.sh`.
 

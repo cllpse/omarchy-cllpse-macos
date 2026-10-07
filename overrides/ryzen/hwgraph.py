@@ -17,7 +17,7 @@ import sys
 import time
 from collections import deque, namedtuple
 
-INTERVAL = 1.0
+INTERVAL = 0.5  # seconds between samples; one graph column each
 HISTORY = 2000
 BLOCKS = " ▁▂▃▄▅▆▇█"
 AXIS = 6  # scale column at the right end, beside the newest reading
