@@ -30,7 +30,7 @@ LOG_DIR = Path(os.environ.get("XDG_STATE_HOME")
 LOG_HOURS = 24  # what a restart replays: ~0.7 s to load; a week took ~5 s
 BREAK = 5  # seconds without a sample that draw as a blank column
 BLOCKS = " ▁▂▃▄▅▆▇█"
-AXIS = 6  # scale column at the right end, beside the newest reading
+AXIS = 6  # scale column at the right end, labels right-aligned in it
 PM_TABLE = "/sys/kernel/ryzen_smu_drv/pm_table"
 DOT = "┄"  # gridline: three dashes per cell, at the row's vertical centre
 
@@ -367,7 +367,7 @@ def graph(win, y, w, hist, scale, spec, attr, hot):
         line = hot if scale.limit is not None and abs(v - scale.limit) < 1e-9 \
             else curses.A_DIM
         put(win, bottom - k * d, 0, DOT * width, line)
-        put(win, bottom - k * d, width + 1, scale.label(v), line)
+        put(win, bottom - k * d, width + 1, scale.label(v).rjust(AXIS - 1), line)
     values = list(hist)[-width:]
     x0 = width - len(values)
     for i, v in enumerate(values):
