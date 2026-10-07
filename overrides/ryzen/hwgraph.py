@@ -28,9 +28,8 @@ HISTORY = 2000
 LOG_DIR = Path(os.environ.get("XDG_STATE_HOME")
                or Path.home() / ".local/state") / "hwgraph"
 LOG_HOURS = 24  # what a restart replays: ~0.7 s to load; a week took ~5 s
-BREAK = 5  # seconds without a sample that break the line
-# braille dot bits in a cell's left and right column, bottom dot first
-BRAILLE = ((0x40, 0x04, 0x02, 0x01), (0x80, 0x20, 0x10, 0x08))
+BREAK = 5  # seconds without a sample that draw as a blank column
+BLOCKS = " ▁▂▃▄▅▆▇█"
 AXIS = 7  # scale column at the right end, labels right-aligned in it ("2.5GHz")
 PM_TABLE = "/sys/kernel/ryzen_smu_drv/pm_table"
 DOT = "┄"  # gridline: three dashes per cell, at the row's vertical centre
@@ -347,15 +346,15 @@ def layout(scales, budget):
 
 
 def graph(win, y, w, hist, scale, spec, attr, hot):
-    """A braille line against dotted gridlines, the scale's limit line and
-    label in hot. A label can only sit mid-row, so every gridline does too:
-    the scale runs from the middle of the bottom row to the middle of the
-    top one, the lines a whole number of rows apart, as spec (from layout)
-    says. A braille cell is 2 dots wide and 4 tall, so each column holds two
-    samples, and a reading lands within an eighth of a row of its height.
-    Each sample's dot joins the one before it with a vertical run, so the
-    line stays unbroken through a step; a break (None) leaves a gap. A
-    reading off the scale sits in the half row beyond its end line.
+    """Soft bars against dotted gridlines, the scale's limit line and label
+    in hot. A label can only sit mid-row, so every gridline does too: the
+    scale runs from the middle of the bottom row to the middle of the top
+    one, the lines a whole number of rows apart, as spec (from layout) says.
+    One sample a column, in eighth-blocks: the cell holding a bar's top is
+    in the graph's colour, the cells under it dimmed, so the top edge is what
+    reads. A bar stands on the graph's bottom edge, half a row under the low
+    line, since a block only grows from a cell's bottom; a reading off the
+    scale is cut at the edge, and a break (None) is a blank column.
     Returns the rows it used."""
     lo, hi = scale.lo, scale.hi
     step, n, d = spec
@@ -368,26 +367,19 @@ def graph(win, y, w, hist, scale, spec, attr, hot):
             else curses.A_DIM
         put(win, bottom - k * d, 0, DOT * width, line)
         put(win, bottom - k * d, width + 1, scale.label(v).rjust(AXIS - 1), line)
-    cells = [[0] * width for _ in range(h)]
-    values = list(hist)[-2 * width:]
-    start = 2 * width - len(values)
-    before = None
+    values = list(hist)[-width:]
+    x0 = width - len(values)
+    body = attr | curses.A_DIM
     for i, v in enumerate(values):
         if v is None:
-            before = None
             continue
         pos = 0.5 + (v - lo) / (hi - lo) * (h - 1)  # rows above the bottom edge
-        dot = min(max(int(pos * 4), 0), 4 * h - 1)  # quarter rows, 0 = lowest
-        x, right = divmod(start + i, 2)
-        column = BRAILLE[right]
-        for q in range(min(dot, before if before is not None else dot),
-                       max(dot, before if before is not None else dot) + 1):
-            cells[h - 1 - q // 4][x] |= column[q % 4]
-        before = dot
-    for r, row in enumerate(cells):
-        for x, bits in enumerate(row):
-            if bits:
-                put(win, y + r, x, chr(0x2800 + bits), attr)
+        eighths = round(min(max(pos, 0), h) * 8)
+        for row in range(h):
+            fill = min(max(eighths - row * 8, 0), 8)
+            if fill:
+                top = eighths <= (row + 1) * 8
+                put(win, bottom - row, x0 + i, BLOCKS[fill], attr if top else body)
     return h
 
 

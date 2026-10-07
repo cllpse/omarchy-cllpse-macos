@@ -96,12 +96,11 @@ and nothing measurable on a 12s one.
 ## 4. Watching it live: `hwgraph.py`
 
 [`hwgraph.py`](hwgraph.py) graphs the CPU, each RAM stick and the SSD on one
-screen as braille lines, sampling every 500 ms, two samples per character
-column, newest on the right. Each scale's labels sit in one column at the
-right end beside the newest reading, right-aligned so their last characters
-line up. In the 107-column tile a graph shows ~100 s. It sampled once a
-second until 2026-10-07, one sample a column, and the 2000-sample history
-holds ~17 minutes.
+screen as soft bars, sampling every 500 ms, one sample a column, newest on
+the right. Each scale's labels sit in one column at the right end beside the
+newest reading, right-aligned so their last characters line up. In the
+107-column tile a graph shows ~50 s. It sampled once a second until
+2026-10-07, and the 2000-sample history holds ~17 minutes.
 Standard-library curses, no root, `q` quits. It
 is the live view for this folder's numbers, where thermal-log is the record and
 `burst-bench.py` the measurement. Not run by `apply.sh`.
@@ -111,7 +110,7 @@ Every sample is also appended to a CSV a day in `~/.local/state/hwgraph/`
 `time,clock_ghz,cpu_w,cpu_c,ram1_c,ram2_c,ssd_c`, a failed reading left empty.
 On start hwgraph replays the last 24 hours of it, so the graphs, *overall*
 and *peak* survive a restart. Where samples are more than 5 s apart (hwgraph
-closed, or the machine asleep) the line breaks for one sample instead of
+closed, or the machine asleep) the graph draws one blank column instead of
 joining old readings to new ones. A file with nothing in the last 24 hours is
 deleted. The window is 24 hours because replay cost scales with it: a day at
 500 ms is 172,800 rows, ~6.7 MB, replaying in ~0.65 s, where a week was 65 MB
@@ -126,8 +125,8 @@ than mixed with the new one, and replays from there.
 
 The CPU gets two graphs and a power line. Its clock is the average of every
 core's `scaling_cur_freq` on 2.5-5 GHz (`cpuinfo_max_freq` is 4.97), six lines
-0.5 GHz apart, so an idle average under 2.5 GHz runs along the bottom, under
-the 2.5GHz line. Its scale ran
+0.5 GHz apart, so an idle average under 2.5 GHz shows little or no bar. Its
+scale ran
 0-5 GHz in whole GHz until 2026-10-07, lost the 0 and 1 GHz lines that day
 for four lines like every other graph (2-5 GHz), then went to half-GHz steps
 for six. The scale column widened from six cells to seven for "2.5GHz".
@@ -218,7 +217,7 @@ since 2026-10-07, hyphens before), then three
 figures: *current*, *overall* and *peak*, in that order on every row. The
 figures are set in columns, the first two spaces past the longest name, so
 each of the three lines up down the screen. *current* is the latest reading,
-the right end of the line. On the CPU and RAM temperatures it turns red once it
+the rightmost bar. On the CPU and RAM temperatures it turns red once it
 reaches the graph's red throttle line, compared as displayed, so a `92.0°` on
 screen is red even when the reading underneath is 91.96. *overall* is the
 mean and *peak* the highest reading over the replayed 24 hours and everything
@@ -274,17 +273,21 @@ at the bottom. Drawing each gridline at its exact sub-row height in braille
 was tried first and dropped, because labels then sat up to 3/8 of a row off
 their line, above some and below others.
 
-Each reading is a braille dot: a cell is 2 dots wide and 4 tall, so a column
-holds two samples and a reading lands within an eighth of a row of its
-height. Each dot joins the one before it with a vertical run, so a step
-draws as a continuous line. A reading off the scale sits in the half row
-beyond its end line, and a break leaves the line unjoined. Where the line
-crosses a gridline it replaces it. Until 2026-10-07 the graphs were solid
-bars of eighth-blocks (`▁`…`█`), one sample a column. They read as blocky,
-so a braille area fill and the braille line were rendered side by side from
-the log, and the line was the choice. A bar stood on the graph's bottom edge,
-half a row under the low line, since a block can only grow from a cell's
-bottom; starting it at the line hid any reading in the lowest quarter-row.
+Each reading is a bar of eighth-blocks (`▁`…`█`), one sample a column. The
+cell holding the bar's top is in the graph's colour and the cells under it
+are dimmed, so the top edge is what reads and the body recedes. A bar
+stands on the graph's bottom edge, half a row under the low line, since a
+block can only grow from a cell's bottom; starting it at the line hid any
+reading in the lowest quarter-row. A reading off the scale is cut at the
+edge, and a break is a blank column.
+
+The style was picked on 2026-10-07 from renders of the log side by side.
+Solid bars, the first style, read as blocky. A braille line, two samples a
+column, replaced them for a few hours and didn't work for the screen either.
+A second round then rendered seven styles from the same data: solid bars,
+braille line, braille area, octant line and area (Unicode 16's 2×4 blocks,
+which Ghostty 1.3 draws natively), a thin line of one-eighth strokes, and
+these soft bars, which were the choice.
 
 It exists because neither tool already installed or packaged gives that
 picture, checked on 2026-10-04. btop 1.4.7 graphs one temperature
