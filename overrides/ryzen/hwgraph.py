@@ -30,7 +30,7 @@ LOG_DIR = Path(os.environ.get("XDG_STATE_HOME")
 LOG_HOURS = 24  # what a restart replays: ~0.7 s to load; a week took ~5 s
 BREAK = 5  # seconds without a sample that draw as a blank column
 BLOCKS = " ▁▂▃▄▅▆▇█"
-AXIS = 7  # scale column at the right end, labels right-aligned in it ("2.5GHz")
+AXIS = 9  # scale column at the right end, labels right-aligned in it ("5600MT/s")
 PM_TABLE = "/sys/kernel/ryzen_smu_drv/pm_table"
 DOT = "┄"  # gridline: three dashes per cell, at the row's vertical centre
 
@@ -39,7 +39,7 @@ DOT = "┄"  # gridline: three dashes per cell, at the row's vertical centre
 # sit mid-row, so a limit has to land on one: the CPU's and RAM's are each
 # their scale's top, counting down from it in steps. Every graphed scale
 # takes four lines, one step: the clock 2-5 GHz in 1, the memory clock its
-# lowest to highest DPM level, the CPU 17-92°C and the SSD 15-90°C in 25,
+# lowest to highest DPM level in MT/s, the CPU 17-92°C and the SSD 15-90°C in 25,
 # the RAM 25-85°C in 20. A window too short for four falls back to the low
 # and high lines.
 #
@@ -69,6 +69,10 @@ def gigahertz(v):
 
 def watts(v):
     return f"{v:g}W"
+
+
+def megatransfers(v):
+    return f"{v:g}MT/s"
 
 
 GHZ_FLOOR, GHZ_STEP = 2, 1
@@ -155,22 +159,23 @@ class Sensor(Series):
 
 
 class MemClock(Series):
-    """The memory clock (MCLK) as the GPU driver reports it in pp_dpm_mclk,
-    the level marked *, in GHz. It steps between the table's levels (1000
-    and 2800 MHz here; 2800 is DDR5-5600, the data rate being twice the
-    clock) as memory demand comes and goes. The scale runs from the lowest
-    level to the highest in four lines. No pp_dpm_mclk raises OSError."""
+    """The memory's data rate in MT/s: the clock (MCLK) the GPU driver
+    reports in pp_dpm_mclk, the level marked *, doubled, since DDR moves data
+    on both clock edges. It steps between the table's levels (1000 and 2800
+    MHz here, so 2000 and 5600 MT/s: DDR5-5600 at the top) as memory demand
+    comes and goes. The scale runs from the lowest level to the highest in
+    four lines. No pp_dpm_mclk raises OSError."""
 
     def __init__(self):
         found = sorted(glob.glob("/sys/class/drm/card*/device/pp_dpm_mclk"))
         if not found:
             raise OSError("no pp_dpm_mclk")
         self.path = found[0]
-        levels = [mhz / 1000 for mhz, _ in self._levels()]
+        levels = [2 * mhz for mhz, _ in self._levels()]
         lo, hi = min(levels), max(levels)
         if hi <= lo:
             raise ValueError("one memory clock level: nothing to graph")
-        super().__init__(Scale(lo, hi, ((hi - lo) / 3,), gigahertz))
+        super().__init__(Scale(lo, hi, ((hi - lo) / 3,), megatransfers))
 
     def _levels(self):
         """(MHz, current) per line: '1: 2800Mhz *'."""
@@ -182,7 +187,7 @@ class MemClock(Series):
 
     def measure(self):
         try:
-            return next(mhz for mhz, now in self._levels() if now) / 1000
+            return 2 * next(mhz for mhz, now in self._levels() if now)
         except (OSError, ValueError, IndexError, StopIteration):
             return None  # logged empty, drawn as a break
 
@@ -298,6 +303,9 @@ def first(name, scale, what):
 
 
 def put(win, y, x, text, attr=0):
+    """Write text clipped at the window's right edge: curses would wrap the
+    rest onto the next row, over whatever is drawn there."""
+    text = text[:max(0, win.getmaxyx()[1] - x)]
     try:
         win.addstr(y, x, text, attr)
     except curses.error:
@@ -490,8 +498,8 @@ def main(win):
                               "the CPU row reads an AMD CPU's Tctl"),
                         "cpu", "°", 1, "cpu_c"))
     try:
-        graphs.append(Graph("RAM – frequency", MemClock(), "freq", "GHz", 2,
-                            "ram_ghz"))
+        graphs.append(Graph("RAM – frequency", MemClock(), "freq", "MT/s", 0,
+                            "ram_mts"))
     except (OSError, ValueError):
         pass  # no amdgpu clock table: no RAM frequency graph
     for n, (_, h) in enumerate(hwmons("spd5118"), 1):

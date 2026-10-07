@@ -108,7 +108,7 @@ is the live view for this folder's numbers, where thermal-log is the record and
 
 Every sample is also appended to a CSV a day in `~/.local/state/hwgraph/`
 (`$XDG_STATE_HOME/hwgraph/`), as
-`time,clock_ghz,cpu_w,cpu_c,ram_ghz,ram1_c,ram2_c,ssd_c`, a failed reading
+`time,clock_ghz,cpu_w,cpu_c,ram_mts,ram1_c,ram2_c,ssd_c`, a failed reading
 left empty.
 On start hwgraph replays the last 24 hours of it, so the graphs, *overall*
 and *peak* survive a restart. Where samples are more than 5 s apart (hwgraph
@@ -131,8 +131,8 @@ core's `scaling_cur_freq` on 2-5 GHz (`cpuinfo_max_freq` is 4.97), four lines
 ran 0-5 GHz in whole GHz until 2026-10-07. That day it lost the 0 and 1 GHz
 lines for four lines like every other graph (2-5 GHz), went to half-GHz steps
 for six (2.5-5 GHz), and came back to 2-5 GHz when every graph went back to
-four to make room for the memory clock. The scale column is seven cells wide
-for "2.5GHz" and the memory clock's "1.6GHz".
+four to make room for the memory clock. The scale column is nine cells wide
+for the memory's "5600MT/s" (seven before, for "2.5GHz").
 
 Under the clock, *CPU – power* is a label row with no graph: current,
 overall and peak of the PPT slow value, the long-average package power that
@@ -157,11 +157,16 @@ seconds, when it bursts towards 58 W until the slow average catches up (§3).
 
 Its temperature is Tctl from `k10temp` on 17-92°C.
 
-*RAM – frequency* graphs the memory clock (MCLK) from the GPU driver's
-`pp_dpm_mclk` (`/sys/class/drm/card1/device/`, world-readable), the level it
-marks `*`. Its levels here are 1000 and 2800 MHz; 2800 is DDR5-5600, the data
-rate being twice the clock. The scale runs from the lowest level to the
-highest in four lines (1, 1.6, 2.2, 2.8 GHz). The clock is not fixed: sampled
+*RAM – frequency* graphs the memory's data rate in MT/s: the memory clock
+(MCLK) from the GPU driver's `pp_dpm_mclk` (`/sys/class/drm/card1/device/`,
+world-readable), the level it marks `*`, doubled, since DDR moves data on
+both clock edges. Its levels here are 1000 and 2800 MHz, so 2000 and 5600
+MT/s; 5600 is the sticks' rated DDR5-5600, and their SPD's 357 ps minimum
+clock period is the same 2.8 GHz. The scale runs from the lowest level to the
+highest in four lines (2000, 3200, 4400, 5600 MT/s). It graphed the clock
+itself in GHz (1-2.8) for its first hour, until 2.8 read as low for
+DDR5-5600 RAM; the log column went from `ram_ghz` to `ram_mts` with it, so
+that hour no longer replays. The clock is not fixed: sampled
 every 500 ms on 2026-10-07, it sat at 1000 MHz in 11 of 12 samples and stepped
 to 2800 for one, under a 16-thread CPU load that barely touches memory, so it
 rises on memory demand and falls back. It is one clock for both sticks. Each
@@ -231,7 +236,8 @@ frequency*, *CPU – temperature*, *RAM #1 – temperature* and so on; en dashes
 since 2026-10-07, hyphens before), then three
 figures: *current*, *overall* and *peak*, in that order on every row. The
 figures are set in columns, the first two spaces past the longest name, so
-each of the three lines up down the screen. *current* is the latest reading,
+each of the three lines up down the screen; a row wider than the window is
+cut at its edge rather than wrapped onto the graph below. *current* is the latest reading,
 the rightmost bar. On the CPU and RAM temperatures it turns red once it
 reaches the graph's red throttle line, compared as displayed, so a `92.0°` on
 screen is red even when the reading underneath is 91.96. *overall* is the
