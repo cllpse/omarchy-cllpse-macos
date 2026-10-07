@@ -69,7 +69,7 @@ def watts(v):
 
 
 GHZ_FLOOR, GHZ_STEP = 2, 1
-POWER_STEP = 10  # 30 W under the limit: 20, 30, 40, 50 at 50 W
+POWER_STEP = 10  # 30 W under the limit: 22, 32, 42, 52 at 52 W
 CPU_THROTTLE = 92
 CPU_TEMP = Scale(CPU_THROTTLE - 75, CPU_THROTTLE, (25,), degrees, CPU_THROTTLE)
 RAM_STEP = 20  # down from the 85°C crit: 25, 45, 65, 85
