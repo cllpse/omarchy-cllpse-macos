@@ -58,57 +58,54 @@
 -- exclusions, dimming video and colour-critical windows; matching the tag
 -- inherits them all for free.
 --
--- Focused windows at 0.99, per BUILD.md section 5 ("macOS windows are opaque")
--- with a hair of glass so focused windows read as the same material as
--- unfocused rather than a flat cutout -- a deliberate deviation from section
--- 5's 1.0/1.0. Unfocused drops further to 0.875, not only as a focus cue.
+-- Focused windows fully opaque, per BUILD.md section 5 ("macOS windows are
+-- opaque"). Unfocused drops to 0.875, not only as a focus cue.
 --
 -- blur.ignore_opacity is true, so a window made semi-transparent gets the full
--- blur pass rendered behind it: even the focused window blurs whatever sits
--- beneath it now, and unfocused blurs more. That is the intended look here,
--- glass rather than a flat dim, which is why the dim_inactive block below
--- stays off -- stacking a darkening pass on top of it muddied the result and
--- worked against the effect.
+-- blur pass rendered behind it: an unfocused window blurs whatever sits
+-- beneath it. That is the intended look here, glass rather than a flat dim,
+-- which is why the dim_inactive block below stays off -- stacking a darkening
+-- pass on top of it muddied the result and worked against the effect.
 --
--- That focused 0.99 is the single most expensive thing on this desktop, and it
--- is kept ANYWAY -- a decision, not an oversight, so don't re-derive it.
--- Measured on Hyprland's own drm-engine-gfx (10s samples, animating scene,
--- medians of three interleaved runs):
+-- Focused shipped at 0.99 for a long while -- a hair of the same glass so the
+-- focused window read as the same material as unfocused rather than a flat
+-- cutout -- and was kept deliberately despite being the single most expensive
+-- thing on this desktop. Measured on Hyprland's own drm-engine-gfx (10s
+-- samples, animating scene, medians of three interleaved runs):
 --
 --     blur off                    10.8%
 --     blur + focused opaque       13.0%
 --     blur + focused 0.99         15.1%
 --
--- i.e. the last 1% of translucency is ~60% of the whole blur bill, because
+-- i.e. the last 1% of translucency was ~60% of the whole blur bill, because
 -- ignore_opacity makes Hyprland render a full blur pass under the largest and
 -- most-damaged surface on screen to show 1% of what is behind it. Two
--- full-screen captures of the same scene differ by 1.3% of pixels. The look
--- won: the frosted material is meant to be what a window IS, not a state it
--- enters when it loses focus.
+-- full-screen captures of the same scene differ by 1.3% of pixels. It is now
+-- back at 1.0 on request: no translucency on the focused window at all, which
+-- also drops that cost.
 --
 -- The blur PARAMETERS are not a lever either, measured the same way: size 28 /
 -- passes 2 costs exactly what size 7 / passes 4 does (16.61% vs 16.60%), and
 -- xray changes nothing. With new_optimizations caching the static background,
 -- the cost is the damaged AREA being blurred, not the kernel. So there is no
--- cheaper blur to find; the only lever is translucency, and that is the part
--- being deliberately kept.
+-- cheaper blur to find; the only lever is translucency.
 --
--- 0.99/0.875 currently. Focused was 1.0 (fully opaque), then 0.97, then 0.98,
--- before landing here, and went briefly back to 1.0 for the measurement above;
--- unfocused alone went through 0.9 and 0.88 on the way to 0.875.
-o.window({ tag = "default-opacity" }, { opacity = "0.99 0.875" })
+-- 1.0/0.875 currently. Focused was 1.0 (fully opaque), then 0.97, then 0.98,
+-- then 0.99 (with a brief return to 1.0 for the measurement above), and is
+-- back at 1.0; unfocused alone went through 0.9 and 0.88 on the way to 0.875.
+o.window({ tag = "default-opacity" }, { opacity = "1.0 0.875" })
 
 -- ── Browser opacity: same unfocused glass as everything else ───────────────
 -- default/hypr/apps/browser.lua strips +default-opacity from every
 -- chromium/firefox-based browser and pins them to opacity "1.0 0.985", so the
 -- tag-matched rule above never touches them -- browsers stay effectively opaque
 -- when unfocused (98.5%) and no blur reads through. Re-match the browser tags
--- directly, after browser.lua has run, so browsers get the same 0.99/0.875
+-- directly, after browser.lua has run, so browsers get the same 1.0/0.875
 -- frost as the rest of the desktop. browser.lua removes the
 -- chromium-based-browser tag from YouTube/Zoom web-app windows, so those stay
 -- excluded here too.
-o.window({ tag = "chromium-based-browser" }, { opacity = "0.99 0.875" })
-o.window({ tag = "firefox-based-browser" }, { opacity = "0.99 0.875" })
+o.window({ tag = "chromium-based-browser" }, { opacity = "1.0 0.875" })
+o.window({ tag = "firefox-based-browser" }, { opacity = "1.0 0.875" })
 
 -- ── Figma opacity: fully opaque, focused or not ────────────────────────────
 -- Figma Desktop (nickvdp/figma-desktop-linux, an AppImage repack of Figma's
@@ -155,8 +152,8 @@ o.window(".*[Ff]igma.*", { tag = "-default-opacity", opacity = "1 1" })
 -- Note this is only visible through whatever a surface leaves translucent, and
 -- the shell surfaces no longer leave any: every shell.*.toml here now ships
 -- background-alpha = 1.0, so the ONLY thing these knobs still reach is the
--- unfocused window at 0.875 (blur.ignore_opacity above is what lets the
--- focused 0.99 blur too). The figures this was tuned against were the earlier
+-- unfocused window at 0.875 (the focused window is opaque, so nothing
+-- blurs through it). The figures this was tuned against were the earlier
 -- alphas -- menu/notifications 0.92, where just 8% of the backdrop showed, and
 -- the bar at 0.72, where it actually read -- so treat the walk below as a
 -- record of how the knobs behave, not as a description of what is on screen.
@@ -276,7 +273,7 @@ hl.config({
 -- theme and that surface frosts again with no compositor-side change.
 --
 -- Window blur is a different setting and is NOT inert -- decoration.blur above
--- is what the 0.99/0.875 window opacity reads through. This rule only ever
+-- is what the unfocused 0.875 window opacity reads through. This rule only ever
 -- governed the shell's own LAYER surfaces.
 --
 -- ignore_alpha leaves any pixel below that alpha unblurred. It started at 0.1,

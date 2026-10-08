@@ -60,7 +60,7 @@ window-switcher keybinds (`bindings.lua`), mouse tuning (`input.lua`) +
 `decoration` (`rounding = 18` / `rounding_power = 2.05` — a hair off a
 circular arc; 2.1, 2.2 and a real 3-3.4 squircle were all tried and dropped /
 `border_part_of_window = true`, `blur` on @ size 7 / passes 4 / vibrancy 0.30,
-`border_size = 2`, `gaps_in/out = 12/24`) + window `opacity = 0.99 0.875`
+`border_size = 2`, `gaps_in/out = 12/24`) + window `opacity = 1.0 0.875`
 (re-matched onto `chromium-based-browser` / `firefox-based-browser` too, since
 Omarchy pins those to `1.0 0.985` otherwise) + 3× animation speeds (floor 1) +
 `layer_rule` blur on the shell surfaces + `layer_rule` re-enabling the layer

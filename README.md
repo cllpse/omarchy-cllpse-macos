@@ -235,7 +235,7 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   tile), enables `decoration.blur` (size 7,
   passes 4, vibrancy 0.30, vibrancy_darkness 0.30, noise 0.02, brightness/contrast
   1.0), keeps `general.border_size = 2` (Omarchy's default) with `gaps_in = 12` / `gaps_out = 24` (§5's Apple 8pt grid, `md`/`xxl` steps),
-  overrides window opacity to `0.99 0.875` (re-matched onto browsers directly too,
+  overrides window opacity to `1.0 0.875` (re-matched onto browsers directly too,
   since Omarchy pins those to their own `1.0 0.985` otherwise), and divides every `hl.animation` leaf's
   stock speed by 3 for 3× faster animations, floored at 1 so the fastest leaves
   don't read as a hard cut. It sets no border *colour*: both borders come from
@@ -360,20 +360,19 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   them; it is kept so the effect returns if any alpha is lowered again. The dark/light copies are currently identical
   (same α over each mode's own `background` colour); tune light up if it reads
   washed out.
-- **Focused windows at 0.99, unfocused at 0.875, so the blur renders through both
-  — kept deliberately, and it is the most expensive thing on this desktop.**
+- **Focused windows fully opaque, unfocused at 0.875 so the blur renders through.**
   Omarchy's `windows.lua` tags every window `+default-opacity`, lets the per-app
   files strip that tag, then applies `0.985 0.96` to whatever still carries it.
   `looknfeel-decoration.lua` repeats that *same tag match* later in load order and
-  sets `0.99 0.875` — focused isn't fully opaque either, so it reads as the same
-  glass material rather than a flat cutout next to the more translucent unfocused
-  windows. That last 1% is not free, and the number is recorded so the choice
-  stays an informed one: `blur.ignore_opacity` is true, so it makes Hyprland
-  render a full blur pass under the largest, most-damaged surface on screen.
-  Measured on Hyprland's own `drm-engine-gfx` — blur off 10.8%, focused opaque
-  13.0%, focused `0.99` 15.1% — so it is ~60% of the blur bill for a difference
-  two full-screen captures put at 1.3% of pixels. Kept anyway: the frosted
-  material is what a window *is* here, not a state it enters when it loses focus.
+  sets `1.0 0.875`. Focused shipped at `0.99` for a long while — a hair of the
+  same glass so it read as the same material as the unfocused windows rather
+  than a flat cutout — and was kept knowing it was the most expensive thing on
+  this desktop: `blur.ignore_opacity` is true, so it made Hyprland render a full
+  blur pass under the largest, most-damaged surface on screen. Measured on
+  Hyprland's own `drm-engine-gfx` — blur off 10.8%, focused opaque 13.0%,
+  focused `0.99` 15.1% — so it was ~60% of the blur bill for a difference two
+  full-screen captures put at 1.3% of pixels. It went back to `1.0` on request:
+  no translucency on the focused window at all, which drops that cost too.
   The blur *parameters* are not an alternative lever: `size 28 / passes 2`
   measured 16.61% against `size 7 / passes 4`'s 16.60%, because
   `new_optimizations` caches the static background and the cost is the damaged
@@ -384,7 +383,7 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   Chromium/Firefox windows would stay effectively opaque when unfocused (98.5%)
   with no blur reading through, so `looknfeel-decoration.lua` re-matches
   `chromium-based-browser` / `firefox-based-browser` directly (after
-  `browser.lua` has run) and pins those to `0.99 0.875` too — same glass as
+  `browser.lua` has run) and pins those to `1.0 0.875` too — same glass as
   everywhere else. The YouTube/Zoom exclusion still holds: `browser.lua` strips
   the browser tag from those windows before this runs.
   Figma Desktop isn't one of Omarchy's stock colour-critical exclusions, so
