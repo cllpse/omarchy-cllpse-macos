@@ -250,8 +250,8 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   the rule is kept so it returns if an alpha is lowered again. Additive to Omarchy's own `no_anim` layer rules.
 - **The window switcher opens from any screen corner as well as `SUPER+TAB`.**
   The plugin maps four one-pixel layer surfaces
-  (`omarchy-window-switcher-corner`), one per corner of the output, for the
-  whole session; crossing into one opens
+  (`omarchy-window-switcher-corner`), one per corner of each output and bound
+  to it, for the whole session; crossing into one opens
   the strip with no key held, and a click chooses. Opened that way nothing is
   pre-selected — the strip opens on the window you are already in, because a
   `TAB`'s step is the gesture while a pointer's is the click that follows.
@@ -260,8 +260,9 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   mouse moves*, so a cursor parked on the trigger produced ~0 events over 32s,
   and sliding along it ~500/s at under 4µs of client CPU each. One pixel is
   enough only because Hyprland clamps the cursor to the output, in a corner on
-  both axes at once (a warp to `99999,99999` lands at `3071,1279` on this
-  3072×1280 logical output), so a fast throw cannot overshoot it; the same pixel
+  both axes at once (a warp to `99999,99999` lands at `2879,1619` on this
+  2880×1620 logical output, as it did at `3071,1279` on the earlier 3072×1280),
+  so a fast throw cannot overshoot it; the same pixel
   anywhere else on screen would be missed by exactly that gesture. This was the
   whole left edge first, and the corners are the same gesture with the accidents
   taken out — an edge is crossed by anything that overshoots a window's left
@@ -271,7 +272,10 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   wallpaper — and the trigger stands down while a window on the focused
   workspace is fullscreen, so a video or a game cannot be interrupted by a
   pointer thrown into a corner. The HUD's own input region subtracts those four
-  pixels, which is what lets this work with no re-arm latch; the mechanism is in
+  pixels, which is what lets this work with no re-arm latch. Binding each set to
+  its output is what keeps the corners alive across a modeset that drops the
+  link: unbound, they landed on Hyprland's temporary `FALLBACK` output and died
+  with it. The mechanism is in
   [`reference/window-switcher-notes.md`](reference/window-switcher-notes.md).
 - **Chromium scale is two settings that multiply, not one.**
   `overrides/chromium/chromium-flags.conf` is fenced into

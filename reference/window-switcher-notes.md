@@ -103,7 +103,22 @@ output, each with `exclusionMode: ExclusionMode.Ignore` and their own namespace
 `wl_pointer.enter` when the cursor crosses in. They are one `Variants` delegate
 rather than four blocks — the only thing that differs between corners is which
 pair of edges it anchors to — and `hyprctl layers` is how you check all four
-mapped: `0 0 1 1`, `3071 0 1 1`, `0 1279 1 1`, `3071 1279 1 1` on this output.
+mapped: `0 0 1 1`, `2879 0 1 1`, `0 1619 1 1`, `2879 1619 1 1` on this
+2880×1620 output (`3071`/`1279` on the earlier 3072×1280 one).
+
+**Each set of four is bound to its output** — an outer `Variants` over
+`Quickshell.screens`, `screen: modelData` on every corner, the idiom Omarchy's
+own `Bar.qml` uses. The first version named no screen, and that held only while
+the output did. Changing the scale on the 43" TV (behind a USB-C→HDMI adapter)
+dropped the link for ~3s: the shell logged `There are no outputs - creating
+placeholder screen`, recreated the unbound corners with `Layershell screen does
+not correspond to a real screen. Letting the compositor pick.` — which put them
+on Hyprland's temporary `FALLBACK` output — and when `FALLBACK` was removed they
+went with it. Nothing mapped them again; `hyprctl layers` showed no
+`omarchy-window-switcher-corner` at all until a shell restart. Bound, `Variants`
+drops the delegate with the output and builds a fresh one when it returns. The
+HUD needs none of this: it is mapped per open, so it lands on whatever output
+exists at the time.
 
 **It was the whole left edge first (2.1.0), and the corners are that trigger
 with the accidents taken out.** An edge is crossed by every gesture that
@@ -129,9 +144,12 @@ physically on it.
 
 **One pixel is enough because the cursor is clamped, and in a corner it is
 clamped on both axes at once.** Hyprland pins the cursor to the output, so a
-fast throw cannot overshoot: on this 3072×1280 logical output a warp to
+fast throw cannot overshoot: on a 3072×1280 logical output a warp to
 `99999, 99999` lands at `3071, 1279` — inside the bottom-right pixel — and one
-to `-9999, -9999` lands at `0, 0`, however fast the pointer was travelling. The
+to `-9999, -9999` lands at `0, 0`, however fast the pointer was travelling.
+Re-measured at scale 4/3 on 3840×2160 (2880×1620 logical): all four corners
+land on the last pixel, `2879, 1619` / `2879, 0` / `0, 1619` / `0, 0`, three
+rounds out of three, so a fractional scale does not break the clamp. The
 same pixel anywhere else on screen would be missed by exactly the fast gesture
 people use.
 

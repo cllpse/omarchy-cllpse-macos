@@ -136,6 +136,14 @@ They print a helpful error and change nothing. Use `hyprctl eval` with
 fixed at process creation. `systemctl restart user@1000` reseeds it (kills
 the desktop). `newgrp keyd` runs a command with the correct group set.
 
+### Quickshell `PanelWindow` with no `screen` dies with a transient output
+
+A modeset that drops the link (a scale change on the TV) leaves Hyprland with
+only its `FALLBACK` output for a few seconds. Unbound layer surfaces get
+recreated there and die with it. Bind them with a `Variants` over
+`Quickshell.screens` and `screen: modelData`, as `Bar.qml` does. Probe:
+`hyprctl layers | grep omarchy-window-switcher-corner`
+
 ### `pgrep -f` matches whole command lines
 
 It matches the *caller*. Resolve `/proc/<pid>/exe` instead.
