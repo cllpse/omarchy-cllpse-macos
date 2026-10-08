@@ -32,7 +32,7 @@ cat >"$CONF" <<EOF
 # Saved display scaling + text size, restored by apply.sh.
 # Regenerate from the live machine with: ./overrides/display/save-display.sh
 #
-# These are the AUTHOR'S values, tuned for a 3840x1600 display. They are a
+# These are the AUTHOR'S values, tuned for a 43" 3840x2160 TV (~102 PPI). They are a
 # preference, not part of the macOS look -- if you are not on similar hardware,
 # edit this file (or re-run save-display.sh on your own machine) before
 # applying. apply.sh skips any key left empty.

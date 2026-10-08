@@ -78,7 +78,7 @@ list, despite Omarchy shipping config files for both: its package lists ship
 are here because they were installed by hand.
 
 **3. Set the display values for *your* hardware.** `overrides/display/display.conf` ships
-values tuned for one ~110 PPI 3840x1600 display and applies them confidently:
+values tuned for one ~102 PPI 3840x2160 display (a 43" TV) and applies them confidently:
 
 ```bash
 ./overrides/display/save-display.sh   # capture this machine's current values instead

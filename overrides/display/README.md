@@ -29,7 +29,7 @@ apply.sh pull you back.
 executable bit to invite running it.
 
 **These values are hardware-specific.** What ships here is tuned for one
-~110 PPI 3840x1600 display; `gdk-scale` in particular is wrong on a HiDPI
+~102 PPI 3840x2160 display (a 43" TV); `gdk-scale` in particular is wrong on a HiDPI
 panel, where Omarchy's default of 2 is right. Re-run `save-display.sh` on your
 own machine before the first apply, or `apply.sh` will confidently assert
 someone else's sizing.
