@@ -502,6 +502,15 @@ plugin-side theming. Under **omarchy-cllpse-theme** that means:
   around the strip as a result. The rounding is Hyprland's and does not scale,
   so a larger text size, which grows the padding, rounds the highlight less;
   `innerRadius` floors at 0;
+- **the group rules sit the card's padding from their tiles.** A rule runs the
+  card's full height and divides it the way the border bounds it, so the run
+  between two groups is padding + stroke + padding, and `groupGap` is derived as
+  that less the ordinary tile gap (14 at text size 13). It was a flat 36 (39),
+  which put ~19.5 either side of a rule and matched the menu-sized padding; once
+  the padding came down to 7 the rules sat in nearly three times the border's
+  margin. Measured from a screenshot at 4/3: border to first tile 9 device px,
+  rule to neighbouring tiles 9.5–10. A theme's `switcher-group-gap` still
+  overrides the derived value;
 - **the highlight fades, and the name does not change colour.** Each tile
   carries the selected fill and `selected-border` as its own `selectionFill`,
   beneath its content, and fades it over 140ms on `OutCubic` (Omarchy's
