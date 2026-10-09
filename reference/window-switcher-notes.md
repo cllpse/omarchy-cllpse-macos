@@ -505,9 +505,16 @@ plugin-side theming. Under **omarchy-cllpse-theme** that means:
   `selected-text` (blue) the way a menu row does, but with an animated fill the
   colour arrived before the highlight did. The Nerd Font glyph fallback still
   takes the selection tint;
-- blur comes from the `hl.layer_rule` in
-  `overrides/hypr/looknfeel-decoration.lua`, whose namespace match includes
-  `window-switcher-hud` so the HUD blurs exactly like the Omarchy menu.
+- **no blur.** The HUD used to be in the blur `hl.layer_rule` in
+  `overrides/hypr/looknfeel-decoration.lua`, so it would frost exactly like the
+  Omarchy menu. With the card opaque and the scrim off, that blur drew nothing,
+  and it halved the frame rate of everything that animates on this full-screen
+  layer. Measured with Qt's render-loop timing (`quickshell --log-rules
+  'qt.scenegraph.time.renderloop.debug=true'`) while stepping the highlight:
+  16–17ms between frames (60 fps) with the namespace in the rule, 8ms (120 fps,
+  the output's rate) without it, Qt rendering in ~0ms in both. It was taken out
+  of the rule. Add it back only alongside a translucent card, and expect the
+  60 fps.
 
 ### Icons
 

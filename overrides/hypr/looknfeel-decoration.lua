@@ -300,12 +300,18 @@ hl.config({
 --
 -- blur_popups extends blur to child dropdowns (bar module menus, panel flyouts).
 --
--- window-switcher-hud is our own plugin (omarchy-cllpse-plugin-switcher/, symlinked to
--- ~/.config/omarchy/plugins/cllpse.window-switcher). Its card already binds
--- Color.menu.background / .scrim, so it tracks the menu either way: opaque
--- while the menu is opaque, frosted the moment the menu frosts. Its scrim is
--- switched off (showScrim in Hud.qml), so it draws no dim at all until that is
--- flipped back; the binding is kept for when it is.
+-- window-switcher-hud, our own plugin (omarchy-cllpse-plugin-switcher/,
+-- symlinked to ~/.config/omarchy/plugins/cllpse.window-switcher), is NOT
+-- matched, and used to be. Its card binds Color.menu.background, so it frosted
+-- with the menu -- but with the card opaque and the scrim off (showScrim in
+-- Hud.qml) the blur drew nothing, and it was not free. The switcher is a
+-- full-screen layer, and blurring it halved its frame rate: measured with Qt's
+-- render-loop timing while the highlight faded, frames came every 16-17ms
+-- (60 fps) with the namespace in this rule and every 8ms (120 fps, the
+-- output's full rate) without it, with Qt itself rendering in ~0ms either way.
+-- The compositor's own open/close fade pays the same. If the menu goes
+-- translucent again and the switcher should frost with it, add it back here
+-- knowing that is the price.
 --
 -- supermenu is our other plugin (omarchy-cllpse-plugin-supermenu/, symlinked to
 -- ~/.config/omarchy/plugins/cllpse.supermenu), the launcher SUPER+SPACE opens.
@@ -317,7 +323,7 @@ hl.config({
 -- Not matched: omarchy-background (the wallpaper itself) and the transient
 -- omarchy-bar-drag-ghost / -move-ghost surfaces.
 hl.layer_rule({
-  match = { namespace = "^omarchy-(bar|menu|notifications|osd|polkit|clipboard|emojis|reminders|image-selector|network-qr|keyboard-panel|lock-preview|window-switcher-hud|supermenu)$" },
+  match = { namespace = "^omarchy-(bar|menu|notifications|osd|polkit|clipboard|emojis|reminders|image-selector|network-qr|keyboard-panel|lock-preview|supermenu)$" },
   blur = true,
   blur_popups = true,
   ignore_alpha = 0.6,

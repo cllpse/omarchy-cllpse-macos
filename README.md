@@ -248,11 +248,11 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   `looknfeel-decoration.lua` also carries an `hl.layer_rule` opting the Omarchy
   shell surfaces (`omarchy-bar|menu|notifications|osd|polkit|clipboard|emojis|`
   `reminders|image-selector|network-qr|keyboard-panel|lock-preview`) plus our own
-  `omarchy-window-switcher-hud` and `omarchy-supermenu` into that blur — `blur_popups` on,
+  `omarchy-supermenu` into that blur — `blur_popups` on,
   `ignore_alpha = 0.6`, which sits between the scrims (0.25) and the cards
-  (all 1.0) so the dimmed backdrop stays sharp. (The window switcher draws no
-  scrim for now — `showScrim` in its `Hud.qml` is off — so nothing behind its
-  card is dimmed at all.) With every card opaque the blur is currently inert;
+  (all 1.0) so the dimmed backdrop stays sharp. The window switcher is left
+  out: its blur drew nothing (opaque card, scrim off via `showScrim`) and
+  halved its frame rate, 120 → 60 fps, while it animated. With every card opaque the blur is currently inert;
   the rule is kept so it returns if an alpha is lowered again. Additive to Omarchy's own `no_anim` layer rules.
 - **The window switcher opens from any screen corner as well as `SUPER+TAB`.**
   The plugin maps four one-pixel layer surfaces
