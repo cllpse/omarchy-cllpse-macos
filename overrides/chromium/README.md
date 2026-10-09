@@ -13,11 +13,14 @@ stall a run halfway through (it was step 9). Calling this with no argument
 ## 2. Two settings that only make sense together
 
 Two settings that only make sense together: the flag pins the device pixel
-ratio to 1 (25% under the TV's 1.33333; tuned as 20% under DP-2's 1.25, and
-not retuned since display.conf moved to 1.33333 on 2026-10-08), and the
-preference puts page zoom back on top. Page size is the product of the two —
+ratio to 1 (25% under the TV's 1.33333; tuned as 20% under DP-2's 1.25), and
+the preference puts page zoom back on top. Page size is the product of the two —
 110% ships, so 0.75 x 1.1 = 0.825 (0.88 back at 1.25); ~133% would be exactly
-1:1 with native (125% at 1.25). Browser UI stays at 0.75 either way (0.8 at
+1:1 with native (125% at 1.25). **110% was kept on purpose** when display.conf
+moved to 1.33333 (b177be7, 2026-10-08): re-asked on 2026-10-09, the answer was
+to stay at 110% rather than chase the old 0.88, which would take ~117% — not a
+step on Chromium's zoom ladder, so Ctrl+/- would leave it and never land on it
+again. Browser UI stays at 0.75 either way (0.8 at
 1.25), since zoom does not touch it. See the header of each file.
 
 The flag file is Omarchy's, so it takes a fenced block like every other
@@ -159,8 +162,8 @@ as a DevTools bug.
 
 Chromium: `--force-device-scale-factor=1` (browser UI 25% under the TV's
 1.33333; 20% under DP-2's 1.25, which it was tuned against) + `110%` default
-page zoom — page size is the product of the two, and ~133% would be exactly
-1:1 with native (125% at 1.25); `--enable-features=…,OverlayScrollbar` for the
+page zoom [chosen, kept at 1.33333 on 2026-10-09] — page size is the product of
+the two, and ~133% would be exactly 1:1 with native (125% at 1.25); `--enable-features=…,OverlayScrollbar` for the
 thin auto-hiding scrollbar (restating Omarchy's own feature, because a
 repeated `--enable-features` is last-wins rather than merged);
 `--disable-features=MediaSessionService`, the only lever that removes the

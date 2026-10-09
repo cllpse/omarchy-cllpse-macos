@@ -315,7 +315,9 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   monitor scale (was DP-2's 1.25), putting the browser UI 25% under the rest of
   the desktop (was 20%). `overrides/chromium/default-zoom.py` then sets page
   zoom to 110%, so page layout lands at 0.75 × 1.1 = 0.825 of native (was
-  0.8 × 1.1 = 0.88); ~133% would cancel the flag outright (was 125%).
+  0.8 × 1.1 = 0.88); ~133% would cancel the flag outright (was 125%). 110% was
+  kept deliberately at the new scale (2026-10-09) rather than raised to the
+  ~117% that would hold 0.88, which is off Chromium's zoom ladder.
   There is no command-line flag for default zoom — it is the profile
   preference `partition.default_zoom_level`, stored as `ln(factor)/ln(1.2)` —
   and Chromium must be closed when it is written, since it rewrites
