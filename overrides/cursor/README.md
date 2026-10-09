@@ -152,7 +152,7 @@ continue the line instead of breaking it. All take `muted` at 25% flattened
 onto the window background, written as an opaque `#EEEEEE` light / `#2C2C2C`
 dark rather than a value with alpha — flattened because `tab.border` is a real
 CSS border painted over each tab's own background, so a translucent value
-would change shade as tabs activate. 25% is the weight the weight Omarchy
+would change shade as tabs activate. 25% is the weight Omarchy
 already gives every other divider of that class (`editorGroup.border`,
 `panel.border`, `sideBarSectionHeader.border`), so they read as the same line
 rather than outweighing their neighbours. `tab.lastPinnedBorder` stays at full

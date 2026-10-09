@@ -722,7 +722,9 @@ Worth knowing about `glyphFor`, which is still the default for every tile:
   - `grok` was already broken and nobody had noticed: it lives in the
     **repainted** set, so its black background rect and its white slash were
     both rewritten to the theme foreground and the file rendered as a solid
-    block. Dropping the rect is the whole fix.
+    block. Dropping the rect is the whole fix. *(Correction, 2026-10-09: the
+    rect was not actually dropped — grok kept shipping as a solid block until
+    then, when the rect went and the `viewBox` was tightened to the slash.)*
   - `tldr` lost only its full-canvas navy rect; the rounded terminal mark and
     its gradients are the logo and stay.
   - `hunk` lost its cream box, which left an `#16140F` glyph against a
@@ -822,8 +824,10 @@ Worth knowing about `glyphFor`, which is still the default for every tile:
   (measured on screen: 27px of ink against the Chromium glyph's 33, 35 against
   33 after). The SVG branch never had that padding, so the same factor drew
   every vector 28% oversized, clipping top and bottom. Dropping the rasters left
-  one convention — every drop-in is an edge-to-edge SVG in a square `viewBox` —
-  and `iconDrawn` is the whole of the sizing. Match the **ink**; fix it in the
+  one convention — every drop-in is an edge-to-edge SVG — and `iconDrawn` is
+  the whole of the sizing. (This said "in a square `viewBox`"; with
+  `PreserveAspectFit` into a square box the canvas need not be square, and 26
+  of the 100 marks are not.) Match the **ink**; fix it in the
   file, not with a factor at draw time.
 - `sourceSize` is **set**, and for a reason that differs by format. On a raster
   it picks the decode resolution, and leaving it unset merely uses the file's

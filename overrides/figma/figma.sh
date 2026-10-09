@@ -307,8 +307,8 @@ say "installed to $APP_DIR"
 # is Wayland input-method support in Figma alone: fcitx5 here runs a bare
 # keyboard-us passthrough with no engine installed, and the Danish letters come
 # from xkb via wl_keyboard, which text-input is not in the path of. Install a
-# real fcitx5 engine (CJK) and this becomes a real loss — see README.md, which
-# records the alternative that keeps IME.
+# real fcitx5 engine (CJK) and this becomes a real loss — see ../README.md
+# (overrides/), whose follow-ups record the alternative that keeps IME.
 #
 # A wrapper around AppRun is NOT an option: the .desktop Exec must stay
 # byte-exact or integrate_desktop() rewrites the launcher entry (see
@@ -361,7 +361,7 @@ if (( first_install )); then
   printf '\n'
   say "first install — two things do not take effect yet:"
   skip "FIGMA_USE_WAYLAND comes from ~/.config/environment.d (apply.sh step 7c) and"
-  skip "  is read at login. Until you log out, Figma runs under XWayland at 80% scale."
+  skip "  is read at login. Until you log out, Figma runs under XWayland at 75% scale."
   if ! command -v keyd >/dev/null; then
     skip "keyd is not installed. It is what gives Figma a real Ctrl for Cmd+click and"
     skip "  Cmd+scroll: sudo pacman -S keyd, then re-run ./overrides/apply.sh."

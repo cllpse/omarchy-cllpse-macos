@@ -2,7 +2,7 @@
 
 Two settings in this repo have no command-line flag and no managed policy, so
 they can only be reached by editing the profile's `Preferences` JSON:
-default-zoom.py (page zoom) and system-theme.py (the GTK/system theme). Both
+default-zoom.py (page zoom) and neutral-theme.py (the GTK/system theme). Both
 need the same three things, and there is no reason for two copies of any of
 them:
 

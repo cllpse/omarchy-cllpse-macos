@@ -7,7 +7,7 @@
 # lived in apply.sh.
 #
 # --bar-only narrows the write to bar.layout + bar.centerAnchor and installs
-# nothing. It exists for hooks/post-boot.d/bar-layout.sh, which restores the
+# nothing. It exists for hooks/post-boot.d/cllpse-bar-layout.sh, which restores the
 # declared widget order once per session; see README.md (5). A boot hook has no
 # business re-asserting plugins[], bar.transparent or disabledPlugins behind the
 # user's back -- those stay apply.sh's job -- and it deliberately records no

@@ -1,5 +1,5 @@
 # Shared readers/writers for display scaling + text size.
-# Sourced by save-display.sh (capture), apply.sh (restore) and revert.sh (undo)
+# Sourced by save-display.sh (capture), display.sh (restore) and revert.sh (undo)
 # so the three can't drift apart. Not executable on its own.
 
 DISPLAY_MONITORS="${DISPLAY_MONITORS:-$HOME/.config/hypr/monitors.lua}"

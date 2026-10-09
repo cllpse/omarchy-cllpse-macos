@@ -10,9 +10,12 @@ branch is stale at 3.8.5 and describes an incompatible theme format (ANSI
 
 **Colour provenance:** read from Apple's live AppKit palette on macOS 27 via
 `NSColor` under `NSAppearance.aqua` and `.darkAqua`, converted to sRGB. macOS 26
-retuned the palette — published tables older than that disagree (`systemRed` was
+(Tahoe) retuned the palette and 27 keeps it: every system hue below matches the
+table in Apple's HIG, whose last colour change is dated 9 June 2025, the
+macOS 26 announcement. Published tables older than that disagree (`systemRed` was
 `#FF3B30`, is now `#FF383C`; `systemBlue` was `#007AFF`, is now `#0088FF`). Use
-only the values below.
+only the values below. Tahoe is 26's name, not 27's: the theme files once said
+"macOS 27 (Tahoe)", a gloss added after this section was written.
 
 **The colours are authoritative.** They are what macOS reports and are not to be
 adjusted, substituted, or reconciled against any other theme. Everything else —

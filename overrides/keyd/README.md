@@ -74,8 +74,8 @@ start and on reload and at no other time, so this step is still the one thing
 that publishes an edit to `overrides/keyd/default.conf` -- but an unchanged
 file needs no publishing, and poking the daemon regardless is what made every
 idempotent re-run of `apply.sh` a roll of the dice against the crash above.
-Measured: `default.conf` has changed **three times ever** (2026-09-12 ×2,
-2026-09-23), against **fifteen** reloads in the journal — so at least twelve
+Measured: `default.conf` had changed **three times ever** (2026-09-12 ×2,
+2026-09-23 — a fourth, e3f244d, came on 2026-09-29), against **fifteen** reloads in the journal — so at least twelve
 published nothing and existed only to be a chance to crash. Two of the fifteen
 did. Re-run the count with:
 

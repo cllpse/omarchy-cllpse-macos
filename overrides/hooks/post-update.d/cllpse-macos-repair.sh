@@ -21,7 +21,8 @@
 # Deliberately NOT rewritten here: ~/.config/omarchy/shell.json (the plugins[]
 # entry, bar.transparent, disabledPlugins). That file is machine-level, and
 # rewriting it from a hook that fires during an UPDATE is a worse failure mode
-# than the one it prevents. Re-run apply.sh if the switcher stops loading.
+# than the one it prevents. Re-run apply.sh if the switcher or the supermenu
+# stops loading.
 #
 # Bar widget order used to be on that list and no longer is, which is a
 # decision reversed on purpose rather than an oversight. The bar is
@@ -60,6 +61,9 @@ link "$OVERRIDES/hooks/post-update.d/cllpse-macos-repair.sh" \
 link "$REPO/omarchy-cllpse-theme-dark"  "$HOME/.config/omarchy/themes/omarchy-cllpse-theme-dark"
 link "$REPO/omarchy-cllpse-theme-light" "$HOME/.config/omarchy/themes/omarchy-cllpse-theme-light"
 link "$REPO/omarchy-cllpse-plugin-switcher"                          "$HOME/.config/omarchy/plugins/cllpse.window-switcher"
+# Missing until 2026-10-09, from the day the supermenu was added (2d68e06): an
+# update that repopulated plugins/ would have dropped it, and SUPER+SPACE with it.
+link "$REPO/omarchy-cllpse-plugin-supermenu"                         "$HOME/.config/omarchy/plugins/cllpse.supermenu"
 
 # An update can also land a new Omarchy whose icons differ, so re-sync rather
 # than assuming ~/.icons/ is still current. Cheap: no ImageMagick for the SVGs.

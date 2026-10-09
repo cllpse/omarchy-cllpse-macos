@@ -37,6 +37,7 @@ The set is therefore written out rather than described:
 | `post-update.d/cllpse-macos-repair.sh` | itself |
 | `themes/omarchy-cllpse-theme-{dark,light}` | `apply.sh` |
 | `plugins/cllpse.window-switcher` | `apply.sh` |
+| `plugins/cllpse.supermenu` | `apply.sh` — missing from this hook until 2026-10-09, so an update that repopulated `plugins/` would have dropped it |
 
 The first nine are also enumerated by `revert.sh`, which removes them. Three
 lists, one set, nothing enforcing it — this one-liner compares them (it was

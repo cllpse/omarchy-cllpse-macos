@@ -42,8 +42,18 @@ FLAT_IN="$HERE/../../icons/icons"
 #
 # The menu is the only reason this pass exists. It draws a plain Image out of
 # $HOME/.icons and cannot recolour anything (Menu.qml:1253), so a verbatim mark
-# can only reach it as a file here. The switcher reads its own icons/ directly
-# and would not notice if this pass never ran.
+# can only reach it as a file here.
+#
+# The switcher is NOT indifferent to it, though this comment used to say it
+# was. Its vendor sweep scans $HOME/.icons first, so it finds the copies this
+# pass writes to cllpse-color/apps/ BEFORE its own icons/. Skip this pass and
+# the switcher falls back to its own copies, which look the same only while the
+# two repos' files are byte-identical (the drift check in AGENTS.md is what
+# says so); a mark refitted on one side and not the other shows up exactly
+# here. The flat pass below matters to it even more: cllpse-flat/apps/ is the
+# index it checks before anything else, and without it the switcher draws its
+# own UNrepainted silhouettes, in whatever colour each was authored in,
+# whatever the theme.
 #
 # Copied verbatim -- the flat pass below repaints every file it walks, and a
 # multi-hue vendor logo does not survive that. The repaint is keyed on the

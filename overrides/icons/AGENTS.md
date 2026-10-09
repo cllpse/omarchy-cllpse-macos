@@ -45,7 +45,7 @@ here; elsewhere the last two come from the plugin's `icons/`.
 | consumer | key | example (and where it lives) |
 |---|---|---|
 | Omarchy menu (app rows) | the desktop entry's `Icon=` | `org.gnome.DiskUtility.svg` — `icons/`, here |
-| Switcher tile | the **window class** | `cursor.svg` — `verbatim/` here, via `~/.icons/cllpse-color/apps/` |
+| Switcher tile | the **window class**, then the `Icon=` of the desktop entry naming that class | `co.anysphere.cursor.svg` — `verbatim/` here, via `~/.icons/cllpse-color/apps/` |
 | Switcher terminal icon | the **command name**, after the switcher's alias file | `hunk.svg` — `verbatim/` here, via `~/.icons/cllpse-color/apps/` |
 
 A mark in `icons/` here also reaches the switcher, through the optional
@@ -81,8 +81,24 @@ Its alias table moved too: command-to-icon mappings now live in
 `icon-aliases.json` at the plugin root, not in `Hud.qml`. Adding a mark here
 whose command name differs from its filename means adding the alias **there**.
 
-A class and an `Icon=` often differ, so an app can need two copies under two
-names. Check a live window with `hyprctl clients -j | grep '"class"'`.
+A class and an `Icon=` often differ, and that costs a second copy less often
+than it looks. `iconFor()` in `Hud.qml` tries the class against the drop-in
+index, then follows `classIndex` — every desktop entry keyed by its
+`StartupWMClass` and its file id, lowercased — to that entry's `Icon=`, and
+only then tries the class against the vendor index. So a second copy named for
+the class is needed only where **no** entry names the class.
+
+**`cursor.svg` is never what the Cursor tile draws.** This table used to give it
+as the class-keyed example. Verified live on 2026-10-09: the window's class is
+`cursor`, nothing named `cursor` is in the drop-in index (`cllpse-flat` has no
+such file, and the user root does not exist), and `cursor.desktop` carries
+`StartupWMClass=Cursor` and `Icon=co.anysphere.cursor` — so `classIndex` wins
+and the tile draws `~/.icons/cllpse-color/apps/co.anysphere.cursor.svg`, the
+first hit for that name in the vendor sweep. `cursor.svg` (the same artwork,
+its `viewBox` padded square where the other's is tight to the ink) is reached
+only as a terminal process icon, for a title whose first word is `cursor`, or
+on a machine with no entry naming the class.
+Check a live window with `hyprctl clients -j | grep '"class"'`.
 
 ## 1. Find candidates
 
@@ -154,6 +170,7 @@ ALIAS = {"diff":"hunk","log":"hunk","dash":"gh","edit":"msedit",
          "claude":"claude-code","node":"nodejs","python3":"python","sqlite3":"sqlite",
          "psql":"postgresql","redis-cli":"redis","ffprobe":"ffmpeg",
          "magick":"imagemagick","convert":"imagemagick",
+         "brew":"homebrew","pacman":"arch-pacman",
          "ytm":"youtube-music","youtuimusic":"youtube-music",
          "π":"pi"}
 cands = collections.defaultdict(set)
@@ -185,8 +202,15 @@ Run from the repository root. Baseline on this machine at the time of writing:
 reports wildly more has lost a filter.
 
 Then use judgement. `npx`, `corepack` and `codex-code-mode-host` are shims
-nobody looks at; `brew`, `pacman`, `yay` and `lsd` are worth a mark. A missing
-name is a suggestion, not a task.
+nobody looks at; `yay` and `lsd` are worth a mark. A missing name is a
+suggestion, not a task.
+
+**Check for a mark under another name before drawing one.** `brew` and `pacman`
+sat on this list as "worth a mark" while `homebrew.svg` and `arch-pacman.svg`
+were already shipping in both repos — what was missing was the alias, so nothing
+ever looked those files up. The fix was two lines in `icon-aliases.json` and the
+`ALIAS` copy above, not artwork. (`sudo pacman` still titles a terminal `sudo`,
+and the switcher keys on the first word, so that form gets no icon either way.)
 
 ## 3. Choose the directory
 
@@ -213,7 +237,19 @@ set, or drop the background and move to `icons/`.
 
 Conversely, a file in `icons/` with a background rect is **broken**: the
 repaint rewrites the rect and the mark to the same colour and it renders as a
-solid block. `grok` shipped that way and nobody noticed.
+solid block. `grok` shipped that way and nobody noticed — and then kept
+shipping that way after `reference/window-switcher-notes.md` recorded it as
+found and fixed: its full-canvas `<rect style="fill:#0a0a0a">` was still in
+both copies on 2026-10-09. The repainted copy in `~/.icons/cllpse-flat/apps/`
+was a filled square, and that is the copy the switcher finds first, so a
+terminal titled `grok` wore a square badge. (The menu would draw the same
+square for any entry with `Icon=grok`; none exists here.) Fixed then by
+deleting the rect and tightening the `viewBox` from `0 0 163.53 163.53` to the
+slash's own bounds, `38.72 34.51 86.26 94.68` — the polygon's exact extremes,
+not the script's antialiased reading. Rendered through the same `sed` as
+`app-icons.sh` into a scratch file to check: a slash in the foreground of both
+themes, no box. A note that something was fixed is not evidence it was; render
+the file.
 
 ## 4. Align the sizing
 
@@ -233,7 +269,9 @@ python3 - <<'PY' path/to/new-icon.svg
 import re, subprocess, sys
 p = sys.argv[1]
 s = open(p, encoding="utf-8", errors="replace").read()
-m = re.search(r'''viewBox\s*=\s*["']([^"']+)["']''', s)   # quote-agnostic: Inkscape single-quotes
+s = re.sub(r'<!--.*?-->', '', s, flags=re.S)   # a comment can quote a viewBox: pi's does
+# The ROOT's viewBox, not the first in the file. Quote-agnostic: Inkscape single-quotes.
+m = re.search(r'''<svg\b[^>]*?\bviewBox\s*=\s*["']([^"']+)["']''', s, re.S)
 minx, miny, w, h = [float(x) for x in re.split(r'[\s,]+', m.group(1).strip())]
 S = max(1.0, 800.0 / max(w, h)); W, H = round(w*S), round(h*S)
 subprocess.run(["rsvg-convert","-w",str(W),"-h",str(H),p,"-o","/tmp/_i.png"], check=True)
@@ -255,13 +293,19 @@ PY
 ```
 
 **Two guards, and a mark with a background needs both.** The full-bleed test
-catches a background that reaches the canvas edge (`tldr`, `grok`: nothing
-transparent, so the script refuses). It does *not* catch a background with
-**rounded corners** — `hunk` gained `rx="2"` and now has transparent corners, so
-it reads as 0 min-alpha. The 99%-coverage test is what stops that one: its
-visible extent is still 100% x 100%, so there is nothing to tighten. Verified on
-all three. Never remove one of those checks on the grounds that the other
-covers it.
+catches a background that reaches the canvas edge (`tldr`: nothing
+transparent, so the script refuses; `grok` did too while it still carried its
+rect). It does *not* catch a background with **rounded corners** — `hunk`
+gained `rx="2"` and now has transparent corners, so it reads as 0 min-alpha.
+The 99%-coverage test is what stops that one: its visible extent is still
+100% x 100%, so there is nothing to tighten. Verified on all three. Never
+remove one of those checks on the grounds that the other covers it.
+
+The script reads the **root `<svg>` element's** `viewBox`, with comments
+stripped first. It used to take the first `viewBox=` anywhere in the file, and
+`pi`'s comment quotes one — so for that file it printed `34.5688 34.5688
+81.8625 81.8625`, a box computed from the wrong origin and scale. On the other
+99 marks the two readings agree; `pi` was the only one it got wrong.
 
 Apply the printed `viewBox`, **and `width`/`height` with it** — if they disagree
 with the new canvas, rsvg reintroduces the original aspect and the change does
@@ -271,7 +315,9 @@ much smaller than its neighbours it looked. `pi` fills 74% x 74% and is the one
 mark that is **supposed** to — inset on purpose, because a solid blocky mark
 reads heavier than the thin-stroked ones beside it, and its own file carries an
 XML comment saying so. A `tighten to:` line for that one is the script working,
-not a finding.
+not a finding. It reads `19.8187 19.8187 111.3625 111.3625`: the
+`20 20 111 111` that comment promises, plus one rasterised pixel of
+antialiasing a side (0.19 units at the 800px render).
 
 A wide wordmark (`npm`, `bat`, `systemd`) correctly fills its long axis and stays
 short. That is the logo, not padding — do not stretch it.

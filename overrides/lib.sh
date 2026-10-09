@@ -82,7 +82,7 @@ sync_fenced() { # $1 target  $2 snippet-file  $3 marker-suffix
   # already here" when only a SUFFIXED block is. The awk rewrite below then finds
   # no line equal to $open, passes the file through unchanged, and — the output
   # being non-empty — reports success. Net effect: the block is silently never
-  # installed. bindings.lua carries five blocks, so it is the file this reaches.
+  # installed. bindings.lua carries six blocks, so it is the file this reaches.
   # The current call order (plain before suffixed) hides it on a fresh machine;
   # deleting the plain block by hand and re-running is enough to surface it.
   #

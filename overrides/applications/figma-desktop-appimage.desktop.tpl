@@ -5,7 +5,7 @@
 #
 # The app is IliyaBrook/figma-linux, an AppImage repack of Figma's own Electron
 # build (NOT Figma-Linux/figma-linux, the community web-app wrapper), run from
-# an extracted directory rather than the .AppImage. overrides/install-figma.sh
+# an extracted directory rather than the .AppImage. overrides/figma/figma.sh
 # installs and updates it.
 # Two fields here differ from what it writes for itself (AppRun: integrate_desktop),
 # and both are deliberate.

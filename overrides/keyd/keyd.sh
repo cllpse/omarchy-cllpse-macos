@@ -45,7 +45,7 @@ if command -v keyd >/dev/null 2>&1; then
     # reload and at no other time, so this is the step that publishes an edit —
     # but an unchanged file needs no publishing, and poking the daemon anyway is
     # what made every idempotent re-run of apply.sh a roll of the dice against
-    # the segfault above. Measured: default.conf has changed three times ever,
+    # the segfault above. Measured: default.conf had changed three times ever,
     # against FIFTEEN reloads in the journal, so at least twelve of them
     # published nothing at all. Counting probe is in README.md (5).
     #

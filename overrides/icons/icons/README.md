@@ -72,22 +72,30 @@ without you keeping two copies.
 Three things are worth checking before dropping a file in, because none is done
 for you.
 
-**Make the `viewBox` square** — by padding it, never by stretching. A logo is
-usually distributed to its own bounds, and a non-square canvas is what actually
-goes wrong: the official Figma mark is `viewBox="0 0 288 432"`, and dropped in
-raw it renders visibly taller than every neighbour, because the box it is drawn
-into is square and the art is not. Widen the short axis, re-centre, and leave
-the shapes alone:
+**Fit the `viewBox` to the ink; it does not have to be square.** Never stretch
+the shapes to fill it. This section used to require a square canvas, padded on
+the short axis, on the grounds that the official Figma mark
+(`viewBox="0 0 288 432"`) dropped in raw "renders visibly taller than every
+neighbour, because the box it is drawn into is square and the art is not". The
+box is square, but neither consumer stretches into it:
 
-```
-<!-- 288x432 -> side 432, so x shifts by (432 - 288) / 2 = 72 -->
-<svg viewBox="-72 0 432 432" width="432" height="432">
-  …the original shapes, untouched…
-</svg>
-```
+- the menu's app-row `Image` (`Menu.qml:1253`) is `Style.font.iconLarge`
+  square with `fillMode: Image.PreserveAspectFit`;
+- the switcher's mark `Image` (`Hud.qml`, `iconDrawn` square) is
+  `PreserveAspectFit` too.
 
-`width` and `height` have to agree with the new canvas, or rsvg reintroduces the
-original aspect and the padding is undone.
+So a tall mark's long axis fills the box exactly as a square mark's does, and
+padding the short axis to square changes nothing on screen. Rendered through Qt
+with those properties to check: `figma-desktop` as shipped
+(`133.76 × 200.32`, tight) and padded to `200.32` square both drew 64×96 in a
+96px box, 93 of 9216 pixels apart, all antialiasing; `co.anysphere.cursor`
+(tight) and `cursor` (the same art padded square) drew the same 84×96. What
+does change the drawn size is ink that stops short of the canvas on its long
+axis, which is the next point. [`../AGENTS.md`](../AGENTS.md) has the script
+that measures it and prints the tight `viewBox`.
+
+`width` and `height` have to agree with the `viewBox`, or rsvg reintroduces the
+original aspect and the change is undone.
 
 **Do not inset the mark.** An earlier revision of this file asked for a 200px
 mark on a 256px canvas. That was real once — `app-icons.sh` trimmed each raster
@@ -95,15 +103,24 @@ and re-padded it to exactly that ratio, and the switcher undid the 200/256 at
 draw time — but both halves are gone with the rasters. `Hud.qml` now draws the Image at
 `iconDrawn` — a flat `iconSize * 0.9` — with no ink-ratio compensation in it, so
 a file padded to 78% renders about a fifth *smaller* than its neighbours rather
-than correctly. Edge-to-edge inside a square canvas is the whole
-contract. Every file in this directory and in the switcher's `icons/` is
-edge-to-edge, bar `pi`, inset on purpose; the canvases are not all square — 4 of
-the 24 here and 25 of the switcher's 100 were tightened to their ink instead.
+than correctly. Edge-to-edge on the long axis is the whole contract (it said
+"inside a square canvas" until the section above was checked against the
+code). Every file in this directory and in the switcher's `icons/` is
+edge-to-edge, bar `pi`, inset on purpose; the canvases are not all square — 5 of
+the 24 here and 26 of the switcher's 100 are tight to their ink, `grok` the
+fifth and twenty-sixth since 2026-10-09 (it was 4 and 25).
 
 **Strip export artefacts.** Design tools emit invisible bounding rectangles —
 `<rect … fill-opacity="0">` spanning the canvas. They draw nothing today, but
 the sync rewrites `fill` attributes, and that rect is one attribute away from
 becoming a solid block.
+
+**No background, visible or not.** A visible one is that block already: the
+repaint gives it and the mark one colour. `grok` carried a full-canvas
+`<rect style="fill:#0a0a0a">` behind a white slash and synced as a filled
+square until 2026-10-09; the fix was deleting the rect and fitting the
+`viewBox` to the slash. A mark that only reads against its own background
+belongs in `../verbatim/` with that background kept.
 
 Check the result before trusting it:
 

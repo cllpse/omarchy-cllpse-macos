@@ -10,9 +10,11 @@
 -- hl.dsp.global() hands the event straight to the plugin's GlobalShortcut
 -- (registered in Supermenu.qml, appid "cllpse-supermenu"): no fork, no exec,
 -- no Qt startup. Measured end to end, a dispatched toggle has the card on
--- screen in under 20ms including the hyprctl that sent it, and holding the
--- keyboard ~30ms after the press at 60Hz: keys typed inside that gap still go
--- to the window you were in (the plugin README has the measurement).
+-- screen in under 20ms including the hyprctl that sent it. Keystrokes are held
+-- ~1ms after the shortcut reaches the shell and replayed into the field once the
+-- card has the keyboard (20-35ms at 120Hz) -- since supermenu 1.1.0; before it,
+-- keys typed in that gap went to the window you were in. The plugin README has
+-- the measurements.
 --
 -- Omarchy's own menu is not removed, only moved off this chord: `omarchy menu`
 -- and every script that uses it as a picker prompt still open it. It has no

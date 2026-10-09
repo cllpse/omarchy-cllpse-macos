@@ -18,6 +18,9 @@ must be edited together.
 4. Do not commit generated files — only `colors.toml`.
 5. If the key is used in `overrides/` (e.g. cursor chrome), update the
    consumer there too. Do not leave the two out of sync.
+6. Both themes are **submodules**, so this is the two-commit shape of *Bump a
+   plugin submodule* below, twice: commit and push in each theme repo, then
+   one commit here bumping both pointers.
 
 ## Bump a plugin submodule
 
@@ -46,11 +49,15 @@ Icons live in two directories, keyed two different ways. See
 1. Determine if the mark should be recoloured (`icons/`) or kept verbatim
    (`verbatim/`). Recoloured only for silhouettes; anything defined by
    colour boundaries goes in verbatim.
-2. Ensure the SVG has a **square `viewBox`** (e.g. `0 0 24 24`). The menu
-   draws into a square box, so a non-square one renders off-size beside its
-   neighbours. The switcher's copy follows its own contract instead — ink
-   edge-to-edge in its own box, `PreserveAspectFit`, no distortion (see
-   `omarchy-cllpse-plugin-switcher/AGENTS.md`).
+2. Fit the SVG's `viewBox` to its **ink**, edge to edge; it need not be
+   square. Both the menu and the switcher draw into a square box with
+   `PreserveAspectFit`, so a tight non-square mark draws exactly as large as
+   the same art padded square (measured with an offscreen Qt render), while
+   padding *inside* the box makes it small. No background shape either: a
+   repainted mark turns it into a solid square. See
+   `overrides/icons/icons/README.md` and
+   `omarchy-cllpse-plugin-switcher/AGENTS.md`. (This step used to require a
+   square `viewBox`.)
 3. The filename must match the **desktop entry's `Icon=`** for the Omarchy
    menu to find it. For the switcher, a second copy named for the **window
    class** may be needed (they often differ).

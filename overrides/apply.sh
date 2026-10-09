@@ -28,9 +28,9 @@
 #
 # keyd, ryzenadj, tailscale and flea are the four packages this depends on and
 # it installs NONE of them -- each step configures its tool if present and says
-# so if it is not. Only keyd's step needs sudo; tailscale's is passwordless,
-# since Omarchy's own installer already grants this user Tailscale's operator
-# bit, and flea's writes nothing outside $HOME.
+# so if it is not. keyd's and ryzenadj's steps need sudo; tailscale's is
+# passwordless, since Omarchy's own installer already grants this user
+# Tailscale's operator bit, and flea's writes nothing outside $HOME.
 #
 # What each step does, and where to read about it:
 #
@@ -48,7 +48,7 @@
 #        and the keybind allowlist (was 6b)                            hypr/
 #   7.   the apps Omarchy doesn't theme:
 #          bat/ lazygit/ lsd/ yazi/ lazydocker/ gh-dash/ starship/
-#          cursor/ hunk/ ytm/ bash/ git/
+#          cursor/ pi/ hunk/ ytm/ bash/ git/
 #   7b.  restore saved display scaling + text size                     display/
 #   7c.  session environment drop-ins                                  environment.d/
 #   7d.  Chromium flags, zoom and neutral UI                           chromium/ (user)
@@ -315,7 +315,7 @@ step_btrfs() {
 # Level 3 -- the kernel's default, which is what a bare `compress=zstd` selects
 # -- runs roughly 2-3x slower at compression than level 1 for ~5-10% better
 # ratio on mixed data. On this machine that trade is wrong in both directions:
-# the disk is 4% full, so the ratio buys nothing, and the CPU is thermally
+# the disk was 4% full when this was decided (10% on 2026-10-09), so the ratio buys nothing, and the CPU is thermally
 # capped (step 10), so the watts the compressor takes come straight out of the
 # cores. Reads are unaffected -- zstd decompression speed is essentially
 # level-independent.

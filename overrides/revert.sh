@@ -102,7 +102,7 @@ fi
 # Drop-ins this repo shipped once and no longer does. The loop above walks the
 # REPO directory, so a file deleted from the repo is invisible to it and the
 # installed copy would survive a revert. Keep this list in step with the
-# matching one in apply.sh step 7c.
+# matching one in environment.d/environment.d.sh (apply.sh step 7c).
 for f in 10-cllpse-macos-font-rendering.conf; do
   t=~/.config/environment.d/$f
   [[ -e $t ]] && { rm -f "$t"; say "removed retired drop-in $f"; }
@@ -196,9 +196,11 @@ say "Removing Cursor chrome theme-set hook"
 # above does not reach them. Put back only what apply recorded — a recording
 # exists only if apply actually found the wrong value and changed it. Nothing
 # recorded means the machine was already correct and there is nothing to undo.
-# Skipped while Cursor is running, since it rewrites that DB from memory; the
-# process NAME is `electron`, so neither `pgrep -x` nor `pgrep -f` can test for
-# it and /proc/<pid>/exe is resolved instead.
+# Skipped while Cursor is running, since it rewrites that DB from memory. The
+# binary is `electron`, and neither pgrep form is relied on -- `pgrep -x cursor`
+# found nothing when this was written (on 3.22.7 the main process's name reads
+# `cursor`, every helper's `electron`) and `pgrep -f` matches its own caller --
+# so /proc/<pid>/exe and the command line are read instead.
 cursor_running() {
   local p exe
   for p in /proc/[0-9]*; do
@@ -457,6 +459,27 @@ if [[ -s $STATE/previous-flea-handler ]]; then
     say "restored $flea_dbus"
   fi
   rm -f "$STATE/previous-flea-handler" "$STATE/previous-flea-keys"
+fi
+
+# Pi agent (apply.sh step `pi`). Only the three keys pi.sh owns go back, from
+# the record -- not the .pre-cllpse backup wholesale, since the same file holds
+# pi's own settings (theme, TUI mode) that move on after an apply, the shell.json
+# rule above. A null in the record means the key was absent. Nothing recorded
+# means the file already matched, so there is nothing of its own to restore.
+pi_settings=~/.pi/agent/settings.json
+if [[ -s $STATE/previous-pi-routing && -s $pi_settings ]] && command -v jq >/dev/null 2>&1; then
+  _pi=$(mktemp)
+  if jq --argjson p "$(<"$STATE/previous-pi-routing")" '
+       reduce ($p | to_entries[]) as $e (.;
+         if $e.value == null then del(.[$e.key]) else .[$e.key] = $e.value end)
+     ' "$pi_settings" >"$_pi" 2>/dev/null && [[ -s $_pi ]]; then
+    cat "$_pi" >"$pi_settings"
+    say "pi agent: routing keys put back as they were before apply.sh"
+    rm -f "$STATE/previous-pi-routing"
+  else
+    say "  could not rewrite $pi_settings — left untouched (its .pre-cllpse backup is the fallback)"
+  fi
+  rm -f "$_pi"
 fi
 
 rmdir "$STATE" 2>/dev/null || true
