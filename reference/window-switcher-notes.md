@@ -491,6 +491,19 @@ plugin-side theming. Under **omarchy-cllpse-theme** that means:
   **The one deliberate departure is the icon** at `Style.font.display` (2.0 rem):
   in the menu the icon sits inline beside a label, here it is the primary
   element of a card, like a macOS Cmd-Tab tile;
+- **the highlight slides, and the name does not change colour.** The selected
+  fill and `selected-border` are one surface (`selectionSurface`) beneath the
+  tiles, not each tile's own background, and it moves between tiles over 140ms
+  on `OutCubic`. It sits in a clipped viewport and is shifted by the strip's
+  scroll without animation, so a scroll carries it with the tiles and only a
+  change of index travels. The slide is enabled only while the strip is open,
+  and `_openStepped()` sets the index before `opened`, so an open puts it
+  straight onto its tile. The tile name stays `Color.menu.text` when selected.
+  It used to switch to `selected-text` (blue) the way a menu row does, but with
+  a sliding fill the colour arrived before the highlight did. The Nerd Font
+  glyph fallback still takes the selection tint. Measured by burst-`grim`ing a
+  line through the tiles: open lands at x 1044 with no slide-in, `next`
+  travels 1044 → 1221 → 1263 → 1266, `prev` 1170 → 1068 → 1045 → 1044;
 - blur comes from the `hl.layer_rule` in
   `overrides/hypr/looknfeel-decoration.lua`, whose namespace match includes
   `window-switcher-hud` so the HUD blurs exactly like the Omarchy menu.
@@ -722,7 +735,8 @@ Worth knowing about `glyphFor`, which is still the default for every tile:
   drop-in under a selected tile now keeps the theme foreground instead of
   following the label. That is the accepted cost of "the icon is the source of
   truth", and it is why the plugin ships full-colour marks rather than flat
-  ones.
+  ones. (The label has since stopped following the selection too — see *Look* —
+  so a flat drop-in and its name agree again.)
 - The fallback is `status !== Image.Ready`, so on a machine where `apply.sh`
   step 7f never ran — no `~/.icons/cllpse-flat/` at all — every tile simply
   stays a glyph and nothing breaks.
