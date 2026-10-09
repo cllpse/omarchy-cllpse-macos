@@ -270,6 +270,20 @@ hover already use.
 - **The strip auto-scrolls at the edges.** It is wider than the card as soon as
   there are more windows than fit, and the group you most want to drop on is
   then exactly the one off the end.
+- **The wheel scrolls it kinetically, as the supermenu's list scrolls.** The
+  supermenu's `ListView` is interactive, so Qt's `QQuickFlickable::wheelEvent`
+  takes the wheel: velocity from the delta over the time since the last event,
+  averaged over three samples, then a decelerating flick. The switcher cannot use
+  that path. It flicks horizontally only on `angleDelta.x`, so a vertical wheel
+  over a horizontal list does nothing (Qt 6.11.2 source). So `tiles.onWheel`
+  reproduces the arithmetic and hands it to the public `flick()`, which does not
+  check `interactive`. The list carries `flickDeceleration: 15000` because
+  `flick()` uses the touch deceleration (1500) where the wheel path uses
+  `wheelDeceleration` (15000). One isolated detent glides `wheelScrollLines × 24`
+  = 72px. Checked offscreen with the handler's own arithmetic: 72px in ~50ms,
+  decelerating 22 → 39 → 53 → 63 → 70 → 72; back to 0 on the reverse notch; no
+  overshoot at an end. A press stops a glide, and each open starts still.
+  Before, each wheel event moved the strip by the raw delta in one jump.
 
 ### Placing it in the slot
 
