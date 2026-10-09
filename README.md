@@ -294,7 +294,10 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   card is drawn in the menu's theme tokens. The key arrives as a Hyprland global
   shortcut (`overrides/hypr/supermenu-bindings.lua`), not an IPC call, so it
   starts no process: the card is on screen in under 20ms, and a keystroke ranks
-  ~310 entries in under 0.2ms. Omarchy's own menu is not removed —
+  ~310 entries in under 0.2ms. What you type before the card has the keyboard
+  is held by a 1x1 surface that takes it ~1ms after the shortcut, and replayed
+  into the search field, so a fast first letter no longer lands in the window
+  behind. Omarchy's own menu is not removed —
   `omarchy menu` and every script that uses it as a picker still open it — it is
   only moved off the chord. Its plugin README has the ranking in full and one
   Omarchy 4.0.4 bug it works around: a third-party `menu` plugin is never

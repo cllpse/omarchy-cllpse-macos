@@ -337,7 +337,10 @@ out in `default/hypr/apps/omarchy-shell.lua` while leaving notifications, OSD,
 polkit and reminders fading, so the shell was inconsistent with itself; layer
 rules accumulate and ours load later, so this needs no edit to Omarchy's file.
 The bar is deliberately excluded: it is persistent chrome, so the fade would
-only ever show on a shell restart.
+only ever show on a shell restart. A fourth gives the supermenu's keystroke
+catcher (`omarchy-supermenu-catcher`) `no_anim`: a 1x1 transparent surface the
+plugin unmaps and recreates on every open, so a fade there would be a snapshot
+and frames nobody sees.
 
 Injected blocks are wrapped in `>>> cllpse-macos overrides >>>` fences (comment
 leader `--` in Lua, `#` in shell — Ghostty config takes `#`), optionally suffixed

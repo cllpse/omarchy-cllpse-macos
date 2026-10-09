@@ -155,6 +155,16 @@ recreated there and die with it. Bind them with a `Variants` over
 `Quickshell.screens` and `screen: modelData`, as `Bar.qml` does. Probe:
 `hyprctl layers | grep omarchy-window-switcher-corner`
 
+### A layer surface that took the keyboard must let go by unmapping
+
+Hyprland 0.56.2 keeps an `Exclusive` layer on its exclusive list until a
+commit setting `None` is applied, and Quickshell sends that only with the
+surface's next frame. While it is listed, closing another layer hands the
+keyboard to it, invisibly. The supermenu's keystroke catcher unmaps instead.
+Separately, keys typed in the ~5-30 ms a focus change takes are discarded by
+fcitx5 when the window left had an input method active (upstream). Details
+and probes: `omarchy-cllpse-plugin-supermenu/AGENTS.md`.
+
 ### `pgrep -f` matches whole command lines
 
 It matches the *caller*. Resolve `/proc/<pid>/exe` instead.

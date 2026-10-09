@@ -377,6 +377,17 @@ hl.layer_rule({
   animation = "none",
 })
 
+-- The supermenu's keystroke catcher (omarchy-supermenu-catcher) is a 1x1
+-- transparent surface that takes the keyboard while the card is being built,
+-- and lets go by unmapping: it is destroyed and made anew on every open (the
+-- plugin's AGENTS.md has why). Nothing of it is ever visible, so a layer fade
+-- would only cost a snapshot at each unmap and frames nobody sees.
+hl.layer_rule({
+  match = { namespace = "^omarchy-supermenu-catcher$" },
+  no_anim = true,
+  animation = "none",
+})
+
 -- ── Animation speed (3.5x) ─────────────────────────────────────────────────
 -- Can't live in the theme: colors.toml/shell.toml carry no animation keys at
 -- all (checked shell.toml.tpl), and the shell's own per-component durations
