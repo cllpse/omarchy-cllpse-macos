@@ -322,7 +322,7 @@ The Omarchy column is [measured] from `shell.toml`; the macOS column is
 | launcher | 0.95 | **1.0** [chosen] — opaque, tracking the menu below (0.85, matching Spotlight's translucency, was the original figure). *Inert on 4.0.4 either way: nothing reads `launcher.*`; the launcher is the menu plugin on `Color.menu.*`* |
 | launcher scrim | 0.5 | **0.25** [chosen] — matched to the menu scrim below. 0.35 shipped first (macOS dims the desktop only lightly, and a switcher was thought to want more separation than a menu); measured against the menu at 0.37 vs 0.22, the mismatch was visible and the two were aligned. *Inert either way: the switcher now binds `Color.menu.scrim` directly, so this section drives nothing* |
 | menu scrim | 1.0 | **0.25** — the menu and the window switcher share this value literally: the switcher binds `Color.menu.scrim`, so retuning here moves both. It has to stay readable enough to pick the window you are switching to. *The switcher's scrim is switched off for now (`showScrim` in its `Hud.qml`), so this currently reaches only the menu; the binding is kept and applies again the moment it is turned back on* |
-| menu | 1.0 | **1.0** [chosen] — opaque. 0.92 ("near-opaque glass") shipped first and was taken to full opacity on request: SUPER+SPACE and the window switcher are read-at-a-glance surfaces, and at 0.92 whatever sits behind them reads through the text. Consequence: the blur rule is inert for this surface, since an opaque pixel has nothing to blur through |
+| menu | 1.0 | **1.0** [chosen] — opaque. 0.92 ("near-opaque glass") shipped first and was taken to full opacity on request: SUPER+SPACE and the window switcher are read-at-a-glance surfaces, and at 0.92 whatever sits behind them reads through the text. Consequence: blur drew nothing on this surface, since an opaque pixel has nothing to blur through — and it was taken out of the blur rule, along with the window switcher and the supermenu that share its colours, because blurring a full-screen layer halved its animation frame rate (120 → 60 fps, measured on the switcher) |
 | tooltip | 0.97 | **1.0** [chosen] — opaque, via a `shell.tooltip.toml` added for this (0.97 was Omarchy's generated value, previously left alone as "already correct") |
 | notifications | 1.0 | **1.0** [chosen] — opaque, same reasoning as the menu (0.92 was the original figure). Blur is inert for it as a result |
 | lock | 0.8 | **1.0** [chosen] — opaque, via a `shell.lock.toml` added for this (0.8 was Omarchy's generated value, previously left alone as "already correct"). `selection-alpha` stays 0.45: a text-selection tint, not a surface |
@@ -335,9 +335,14 @@ and every card (1.0), so cards would stay frosted while the backdrop stays
 sharp. If a card's alpha is ever taken below 0.6 it will silently lose its blur.
 Every card now sits at the other end. Bar, menu, notifications, tooltip and lock
 are all at 1.0, so none of them has anything to blur *through* and the layer blur
-rule is inert for all of them. The rule is kept rather than deleted: it costs
-nothing while every surface is opaque, and it is what makes the effect reappear
-the moment any `background-alpha` is taken back below 1.0. The scrims were
+rule is inert for all of them. The rule is kept rather than deleted: it is what
+makes the effect reappear the moment any `background-alpha` is taken back below
+1.0. Inert is not the same as free, though. Measured on the window switcher —
+a full-screen layer — with Qt's render-loop timing, being in the rule held its
+animations to 60 fps on the 120Hz output against 120 fps without it, while
+drawing nothing. The menu, the switcher and the supermenu were taken out of the
+rule for that. The other full-screen surfaces still in it have not been
+measured. The scrims were
 deliberately left translucent, and they sit under `ignore_alpha` (0.6), so they
 were never blurred in the first place.
 

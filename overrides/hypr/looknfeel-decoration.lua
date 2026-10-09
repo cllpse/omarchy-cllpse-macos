@@ -267,7 +267,8 @@ hl.config({
 -- has nothing to blur through; the two scrims are at 0.25, under the
 -- ignore_alpha below, so they render sharp by design. (shell.launcher.toml sets
 -- 1.0 too, but it is not why anything here is inert: nothing reads launcher.* on
--- 4.0.4 -- the launcher IS omarchy-menu, so `menu` above already covers it.) Nothing
+-- 4.0.4 -- the launcher IS omarchy-menu, which has since left this rule; see
+-- below.) Nothing
 -- here is currently reaching the screen. It is kept, rather than deleted,
 -- because it is the entire cost of re-enabling glass: drop one alpha in a
 -- theme and that surface frosts again with no compositor-side change.
@@ -281,8 +282,8 @@ hl.config({
 -- polkit, notifications are fullscreen layers with a centred card) from
 -- blurring into a rectangle.  The launcher is not a fourth: Omarchy's SUPER+SPACE
 -- is the menu plugin on the omarchy-menu namespace. Here SUPER+SPACE is the
--- supermenu (omarchy-supermenu, below), and omarchy-menu stays in the list for
--- `omarchy menu` and the scripts that still open it.
+-- supermenu (omarchy-supermenu), and omarchy-menu is what `omarchy menu` and
+-- the scripts still open. Neither is in the list any more -- see below.
 --
 -- It is 0.6 because a card and the scrim behind it are the SAME layer surface,
 -- so Hyprland cannot blur them differently -- per layer the only controls are
@@ -295,35 +296,37 @@ hl.config({
 --
 -- So the number to watch when re-enabling glass is 0.6: a card set BELOW it
 -- silently gets no blur, and a scrim set above it starts blurring the desktop
--- behind the dim -- which for the switcher defeats the point of being able to
--- see what you are switching between.
+-- behind the dim -- which for the switcher, were it added back, defeats the
+-- point of being able to see what you are switching between.
 --
 -- blur_popups extends blur to child dropdowns (bar module menus, panel flyouts).
 --
--- window-switcher-hud, our own plugin (omarchy-cllpse-plugin-switcher/,
--- symlinked to ~/.config/omarchy/plugins/cllpse.window-switcher), is NOT
--- matched, and used to be. Its card binds Color.menu.background, so it frosted
--- with the menu -- but with the card opaque and the scrim off (showScrim in
--- Hud.qml) the blur drew nothing, and it was not free. The switcher is a
--- full-screen layer, and blurring it halved its frame rate: measured with Qt's
--- render-loop timing while the highlight faded, frames came every 16-17ms
--- (60 fps) with the namespace in this rule and every 8ms (120 fps, the
--- output's full rate) without it, with Qt itself rendering in ~0ms either way.
--- The compositor's own open/close fade pays the same. If the menu goes
--- translucent again and the switcher should frost with it, add it back here
--- knowing that is the price.
+-- Also not matched, though they used to be: the three full-screen surfaces
+-- whose cards bind the menu's colours. omarchy-menu, and our two plugins --
+-- window-switcher-hud (omarchy-cllpse-plugin-switcher/, symlinked to
+-- ~/.config/omarchy/plugins/cllpse.window-switcher) and supermenu
+-- (omarchy-cllpse-plugin-supermenu/, symlinked to
+-- ~/.config/omarchy/plugins/cllpse.supermenu, the launcher SUPER+SPACE opens).
 --
--- supermenu is our other plugin (omarchy-cllpse-plugin-supermenu/, symlinked to
--- ~/.config/omarchy/plugins/cllpse.supermenu), the launcher SUPER+SPACE opens.
--- Same arrangement: its card binds the menu's tokens, so it frosts exactly
--- when the Omarchy menu does, and is inert with it until then. It draws no
--- scrim by default (Raycast dims nothing); with `backdrop` on in Supermenu.qml
--- its scrim binds the menu's too.
+-- With those cards opaque the blur drew nothing on any of them. The menu's 0.25
+-- scrim is under ignore_alpha, the switcher's scrim is off (showScrim in
+-- Hud.qml), and the supermenu draws none by default (`backdrop` in
+-- Supermenu.qml). And it was not free: blurring a full-screen layer costs the
+-- compositor a full-screen blur on every frame that changes. Measured on the
+-- switcher with Qt's render-loop timing while its highlight faded: frames every
+-- 16-17ms (60 fps) with the namespace in this rule, every 8ms (120 fps, the
+-- output's full rate) without it, Qt itself rendering in ~0ms either way. The
+-- menu and the supermenu are the same kind of surface and came out with it; they
+-- were not measured separately. Every animation on them paid it -- the open and
+-- close fades, and any selection fade.
+--
+-- If the menu goes translucent again and these should frost with it, add them
+-- back here knowing that is the price.
 --
 -- Not matched: omarchy-background (the wallpaper itself) and the transient
 -- omarchy-bar-drag-ghost / -move-ghost surfaces.
 hl.layer_rule({
-  match = { namespace = "^omarchy-(bar|menu|notifications|osd|polkit|clipboard|emojis|reminders|image-selector|network-qr|keyboard-panel|lock-preview|supermenu)$" },
+  match = { namespace = "^omarchy-(bar|notifications|osd|polkit|clipboard|emojis|reminders|image-selector|network-qr|keyboard-panel|lock-preview)$" },
   blur = true,
   blur_popups = true,
   ignore_alpha = 0.6,

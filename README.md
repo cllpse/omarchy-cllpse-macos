@@ -246,13 +246,14 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   don't read as a hard cut. It sets no border *colour*: both borders come from
   the active theme's `colors.toml` via the generated `hyprland.lua`.
   `looknfeel-decoration.lua` also carries an `hl.layer_rule` opting the Omarchy
-  shell surfaces (`omarchy-bar|menu|notifications|osd|polkit|clipboard|emojis|`
-  `reminders|image-selector|network-qr|keyboard-panel|lock-preview`) plus our own
-  `omarchy-supermenu` into that blur — `blur_popups` on,
-  `ignore_alpha = 0.6`, which sits between the scrims (0.25) and the cards
-  (all 1.0) so the dimmed backdrop stays sharp. The window switcher is left
-  out: its blur drew nothing (opaque card, scrim off via `showScrim`) and
-  halved its frame rate, 120 → 60 fps, while it animated. With every card opaque the blur is currently inert;
+  shell surfaces (`omarchy-bar|notifications|osd|polkit|clipboard|emojis|`
+  `reminders|image-selector|network-qr|keyboard-panel|lock-preview`) into that
+  blur — `blur_popups` on, `ignore_alpha = 0.6`, which sits between the scrims
+  (0.25) and the cards (all 1.0) so the dimmed backdrop stays sharp. The menu,
+  the window switcher and the supermenu are left out. They are full-screen
+  layers whose blur drew nothing (opaque cards, scrims off or under
+  `ignore_alpha`), and it halved their frame rate while they animated: 120 →
+  60 fps, measured on the switcher. With every card opaque the blur is currently inert;
   the rule is kept so it returns if an alpha is lowered again. Additive to Omarchy's own `no_anim` layer rules.
 - **The window switcher opens from any screen corner as well as `SUPER+TAB`.**
   The plugin maps four one-pixel layer surfaces
@@ -389,7 +390,9 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   its full section, and it matters most for `lock`, whose `background-alpha`
   default (0.8) is exactly what we are overriding.
   Because every card is opaque, the layer blur rule is currently inert for all of
-  them; it is kept so the effect returns if any alpha is lowered again. The dark/light copies are currently identical
+  them; it is kept so the effect returns if any alpha is lowered again. Inert is
+  not free on a full-screen layer, though: the menu, the switcher and the
+  supermenu were taken out of it because it halved their animation frame rate. The dark/light copies are currently identical
   (same α over each mode's own `background` colour); tune light up if it reads
   washed out.
 - **Focused windows fully opaque, unfocused at 0.875 so the blur renders through.**

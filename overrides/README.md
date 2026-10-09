@@ -320,12 +320,12 @@ neither `pgrep -x` nor `pgrep -f` can test for it.
 
 The blur `layer_rule` only opts the shell surfaces *into* blur; the matching
 translucency (`background-alpha`) is the theme's half —
-`*/shell.*.toml`. Blur shows nothing until both are in place. The rule's
-namespace match also covers `omarchy-supermenu` (symlinked in step 1), so it
-blurs like the menu. It no longer covers `omarchy-window-switcher-hud`: with its
-card opaque and its scrim off the blur drew nothing there, yet blurring that
-full-screen layer halved its frame rate, from 120 fps to 60 fps, measured with
-Qt's render-loop timing (`looknfeel-decoration.lua` has the numbers).
+`*/shell.*.toml`. Blur shows nothing until both are in place. The rule no longer
+covers `omarchy-menu` or either plugin (`omarchy-window-switcher-hud`,
+`omarchy-supermenu`). All three are full-screen layers with opaque cards, so the
+blur drew nothing on them, yet blurring a full-screen layer halved its frame
+rate while it animated: 120 fps to 60 fps, measured on the switcher with Qt's
+render-loop timing (`looknfeel-decoration.lua` has the numbers).
 
 A second `layer_rule` re-enables Hyprland's layer fade (measured ~130ms) for the
 keyboard-driven panels — menu, clipboard, emojis, image-selector,
