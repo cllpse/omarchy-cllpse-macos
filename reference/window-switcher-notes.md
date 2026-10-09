@@ -527,9 +527,10 @@ plugin-side theming. Under **omarchy-cllpse-theme** that means:
   overrides the derived value;
 - **the highlight fades, and the name does not change colour.** Each tile
   carries the selected fill and `selected-border` as its own `selectionFill`,
-  beneath its content, and fades it over 140ms on `OutCubic` (Omarchy's
-  opacity fade for a hovered widget, `WidgetButton.qml`) rather than switching
-  it. The tile losing the selection fades out while the one gaining it fades
+  beneath its content, and fades it over 60ms on Hyprland's `default` curve
+  rather than switching it. It shares `root.animDuration` / `root.animCurve`
+  with the scrim's fade. It was 140ms on `OutCubic`, Omarchy's opacity fade
+  for a hovered widget (`WidgetButton.qml`). The tile losing the selection fades out while the one gaining it fades
   in, under the pointer and under TAB alike, since both move `root.index`. The
   fade is enabled only while the strip is open, and `_openStepped()` sets the
   index before `opened`, so an open shows the selected tile already lit. A slide
@@ -821,13 +822,17 @@ Worth knowing about `glyphFor`, which is still the default for every tile:
     flashing the strip — and removed. Don't re-add one.
   - *The fade is the compositor's.* `omarchy-window-switcher-hud` is in the
     `animation = "fade"` layer rule in `overrides/hypr/looknfeel-decoration.lua`
-    alongside the panels, so it ramps over `layersIn` and out over `layersOut`.
-    Duration is those leaves' speed, shared with every animated layer — there
-    is no per-rule duration.
+    alongside the panels, so it fades in over `fadeLayersIn` and out over
+    `fadeLayersOut`: 60ms on `almostLinear` at our speeds. Those two leaves
+    drive a layer's alpha (Hyprland v0.56.2 `LayerSurface.cpp:213-215`, :251-253).
+    `layersIn` / `layersOut` drive only its position and size, which the `fade`
+    style leaves still. Duration is the fade leaves' speed, shared with every
+    animated layer. There is no per-rule duration or curve.
   - *The scrim is off, and its own fade is kept.* With `showScrim` false (see
     *Look*) the card is all there is to fade. The scrim `Rectangle` in
     `Hud.qml` still carries its own `opacity` animation (`Behavior` +
-    `NumberAnimation`, 120ms, `Easing.OutCubic` — Omarchy's own curve for a QML
+    `NumberAnimation`, 60ms on Hyprland's `default` curve, cubic-bezier(0, 0.75,
+    0.15, 1); it was 120ms on `Easing.OutCubic`, Omarchy's own curve for a QML
     fade), written for a surface the compositor does *not* fade. Turned back on
     as things stand, the scrim fades with the card and that ramp stacks on top,
     so the dim lands a little behind. For a card that lands instantly with only

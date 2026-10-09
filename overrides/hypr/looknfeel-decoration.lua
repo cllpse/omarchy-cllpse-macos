@@ -335,8 +335,8 @@ hl.layer_rule({
 -- A short fade-in on the keyboard-driven panels, and on our switcher and
 -- supermenu.
 --
--- Hyprland fades a layer surface as it maps (`layersIn`, style = fade, ~130ms
--- at our speeds), but Omarchy opts its own panels out of it:
+-- Hyprland fades a layer surface as it maps (`fadeLayersIn`, 60ms on
+-- almostLinear at our speeds), but Omarchy opts its own panels out of it:
 -- `default/hypr/apps/omarchy-shell.lua:5` for the bar and :10 for
 -- ^(omarchy-menu|omarchy-image-selector|omarchy-emojis|omarchy-clipboard|
 -- omarchy-keyboard-panel)$. That left the panels snapping in while
@@ -350,9 +350,13 @@ hl.layer_rule({
 --
 -- What this cannot do is fade the scrim alone. A card and its scrim are one
 -- layer surface, so the compositor fades them together; per-surface, fade-or-
--- not is the whole of the control. Duration is `layersIn`'s speed in the
--- animation block below, which is shared with every other animated layer --
--- there is no per-rule duration.
+-- not is the whole of the control. Duration is the speed of `fadeLayersIn`
+-- (`fadeLayersOut` on close) in the animation block below. Those two leaves set
+-- a layer's alpha (Hyprland v0.56.2 LayerSurface.cpp:213-215, :251-253).
+-- `layersIn` / `layersOut` set only its position and size, which the `fade`
+-- style leaves still. The speed is shared with every other animated layer --
+-- there is no per-rule duration or curve. The ~130ms ramp above was measured
+-- when fadeLayersIn sat at the old 100ms floor.
 --
 -- The bar is deliberately NOT included: it is persistent chrome, so its fade
 -- would only ever be seen on a shell restart, and Omarchy keeps it instant for
@@ -380,12 +384,14 @@ hl.layer_rule({
 -- the strip opening as a hard cut with nothing fading at all, and it came back
 -- in for the fade.
 --
--- The scrim's code and its QML fade are kept. Turned back on as things stand,
+-- The scrim's code and its QML fade are kept; the QML fade is now 60ms on
+-- Hyprland's `default` curve, shared with the selection fade
+-- (root.animDuration / root.animCurve in Hud.qml). Turned back on as things stand,
 -- it fades with the card here and that QML ramp runs on top, so the dim lands a
 -- little behind the card. For the split instead, take the namespace out of the
 -- list above AND give it `no_anim = true, animation = "none"`: leaving it out
 -- is not enough, since Omarchy's no_anim list never named it and it would
--- still fade on layersIn like any other layer.
+-- still fade on fadeLayersIn like any other layer.
 
 -- The supermenu's keystroke catcher (omarchy-supermenu-catcher) is a 1x1
 -- transparent surface that takes the keyboard while the card is being built,
@@ -401,7 +407,7 @@ hl.layer_rule({
 -- ── Animation speed (3.5x) ─────────────────────────────────────────────────
 -- Can't live in the theme: colors.toml/shell.toml carry no animation keys at
 -- all (checked shell.toml.tpl), and the shell's own per-component durations
--- (e.g. Hud.qml's 420ms selection fade) are hardcoded per QML file, not
+-- (e.g. Hud.qml's 60ms selection fade) are hardcoded per QML file, not
 -- theme-driven either. Hyprland's animation speed is the only lever, so this
 -- has to be a hypr override, same as everything else in this file.
 --
