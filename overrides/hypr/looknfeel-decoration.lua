@@ -319,8 +319,8 @@ hl.layer_rule({
   ignore_alpha = 0.6,
 })
 
--- A short fade-in on the keyboard-driven panels, and on our switcher and
--- supermenu.
+-- A short fade-in on the keyboard-driven panels, and on our supermenu. Not on
+-- the switcher -- see the rule after this one.
 --
 -- Hyprland fades a layer surface as it maps (`layersIn`, style = fade, ~130ms
 -- at our speeds), but Omarchy opts its own panels out of it:
@@ -350,30 +350,32 @@ hl.layer_rule({
 -- list never named it, so it would fade without this line too; stating it keeps
 -- the two in step if that list ever grows.
 hl.layer_rule({
-  match = { namespace = "^(omarchy-menu|omarchy-image-selector|omarchy-emojis|omarchy-clipboard|omarchy-keyboard-panel|omarchy-window-switcher-hud|omarchy-supermenu)$" },
+  match = { namespace = "^(omarchy-menu|omarchy-image-selector|omarchy-emojis|omarchy-clipboard|omarchy-keyboard-panel|omarchy-supermenu)$" },
   no_anim = false,
   animation = "fade",
 })
 
--- The switcher is in the list above, and used not to be.
+-- The switcher gets no compositor fade, in or out. Its card lands under the
+-- keypress, and only its scrim fades in -- from Hud.qml (120ms, Easing.OutCubic),
+-- because the compositor cannot do that split: a card and its scrim are one
+-- layer surface, so a layer fade takes both or neither.
 --
--- It carried its own no_anim rule and faded only its scrim, from Hud.qml
--- (120ms, Easing.OutCubic), so the card could land instantly under the keypress
--- while the dim eased in behind it. The compositor cannot express that -- a
--- card and its scrim are one layer surface -- which was the whole reason for
--- the split.
+-- Omarchy's no_anim list never named this namespace, so leaving it out of the
+-- rule above is not enough -- it would still fade on layersIn like any other
+-- layer. It needs a no_anim of its own, or the compositor's fade stacks on top
+-- of the QML one and takes the card with it.
 --
--- The cost was that the switcher became the one surface in the shell moving
--- differently from the rest. Measured against the live config the panels ramp
--- over 133ms on easeOutQuint (layersIn speed 1.33 ds; a note in Hud.qml put it
--- at ~100ms and was wrong, and the 120ms was chosen to sit alongside that
--- figure). More to the point, the switcher's CARD did not ramp at all, and
--- content-there-immediately reads as faster than any curve difference -- which
--- is exactly how it read.
---
--- So it takes the whole-surface fade like everything else, and the Hud.qml
--- Behavior is removed rather than left alone: with no_anim off, a QML fade
--- inside the surface would stack on top of the compositor's.
+-- This is the arrangement it shipped with, now back. In between it sat in the
+-- rule above, taking the whole-surface fade for consistency with the panels
+-- (measured then at 133ms on easeOutQuint, layersIn speed 1.33 ds). That was
+-- reverted because a card that ramps in reads as slower than one that is simply
+-- there -- the same observation that had made it the odd one out, which was
+-- the reason for the split in the first place.
+hl.layer_rule({
+  match = { namespace = "^omarchy-window-switcher-hud$" },
+  no_anim = true,
+  animation = "none",
+})
 
 -- ── Animation speed (3.5x) ─────────────────────────────────────────────────
 -- Can't live in the theme: colors.toml/shell.toml carry no animation keys at
@@ -402,8 +404,9 @@ hl.layer_rule({
 -- instead of 100ms.
 --
 -- What prompted it: the layer fades read a shade slow once the switcher joined
--- the whole-surface fade (see the layer rule above). layersIn lands at 1.14
--- here, against 1.33 at 3x and a hand-set 1.2 that this reset discards.
+-- the whole-surface fade (it has since left it again; see the layer rules
+-- above). layersIn lands at 1.14 here, against 1.33 at 3x and a hand-set 1.2
+-- that this reset discards.
 hl.animation({ leaf = "global", enabled = true, speed = 2.86, bezier = "default" })
 hl.animation({ leaf = "border", enabled = true, speed = 1.54, bezier = "easeOutQuint" })
 hl.animation({ leaf = "windows", enabled = true, speed = 1.08, bezier = "easeOutQuint" })

@@ -326,10 +326,13 @@ namespace match also covers `omarchy-window-switcher-hud` and
 
 A second `layer_rule` re-enables Hyprland's layer fade (measured ~130ms) for the
 keyboard-driven panels — menu, clipboard, emojis, image-selector,
-keyboard-panel — and for both plugins. The switcher used to be excluded, fading
-its scrim alone from inside `Hud.qml`; it now takes the whole-surface fade like
-everything else (`looknfeel-decoration.lua` has why). The supermenu replaced the
-menu on `SUPER+SPACE` and opens the way it did. Omarchy opts its panels
+keyboard-panel — and for the supermenu, which replaced the menu on
+`SUPER+SPACE` and opens the way it did. A third gives the switcher `no_anim`
+instead: its card lands instantly and only its scrim fades in, from inside
+`Hud.qml` (120ms, `OutCubic`), which the compositor cannot do because card and
+scrim are one surface. It spent a while in the fade rule for consistency and
+came back out because a ramping card read as slower (`looknfeel-decoration.lua`
+has the history). Omarchy opts its panels
 out in `default/hypr/apps/omarchy-shell.lua` while leaving notifications, OSD,
 polkit and reminders fading, so the shell was inconsistent with itself; layer
 rules accumulate and ours load later, so this needs no edit to Omarchy's file.
