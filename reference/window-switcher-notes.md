@@ -482,15 +482,26 @@ plugin-side theming. Under **omarchy-cllpse-theme** that means:
   layer rule's `ignore_alpha` (0.6), so it renders unblurred and the windows
   being switched between remain readable;
 - the card and cells track the SUPER+SPACE menu (`shell/plugins/menu/Menu.qml`)
-  token for token: `Style.spacing.panelPadding`, `Style.spacing.xs` between
-  items, `Style.cornerRadius`, the same `Border.surfaceSpec("menu", …)` card
-  border and `selected-border` spec on the cursor cell, labels in
+  token for token: `Style.spacing.xs` between items, `Style.cornerRadius` on the
+  card, the same `Border.surfaceSpec("menu", …)` card border and
+  `selected-border` spec on the cursor cell, labels in
   `Style.font.heading`/Medium and the secondary line in `Style.font.bodySmall`
   at 0.52. Cell height derives from those tokens with a floor, the way the
   menu's `baseRowHeight` does, so it survives `omarchy display text size`.
   **The one deliberate departure is the icon** at `Style.font.display` (2.0 rem):
   in the menu the icon sits inline beside a label, here it is the primary
   element of a card, like a macOS Cmd-Tab tile;
+- **the padding departs too, so the highlight's corner can be concentric.** The
+  highlight, and the drop target, use `card.innerRadius`: the card's radius less
+  its inset to the tiles (border + padding), so the two curves run parallel. At
+  the menu's `panelPadding` (18, 20 at text size 13) the tiles sat 22 in from an
+  18 corner, where concentric works out to 0, and the highlight drew at the
+  card's full 18 instead, which read as too round for where it sat. The card's
+  padding is now its own token, `switcher-card-padding`, defaulting to 6 (7 at
+  text size 13): inset 2 + 7 = 9, corner 18 − 9 = 9. The card draws in closer
+  around the strip as a result. The rounding is Hyprland's and does not scale,
+  so a larger text size, which grows the padding, rounds the highlight less;
+  `innerRadius` floors at 0;
 - **the highlight fades, and the name does not change colour.** Each tile
   carries the selected fill and `selected-border` as its own `selectionFill`,
   beneath its content, and fades it over 140ms on `OutCubic` (Omarchy's
