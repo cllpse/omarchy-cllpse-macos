@@ -63,11 +63,12 @@ config unread. It is appended to any partial selection — including named ids o
 the command line — and still runs in its canonical position, last, rather than
 where it was added.
 
-The one exception is `bar`, and it is listed by id in `NO_HYPR_RELOAD` rather
+The exceptions are `bar` and `tailscale`, listed by id in `NO_HYPR_RELOAD` rather
 than inferred. `bar` writes `bar.layout` into `shell.json`, which the shell
 holds a live `FileView` on — there is no Hyprland config for a reload to pick
 up, and reloading anyway would make the cheapest entry in the menu rebuild the
-whole Lua state for nothing. The skip only applies when **every** selected step
+whole Lua state for nothing. `tailscale` is there for the same reason: it writes
+one pref inside tailscaled and nothing on disk. The skip only applies when **every** selected step
 is in that list, so `apply.sh bar gtk-buttons` still reloads.
 
 `bar` is the first entry in the menu and the first step in `STEPS` because it is
@@ -133,9 +134,10 @@ generates — `monospace` then falls back to the packaged default on its own —
 tells you the terminal configs may still name SF Mono rather than guessing a
 replacement.
 
-Both are idempotent and safe to re-run. Neither needs sudo except two steps in
-each — keyd's config plus the `keyd` group grant (`apply.sh` step 8b) and
-installing/removing the Chromium managed-policy file (step 9) — everything else
+Both are idempotent and safe to re-run. Neither needs sudo except four steps in
+each — keyd's config plus the `keyd` group grant (`apply.sh` step 8b),
+installing/removing the Chromium managed-policy file (step 9), the CPU power
+limits (step 10) and `/etc/fstab`'s Btrfs compression level (step 11) — everything else
 in both scripts is user-level.
 
 ## Before running `apply.sh`
@@ -145,13 +147,13 @@ Install these first for a complete result.
 
 | Channel | Install | Needed for |
 |---|---|---|
-| `pacman -S` | `lsd` `bat` `lazygit` `yazi` `lazydocker` `starship` `fzf` `jq` `imagemagick` `ghostty` `sqlite` | theme configs (step 7 / 7a), the Cursor + `shell.json` merges (`jq`), the app-icon hook (`imagemagick`), Cursor's layout-mode correction (`sqlite3`, step 7) |
+| `pacman -S` | `lsd` `bat` `lazygit` `yazi` `lazydocker` `starship` `fzf` `jq` `ghostty` `sqlite` | theme configs (step 7 / 7\*), the Cursor + `shell.json` merges (`jq`), Cursor's layout-mode correction (`sqlite3`, step 7). `imagemagick` was listed here for the app-icon hook, which has been SVG-only and ImageMagick-free since `7f57c0c` |
 | `yay -S` (AUR) | `bibata-cursor-theme-bin` | the cursor theme. Genuinely AUR — `pacman -S` will not find it |
 | `pacman -S` (`extra`) | `msedit` | the `edit` alias. Needs no theme config — see *How each app is themed* |
-| `pacman -S` (`omarchy` repo) | `cursor-bin` | the editor step 7 merges `settings.json` into, and the one the *Cursor marketplace* row below extends. Absent, the merge is skipped with a message telling you to merge `cursor/settings.json` by hand |
+| `pacman -S` (`omarchy` repo) | `cursor-bin` | the editor step 7 merges `settings.json` into, and the one the *Cursor marketplace* row below extends. Absent, the merge is skipped with a message saying so (the merge-by-hand message is for a `settings.json` `jq` cannot parse) |
 | `yay -S` (AUR) + `pacman -S` | `ytm-player` (AUR) `python-secretstorage` (`extra`) | the music player. Step 7 writes its preferences through `ytm/config-prefs.py`, renders `themed/ytm-player.toml.tpl` and installs the `ytm-player.sh` theme hook, so its colours follow `omarchy theme set` like everything else. `python-secretstorage` is separate and easy to miss: without it `cllpse-ytm-signin` cannot read the Chromium keyring and sign-in fails through a `yt-dlp` path that gives no useful error |
 | `yay -S` (AUR) | `ryzenadj` | the CPU power limits (step 10), and only on the machine this repo was measured on — a Ryzen 7 8745HS in a Geekom A8. The step checks `/proc/cpuinfo` and DMI before writing anything, so on any other hardware it is inert whether or not `ryzenadj` is installed. `ryzen_smu` (DKMS) is optional and only buys the read-back of the live limits |
-| `pacman -S` (daemon) | `keyd` | Figma's Cmd+click / Cmd+scroll (step 8b). The first dependency that is a system service rather than a program — `tailscale` below is the other — and the only one `apply.sh` configures with **sudo** — it writes `/etc/keyd/default.conf` and adds you to the `keyd` group. Install it *before* applying, or the step skips and you re-run later |
+| `pacman -S` (daemon) | `keyd` | Figma's Cmd+click / Cmd+scroll (step 8b). The first dependency that is a system service rather than a program — `tailscale` below is the other — and one of the two `apply.sh` configures with **sudo** (`ryzenadj` above is the other) — it writes `/etc/keyd/default.conf` and adds you to the `keyd` group. Install it *before* applying, or the step skips and you re-run later |
 | `pacman -S` (daemon) | `tailscale` | reaching this machine's shell from the tailnet (step 7i). The second dependency that is a system service, and unlike `keyd` it needs no sudo here — install it with Omarchy's own `omarchy-install-service-tailscale`, which enables the daemon, logs in, and grants this user Tailscale's operator bit, which is what keeps step 7i passwordless. Absent, the step skips and says so |
 | AUR, via `omarchy pkg aur add` | `flea-bin` | the file manager (step 7j): folders, "Show in folder" and Open/Save dialogs all go to Flea, opened on SUPER+ALT+SPACE. The fourth dependency `apply.sh` configures but does not install. Upstream's recommended package: `omarchy pkg aur add flea-bin`, kept current by `omarchy update`. Omarchy's repository carries the same release as `flea` a day or more later. Install one, never both. Absent, the step skips and gives the command |
 | `mise use -g` | `hunk` `gh` | the `git diff` pager and the generated theme its hook writes; `gh` is what the row below runs through — this machine takes it from mise rather than `pacman`, so it is missing from a package-list restore too |
@@ -173,7 +175,7 @@ a property of how the call is written, not a promise:
 
 - *Guarded, with a skip message*: `lsd` (alias + theme files), `yazi`,
   `lazydocker`, `gh-dash` and `hunk` (their theme configs), Cursor
-  (`settings.json` merge), `imagemagick` (app-icon hook), `starship`
+  (`settings.json` merge), `starship`
   (`|| skip`). `bibata-cursor-theme-bin` warns but the cursor theme is set in
   `gsettings`/`hl.env` anyway, so it falls back **visibly** — the one omission
   you will notice unprompted.
@@ -195,11 +197,11 @@ a property of how the call is written, not a promise:
   the theme template and its hook are skipped — and `python-secretstorage` is
   reported separately, because ytm can be installed and still fail to sign in.
 - *Guarded at every interactive shell rather than at apply time*: the `ls`,
-  `edit`, `diff` and `dash` aliases, and the `ytm` function. The guard is
+  `edit`, `diff`, `log` and `dash` aliases, and the `ytm` function. The guard is
   re-evaluated per shell, so installing the tool later is enough — no re-apply
   needed.
 
-Two of those five are worth knowing about beyond the guard:
+Two of those six are worth knowing about beyond the guard:
 
 - **`diff` shadows `/usr/bin/diff`.** Its guard is `command -v hunk`, falling
   back to `git diff`, so on every machine this targets it is always active.
@@ -269,8 +271,8 @@ script works the same whether you run it by hand or `apply.sh` calls it.
 | # | Action | Target |
 |---|---|---|
 | 0 | Record the font and theme the machine had *before* the first apply, so `revert.sh` has something true to restore. Written once; values already ours are refused | `~/.local/state/cllpse-macos/previous-{font,theme}` |
-| 1 | Symlink both `` folders as themes, and `omarchy-cllpse-plugin-switcher/` and `omarchy-cllpse-plugin-supermenu/` as plugins. All four are **submodules** ([dark](https://github.com/cllpse/omarchy-cllpse-theme-dark), [light](https://github.com/cllpse/omarchy-cllpse-theme-light), [switcher](https://github.com/cllpse/omarchy-cllpse-plugin-switcher), [supermenu](https://github.com/cllpse/omarchy-cllpse-plugin-supermenu)), so the step first refuses outright if any of those directories is empty — a plain `git clone` leaves it so, and symlinking a registered plugin id at nothing fails silently in the shell | `~/.config/omarchy/themes/omarchy-cllpse-theme-{dark,light}`, `~/.config/omarchy/plugins/cllpse.{window-switcher,supermenu}` |
-| 2 | Install SF fonts + fontconfig drop-ins (UI font + hintnone)<br>**Per-override detail: [`fonts/`](fonts/README.md), [`fontconfig/`](fontconfig/README.md)** | `~/.local/share/fonts/SF/`, `~/.config/fontconfig/conf.d/{99-cllpse-macos-ui-font,11-cllpse-macos-hinting}.conf` |
+| 1 | Symlink both `omarchy-cllpse-theme-{dark,light}/` folders as themes, and `omarchy-cllpse-plugin-switcher/` and `omarchy-cllpse-plugin-supermenu/` as plugins. All four are **submodules** ([dark](https://github.com/cllpse/omarchy-cllpse-theme-dark), [light](https://github.com/cllpse/omarchy-cllpse-theme-light), [switcher](https://github.com/cllpse/omarchy-cllpse-plugin-switcher), [supermenu](https://github.com/cllpse/omarchy-cllpse-plugin-supermenu)), so the step first refuses outright if any of those directories is empty — a plain `git clone` leaves it so, and symlinking a registered plugin id at nothing fails silently in the shell | `~/.config/omarchy/themes/omarchy-cllpse-theme-{dark,light}`, `~/.config/omarchy/plugins/cllpse.{window-switcher,supermenu}` |
+| 2 | Install SF + Comic Code fonts + fontconfig drop-ins (UI font + hintnone)<br>**Per-override detail: [`fonts/`](fonts/README.md), [`fontconfig/`](fontconfig/README.md)** | `~/.local/share/fonts/{SF,ComicCode}/`, `~/.config/fontconfig/conf.d/{99-cllpse-macos-ui-font,11-cllpse-macos-hinting}.conf` |
 | 3 | Monospace → SF Mono (Omarchy's own knob) | `omarchy font set` → terminal configs + `fonts.conf` |
 | 4 | GTK/GNOME fonts → SF Pro / SF Mono | `gsettings org.gnome.desktop.interface` |
 | 5 | Font hinting → `none` — SF faces render unhinted; grid-snapped stems read as sharp under grayscale AA (Wayland fractional scaling)<br>**Per-override detail: [`ghostty/`](ghostty/README.md)** | `gsettings … font-hinting 'none'` (GTK/GNOME) + fenced `freetype-load-flags = no-hinting` in `~/.config/ghostty/config`, on top of Omarchy's stock config (fontconfig side is the step-2 drop-in) |
@@ -278,15 +280,15 @@ script works the same whether you run it by hand or `apply.sh` calls it.
 | 5c | Danish letters on the Preonic's M0 layer — a static, single-group xkb symbols file, referenced by `hyprland-env.lua`'s `kb_layout`. **Full detail: [`xkb/README.md`](xkb/README.md).** | `~/.config/xkb/symbols/us-danish-letters` |
 | 6 | Five fenced snippets into the user's own hypr config: env + cursor theme + keyboard layout, decoration/blur/animations, window-switcher binds, mouse tuning, and `SUPER+SPACE` handed to the supermenu. **Full detail: [`hypr/README.md`](hypr/README.md).** | fenced blocks synced into `~/.config/hypr/hyprland.lua`, `looknfeel.lua`, `bindings.lua` and `input.lua` |
 | 6b | Keybind allowlist + macOS-parity shortcuts: scan the live binds, unbind what the allowlist omits, then re-sync the parity and window-management blocks. **Full detail: [`hypr/README.md`](hypr/README.md).** | `overrides/hypr/keybind-allowlist.conf` (seeded once, user-owned, committed); `overrides/hypr/keybind-current.conf` + `overrides/hypr/keybind-unbinds.lua` (both regenerated every run in the repo itself, gitignored); three more fenced blocks (`: keybinds`, `: macos-shortcuts`, `: window-management-mod`) in `~/.config/hypr/bindings.lua` |
-| 7 | The apps Omarchy doesn't theme. TUI palettes point at the terminal's ANSI slots (`gh-dash` cannot — see *How each app is themed*); `lsd` additionally needs `color.theme: custom` to read the remap. Plus Cursor's editor prefs, the shell aliases and the `git diff` pager.<br>**Per-override detail: [`bat/`](bat/README.md), [`lazygit/`](lazygit/README.md), [`lazydocker/`](lazydocker/README.md), [`lsd/`](lsd/README.md), [`yazi/`](yazi/README.md), [`gh-dash/`](gh-dash/README.md), [`cursor/`](cursor/README.md), [`bash/`](bash/README.md), [`git/`](git/README.md)** | `~/.config/bat/config`, `~/.config/lazygit/config.yml`, `~/.config/lazydocker/config.yml`, `~/.config/lsd/{config,colors}.yaml`, `~/.config/yazi/theme.toml`, `~/.config/gh-dash/config.yml` (merged), `~/.config/Cursor/User/settings.json`, fenced blocks in `~/.bashrc` and `~/.config/git/config` |
+| 7 | The apps Omarchy doesn't theme. TUI palettes point at the terminal's ANSI slots (`gh-dash` cannot — see *How each app is themed*); `lsd` additionally needs `color.theme: custom` to read the remap. Plus Cursor's editor prefs, the shell aliases, the `git diff` pager and the `pi` agent's model routing (OpenRouter's auto-router).<br>**Per-override detail: [`bat/`](bat/README.md), [`lazygit/`](lazygit/README.md), [`lazydocker/`](lazydocker/README.md), [`lsd/`](lsd/README.md), [`yazi/`](yazi/README.md), [`gh-dash/`](gh-dash/README.md), [`cursor/`](cursor/README.md), [`pi/`](pi/README.md), [`bash/`](bash/README.md), [`git/`](git/README.md)** | `~/.config/bat/config`, `~/.config/lazygit/config.yml`, `~/.config/lazydocker/config.yml`, `~/.config/lsd/{config,colors}.yaml`, `~/.config/yazi/theme.toml`, `~/.config/gh-dash/config.yml` (merged), `~/.config/Cursor/User/settings.json`, `~/.pi/agent/settings.json` (merged), fenced blocks in `~/.bashrc` and `~/.config/git/config` |
 | 7\* | Prompt and diff colours that must be BAKED per theme rather than named: Starship has no config-import mechanism, and hunk's validator takes hex only.<br>**Detail: [`starship/`](starship/README.md), [`hunk/`](hunk/README.md)** | `~/.config/omarchy/hooks/theme-set.d/{starship-colors,hunk-colors}.sh` (symlinked), `~/.config/starship.toml`, `~/.config/hunk/config.toml` |
 | 7b | Restore saved display scaling + text size. **Full detail: [`display/README.md`](display/README.md).** | `omarchy display text size`, the two scale variables in `~/.config/hypr/monitors.lua` |
 | 7c | Session environment drop-ins (Figma → native Wayland). Read at session start, so they need a relogin. **Full detail: [`environment.d/README.md`](environment.d/README.md).** | `~/.config/environment.d/50-cllpse-macos-figma-wayland.conf` |
 | 7d | Chromium scale, default page zoom, overlay scrollbars and a neutral browser UI. **Full detail: [`chromium/README.md`](chromium/README.md).** | fenced block in `~/.config/chromium-flags.conf` + `partition.default_zoom_level`, `extensions.theme.system_theme` and `browser.theme.is_grayscale2` in each `~/.config/chromium/*/Preferences` |
 | 7e | Figma Desktop's launcher entry — the app gets `Name=` and `StartupWMClass` wrong for this desktop and regenerates its own entry on every launch. **Full detail: [`applications/README.md`](applications/README.md).** | `~/.local/share/applications/figma-desktop-appimage.desktop`, and `~/Applications/figma-desktop/AppRun` restored if wrapped |
-| 7f | App icons for the menu, which draws app rows as a plain image and cannot recolour. **Full detail: [`icons/README.md`](icons/README.md).** | `~/.icons/cllpse-flat/apps/`, `~/.config/omarchy/hooks/theme-set.d/app-icons.sh` (symlinked) |
+| 7f | App icons for the menu, which draws app rows as a plain image and cannot recolour. **Full detail: [`icons/README.md`](icons/README.md).** | `~/.icons/cllpse-flat/apps/`, `~/.icons/cllpse-color/apps/`, `~/.config/omarchy/hooks/theme-set.d/app-icons.sh` (symlinked) |
 | 7f2 | Post-update repair hook — re-link what an `omarchy update` could quietly take out. **Full detail: [`hooks/README.md`](hooks/README.md).** | `~/.config/omarchy/hooks/post-update.d/cllpse-macos-repair.sh` (symlinked) |
-| 7h | Five targeted `jq` writes into `shell.json`: the switcher and supermenu plugins, a transparent bar, the recorded bar layout, disabled first-party plugins. **Full detail: [`omarchy/README.md`](omarchy/README.md).** | `~/.config/omarchy/shell.json` |
+| 7h | Five targeted `jq` writes into `shell.json`: the switcher and supermenu plugins, a transparent bar, the recorded bar layout, disabled first-party plugins. **Full detail: [`omarchy/README.md`](omarchy/README.md).** | `~/.config/omarchy/shell.json`, `~/.config/omarchy/hooks/post-boot.d/cllpse-bar-layout.sh` (symlinked) |
 | 7i | Tailscale SSH: one `RunSSH` pref so other tailnet nodes can reach this machine's shell — **no** `sshd`, host keys, `authorized_keys` or open port, and `ufw` untouched. Needs no sudo (Omarchy's installer already granted the operator bit) and never prompts. Also warns when the tailnet's policy allows nobody. **Full detail: [`tailscale/README.md`](tailscale/README.md).** | `RunSSH` in tailscaled's prefs, and nothing on disk |
 | 7j | Flea as the desktop's file manager: the folder handler, the user-level `org.freedesktop.FileManager1` registration behind "Show in folder", and Flea's own `flea --picker` for Open/Save dialogs. That is everything `flea --default` does except its keys block, which takes SUPER+SHIFT+F from the Cmd+Shift+F forward. The step removes that block when it finds it and binds Flea to SUPER+ALT+SPACE instead (macOS's Cmd+Option+Space). Needs no sudo. **Full detail: [`flea/README.md`](flea/README.md).** | `~/.config/mimeapps.list`, `~/.local/share/dbus-1/services/org.freedesktop.FileManager1.service`, `~/.config/xdg-desktop-portal/portals.conf`, the `flea --picker` block and a `: flea` fenced block in `~/.config/hypr/bindings.lua` |
 | 8 | Apply the theme — refreshes whichever cllpse-macos theme is already active, else sets dark | `omarchy theme set …` |
@@ -294,9 +296,9 @@ script works the same whether you run it by hand or `apply.sh` calls it.
 | 8c | `hyprctl reload` — determinism, since autoreload already covers the hypr files. After 8b on purpose: a keyd restart drops every runtime bind, and the reload is what makes `macos-shortcuts.lua` re-seed its remap state from the live focus | the running compositor |
 | 9 | Chromium managed policy: context-menu declutter plus two force-installed extensions. Needs **sudo**. **Full detail: [`chromium/README.md`](chromium/README.md).** | `/etc/chromium/policies/managed/cllpse-macos.json` |
 | 10 | CPU power limits via `ryzenadj`, reapplied at boot and on resume. Hardware-gated, and **opt-in**: `--all` skips it; `apply.sh ryzen` or the checklist runs it. Needs **sudo**. **Full detail: [`ryzen/README.md`](ryzen/README.md).** | `/etc/default/ryzen-tdp`, `/etc/systemd/system/ryzen-tdp.service` |
-| 11 | Btrfs compression: `compress=zstd` (a bare `zstd` is the kernel's level 3) → `compress=zstd:1` on every btrfs line in `/etc/fstab`, then a live `mount -o remount` of each so it doesn't wait for a reboot. Level 3 costs ~2–3× the CPU of level 1 at compression for ~5–10% better ratio — the wrong trade on a disk that is 4% full and a CPU that is thermally capped. Backs `/etc/fstab` up first, rewrites **only** lines whose FS-type field is `btrfs` (a commented line, a `compress-force=`, or the same string on an ext4 line are all left alone — tested), and verifies with `findmnt --verify` before leaving it in place, restoring the backup if that fails. Bails out entirely if the machine mounts btrfs at mixed levels. Needs **sudo** | `/etc/fstab`, plus a live remount of each btrfs mountpoint |
+| 11 | Btrfs compression: `compress=zstd` (a bare `zstd` is the kernel's level 3) → `compress=zstd:1` on every btrfs line in `/etc/fstab`, then a live `mount -o remount` of each so it doesn't wait for a reboot. Level 3 costs ~2–3× the CPU of level 1 at compression for ~5–10% better ratio — the wrong trade on a disk that was 4% full when this was decided (10% on 2026-10-09) and a CPU that is thermally capped. Backs `/etc/fstab` up first, rewrites **only** lines whose FS-type field is `btrfs` (a commented line, a `compress-force=`, or the same string on an ext4 line are all left alone — tested), and verifies with `findmnt --verify` before leaving it in place, restoring the backup if that fails. Bails out entirely if the machine mounts btrfs at mixed levels. Needs **sudo** | `/etc/fstab`, plus a live remount of each btrfs mountpoint |
 
-`7\*` is not a separate step in the script — starship, the Cursor chrome repaint, yazi's syntect theme, hunk and ytm-player are all theme-set hooks installed from inside step 7. It is split out here because a hook behaves differently from a config file: it re-runs on every `omarchy theme set`.
+`7\*` is not a separate step in the script — starship, the Cursor chrome repaint, yazi's syntect theme, hunk, gh-dash and ytm-player are all theme-set hooks installed from inside step 7. It is split out here because a hook behaves differently from a config file: it re-runs on every `omarchy theme set`.
 
 Step 7 has two targets that are **not** config files, both in Cursor's
 `~/.config/Cursor/User/globalStorage/state.vscdb`. Neither has a settings key, so
@@ -321,8 +323,10 @@ deliberate choice and is left alone, and the
 `$STATE/previous-cursor-layout` and `$STATE/previous-cursor-titlebar`, which is
 all `revert.sh` acts on. Both the write and the revert are skipped while Cursor is
 running — it holds that DB open and rewrites it from memory — and the running
-check resolves `/proc/<pid>/exe`, since Cursor's process name is `electron` and
-neither `pgrep -x` nor `pgrep -f` can test for it.
+check resolves `/proc/<pid>/exe`, since Cursor's binary is `electron` and
+neither `pgrep` form is relied on: `pgrep -x cursor` found nothing when this was
+written (on 3.22.7 the main process's name reads `cursor`, every helper's `electron`),
+and `pgrep -f` matches its own caller.
 
 The blur `layer_rule` only opts the shell surfaces *into* blur; the matching
 translucency (`background-alpha`) is the theme's half —
@@ -333,7 +337,7 @@ blur drew nothing on them, yet blurring a full-screen layer halved its frame
 rate while it animated: 120 fps to 60 fps, measured on the switcher with Qt's
 render-loop timing (`looknfeel-decoration.lua` has the numbers).
 
-A second `layer_rule` re-enables Hyprland's layer fade (measured ~130ms) for the
+A second `layer_rule` re-enables Hyprland's layer fade (measured ~130ms when `fadeLayersIn` sat at the old 100ms floor; 60ms now) for the
 keyboard-driven panels — menu, clipboard, emojis, image-selector,
 keyboard-panel — and for both plugins. The supermenu replaced the menu on
 `SUPER+SPACE` and opens the way it did. The switcher has been in and out of the
@@ -345,7 +349,8 @@ out in `default/hypr/apps/omarchy-shell.lua` while leaving notifications, OSD,
 polkit and reminders fading, so the shell was inconsistent with itself; layer
 rules accumulate and ours load later, so this needs no edit to Omarchy's file.
 The bar is deliberately excluded: it is persistent chrome, so the fade would
-only ever show on a shell restart. A fourth gives the supermenu's keystroke
+only ever show on a shell restart. A third (a fourth until the switcher's own
+`no_anim` rule went) gives the supermenu's keystroke
 catcher (`omarchy-supermenu-catcher`) `no_anim`: a 1x1 transparent surface the
 plugin unmaps and recreates on every open, so a fade there would be a snapshot
 and frames nobody sees.
@@ -459,7 +464,7 @@ It is **not** a complete machine build. On a clean install these are the gaps:
 
 | Gap | Effect |
 |---|---|
-| **Four steps use sudo (8b's keyd config and group grant, step 9's Chromium policy, step 10's CPU power limits and step 11's `/etc/fstab` compression level), all deliberately near the end.** No package installation happens anywhere — `keyd` in particular must already be present, and step 8b skips with the `pacman -S keyd` line if it is not — see *Before running `apply.sh`* above for the full list and what each omission costs. `bibata-cursor-theme-bin` is the only one that fails loudly-ish (warned about, and the cursor theme is set in `gsettings`/`hl.env` regardless, so it falls back visibly); every other guard skips in silence. The two non-package channels, `mise` (`hunk`, `gh`) and `gh extension` (`gh-dash`), won't be restored by a `pacman -Qqe` rebuild | Cursor visibly wrong; other items silently absent |
+| **Four steps use sudo (8b's keyd config and group grant, step 9's Chromium policy, step 10's CPU power limits and step 11's `/etc/fstab` compression level), all deliberately near the end.** No package installation happens anywhere — `keyd` in particular must already be present, and step 8b skips with the `pacman -S keyd` line if it is not — see *Before running `apply.sh`* above for the full list and what each omission costs. `bibata-cursor-theme-bin` is the only one that fails loudly-ish (warned about, and the cursor theme is set in `gsettings`/`hl.env` regardless, so it falls back visibly); every other guard just skips, at most with one line in the output. The two non-package channels, `mise` (`hunk`, `gh`) and `gh extension` (`gh-dash`), won't be restored by a `pacman -Qqe` rebuild | Cursor visibly wrong; other items silently absent |
 | **Cursor editor not installed.** The `settings.json` merge is skipped when both `/usr/bin/cursor` and `~/.config/Cursor/User/` are absent. The override carries no marketplace-extension keys, so nothing in it needs a network step | Merge skipped on a machine without Cursor |
 | **Third-party plugins are not installed.** `apply.sh` has no source URL for any of them, and step 7h's recorded `bar.layout` names exactly one — `io.github.thisisgm.omapods`, whose entry is inert without the plugin, since `Bar.qml` resolves an unknown widget id to a null component. Step 7h does *say so* rather than leaving that silent, and *Before running `apply.sh`* above carries the two install commands. The other widgets that were there (`dizziee.system-updates`, `jankeesvw.notification-center`, `io.github.twiking.omasettings`) were removed along with the plugins. Since a third-party plugin is enabled iff its id appears somewhere in `shell.json`, a layout without it *is* the uninstall as far as the shell is concerned; the plugin directory under `~/.config/omarchy/plugins/` still has to be deleted by hand | Nothing to render, and nothing to install |
 | **`display.conf` values are hardware-specific** — text size 13, monitor scale 1.33333, GDK scale 1 are tuned for one ~102 PPI 3840x2160 display (a 43" TV). `gdk-scale` in particular is wrong on a HiDPI panel, where Omarchy's default of 2 is right | Wrong sizing on different hardware, applied confidently |
@@ -467,7 +472,7 @@ It is **not** a complete machine build. On a clean install these are the gaps:
 | **Some settings need a relogin** — the `environment.d` drop-in (Figma → Wayland) and `OMARCHY_MENU_FONT` are read at session start | State immediately after `apply.sh` is not the final state |
 | **`sync_fenced` creates the target if absent.** If `~/.config/ghostty/config` does not exist, the file it writes contains only our block — losing Omarchy's `config-file` line that pulls in theme colours | Terminal colours silently unthemed |
 | **Plugin-owned regions are won on file position, not ownership.** A settings plugin writing its own block into `looknfeel.lua`/`input.lua` beats ours if it lands later — and its block outlives the plugin, since uninstalling leaves it behind. OmaSettings is the sharpest case: it writes a whole separate `~/.config/hypr/omasettings.lua` and appends `require("hypr.omasettings")` to the *end* of `hyprland.lua`, i.e. after every user file, so while that file exists it wins every key it sets. Folding one of its values into this repo means deleting the line there too, not just adding it here. The keyboard layout sits after `default.hypr.toggles` for the same reason. `flea --default` has the same shape: run by hand, or through Flea's Settings ▸ About switch, it appends its keys block after ours and takes Cmd+Shift+F until the next `apply.sh flea` removes it (step 7j) | Look/mouse/keyboard settings can be silently overridden by a leftover block |
-| **Figma updates need one manual step, then `apply.sh`.** There is no self-updater: download the new AppImage and extract it over `~/Applications/figma-desktop/`, then re-run this script to restore the launcher entry. Nothing inside the app directory belongs to this repo, so an extraction has nothing of ours to destroy | Extract, then `apply.sh` — no hand-editing |
+| **Figma updates are a command you run, `figma/figma.sh`.** There is no self-updater. It used to be one manual step — extract the new AppImage over `~/Applications/figma-desktop/`, then re-run this script — and `figma.sh` now does both: it swaps the extracted directory in, reapplies the Electron argv cap and finishes with `apply.sh --all` to restore the launcher entry. The argv cap is the one thing this repo writes inside the app directory, so a hand extraction loses it (see the follow-ups below) | `figma/figma.sh` — no hand-editing |
 | **`revert.sh`'s restore paths are unit-tested but never run end-to-end** | Unverified on a real machine |
 
 So: an agent following this on a clean install gets the look right, and every value
@@ -481,9 +486,9 @@ differences above are the ones to check by hand.
 - **Restart Ghostty / Foot** windows for the new monospace font + `hintnone` (Kitty/Alacritty reload themselves).
 - **Relaunch running GTK/Qt apps + the bar** to pick up `hintnone`.
 - **Log out / back in** for the `environment.d` drop-in — the systemd user session reads it at session start.
-- **The app icons (7f) appear as soon as the menu next opens** — `AppLibrary.refreshIcons()` rescans when a consumer opens, so no restart is needed to *find* them. Changing their *colour* is different: Qt caches decoded images by URL, and the path does not change between themes, so a re-render only shows up after the shell restart that `omarchy theme set` performs anyway.
+- **The app icons (7f) appear as soon as the menu next opens** — `AppLibrary.refreshIcons()` rescans when a consumer opens, so no restart is needed to *find* them. Changing their *colour* is different: Qt caches decoded images by URL, and the path does not change between themes, so a re-render only shows up after a shell restart. `omarchy theme set` does not restart the shell (it pushes the palette over IPC), so `app-icons.sh` restarts it itself whenever its output actually changed — except on a locked session, where `omarchy-restart-shell` refuses and the old colour stands until the next theme change or shell restart.
 - **Quit Chromium before the step 7d zoom and theme halves**, and relaunch after. Chromium rewrites `Preferences` from memory on exit, so a write made while it is running is discarded; the script detects this and skips rather than reporting a change that will not survive. The flag half needs only a relaunch. Sites already zoomed with ctrl+/- keep their own `per_host_zoom_levels` and ignore the default.
-- **Step 9 (the whole managed policy — the context-menu declutter *and* the two force-installed extensions) needs no relaunch** if Chromium is already running: `omarchy-theme-set-browser`, which step 8 always runs, calls `chromium --refresh-platform-policy --no-startup-window` whenever Chromium is running — the same live reload Omarchy uses for its own `color.json` — and that reloads the whole managed-policy directory.
+- **Step 9 (the whole managed policy — the context-menu declutter *and* the two force-installed extensions) needs no relaunch** if Chromium is already running: the step calls `chromium --refresh-platform-policy --no-startup-window` itself after writing the file — the same live reload `omarchy-theme-set-browser` uses for Omarchy's own `color.json` — and that reloads the whole managed-policy directory. (This used to lean on step 8's own refresh, back when the policy step ran before the theme; it runs after it now, so that refresh comes too early.)
 - **DevTools is deliberately not in the policy.** `DeveloperToolsAvailability:
   2` was there originally, as part of the same context-menu declutter, and it
   was the one key whose blast radius went past the menu — it blocks Inspect
@@ -528,7 +533,7 @@ differences above are the ones to check by hand.
 apply.sh  revert.sh  lib.sh
 starship/starship.toml.tpl    stock starship.toml with {{ accent }} in place of every literal "cyan", plus a custom.git_branch module that middle-truncates long branch names to 24 chars
 hooks/theme-set.d/starship-colors.sh  renders the template above into ~/.config/starship.toml on every theme switch
-fonts/                        20 SF .otf (SF Mono, SF Pro Text, SF Pro Display)
+fonts/                        20 SF .otf (SF Mono, SF Pro Text, SF Pro Display), plus comic-code/ -- 2 Comic Code .otf, the editor font, kept out of the SF glob
 fontconfig/conf.d/99-cllpse-macos-ui-font.conf   SF Pro for sans-serif/system-ui + optical-size crossover
 fontconfig/conf.d/11-cllpse-macos-hinting.conf   hintstyle -> hintnone (overrides system 10-hinting-slight)
 ghostty/ghostty.conf          freetype-load-flags = no-hinting, a few non-default prefs, and confirm-close-surface back on (Omarchy ships it off)
@@ -544,8 +549,15 @@ cursor/cllpse-cursor-text-size      re-derives Cursor's editor.fontSize from `om
 cursor/cllpse-cursor-text-size.path systemd user path unit on ~/.config/omarchy/shell.toml that runs it
 cursor/cllpse-cursor-text-size.service oneshot started by the .path unit above
 gh-dash/theme.yml.tpl         theme.colors as HEX, baked from colors.toml by the theme-set hook and merged into gh-dash's own config.yml
+hooks/theme-set.d/gh-dash-colors.sh  that hook: renders the template above and replaces only theme.colors in ~/.config/gh-dash/config.yml on every theme switch
 hunk/config.toml.tpl          hunk's custom theme with {{ placeholders }} — hex only, so it is generated per theme
 hooks/theme-set.d/hunk-colors.sh  renders the template above into ~/.config/hunk/config.toml on every theme switch
+themed/ytm-player.toml.tpl    ytm-player's palette as an Omarchy template, rendered by Omarchy's own renderer once ytm/ytm.sh links it into ~/.config/omarchy/themed/
+hooks/theme-set.d/ytm-player.sh  copies the rendered file to ~/.config/ytm-player/theme.toml and sets [ui] theme to textual-light/dark from the theme's mode
+ytm/config-prefs.py           ytm-player's nine preference keys (startup page, playhead style, clutter toggles), insert-or-replace into its config.toml
+ytm/cllpse-ytm-signin         sign-in with the keyring workaround (symlinked into ~/.local/bin)
+pi/pi.sh                      pi agent -> OpenRouter's auto-router: defaultProvider/defaultModel jq-merged into ~/.pi/agent/settings.json, stale modelThinkingLevels dropped
+xkb/symbols/us-danish-letters  US layout plus six otherwise-unused function keys for ae/oe/aa, the Preonic's M0 layer (installed to ~/.config/xkb/symbols/)
 lsd/config.yaml               color.theme: custom (opts into colors.yaml below)
 lsd/colors.yaml               user/group/size/date/etc. remapped from lsd's fixed 256-colour defaults onto basic ANSI; filetype colours (directory/executable/symlink/etc.) are LS_COLORS instead, in bash/shell.sh
 cursor/settings.json          Cursor editor prefs, jq-merged in; omits workbench.colorTheme (Omarchy's) + extension-dependent keys
@@ -564,8 +576,8 @@ hypr/keybind-current.conf     generated every apply, the raw scan before allowli
 hypr/macos-shortcuts.lua      word/line nav, close tab / window / whole app, undo/redo/save as Cmd-style chords
 hypr/window-management-mod.lua  window nav/arrangement moved SUPER -> CTRL+ALT (Preonic firmware workaround)
 hypr/input-tuning.lua         mouse sensitivity/accel + follow_mouse = 2 (scroll-under-cursor, click-to-focus) + wheel scroll_factor 1.5, trackpad 0.35
-hypr/looknfeel-decoration.lua rounding 18 / rounding_power 2.05 (a hair off a plain arc) / border_part_of_window true / blur / border_size 2 / gaps 12,24 / groupbar off / window opacity 1.0 0.875 (focused fully opaque, was 0.99 -- that 1% was ~60% of the blur cost; Figma opaque unfocused too) / 3x animations, floor 1 / layer_rule blur on shell surfaces
-bash/shell.sh                 FZF_DEFAULT_OPTS derived from the live palette + lsd alias/LS_COLORS + the edit/diff/dash aliases and the ytm keyring wrapper, each guarded on its tool
+hypr/looknfeel-decoration.lua rounding 18 / rounding_power 2.05 (a hair off a plain arc) / border_part_of_window true / blur / border_size 2 / gaps 12,24 / groupbar off / window opacity 1.0 0.875 (focused fully opaque, was 0.99 -- that 1% was ~60% of the blur cost; Figma opaque unfocused too) / 3.5x animations, floor 0.6 (was 3x, floor 1) / layer_rule blur on shell surfaces
+bash/shell.sh                 FZF_DEFAULT_OPTS derived from the live palette + lsd alias/LS_COLORS + the edit/diff/log/dash aliases and the ytm keyring wrapper, each guarded on its tool
 git/pager.conf                `git diff` through the hunk pager (fenced into ~/.config/git/config, which also holds the user's own [user] block)
 display/                      display scaling + text size: the step, the capture tool, the shared lib and the saved values
 environment.d/*.conf          systemd user-session env (Figma native Wayland). The FreeType stem-darkening drop-in was removed -- Chromium/Electron ignore FREETYPE_PROPERTIES -- and apply.sh/revert.sh delete an already-installed copy by name
@@ -594,5 +606,6 @@ omarchy/shell-bar.json        the recorded bar: widget layout, centerAnchor, dis
 icons/icons/              app icons REPAINTED to the theme: <Icon=>.svg placed by hand; see its README for the naming + silhouette contract
 icons/verbatim/           full-colour marks copied UNTOUCHED; same 76 the switcher plugin ships, kept in step by hand
 hooks/post-update.d/cllpse-macos-repair.sh  re-links our hooks/themes/plugin after an omarchy update, then re-syncs the icons
+hooks/post-boot.d/cllpse-bar-layout.sh  restores the declared bar layout once per session (`omarchy.sh --bar-only`), since the bar is drag-reorderable
 hooks/theme-set.d/app-icons.sh  syncs icons/icons/ into ~/.icons/cllpse-flat/apps/ in the active theme's foreground, on every theme switch; ALSO copies icons/verbatim/ untouched into ~/.icons/cllpse-color/apps/ so the menu gets the full-colour marks
 ```

@@ -78,7 +78,8 @@ circular arc; 2.1, 2.2 and a real 3-3.4 squircle were all tried and dropped /
 `border_part_of_window = true`, `blur` on @ size 7 / passes 4 / vibrancy 0.30,
 `border_size = 2`, `gaps_in/out = 12/24`) + window `opacity = 1.0 0.875`
 (re-matched onto `chromium-based-browser` / `firefox-based-browser` too, since
-Omarchy pins those to `1.0 0.985` otherwise) + 3× animation speeds (floor 1) +
+Omarchy pins those to `1.0 0.985` otherwise) + 3.5× animation speeds (floor 0.6;
+was 3×, floor 1) +
 `layer_rule` blur on the shell surfaces + `layer_rule` re-enabling the layer
 fade on the keyboard-driven panels, the window switcher and the supermenu (the
 switcher's scrim is switched off for now via `showScrim` in its `Hud.qml`, so
@@ -94,7 +95,8 @@ yours from then on — delete a line to have the next apply unbind it;
 apply, so an Omarchy update that adds new default binds gets pruned too,
 without reseeding. `macos-shortcuts.lua` (word/line navigation,
 close tab/undo/redo/save — synthesized via `send_key_state`, guarded off
-inside terminals where forwarding Ctrl+Z/W/S would be destructive — plus the
+inside terminals where forwarding Ctrl+Z/W/S would be destructive; close tab
+sends the terminal's own Ctrl+Shift+W there instead of nothing — plus the
 close ladder above the tab, which is graceful `hl.dsp.window.close()` requests
 rather than synthesized chords and so needs no guard: `SUPER+Q` (and its
 synonym `SUPER+SHIFT+W`) closes the focused window, `SUPER+SHIFT+Q` closes

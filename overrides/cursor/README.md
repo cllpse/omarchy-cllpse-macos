@@ -91,9 +91,11 @@ cursor/migrateEditorMode.forceUnified is NOT cleared -- it reads as "this
 migration already ran", so clearing it invites the migration to run again.
 
 Gated on Cursor being closed, same as the merge above: Cursor holds this DB
-open and rewrites it from memory. NEITHER `pgrep` form tests for that -- the
-process NAME is `electron` (/usr/lib/electron42/electron), so `pgrep -x cursor`
-finds nothing, and `pgrep -f` is the whole-command-line trap in CLAUDE.md.
+open and rewrites it from memory. NEITHER `pgrep` form is relied on for that --
+the binary is `electron` (/usr/lib/electron42/electron) and `pgrep -x cursor`
+found nothing on Cursor 3.20 (on 3.22.7 the main process's NAME reads `cursor`,
+every helper's `electron`), and `pgrep -f` is the whole-command-line trap in
+CLAUDE.md.
 
 Script: [`cursor.sh`](cursor.sh) — runnable on its own; [`../apply.sh`](../apply.sh) owns the order.
 

@@ -26,7 +26,9 @@ it in `--all` would recurse. The picker passes `--no-apply` for the same reason.
 6. swap the app directory, keeping the old one until the new one is in
 7. hand off to `apply.sh`, which owns the launcher entry (step `applications`)
 
-No sudo. Nothing is written outside `$HOME`.
+No sudo of its own, and nothing it writes is outside `$HOME`. The
+`apply.sh --all` it hands off to is what asks for sudo (8b, 9, 11), as any
+full run does; `--no-apply` skips it.
 
 Step 4's download is bounded by a **stall**, not by a duration:
 `--connect-timeout 30 --speed-limit 1024 --speed-time 60`, i.e. give up after

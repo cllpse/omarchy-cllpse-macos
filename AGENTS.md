@@ -46,12 +46,15 @@ Icons live in two directories, keyed two different ways. See
 1. Determine if the mark should be recoloured (`icons/`) or kept verbatim
    (`verbatim/`). Recoloured only for silhouettes; anything defined by
    colour boundaries goes in verbatim.
-2. Ensure the SVG has a **square `viewBox`** (e.g. `0 0 24 24`). The switcher
-   scales from this; a non-square viewBox distorts.
+2. Ensure the SVG has a **square `viewBox`** (e.g. `0 0 24 24`). The menu
+   draws into a square box, so a non-square one renders off-size beside its
+   neighbours. The switcher's copy follows its own contract instead — ink
+   edge-to-edge in its own box, `PreserveAspectFit`, no distortion (see
+   `omarchy-cllpse-plugin-switcher/AGENTS.md`).
 3. The filename must match the **desktop entry's `Icon=`** for the Omarchy
    menu to find it. For the switcher, a second copy named for the **window
    class** may be needed (they often differ).
-4. After adding, run `overrides/icons/app-icons.sh` to sync to `~/.icons/`.
+4. After adding, run `overrides/hooks/theme-set.d/app-icons.sh` to sync to `~/.icons/`.
 5. Verify with `overrides/icons/AGENTS.md` check scripts — compare against
    the switcher's copies for drift.
 
@@ -88,7 +91,7 @@ Our overrides live in:
 - `~/.config/hypr/looknfeel.lua`
 - `~/.config/hypr/bindings.lua`
 - `~/.config/hypr/input.lua`
-- `~/.config/hypr/autostart.lua`
+- `~/.config/hypr/hyprland.lua` (the env + keyboard-layout block, at its end)
 
 These are managed through `sync_fenced` blocks by `apply.sh`. Edit the fenced
 blocks in `overrides/hypr/` and re-run `apply.sh hypr`.
@@ -99,8 +102,8 @@ state. Use `omarchy-restart-shell` or `omarchy theme set` for that.
 ## Add or change a Chromium policy
 
 Policies go in `/etc/chromium/policies/managed/*.json`, installed by
-`overrides/chromium/chromium.sh` with `sudo install`. The step is last in
-`apply.sh` because it needs sudo.
+`overrides/chromium/chromium.sh` with `sudo install`. The step is late in
+`apply.sh` (step 9, among the sudo steps) because it needs sudo.
 
 Policies are live-reloaded by `chromium --refresh-platform-policy` without a
 browser restart. `omarchy-theme-set-browser` already calls this on every theme

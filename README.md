@@ -5,8 +5,8 @@ built against [`reference/BUILD.md`](reference/BUILD.md). Seeded from the stock
 **Last Horizon** theme.
 
 Two themes — Omarchy has no runtime light/dark toggle, each theme is one mode.
-Both are **their own repositories**, added here as submodules under
-`` — each installs on its own with `omarchy theme install`:
+Both are **their own repositories**, added here as submodules at the repo root
+— each installs on its own with `omarchy theme install`:
 
 | Folder | Omarchy name | `mode` | Palette |
 |---|---|---|---|
@@ -54,6 +54,8 @@ sudo pacman -S lsd ghostty yazi keyd python-secretstorage msedit
 sudo pacman -S cursor-bin                        # the `omarchy` repo, not `extra`
 yay -S bibata-cursor-theme-bin ytm-player        # AUR — pacman -S will NOT find these two
 omarchy pkg aur add flea-bin                     # AUR too — the file manager, step 7j
+omarchy-install-service-tailscale                # step 7i: the daemon, the login, the operator bit
+yay -S ryzenadj                                  # step 10 — only on the Ryzen box it is gated on
 mise use -g hunk gh
 gh extension install dlvhdr/gh-dash
 ```
@@ -152,7 +154,7 @@ self-contained Omarchy theme:
 | File | Role |
 |---|---|
 | `colors.toml` | The palette + `mode`. Drives every generated config, including the shell bar/menus/notifications. |
-| `shell.{bar,menu,launcher,notifications}.toml` | Per-section overrides spliced into the generated `shell.toml` — surface `background-alpha` (BUILD.md §6) for the blur set up in `overrides/`. |
+| `shell.{bar,menu,launcher,notifications,tooltip,lock}.toml` | Per-section overrides spliced into the generated `shell.toml` — surface `background-alpha` (BUILD.md §6) for the blur set up in `overrides/`. |
 | `icons.theme` | dark → `Yaru-dark`, light → `Yaru-blue`. Fed to `gsettings icon-theme` by `omarchy-theme-set-gnome`. |
 | `backgrounds/` | Wallpapers — macOS stock (Big Sur → Sequoia) plus macOS-styled community art; 29 dark / 31 light, **all lossless WebP**. Converted from PNG/JPG/HEIC with pixel-identical output (verified per file), which cut the set from 302 MB to 271 MB and made the six former `.heic` files usable — Omarchy's picker enumerates `jpg/jpeg/png/gif/bmp/webp` and never saw them. The `00-` prefix on `00-umeda_wallpaper_desktop*.webp` is what makes it each theme's default: Omarchy has no default-background key and simply takes the sort-first file when switching into a theme. |
 | `unlock.png`, `preview-unlock.png` | Boot-splash (Plymouth) / SDDM login-screen logo, and its `omarchy plymouth switcher` picker thumbnail — a fixed multi-colour "OMARCHY" wordmark, hand-tuned per theme (close but not pixel-identical between dark/light). Applied separately from `omarchy theme set`: `omarchy plymouth set by theme <name>` (needs sudo). |
@@ -179,7 +181,7 @@ system (GTK) theme and grayscale.
 ## Layout
 
 ```
-     the two themes, each a SUBMODULE — their own repos, installable on their own
+omarchy-cllpse-theme-{dark,light}/  the two themes, each a SUBMODULE — their own repos, installable on their own
 overrides/                everything that lives outside a theme folder + apply.sh / revert.sh / lib.sh
 overrides/<name>/         one directory per override, each owning BOTH its script and its docs:
                           <name>.sh (runnable on its own) and README.md (why). apply.sh is an
@@ -198,7 +200,8 @@ omarchy-cllpse-plugin-supermenu/ SUBMODULE -> cllpse/omarchy-cllpse-plugin-super
                           apps and every Omarchy menu entry in one search, ranked by
                           what you pick. Its own repo, symlinked the same way
 reference/                BUILD.md (the spec) + window-switcher-notes.md (the plugin's
-                          design log) + fonts.conf (BUILD's original, superseded)
+                          design log) + fonts.conf (BUILD's original, superseded) +
+                          cpu-tuning-claude-transcript.txt (where step 10's numbers came from)
 KEYBINDS-PARITY.md        the macOS keyboard gap: Apple's own shortcut list diffed against
                           the live bind set — what is free and unwired, what the keyboard's
                           firmware blocks, and what was ruled out. Nothing in it is
@@ -243,8 +246,8 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   1.0), keeps `general.border_size = 2` (Omarchy's default) with `gaps_in = 12` / `gaps_out = 24` (§5's Apple 8pt grid, `md`/`xxl` steps),
   overrides window opacity to `1.0 0.875` (re-matched onto browsers directly too,
   since Omarchy pins those to their own `1.0 0.985` otherwise), and divides every `hl.animation` leaf's
-  stock speed by 3 for 3× faster animations, floored at 1 so the fastest leaves
-  don't read as a hard cut. It sets no border *colour*: both borders come from
+  stock speed by 3.5 for 3.5× faster animations (was 3×), floored at 0.6
+  (was 1) so the fastest leaves don't read as a hard cut. It sets no border *colour*: both borders come from
   the active theme's `colors.toml` via the generated `hyprland.lua`.
   `looknfeel-decoration.lua` also carries an `hl.layer_rule` opting the Omarchy
   shell surfaces (`omarchy-bar|notifications|osd|polkit|clipboard|emojis|`
@@ -308,11 +311,12 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
 - **Chromium scale is two settings that multiply, not one.**
   `overrides/chromium/chromium-flags.conf` is fenced into
   `~/.config/chromium-flags.conf` (the launcher skips `#` lines, so the markers
-  are inert) and pins `--force-device-scale-factor=1` against DP-2's 1.25
-  monitor scale, putting the browser UI 20% under the rest of the desktop.
-  `overrides/chromium/default-zoom.py` then sets page zoom to 110%, so page
-  layout lands at 0.8 × 1.1 = 0.88 of native; 125% would cancel the flag
-  outright. There is no command-line flag for default zoom — it is the profile
+  are inert) and pins `--force-device-scale-factor=1` against the TV's 1.33333
+  monitor scale (was DP-2's 1.25), putting the browser UI 25% under the rest of
+  the desktop (was 20%). `overrides/chromium/default-zoom.py` then sets page
+  zoom to 110%, so page layout lands at 0.75 × 1.1 = 0.825 of native (was
+  0.8 × 1.1 = 0.88); ~133% would cancel the flag outright (was 125%).
+  There is no command-line flag for default zoom — it is the profile
   preference `partition.default_zoom_level`, stored as `ln(factor)/ln(1.2)` —
   and Chromium must be closed when it is written, since it rewrites
   `Preferences` from memory on exit.
@@ -479,7 +483,7 @@ so a rebuild isn't guesswork:
 | Setting | Where | Why it isn't installed |
 |---|---|---|
 | `gtk-enable-primary-paste = true` | `gsettings org.gnome.desktop.interface` | Middle-click paste — a personal habit, unrelated to the macOS look |
-| `SSH_AUTH_SOCK` → `${XDG_RUNTIME_DIR}/gcr/ssh` | `~/.config/environment.d/ssh-agent.conf` | Points ssh at the GNOME keyring; would break ssh on a machine without it running |
+| `SSH_AUTH_SOCK` → `${XDG_RUNTIME_DIR}/gcr/ssh` | `~/.config/environment.d/ssh-agent.conf` | Points ssh at the GNOME keyring; would break ssh on a machine without it running. No longer on this machine: the file, the `gcr/` socket directory and the session's `SSH_AUTH_SOCK` are all gone |
 | Nautilus / GTK file-chooser window state | `dconf` | Incidental UI state, not configuration |
 
 Third-party shell plugins are not installed either — `apply.sh` has no source
@@ -521,15 +525,17 @@ comm -23 <(pacman -Qqe | sort -u) \
 ```
 
 That prints every explicitly-installed package Omarchy's own lists do not
-contain — 30 here. Eleven of them are this repo's dependencies and are covered in
+contain — 32 here. Twelve of them are this repo's dependencies and are covered in
 [`overrides/README.md`](overrides/README.md) (`bibata-cursor-theme-bin`,
 `cursor-bin`, `flea-bin`, `ghostty`, `keyd`, `lsd`, `msedit`,
-`python-secretstorage`, `ryzenadj`, `yazi`, `ytm-player`). Four more — `cmake`, `ninja`,
+`python-secretstorage`, `ryzenadj`, `tailscale`, `yazi`, `ytm-player`). Four more — `cmake`, `ninja`,
 `qt6-connectivity`, `qt6-tools` — are build dependencies, not runtime ones:
 the `io.github.thisisgm.omapods` `setup` script pulls them in to compile the
-`librepods` daemon, and they are covered in the same table. They can be removed
+`librepods` daemon, which is how that table covers them — its omapods row names
+the `setup` script, not the four packages. They can be removed
 once it is built; the daemon in `~/.local/bin/` is what the widget needs. The
-other fifteen are the groups below.
+other fifteen are the groups below, and `geekbench` (installed by hand from the
+AUR on 2026-10-02) is the one not yet placed in any of them.
 Anything that turns up in the command's output and not in this section is
 either new or was never wanted.
 
@@ -592,12 +598,13 @@ nothing here touches audio.
 wrappers (`claude`, `codex`, `copilot`, `crush`, `cursor-agent`, `gemini`, `gh`,
 `ghui`, `grok`, `hermes`, `hunk`, `muse`, `omp`, `opencode`, `pi`, `playwright`)
 that each `mise use -g` their own tool on first run and then exec it. They need
-no install step and appear in no package list. Four of them — `claude`, `codex`,
-`gh`, `hunk` — are *also* pinned in `~/.config/mise/config.toml` (with `node`),
-so they are installed whether or not their wrapper ever runs; only `hunk` and
-`gh` matter to this repo. The two `cllpse-*` entries beside them
-(`cllpse-figma-keyd`, `cllpse-ytm-signin`) are this repo's, installed by
-`apply.sh`.
+no install step and appear in no package list. All but `ghui` and `hermes` are
+*also* pinned in `~/.config/mise/config.toml` (with `node`, `go` and `uv`) —
+was four, `claude`, `codex`, `gh`, `hunk`; a wrapper's `mise use -g` writes its
+pin on first run — so they are installed whether or not their wrapper ever runs
+again; only `hunk` and `gh` matter to this repo. The three `cllpse-*` entries
+beside them (`cllpse-cursor-text-size`, `cllpse-figma-keyd`,
+`cllpse-ytm-signin`) are this repo's, installed by `apply.sh`.
 
 **Arch and Omarchy base** — `amd-ucode`, `efibootmgr`, `fwupd`, `mkinitcpio`,
 `sudo`, `omarchy`, `omarchy-keyring`, `omarchy-settings`. Listed only so that
@@ -673,7 +680,7 @@ drop-in instead (step 7c), which no update can reach.
 
 Two things worth knowing after an update: the entry change needs no relogin, but
 `environment.d` does, so a *first* install wants a logout before Figma runs as a
-native Wayland client at the right scale. And `keyd` — one of the three packages
+native Wayland client at the right scale. And `keyd` — one of the four packages
 this repo depends on and installs none of, for Figma's `Cmd`+click and
 `Cmd`+scroll — is configured by step 8b and not installed by it. Step 8b also installs a `keyd.service` drop-in that
 restarts the daemon after a segfault, because keyd 2.6.0-5 dumped core twice in

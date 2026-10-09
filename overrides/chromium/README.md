@@ -13,10 +13,12 @@ stall a run halfway through (it was step 9). Calling this with no argument
 ## 2. Two settings that only make sense together
 
 Two settings that only make sense together: the flag pins the device pixel
-ratio to 1 (20% under DP-2's 1.25), and the preference puts page zoom back on
-top. Page size is the product of the two — 110% ships, so 0.8 x 1.1 = 0.88;
-125% would be exactly 1:1 with native. Browser UI stays at 0.8 either way,
-since zoom does not touch it. See the header of each file.
+ratio to 1 (25% under the TV's 1.33333; tuned as 20% under DP-2's 1.25, and
+not retuned since display.conf moved to 1.33333 on 2026-10-08), and the
+preference puts page zoom back on top. Page size is the product of the two —
+110% ships, so 0.75 x 1.1 = 0.825 (0.88 back at 1.25); ~133% would be exactly
+1:1 with native (125% at 1.25). Browser UI stays at 0.75 either way (0.8 at
+1.25), since zoom does not touch it. See the header of each file.
 
 The flag file is Omarchy's, so it takes a fenced block like every other
 shared config here; the launcher skips "#" lines, which makes the markers
@@ -68,9 +70,10 @@ own work, which must not be recorded as what the machine came with.
 
 ## 7. LAST on purpose
 
-LAST on purpose. This is the only step that needs sudo, so it runs after
-everything else rather than stalling a run halfway through on a password
-prompt. It used to sit between 7f2 and 7h.
+LAST on purpose. This is the only half of this script that needs sudo, so it
+runs late (step 9, with apply.sh's other sudo steps 8b, 10 and 11) rather than
+stalling a run halfway through on a password prompt. It used to sit between
+7f2 and 7h.
 Spellcheck / Translate / password-save-prompt / Autofill / Print / Cast /
 QR-code / Reading-list all end up here, not in a Preferences file.
 An earlier version of this step wrote the first five as plain Preferences
@@ -154,9 +157,10 @@ as a DevTools bug.
 
 ## From the step table
 
-Chromium: `--force-device-scale-factor=1` (browser UI 20% under DP-2's 1.25) +
-`110%` default page zoom — page size is the product of the two, and 125% would
-be exactly 1:1 with native; `--enable-features=…,OverlayScrollbar` for the
+Chromium: `--force-device-scale-factor=1` (browser UI 25% under the TV's
+1.33333; 20% under DP-2's 1.25, which it was tuned against) + `110%` default
+page zoom — page size is the product of the two, and ~133% would be exactly
+1:1 with native (125% at 1.25); `--enable-features=…,OverlayScrollbar` for the
 thin auto-hiding scrollbar (restating Omarchy's own feature, because a
 repeated `--enable-features` is last-wins rather than merged);
 `--disable-features=MediaSessionService`, the only lever that removes the
@@ -183,9 +187,10 @@ back at all.) Needs **sudo** (the only step in this script that does), and
 only writes into `/etc/chromium/policies/managed/` if that directory already
 exists — mirroring Omarchy's own guard, so a machine without Chromium doesn't
 get handed a policy root it didn't have. No relaunch needed if Chromium is
-running: step 8's `omarchy-theme-set-browser` already calls Chromium's
-`--refresh-platform-policy` on every theme-set, which reloads this file too,
-same as Omarchy's own `color.json`. The same file also carries
+running: the step calls Chromium's `--refresh-platform-policy` itself after
+writing (step 8's `omarchy-theme-set-browser` refresh has already run by
+then), which reloads the whole managed directory, same as Omarchy's own
+`color.json`. The same file also carries
 `ExtensionInstallForcelist`, which pins two extensions by ID against Google's
 CRX endpoint: **uBlock Origin Lite** (`ddkjiahejlhfcafbddmgiahcphecmpfh`) and
 **Proton Pass** (`ghmbeldphafepmbegfdlkpapadhbakde`). uBOL rather than uBlock

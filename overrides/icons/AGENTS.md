@@ -35,15 +35,18 @@ contract; copy it back here afterwards.
 ## Who consumes these
 
 Three consumers, keyed three different ways. Get the key wrong and the file is
-simply never found — nothing errors. Only the first is served from **this**
-directory; the other two read the **plugin's** `omarchy-cllpse-plugin-switcher/icons/`, so the example column
-says where each file actually lives.
+simply never found — nothing errors. The plugin ships every mark in its own
+`omarchy-cllpse-plugin-switcher/icons/`, but on **this** machine the switcher
+finds this directory's copies first: it reads `~/.icons/cllpse-flat/apps/`, and
+its vendor sweep scans `~/.icons` — so `~/.icons/cllpse-color/apps/` — before its
+own `icons/`. The example column says where each file is actually served from
+here; elsewhere the last two come from the plugin's `icons/`.
 
 | consumer | key | example (and where it lives) |
 |---|---|---|
 | Omarchy menu (app rows) | the desktop entry's `Icon=` | `org.gnome.DiskUtility.svg` — `icons/`, here |
-| Switcher tile | the **window class** | `cursor.svg` — the plugin's `icons/` |
-| Switcher terminal icon | the **command name**, after the switcher's alias file | `hunk.svg` — the plugin's `icons/` |
+| Switcher tile | the **window class** | `cursor.svg` — `verbatim/` here, via `~/.icons/cllpse-color/apps/` |
+| Switcher terminal icon | the **command name**, after the switcher's alias file | `hunk.svg` — `verbatim/` here, via `~/.icons/cllpse-color/apps/` |
 
 A mark in `icons/` here also reaches the switcher, through the optional
 `~/.icons/cllpse-flat/apps/` root it reads; `btop.svg` and `gh.svg` here are
@@ -56,9 +59,11 @@ out of `icons/`.
 **The full-colour marks are in this repository too, so a colour mark is added
 twice.** `verbatim/` here holds 76 of them; the switcher submodule,
 `omarchy-cllpse-plugin-switcher/icons/`, holds the same 76 among all 100 it ships
-for its own tiles. The plugin draws its own copy directly, and `app-icons.sh`
-copies the one here verbatim into `~/.icons/cllpse-color/apps/` so the menu gets
-the mark too. There was a period when only the submodule had them —
+for its own tiles. `app-icons.sh` copies the one here verbatim into
+`~/.icons/cllpse-color/apps/` so the menu gets the mark too — and on this machine
+the switcher finds that copy before the plugin's own, so a mark refitted in the
+plugin keeps its old fit in both surfaces until it is copied back here and
+synced. There was a period when only the submodule had them —
 `overrides/icons/color/` was deleted precisely so two copies of identical artwork
 could not drift — and that de-duplication was **undone deliberately** when both
 repos were asked to be complete. So the drift check above is the price, and the
@@ -136,7 +141,7 @@ for d in ${XDG_DATA_DIRS:-/usr/local/share:/usr/share}; do dirs="$dirs $d/icons"
 done; find /usr/share/pixmaps -maxdepth 1 -name "*.$ext" 2>/dev/null; done; }'''
 vendor = {os.path.basename(l).rsplit(".", 1)[0]
           for l in subprocess.run(["bash","-c",sweep],capture_output=True,text=True).stdout.split()}
-# Builtins and coreutils never take over a terminal, so they can never be what a
+# Builtins and coreutils never take over a terminal, so they can never be what
 # a terminal icon is for. Without this the list is mostly `cd`, `cat` and `rm`.
 NOISE = set("""cd ls cat rm cp mv mkdir rmdir echo pwd touch chmod chown ln head tail
 grep sed awk sort uniq wc cut tr find xargs which sudo su exit source export set unset
@@ -145,9 +150,11 @@ ps top man less more tee basename dirname realpath stat date seq yes""".split())
 # Keep in step with the switcher's icon-aliases.json, or you will "discover" a
 # name it never looks up. That file is the source now; this is a copy for the
 # gap analysis only.
-ALIAS = {"diff":"hunk","log":"hunk","dash":"gh","edit":"msedit","ls":"lsd",
+ALIAS = {"diff":"hunk","log":"hunk","dash":"gh","edit":"msedit",
          "claude":"claude-code","node":"nodejs","python3":"python","sqlite3":"sqlite",
-         "psql":"postgresql","ytm":"youtube-music","youtuimusic":"youtube-music",
+         "psql":"postgresql","redis-cli":"redis","ffprobe":"ffmpeg",
+         "magick":"imagemagick","convert":"imagemagick",
+         "ytm":"youtube-music","youtuimusic":"youtube-music",
          "π":"pi"}
 cands = collections.defaultdict(set)
 def add(name, src):
@@ -183,13 +190,17 @@ name is a suggestion, not a task.
 
 ## 3. Choose the directory
 
-Two destinations, and they are in **different repositories** now.
+Two destinations, both here. (They were in **different repositories** while
+only the submodule held the colour set.) Either way the same file also goes
+into `omarchy-cllpse-plugin-switcher/icons/` — see *Keeping the two repos in
+step* above.
 
 - **`icons/`, here** — a silhouette; the theme supplies the colour. Synced
-  repainted to the theme `foreground`. Only ever about the menu.
-- **`omarchy-cllpse-plugin-switcher/icons/`, the submodule** — the mark only reads in
-  its own colours (`figma-desktop`, `claude-code`, `youtube-music`). Synced
-  verbatim, and read directly by the plugin, so one file serves both surfaces.
+  repainted to the theme `foreground`, which the switcher reads too, through
+  `~/.icons/cllpse-flat/apps/`.
+- **`verbatim/`, here** — the mark only reads in its own colours
+  (`figma-desktop`, `claude-code`, `youtube-music`). Synced verbatim to
+  `~/.icons/cllpse-color/apps/`, where the switcher finds it before its own copy.
 
 One name, one directory, never both — the switcher checks the repainted index
 first, so a duplicate silently wins there and the colour copy is dead.
@@ -197,7 +208,7 @@ first, so a duplicate silently wins there and the colour copy is dead.
 **A monochrome mark whose only contrast comes from its own background belongs in
 `icons/`, not with the colour set.** `hunk` is dark-on-cream: strip its box
 and treat it as a colour mark and you get a `#16140F` glyph on a `#1E1E1E` card,
-contrast 1.05, invisible. Either keep the background and stay with the colour
+contrast 1.10, invisible. Either keep the background and stay with the colour
 set, or drop the background and move to `icons/`.
 
 Conversely, a file in `icons/` with a background rect is **broken**: the

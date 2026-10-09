@@ -181,8 +181,9 @@ and `leftcontrol = layer(figma_ctrl)` in the running daemon and drops them
 again on blur — Figma reads `ctrlKey` and ignores `metaKey` off
 macOS, and Hyprland has no pointer-button or scroll-axis dispatcher to
 translate Cmd+click / Cmd+scroll with. Needs **sudo**. keyd re-reads that
-config only at start, so this step's `systemctl restart` is the *only* thing
-that publishes an edit to `keyd/default.conf`; it ends by binding the layers
+config only at start or on `keyd reload` (5), so this step's
+`systemctl restart` is the *only* thing here that publishes an edit to
+`keyd/default.conf`; it ends by binding the layers
 and releasing them as a smoke test, because every link in the chain fails
 silently
 

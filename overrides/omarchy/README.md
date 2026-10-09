@@ -146,9 +146,9 @@ other three keys; the comment there now says which half moved and why.
 Omarchy shell config, five targeted `jq` key writes — never a whole-file copy
 or deep merge, since the file also holds `idle`, `version` and other plugins'
 widget config, and `plugins[]` is an array a merge would replace rather than
-append to. **`plugins[]`**: enable the window-switcher (entry keyed by the
-manifest id — step 1's symlink only *installs* it; without this entry the HUD
-never loads and nothing says so). **`bar.transparent`**: true (Omarchy ships
+append to. **`plugins[]`**: enable the window-switcher and the supermenu (entries keyed by the
+manifest id — step 1's symlinks only *install* them; without an entry the HUD
+or the supermenu never loads and nothing says so). **`bar.transparent`**: true (Omarchy ships
 false). **`bar.layout`** + **`bar.centerAnchor`** + **`disabledPlugins`**:
 from `omarchy/shell-bar.json`, the recorded bar. `disabledPlugins[]` reaches
 only first-party *non-widget* plugins — panels and services

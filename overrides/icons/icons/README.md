@@ -6,11 +6,12 @@ hand, gets recoloured to the active theme on every theme-set, and an app with no
 file here simply keeps its own vendor icon, in full colour, unchanged.
 
 The other source is the same idea without the repaint — marks that only read in
-their own colours, copied verbatim — and it is **not in this repository**. It is
-`omarchy-cllpse-plugin-switcher/icons/`, the switcher submodule, which the plugin draws
-from directly and `app-icons.sh` copies into `~/.icons/cllpse-color/apps/` for
-the menu. A name in either source takes that app over; do not put the same name
-in both.
+their own colours, copied verbatim — and it is the sibling `../verbatim/`, which
+`app-icons.sh` copies into `~/.icons/cllpse-color/apps/` for the menu. For a
+while it was **not in this repository**, only in
+`omarchy-cllpse-plugin-switcher/icons/`, the switcher submodule; that still
+carries every mark from both sources for the plugin. A name in either source
+takes that app over; do not put the same name in both.
 
 Add a file to take an app over; delete it to hand that app back.
 
@@ -95,8 +96,9 @@ draw time — but both halves are gone with the rasters. `Hud.qml` now draws the
 `iconDrawn` — a flat `iconSize * 0.9` — with no ink-ratio compensation in it, so
 a file padded to 78% renders about a fifth *smaller* than its neighbours rather
 than correctly. Edge-to-edge inside a square canvas is the whole
-contract, and it is what every file in this directory and in the switcher's
-`icons/` already follows.
+contract. Every file in this directory and in the switcher's `icons/` is
+edge-to-edge, bar `pi`, inset on purpose; the canvases are not all square — 4 of
+the 24 here and 25 of the switcher's 100 were tightened to their ink instead.
 
 **Strip export artefacts.** Design tools emit invisible bounding rectangles —
 `<rect … fill-opacity="0">` spanning the canvas. They draw nothing today, but
@@ -121,9 +123,12 @@ re-runs it after an `omarchy update`. Delete a file and the next sync removes it
 from `~/.icons/` too.
 
 The window switcher reads the same files, but keys on the **window class**
-rather than `Icon=`. Those differ for a handful of apps, so a drop-in whose name
-does not match the class reaches the menu only; drop a second copy named for the
-class if you want it in both. Check a running window's class with:
+rather than `Icon=`. Those differ for a handful of apps. Where a desktop entry
+names the class — its `StartupWMClass` or its file name, either case — the
+switcher follows that entry to its `Icon=` and finds the drop-in anyway (class
+`cursor` reaches `co.anysphere.cursor` that way). Only where no entry names the
+class does a drop-in whose name does not match it reach the menu only; drop a
+second copy named for the class then. Check a running window's class with:
 
 ```bash
 hyprctl clients -j | grep '"class"'

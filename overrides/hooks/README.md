@@ -39,12 +39,23 @@ The set is therefore written out rather than described:
 | `plugins/cllpse.window-switcher` | `apply.sh` |
 
 The first nine are also enumerated by `revert.sh`, which removes them. Three
-lists, one set, nothing enforcing it — `CLAUDE.md`'s *Three lists have to
-agree about the hooks* carries the one-liner that compares them; run it after
-adding an app. It spans `theme-set.d/` **and** `post-boot.d/`, which it did not
+lists, one set, nothing enforcing it — this one-liner compares them (it was
+`CLAUDE.md`'s *Three lists have to agree about the hooks* until `99a9d64`
+compacted that file); run it after adding an app:
+
+```bash
+cd overrides
+D='(?:theme-set|post-boot)\.d/[a-z-]+\.sh'
+inst=$(grep -rhoP "ln -sfn \"\\\$HERE/hooks/\K$D" */*.sh | sort -u)
+rep=$(grep -oP "hooks/\K$D" hooks/post-update.d/cllpse-macos-repair.sh | sort -u)
+rev=$(grep -oP "rm -f ~/\.config/omarchy/hooks/\K$D" revert.sh | sort -u)
+[[ $inst == "$rep" && $inst == "$rev" ]] && echo agree || printf '%s\n---\n%s\n---\n%s\n' "$inst" "$rep" "$rev"
+```
+
+It spans `theme-set.d/` **and** `post-boot.d/`, which it did not
 when it only knew about the first: a check scoped to one directory reports
 `agree` about a hook in the other while saying nothing at all, which is the
-same silent-pass shape the entry it lives next to is about.
+same silent pass the check exists to catch.
 
 ## From the step table
 
