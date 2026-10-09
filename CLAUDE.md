@@ -1,13 +1,16 @@
 # omarchy-cllpse-macos
 
 Two Omarchy 4.0.4 themes (`quattro` branch) reproducing the macOS appearance, plus
-machine-level overrides and a window-switcher plugin. **`master` is stale at 3.8.5**
-and documents an incompatible theme format — do not read it.
+machine-level overrides and two plugins: a window switcher and a launcher.
+**`master` is stale at 3.8.5** and documents an incompatible theme format — do
+not read it.
 
-**The window switcher is a submodule:** `omarchy-cllpse-plugin-switcher/` →
-[cllpse/omarchy-cllpse-plugin-switcher](https://github.com/cllpse/omarchy-cllpse-plugin-switcher).
-Clone with `--recurse-submodules`. Edits to `Hud.qml` require commits in that repo
-plus a submodule pointer bump here — two commits, not one.
+**Both plugins are submodules:** `omarchy-cllpse-plugin-switcher/` →
+[cllpse/omarchy-cllpse-plugin-switcher](https://github.com/cllpse/omarchy-cllpse-plugin-switcher),
+and `omarchy-cllpse-plugin-supermenu/` (SUPER+SPACE) →
+[cllpse/omarchy-cllpse-plugin-supermenu](https://github.com/cllpse/omarchy-cllpse-plugin-supermenu).
+Clone with `--recurse-submodules`. Edits to `Hud.qml` or `Supermenu.qml` require
+commits in that repo plus a submodule pointer bump here — two commits, not one.
 
 Start with [`README.md`](README.md) for repo layout,
 [`overrides/README.md`](overrides/README.md) for what `apply.sh` touches,
@@ -78,9 +81,17 @@ the next bump is a re-run.
   `icon-canvas` / `status-slot` are read by `Style.bar` but never populated
   by `applyShellValues` — dead keys.
 
-- **The whole `[launcher]` section** is a dead section. SUPER+SPACE is the
-  **menu** plugin (`omarchy-menu`), so `shell.menu.toml` styles it. The
+- **The whole `[launcher]` section** is a dead section. Omarchy's SUPER+SPACE is
+  the **menu** plugin (`omarchy-menu`), so `shell.menu.toml` styles it — and
+  here SUPER+SPACE is the supermenu, which binds the same `Color.menu` tokens. The
   `shell.launcher.toml` files are spliced into `shell.toml` and read by nobody.
+
+- **A third-party `menu` plugin never gets the shell's app library.**
+  `shell.qml`'s `manifestHasKind()` tests `Array.isArray(manifest.kinds)` on a
+  manifest that has been through the panel loader's Instantiator, which turns
+  the array into a V4Sequence (`indexOf` works, `Array.isArray` is false). The
+  supermenu runs its own `AppLibrary` instead. Probe:
+  `omarchy-shell shell call cllpse.supermenu stats "" | jq .sharedAppLibrary`
 
 - **Font size** is machine-level only: `~/.config/omarchy/shell.toml`
   `[font] base-size`. Themes must not touch it.
@@ -195,6 +206,7 @@ or `<`, and files with no paint at all (simple-icons bare `<path>`).
 | Colour spec and provenance | `reference/BUILD.md` |
 | App icon adding workflow | `overrides/icons/AGENTS.md` |
 | Switcher icon contract | `omarchy-cllpse-plugin-switcher/AGENTS.md` |
+| Supermenu ranking, invariants, traps | `omarchy-cllpse-plugin-supermenu/AGENTS.md` |
 | Task patterns for agents | `AGENTS.md` (this dir) |
 | Per-app override details | `overrides/<app>/README.md` |
 | Window switcher design log | `reference/window-switcher-notes.md` |

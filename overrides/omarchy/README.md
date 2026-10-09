@@ -1,6 +1,6 @@
 # Omarchy shell.json
 
-Five targeted jq writes into the shell config: the window-switcher plugin, a transparent bar, the recorded bar layout and the disabled first-party plugins.
+Five targeted jq writes into the shell config: the window-switcher and supermenu plugins, a transparent bar, the recorded bar layout and the disabled first-party plugins.
 
 ## 1. Targeted key writes into ~/.config/omarchy/shell.json
 
@@ -10,11 +10,12 @@ merge: the file also carries `idle`, `version` and any other plugin's own
 widget config, none of which this repo has an opinion about, and `plugins[]`
 is an array a deep merge would replace rather than append to.
 
-  plugins[]         step 1 symlinks the switcher into ~/.config/omarchy/
-                    plugins/, but that only INSTALLS it — Omarchy enables a
-                    plugin from this array, keyed by the manifest id (the
-                    folder name is cosmetic). Without the entry the plugin
-                    sits there and the HUD never loads, with nothing to say so.
+  plugins[]         step 1 symlinks the switcher and the supermenu into
+                    ~/.config/omarchy/plugins/, but that only INSTALLS them —
+                    Omarchy enables a plugin from this array, keyed by the
+                    manifest id (the folder name is cosmetic). Without the
+                    entry the plugin sits there and never loads, with nothing
+                    to say so: no HUD, and a SUPER+SPACE that does nothing.
   bar.transparent   Omarchy ships false. This hands the bar's background to
                     the theme's [bar] background-alpha instead of the shell
                     painting its own — which currently changes nothing on

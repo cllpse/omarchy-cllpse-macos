@@ -19,16 +19,21 @@ must be edited together.
 5. If the key is used in `overrides/` (e.g. cursor chrome), update the
    consumer there too. Do not leave the two out of sync.
 
-## Bump the window-switcher submodule
+## Bump a plugin submodule
 
-The switcher is a submodule at `omarchy-cllpse-plugin-switcher/`.
-A change there requires two commits.
+Both plugins are submodules: the switcher at `omarchy-cllpse-plugin-switcher/`,
+the supermenu at `omarchy-cllpse-plugin-supermenu/`. A change in either
+requires two commits.
 
-1. Commit the switcher change in the **submodule repo** and push.
-2. In this repo: `cd omarchy-cllpse-plugin-switcher && git pull origin main`
+1. Commit the change in the **submodule repo** and push.
+2. In this repo: `cd omarchy-cllpse-plugin-<name> && git pull origin main`
    (or the relevant branch).
-3. In the parent repo: `git add omarchy-cllpse-plugin-switcher && git commit`.
-4. Push this repo.
+3. In the parent repo: `git add omarchy-cllpse-plugin-<name> && git commit`.
+4. Push this repo — after the submodule, or the pointer names a commit nobody
+   else can fetch.
+
+The supermenu has a test suite; run `node test/search.test.js` inside it
+before committing a ranking change.
 
 Never edit files inside the submodule directory directly without committing in
 the submodule first — the pointer will drift.

@@ -27,9 +27,10 @@ compression level in `/etc/fstab`) and everything else is user-level. Six things
 them can be handed to an agent.
 
 **1. Clone it where it will live — with submodules.** The two themes and the
-window-switcher plugin are each their own repository, added here as submodules,
-so each installs on its own the way Omarchy expects — `omarchy theme install`
-for a theme, `omarchy plugin add` for the plugin:
+two plugins (the window switcher and the supermenu) are each their own
+repository, added here as submodules, so each installs on its own the way
+Omarchy expects — `omarchy theme install` for a theme, `omarchy plugin add` for
+a plugin:
 
 ```bash
 git clone --recurse-submodules git@github.com:cllpse/omarchy-cllpse-macos.git
@@ -37,12 +38,12 @@ git clone --recurse-submodules git@github.com:cllpse/omarchy-cllpse-macos.git
 git submodule update --init --recursive
 ```
 
-A plain clone leaves all three empty, and `apply.sh` stops with that instruction
+A plain clone leaves all four empty, and `apply.sh` stops with that instruction
 rather than symlinking a registered plugin id — or a theme name — at nothing.
 
 `apply.sh` symlinks the two theme folders into `~/.config/omarchy/themes/` and
-the plugin into `~/.config/omarchy/plugins/`, all pointing at this checkout.
-Moving or deleting the clone later breaks the themes and the switcher.
+the plugins into `~/.config/omarchy/plugins/`, all pointing at this checkout.
+Moving or deleting the clone later breaks the themes and both plugins.
 
 **2. Install what `apply.sh` can't.** It installs nothing at all — no packages,
 no `gh` extensions, no `mise` tools. These are the ones a stock Omarchy box does
@@ -188,9 +189,13 @@ overrides/icons/          all 100 app/CLI marks: icons/icons/ repainted to the t
                           file must look like
 omarchy-cllpse-plugin-switcher/  SUBMODULE -> cllpse/omarchy-cllpse-plugin-switcher. The macOS-style
                           window-switcher HUD plugin (id cllpse.window-switcher),
-                          opened by SUPER+TAB or by throwing the pointer at the left
-                          screen edge; published to the Omarchy plugin marketplace on
+                          opened by SUPER+TAB or by throwing the pointer at any
+                          screen corner; published to the Omarchy plugin marketplace on
                           its own. apply.sh symlinks it into ~/.config/omarchy/plugins/
+omarchy-cllpse-plugin-supermenu/ SUBMODULE -> cllpse/omarchy-cllpse-plugin-supermenu. The
+                          Raycast-style launcher on SUPER+SPACE (id cllpse.supermenu):
+                          apps and every Omarchy menu entry in one search, ranked by
+                          what you pick. Its own repo, symlinked the same way
 reference/                BUILD.md (the spec) + window-switcher-notes.md (the plugin's
                           design log) + fonts.conf (BUILD's original, superseded)
 KEYBINDS-PARITY.md        the macOS keyboard gap: Apple's own shortcut list diffed against
@@ -243,7 +248,7 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   `looknfeel-decoration.lua` also carries an `hl.layer_rule` opting the Omarchy
   shell surfaces (`omarchy-bar|menu|notifications|osd|polkit|clipboard|emojis|`
   `reminders|image-selector|network-qr|keyboard-panel|lock-preview`) plus our own
-  `omarchy-window-switcher-hud` into that blur — `blur_popups` on,
+  `omarchy-window-switcher-hud` and `omarchy-supermenu` into that blur — `blur_popups` on,
   `ignore_alpha = 0.6`, which sits between the scrims (0.25) and the cards
   (all 1.0) so the dimmed backdrop stays sharp — the windows being switched
   between remain readable. With every card opaque the blur is currently inert;
@@ -277,6 +282,23 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   link: unbound, they landed on Hyprland's temporary `FALLBACK` output and died
   with it. The mechanism is in
   [`reference/window-switcher-notes.md`](reference/window-switcher-notes.md).
+- **`SUPER+SPACE` is the supermenu, a Raycast-style launcher, not Omarchy's
+  menu.** macOS puts Spotlight on Cmd+Space; Omarchy puts its menu there, a tree
+  you walk. The supermenu (`omarchy-cllpse-plugin-supermenu/`) is one search
+  over every app and every entry of that same tree, ranked by what you pick:
+  the exact name first, then what you chose for this exact query before, then
+  fuzzy match quality plus a small usage term, with every count halving every
+  two weeks. Its data is Omarchy's own — both menu JSONC files parsed by
+  Omarchy's `MenuModel.js`, the batched `when:`/`checked:` guards, and the
+  `AppLibrary` with its icon index, so the `~/.icons` drop-ins apply — and the
+  card is drawn in the menu's theme tokens. The key arrives as a Hyprland global
+  shortcut (`overrides/hypr/supermenu-bindings.lua`), not an IPC call, so it
+  starts no process: the card is on screen in under 20ms, and a keystroke ranks
+  ~310 entries in under 0.2ms. Omarchy's own menu is not removed —
+  `omarchy menu` and every script that uses it as a picker still open it — it is
+  only moved off the chord. Its plugin README has the ranking in full and one
+  Omarchy 4.0.4 bug it works around: a third-party `menu` plugin is never
+  handed the shell's app library, so it runs its own.
 - **Chromium scale is two settings that multiply, not one.**
   `overrides/chromium/chromium-flags.conf` is fenced into
   `~/.config/chromium-flags.conf` (the launcher skips `#` lines, so the markers

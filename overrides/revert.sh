@@ -45,6 +45,12 @@ say "Removing window-switcher plugin symlink"
 [[ -L ~/.config/omarchy/plugins/cllpse.window-switcher ]] && rm -f ~/.config/omarchy/plugins/cllpse.window-switcher
 [[ -L ~/.config/omarchy/plugins/io.eject.window-switcher ]] && rm -f ~/.config/omarchy/plugins/io.eject.window-switcher
 
+say "Removing supermenu plugin symlink"
+# Not its usage history, ~/.local/state/omarchy/cllpse.supermenu.json: the
+# plugin writes that, not apply.sh, and it is what you taught the menu -- not
+# ours to delete, by the same rule as the switcher's icon folder below.
+[[ -L ~/.config/omarchy/plugins/cllpse.supermenu ]] && rm -f ~/.config/omarchy/plugins/cllpse.supermenu
+
 say "Removing xkb us-danish-letters symbols file"
 rm -f ~/.config/xkb/symbols/us-danish-letters
 
@@ -306,10 +312,11 @@ if [[ -f $shell_json ]]; then
   [[ -s $STATE/previous-bar-layout ]] && prev_layout="$(<"$STATE/previous-bar-layout")"
   _shell=$(mktemp)
   if jq --arg id cllpse.window-switcher --arg old io.eject.window-switcher \
+        --arg menu cllpse.supermenu \
         --arg prev "$prev_bar" --arg layout "$prev_layout" '
-        # Both ids: the plugin declared io.eject.window-switcher before the
-        # rename, and apply.sh is the only thing that ever put either there.
-        .plugins = ((.plugins // []) | map(select(.id != $id and .id != $old)))
+        # Both switcher ids: the plugin declared io.eject.window-switcher before
+        # the rename, and apply.sh is the only thing that ever put either there.
+        .plugins = ((.plugins // []) | map(select(.id != $id and .id != $old and .id != $menu)))
         | if $prev == "" then . else .bar.transparent = ($prev == "true") end
         | if $layout == "" then . else
             ($layout | fromjson) as $l
@@ -323,7 +330,7 @@ if [[ -f $shell_json ]]; then
           end
       ' "$shell_json" >"$_shell" 2>/dev/null && [[ -s $_shell ]]; then
     cat "$_shell" >"$shell_json"
-    say "shell.json: dropped the window-switcher plugin entry${prev_bar:+, bar.transparent -> $prev_bar}${prev_layout:+, bar layout + disabledPlugins restored}"
+    say "shell.json: dropped the window-switcher and supermenu plugin entries${prev_bar:+, bar.transparent -> $prev_bar}${prev_layout:+, bar layout + disabledPlugins restored}"
     rm -f "$STATE/previous-bar-transparent" "$STATE/previous-bar-layout"
   else
     say "  could not rewrite $shell_json — left untouched"

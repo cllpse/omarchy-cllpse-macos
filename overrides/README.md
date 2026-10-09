@@ -264,14 +264,14 @@ script works the same whether you run it by hand or `apply.sh` calls it.
 | # | Action | Target |
 |---|---|---|
 | 0 | Record the font and theme the machine had *before* the first apply, so `revert.sh` has something true to restore. Written once; values already ours are refused | `~/.local/state/cllpse-macos/previous-{font,theme}` |
-| 1 | Symlink both `` folders as themes, and `omarchy-cllpse-plugin-switcher/` as a plugin. All three are **submodules** ([dark](https://github.com/cllpse/omarchy-cllpse-theme-dark), [light](https://github.com/cllpse/omarchy-cllpse-theme-light), [switcher](https://github.com/cllpse/omarchy-cllpse-plugin-switcher)), so the step first refuses outright if any of those directories is empty — a plain `git clone` leaves it so, and symlinking a registered plugin id at nothing fails silently in the shell | `~/.config/omarchy/themes/omarchy-cllpse-theme-{dark,light}`, `~/.config/omarchy/plugins/cllpse.window-switcher` |
+| 1 | Symlink both `` folders as themes, and `omarchy-cllpse-plugin-switcher/` and `omarchy-cllpse-plugin-supermenu/` as plugins. All four are **submodules** ([dark](https://github.com/cllpse/omarchy-cllpse-theme-dark), [light](https://github.com/cllpse/omarchy-cllpse-theme-light), [switcher](https://github.com/cllpse/omarchy-cllpse-plugin-switcher), [supermenu](https://github.com/cllpse/omarchy-cllpse-plugin-supermenu)), so the step first refuses outright if any of those directories is empty — a plain `git clone` leaves it so, and symlinking a registered plugin id at nothing fails silently in the shell | `~/.config/omarchy/themes/omarchy-cllpse-theme-{dark,light}`, `~/.config/omarchy/plugins/cllpse.{window-switcher,supermenu}` |
 | 2 | Install SF fonts + fontconfig drop-ins (UI font + hintnone)<br>**Per-override detail: [`fonts/`](fonts/README.md), [`fontconfig/`](fontconfig/README.md)** | `~/.local/share/fonts/SF/`, `~/.config/fontconfig/conf.d/{99-cllpse-macos-ui-font,11-cllpse-macos-hinting}.conf` |
 | 3 | Monospace → SF Mono (Omarchy's own knob) | `omarchy font set` → terminal configs + `fonts.conf` |
 | 4 | GTK/GNOME fonts → SF Pro / SF Mono | `gsettings org.gnome.desktop.interface` |
 | 5 | Font hinting → `none` — SF faces render unhinted; grid-snapped stems read as sharp under grayscale AA (Wayland fractional scaling)<br>**Per-override detail: [`ghostty/`](ghostty/README.md)** | `gsettings … font-hinting 'none'` (GTK/GNOME) + fenced `freetype-load-flags = no-hinting` in `~/.config/ghostty/config`, on top of Omarchy's stock config (fontconfig side is the step-2 drop-in) |
 | 5b | GTK window buttons → none. Hyprland draws no titlebars; a GTK/libadwaita app's min/max/close is its own CSD, laid out from this key. `':'` vs Omarchy's `'appmenu:close'`. Electron/Qt ignore it — Cursor's are step 7 | `gsettings org.gnome.desktop.wm.preferences button-layout ':'` |
 | 5c | Danish letters on the Preonic's M0 layer — a static, single-group xkb symbols file, referenced by `hyprland-env.lua`'s `kb_layout`. **Full detail: [`xkb/README.md`](xkb/README.md).** | `~/.config/xkb/symbols/us-danish-letters` |
-| 6 | Four fenced snippets into the user's own hypr config: env + cursor theme + keyboard layout, decoration/blur/animations, window-switcher binds, mouse tuning. **Full detail: [`hypr/README.md`](hypr/README.md).** | fenced blocks synced into `~/.config/hypr/hyprland.lua` and `~/.config/hypr/looknfeel.lua` |
+| 6 | Five fenced snippets into the user's own hypr config: env + cursor theme + keyboard layout, decoration/blur/animations, window-switcher binds, mouse tuning, and `SUPER+SPACE` handed to the supermenu. **Full detail: [`hypr/README.md`](hypr/README.md).** | fenced blocks synced into `~/.config/hypr/hyprland.lua`, `looknfeel.lua`, `bindings.lua` and `input.lua` |
 | 6b | Keybind allowlist + macOS-parity shortcuts: scan the live binds, unbind what the allowlist omits, then re-sync the parity and window-management blocks. **Full detail: [`hypr/README.md`](hypr/README.md).** | `overrides/hypr/keybind-allowlist.conf` (seeded once, user-owned, committed); `overrides/hypr/keybind-current.conf` + `overrides/hypr/keybind-unbinds.lua` (both regenerated every run in the repo itself, gitignored); three more fenced blocks (`: keybinds`, `: macos-shortcuts`, `: window-management-mod`) in `~/.config/hypr/bindings.lua` |
 | 7 | The apps Omarchy doesn't theme. TUI palettes point at the terminal's ANSI slots (`gh-dash` cannot — see *How each app is themed*); `lsd` additionally needs `color.theme: custom` to read the remap. Plus Cursor's editor prefs, the shell aliases and the `git diff` pager.<br>**Per-override detail: [`bat/`](bat/README.md), [`lazygit/`](lazygit/README.md), [`lazydocker/`](lazydocker/README.md), [`lsd/`](lsd/README.md), [`yazi/`](yazi/README.md), [`gh-dash/`](gh-dash/README.md), [`cursor/`](cursor/README.md), [`bash/`](bash/README.md), [`git/`](git/README.md)** | `~/.config/bat/config`, `~/.config/lazygit/config.yml`, `~/.config/lazydocker/config.yml`, `~/.config/lsd/{config,colors}.yaml`, `~/.config/yazi/theme.toml`, `~/.config/gh-dash/config.yml` (merged), `~/.config/Cursor/User/settings.json`, fenced blocks in `~/.bashrc` and `~/.config/git/config` |
 | 7\* | Prompt and diff colours that must be BAKED per theme rather than named: Starship has no config-import mechanism, and hunk's validator takes hex only.<br>**Detail: [`starship/`](starship/README.md), [`hunk/`](hunk/README.md)** | `~/.config/omarchy/hooks/theme-set.d/{starship-colors,hunk-colors}.sh` (symlinked), `~/.config/starship.toml`, `~/.config/hunk/config.toml` |
@@ -281,7 +281,7 @@ script works the same whether you run it by hand or `apply.sh` calls it.
 | 7e | Figma Desktop's launcher entry — the app gets `Name=` and `StartupWMClass` wrong for this desktop and regenerates its own entry on every launch. **Full detail: [`applications/README.md`](applications/README.md).** | `~/.local/share/applications/figma-desktop-appimage.desktop`, and `~/Applications/figma-desktop/AppRun` restored if wrapped |
 | 7f | App icons for the menu, which draws app rows as a plain image and cannot recolour. **Full detail: [`icons/README.md`](icons/README.md).** | `~/.icons/cllpse-flat/apps/`, `~/.config/omarchy/hooks/theme-set.d/app-icons.sh` (symlinked) |
 | 7f2 | Post-update repair hook — re-link what an `omarchy update` could quietly take out. **Full detail: [`hooks/README.md`](hooks/README.md).** | `~/.config/omarchy/hooks/post-update.d/cllpse-macos-repair.sh` (symlinked) |
-| 7h | Five targeted `jq` writes into `shell.json`: the switcher plugin, a transparent bar, the recorded bar layout, disabled first-party plugins. **Full detail: [`omarchy/README.md`](omarchy/README.md).** | `~/.config/omarchy/shell.json` |
+| 7h | Five targeted `jq` writes into `shell.json`: the switcher and supermenu plugins, a transparent bar, the recorded bar layout, disabled first-party plugins. **Full detail: [`omarchy/README.md`](omarchy/README.md).** | `~/.config/omarchy/shell.json` |
 | 7i | Tailscale SSH: one `RunSSH` pref so other tailnet nodes can reach this machine's shell — **no** `sshd`, host keys, `authorized_keys` or open port, and `ufw` untouched. Needs no sudo (Omarchy's installer already granted the operator bit) and never prompts. Also warns when the tailnet's policy allows nobody. **Full detail: [`tailscale/README.md`](tailscale/README.md).** | `RunSSH` in tailscaled's prefs, and nothing on disk |
 | 8 | Apply the theme — refreshes whichever cllpse-macos theme is already active, else sets dark | `omarchy theme set …` |
 | 8b | keyd, for Figma alone: an identity config, the inert `[figma:C]` and `[figma_ctrl:C]` layers, the focus helper and the group grant, plus a `keyd.service` drop-in that restarts the daemon on a segfault (it has one, twice measured, and the packaged unit has no restart policy at all). The config is published — and the daemon disturbed — only when the file actually changed. Needs **sudo**. **Full detail: [`keyd/README.md`](keyd/README.md).** | `/etc/keyd/default.conf`, `/etc/systemd/system/keyd.service.d/restart.conf`, `~/.local/bin/cllpse-figma-keyd`, the `keyd` group |
@@ -321,16 +321,15 @@ neither `pgrep -x` nor `pgrep -f` can test for it.
 The blur `layer_rule` only opts the shell surfaces *into* blur; the matching
 translucency (`background-alpha`) is the theme's half —
 `*/shell.*.toml`. Blur shows nothing until both are in place. The rule's
-namespace match also covers `omarchy-window-switcher-hud`, so the
-`omarchy-cllpse-plugin-switcher/` plugin (symlinked in step 1) blurs like the menu.
+namespace match also covers `omarchy-window-switcher-hud` and
+`omarchy-supermenu`, so both plugins (symlinked in step 1) blur like the menu.
 
-A second `layer_rule` re-enables Hyprland's layer fade (measured ~100ms) for the
+A second `layer_rule` re-enables Hyprland's layer fade (measured ~130ms) for the
 keyboard-driven panels — menu, clipboard, emojis, image-selector,
-keyboard-panel. The window switcher is deliberately excluded and gets a third
-rule keeping `no_anim`: it fades its scrim alone from inside `Hud.qml` (120ms,
-`Easing.OutCubic`), which the compositor cannot express because a card and its
-scrim are a single layer surface. The Omarchy panels cannot do the same without
-patching their own `Menu.qml`. Omarchy opts those
+keyboard-panel — and for both plugins. The switcher used to be excluded, fading
+its scrim alone from inside `Hud.qml`; it now takes the whole-surface fade like
+everything else (`looknfeel-decoration.lua` has why). The supermenu replaced the
+menu on `SUPER+SPACE` and opens the way it did. Omarchy opts its panels
 out in `default/hypr/apps/omarchy-shell.lua` while leaving notifications, OSD,
 polkit and reminders fading, so the shell was inconsistent with itself; layer
 rules accumulate and ours load later, so this needs no edit to Omarchy's file.
@@ -340,7 +339,8 @@ only ever show on a shell restart.
 Injected blocks are wrapped in `>>> cllpse-macos overrides >>>` fences (comment
 leader `--` in Lua, `#` in shell — Ghostty config takes `#`), optionally suffixed
 `: <name>` for a second/third/fourth block in the same file (`bindings.lua` carries
-four: the plain one plus `: keybinds` / `: macos-shortcuts` / `: window-management-mod`);
+five: the plain one plus `: keybinds` / `: macos-shortcuts` /
+`: window-management-mod` / `: supermenu`);
 `revert.sh` deletes all of them, matching the suffix generically. Pre-existing
 `~/.config/bat/config` / `~/.config/lazygit/config.yml` /
 `~/.config/lsd/{config,colors}.yaml` / `~/.config/Cursor/User/settings.json` /
@@ -540,6 +540,9 @@ hypr/window-switcher-bindings.lua  SUPER+TAB keybinds driving the switcher plugi
                                    The plugin repo ships a GENERIC copy for other
                                    people; this one is the local variant, and carries
                                    the keyd/Figma carve-out that only matters here
+hypr/supermenu-bindings.lua   SUPER+SPACE -> the supermenu plugin's global shortcut, Omarchy's
+                              menu bind unbound first. Same split as the switcher: the plugin
+                              repo ships a generic copy, this one notes what applies here
 hypr/keybind-scan.lua         sandboxes hyprland.lua to enumerate every live bind (dump/unbinds modes)
 hypr/keybind-allowlist.conf   seeded once from that scan, then user-owned -- delete a line to unbind it
 hypr/keybind-unbinds.lua      generated every apply from the allowlist (gitignored)

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Omarchy shell.json: switcher, bar, disabled plugins
+# Omarchy shell.json: switcher + supermenu, bar, disabled plugins
 #
 # See README.md in this directory for what this does and why.
 # Runnable on its own, and called by ../apply.sh. $HERE is bound to overrides/
@@ -23,16 +23,17 @@ bar_only=false
 # See README.md (1)
 shell_json=~/.config/omarchy/shell.json
 switcher_id=cllpse.window-switcher
+supermenu_id=cllpse.supermenu
 # See README.md (2)
 switcher_id_legacy=io.eject.window-switcher
 bar_json="$HERE/omarchy/shell-bar.json"
 if [[ ! -f $shell_json ]]; then
-  skip "no $shell_json — skipped the switcher enable, bar transparency and layout"
+  skip "no $shell_json — skipped the plugin enables, bar transparency and layout"
 elif [[ ! -f $bar_json ]]; then
   skip "no $bar_json — skipped the shell.json writes"
 else
   _want=$(mktemp)
-  if jq --arg id "$switcher_id" --arg old "$switcher_id_legacy" \
+  if jq --arg id "$switcher_id" --arg old "$switcher_id_legacy" --arg menu "$supermenu_id" \
         --argjson baronly "$bar_only" --slurpfile bar "$bar_json" '
         $bar[0] as $b
         # The live tray entry, wherever it currently sits, for its pinned/hidden.
@@ -40,7 +41,8 @@ else
            | map(select(.id == "omarchy.tray")) | first) as $tray
         | (if $baronly then . else .plugins = ((.plugins // [])
             | map(select(.id != $old))
-            | if any(.id == $id) then . else . + [{ id: $id }] end) end)
+            | if any(.id == $id) then . else . + [{ id: $id }] end
+            | if any(.id == $menu) then . else . + [{ id: $menu }] end) end)
         | (if $baronly then . else .bar.transparent = true end)
         | .bar.centerAnchor = $b.bar.centerAnchor
         | .bar.layout = ($b.bar.layout | with_entries(.value |= map(
@@ -69,7 +71,7 @@ else
       if [[ $bar_only == true ]]; then
         skip "shell.json: bar layout already as declared"
       else
-        skip "shell.json already has the switcher, transparent bar, layout and disabled plugins"
+        skip "shell.json already has the switcher, supermenu, transparent bar, layout and disabled plugins"
       fi
     else
       backup "$shell_json"
@@ -78,11 +80,11 @@ else
       if [[ $bar_only == true ]]; then
         say "shell.json -> bar layout restored from shell-bar.json"
       else
-        say "shell.json -> $switcher_id enabled, bar.transparent = true, bar layout + disabledPlugins applied"
+        say "shell.json -> $switcher_id + $supermenu_id enabled, bar.transparent = true, bar layout + disabledPlugins applied"
       fi
     fi
   else
-    skip "shell.json isn't parseable JSON — left untouched, enable the switcher by hand"
+    skip "shell.json isn't parseable JSON — left untouched, enable the switcher and supermenu by hand"
   fi
   rm -f "$_want"
 fi

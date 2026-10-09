@@ -50,7 +50,7 @@ reason to skip a chord, but it is a reason not to promise it works everywhere.
 **There is no screenshot keybind on this machine at all.** The allowlist
 comments out `PRINT` (Screenshot) and `ALT + PRINT` (Screenrecording) with no
 supersession note, so `omarchy-capture-screenshot` is reachable only through the
-SUPER+SPACE menu. Apple's Shift-Cmd-3/4/5 would fill a genuine hole rather than
+SUPER+SPACE supermenu (type `scree`). Apple's Shift-Cmd-3/4/5 would fill a genuine hole rather than
 rename an existing one.
 
 **Shift-Cmd-Q is "Log out of your macOS user account" on macOS**, and it is what
@@ -191,7 +191,7 @@ Everything else on Apple's page resolves to something here:
 | Cmd-[ / ] and Cmd-{ / } | forwarder (`bracketleft`/`bracketright`) |
 | Cmd-T new tab, Shift-Cmd-T reopen, Cmd-R reload, Shift-Cmd-R force reload, Cmd-N new window, Cmd-L address bar, Shift-Cmd-P command palette | explicit binds |
 | Cmd-P "open a print dialog" | forwarder — with the known conflict that Ctrl+P is Quick Open in Cursor, recorded in the file |
-| Cmd-Space "show or hide the Spotlight search field" | `SUPER+SPACE`, the Omarchy menu |
+| Cmd-Space "show or hide the Spotlight search field" | `SUPER+SPACE`, the supermenu — a search over apps and the Omarchy menu, as Spotlight / Raycast are; Omarchy put its own menu tree here |
 | Cmd-Tab "switch to the next most recently used app" | `SUPER+TAB`, the window switcher |
 | Cmd-Left/Right, Shift-Cmd-Left/Right | line start/end and select-to |
 | Option-Left/Right, Option-Shift-Left/Right | word jump and select-word |

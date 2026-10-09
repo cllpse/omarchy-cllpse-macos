@@ -1,6 +1,6 @@
 # Hyprland
 
-Four fenced snippets appended to the user's own hypr config, plus the keybind allowlist that decides which of Omarchy's stock binds survive.
+Five fenced snippets appended to the user's own hypr config, plus the keybind allowlist that decides which of Omarchy's stock binds survive.
 
 ## 1. keybind-scan.lua sandboxes the live ~/.config/hypr/hyprland.lua
 
@@ -52,11 +52,26 @@ before Hyprland ever saw them). Also synced after keybind-unbinds.lua,
 same reasoning as macos-shortcuts.lua above, though these don't actually
 share a chord with anything being unbound.
 
+## 5. SUPER+SPACE opens the supermenu
+
+`supermenu-bindings.lua` unbinds Omarchy's `SUPER+SPACE` (its menu) and binds
+the chord to `hl.dsp.global("cllpse-supermenu:toggle")`, a Hyprland global
+shortcut delivered straight to the supermenu plugin rather than an IPC call that
+starts a Quickshell process per press. Synced last, after the keybind unbinds,
+for the same reason as sections 3 and 4: this bind has to be the last word on
+its chord. `keybind-allowlist.conf` keeps `SUPER + SPACE`, so the sweep never
+unbinds it; the line's description now says `Supermenu`.
+
+Omarchy's menu itself stays installed and reachable through `omarchy menu` and
+the scripts that use it as a picker. Its other chord, `SUPER+ALT+SPACE`, is one
+the allowlist already prunes. Every entry it holds is searchable in the
+supermenu.
+
 ## From the step table
 
 `OMARCHY_MENU_FONT` + cursor theme + `no_warps` + keyboard layout
 (`hyprland.lua`), decoration/blur/opacity/animations (`looknfeel.lua`),
-window-switcher keybinds (`bindings.lua`), mouse tuning (`input.lua`) +
+window-switcher and supermenu keybinds (`bindings.lua`), mouse tuning (`input.lua`) +
 `decoration` (`rounding = 18` / `rounding_power = 2.05` — a hair off a
 circular arc; 2.1, 2.2 and a real 3-3.4 squircle were all tried and dropped /
 `border_part_of_window = true`, `blur` on @ size 7 / passes 4 / vibrancy 0.30,
@@ -64,8 +79,7 @@ circular arc; 2.1, 2.2 and a real 3-3.4 squircle were all tried and dropped /
 (re-matched onto `chromium-based-browser` / `firefox-based-browser` too, since
 Omarchy pins those to `1.0 0.985` otherwise) + 3× animation speeds (floor 1) +
 `layer_rule` blur on the shell surfaces + `layer_rule` re-enabling the layer
-fade on the keyboard-driven panels, and `no_anim` on the window switcher
-(which fades its own scrim in QML)
+fade on the keyboard-driven panels, the window switcher and the supermenu
 
 ## From the step table
 

@@ -279,8 +279,10 @@ hl.config({
 -- ignore_alpha leaves any pixel below that alpha unblurred. It started at 0.1,
 -- purely to keep the fully-transparent margin around rounded cards (menu,
 -- polkit, notifications are fullscreen layers with a centred card) from
--- blurring into a rectangle.  The launcher is not a fourth: SUPER+SPACE is the
--- menu plugin on the omarchy-menu namespace.
+-- blurring into a rectangle.  The launcher is not a fourth: Omarchy's SUPER+SPACE
+-- is the menu plugin on the omarchy-menu namespace. Here SUPER+SPACE is the
+-- supermenu (omarchy-supermenu, below), and omarchy-menu stays in the list for
+-- `omarchy menu` and the scripts that still open it.
 --
 -- It is 0.6 because a card and the scrim behind it are the SAME layer surface,
 -- so Hyprland cannot blur them differently -- per layer the only controls are
@@ -303,16 +305,22 @@ hl.config({
 -- Color.menu.background / .scrim, so it tracks the menu either way: opaque
 -- while the menu is opaque, frosted the moment the menu frosts.
 --
+-- supermenu is our other plugin (omarchy-cllpse-plugin-supermenu/, symlinked to
+-- ~/.config/omarchy/plugins/cllpse.supermenu), the launcher SUPER+SPACE opens.
+-- Same arrangement: its card and scrim bind the menu's tokens, so it frosts
+-- exactly when the Omarchy menu does, and is inert with it until then.
+--
 -- Not matched: omarchy-background (the wallpaper itself) and the transient
 -- omarchy-bar-drag-ghost / -move-ghost surfaces.
 hl.layer_rule({
-  match = { namespace = "^omarchy-(bar|menu|notifications|osd|polkit|clipboard|emojis|reminders|image-selector|network-qr|keyboard-panel|lock-preview|window-switcher-hud)$" },
+  match = { namespace = "^omarchy-(bar|menu|notifications|osd|polkit|clipboard|emojis|reminders|image-selector|network-qr|keyboard-panel|lock-preview|window-switcher-hud|supermenu)$" },
   blur = true,
   blur_popups = true,
   ignore_alpha = 0.6,
 })
 
--- A short fade-in on the keyboard-driven panels, and on our switcher.
+-- A short fade-in on the keyboard-driven panels, and on our switcher and
+-- supermenu.
 --
 -- Hyprland fades a layer surface as it maps (`layersIn`, style = fade, ~130ms
 -- at our speeds), but Omarchy opts its own panels out of it:
@@ -336,8 +344,13 @@ hl.layer_rule({
 -- The bar is deliberately NOT included: it is persistent chrome, so its fade
 -- would only ever be seen on a shell restart, and Omarchy keeps it instant for
 -- that reason.
+--
+-- The supermenu is here for the same reason the Omarchy menu is: it replaced
+-- that menu on SUPER+SPACE, and should open the way it did. Omarchy's no_anim
+-- list never named it, so it would fade without this line too; stating it keeps
+-- the two in step if that list ever grows.
 hl.layer_rule({
-  match = { namespace = "^(omarchy-menu|omarchy-image-selector|omarchy-emojis|omarchy-clipboard|omarchy-keyboard-panel|omarchy-window-switcher-hud)$" },
+  match = { namespace = "^(omarchy-menu|omarchy-image-selector|omarchy-emojis|omarchy-clipboard|omarchy-keyboard-panel|omarchy-window-switcher-hud|omarchy-supermenu)$" },
   no_anim = false,
   animation = "fade",
 })

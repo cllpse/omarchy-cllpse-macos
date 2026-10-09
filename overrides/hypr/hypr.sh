@@ -1,5 +1,5 @@
 #!/bin/bash
-# Hyprland overrides: env, decoration, switcher binds, input, keybind allowlist
+# Hyprland overrides: env, decoration, switcher + supermenu binds, input, keybind allowlist
 #
 # See README.md in this directory for what this does and why.
 # Runnable on its own, and called by ../apply.sh. $HERE is bound to overrides/
@@ -71,6 +71,9 @@ sync_fenced ~/.config/hypr/bindings.lua "$HERE/hypr/macos-shortcuts.lua" macos-s
 
 # See README.md (4)
 sync_fenced ~/.config/hypr/bindings.lua "$HERE/hypr/window-management-mod.lua" window-management-mod
+
+# See README.md (5)
+sync_fenced ~/.config/hypr/bindings.lua "$HERE/hypr/supermenu-bindings.lua" supermenu
 
 # Bibata is referenced by hyprland-env.lua and the gsettings below. No sudo
 # here, so warn rather than install.

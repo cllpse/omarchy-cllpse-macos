@@ -34,7 +34,7 @@
 # What each step does, and where to read about it:
 #
 #   0.   record the pre-existing font and theme, for revert.sh        [inline]
-#   1.   symlink both themes + the window-switcher plugin              [inline]
+#   1.   symlink both themes + both plugins (switcher, supermenu)      [inline]
 #   2.   SF + Comic Code fonts                                         fonts/
 #        fontconfig drop-ins (UI font + hintnone)                      fontconfig/
 #   3.   point monospace at SF Mono (omarchy font set)                 [inline]
@@ -43,7 +43,7 @@
 #        hinting none: Ghostty                                         ghostty/
 #   5b.  strip GTK window buttons (gsettings)                          [inline]
 #   5c.  the Preonic's Danish letters                                  xkb/
-#   6.   hypr env + decoration + switcher binds + input,
+#   6.   hypr env + decoration + switcher/supermenu binds + input,
 #        and the keybind allowlist (was 6b)                            hypr/
 #   7.   the apps Omarchy doesn't theme:
 #          bat/ lazygit/ lsd/ yazi/ lazydocker/ gh-dash/ starship/
@@ -142,6 +142,19 @@ if [[ ! -f "$REPO/omarchy-cllpse-plugin-switcher/manifest.json" ]]; then
   exit 1
 fi
 ln -sfn "$REPO/omarchy-cllpse-plugin-switcher" ~/.config/omarchy/plugins/cllpse.window-switcher
+
+say "Linking the supermenu plugin into ~/.config/omarchy/plugins/"
+# A submodule too (github.com/cllpse/omarchy-cllpse-plugin-supermenu), refused
+# on an empty checkout for the same reason as the switcher above: the link would
+# register a plugin id with no manifest behind it, and nothing would say so.
+# SUPER+SPACE is then rebound to a plugin that is not there and does nothing.
+if [[ ! -f "$REPO/omarchy-cllpse-plugin-supermenu/manifest.json" ]]; then
+  printf '\033[31m✗\033[0m %s\n' \
+    "omarchy-cllpse-plugin-supermenu/ is empty — the supermenu plugin is a submodule." >&2
+  printf '  %s\n' "Run: git -C \"$REPO\" submodule update --init --recursive" >&2
+  exit 1
+fi
+ln -sfn "$REPO/omarchy-cllpse-plugin-supermenu" ~/.config/omarchy/plugins/cllpse.supermenu
 
 
 }
@@ -417,7 +430,7 @@ STEPS=(
   "bar|optin|Reset the top bar to the declared layout|run:omarchy --bar-only|"
   "figma|optin|Install or update Figma Desktop (network, opt-in)|run:figma --no-apply|applications"
   "state||Record the pre-existing font and theme, for revert.sh|fn:step_state|"
-  "symlinks||Symlink both themes + the window-switcher plugin|fn:step_symlinks|"
+  "symlinks||Symlink both themes + both plugins (switcher, supermenu)|fn:step_symlinks|"
   "fonts||SF + Comic Code fonts|run:fonts|"
   "fontconfig||fontconfig drop-ins (UI font + hintnone)|run:fontconfig|"
   "monospace||Point monospace at SF Mono (omarchy font set)|fn:step_monospace|fonts"

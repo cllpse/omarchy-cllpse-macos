@@ -10,3 +10,7 @@
 	path = omarchy-cllpse-theme-light
 	url = git@github.com:cllpse/omarchy-cllpse-theme-light.git
 	branch = main
+[submodule "omarchy-cllpse-plugin-supermenu"]
+	path = omarchy-cllpse-plugin-supermenu
+	url = git@github.com:cllpse/omarchy-cllpse-plugin-supermenu.git
+	branch = main
