@@ -94,6 +94,36 @@ cursor yanking the keyboard's selection.
 The `MouseArea` carries `cursorShape`: a pointing hand over the tiles, closing
 on one while it is being dragged.
 
+### One overlay at a time
+
+The strip and the supermenu cannot both be up. Each announces its opening on
+Hyprland's event socket and closes on anyone else's announcement, so the last
+one opened wins:
+
+```
+custom>>overlay-open>><plugin id>      # sent by hl.dsp.event("overlay-open>><id>")
+```
+
+Neither plugin names the other. Each sends its own `pluginId` from
+`onOpenedChanged` and ignores its own echo. The strip cancels through
+`dismiss()`, which focuses nothing, so releasing SUPER after SUPER+SPACE took
+the strip away reaches `commit()` with `opened` false and switches nothing.
+
+The shell offered nothing to build this on. `PluginShellApi` lets a plugin
+summon and hide only itself and emits no signal when another panel opens, and
+`openPanelIds` is a set, not a slot. Watching keyboard focus fails too: the
+strip is `WlrKeyboardFocus.None`, so opening it takes nothing from the
+supermenu. Hyprland's custom events need no shared code. `hl.dsp.event` is a
+0.56 dispatcher, `Hyprland.dispatch()` reaches it, and `Hyprland.rawEvent`
+delivers the line back as name `custom`, data `overlay-open>><id>`. All three
+were probed from a bare Quickshell instance before use.
+
+Probe on the live strip: open it with
+`omarchy-shell shell call cllpse.window-switcher open '{"action":"show"}'`, then
+`hyprctl dispatch 'hl.dsp.event("overlay-open>>x")'` — `hyprctl layers` loses
+`omarchy-window-switcher-hud` at once, and socket2 shows `custom>>overlay-open>>x`
+followed by `closelayer>>omarchy-window-switcher-hud`.
+
 ## The screen corners
 
 Four more layer surfaces, one logical pixel square, one in each corner of the

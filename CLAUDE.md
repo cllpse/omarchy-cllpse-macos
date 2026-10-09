@@ -68,6 +68,15 @@ for our drop-in icon sets (`~/.icons/cllpse-flat/` and `cllpse-color/`).
 The switcher reads four icon sources; the optional `~/.icons/cllpse-flat/apps/`
 is one of them. See `overrides/icons/AGENTS.md`.
 
+### The two plugins cancel each other over Hyprland's event socket
+
+Opening either one sends `hl.dsp.event("overlay-open>><plugin id>")`, which
+reaches every client as `custom>>overlay-open>><id>`. Whichever is open closes
+on an id that is not its own, so the last one opened wins. Neither plugin names
+the other, and Omarchy's shell has no bus for this: a plugin can only summon or
+hide itself. Change the event string in both repos or in neither. Probe:
+`hyprctl dispatch 'hl.dsp.event("overlay-open>>x")'` closes whichever is open.
+
 ## Unreachable on 4.0.4 — don't re-litigate
 
 These were checked against 4.0.4, not carried forward. The probes are named so
