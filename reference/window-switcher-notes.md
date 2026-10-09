@@ -463,7 +463,13 @@ plugin-side theming. Under **omarchy-cllpse-theme** that means:
   `*/shell.menu.toml`, so the card is solid and the layer
   blur rule is inert for it;
 - the scrim **binds `Color.menu.scrim`**, so it is the same dim the SUPER+SPACE
-  menu draws. It used to compose its own colour at 0.35 — the value the inert
+  menu draws — **when it is drawn at all: it is switched off for now.**
+  `readonly property bool showScrim: false` in `Hud.qml` hides it, and the card
+  sits straight on the desktop with only its border separating the two. The
+  scrim, its binding and its fade are all kept, so turning it back on is that
+  one line; clicking beside the card still dismisses either way, since the
+  click-away is the window's input region and not the scrim. Everything below
+  describes it as it is when on. It used to compose its own colour at 0.35 — the value the inert
   `[launcher]` section intends — on the theory that a switcher wants a little
   more separation from the desktop than a menu. Measured side by side (solving
   `composited = a*background + (1-a)*backdrop`) that was 0.37 against the menu's
@@ -750,8 +756,9 @@ Worth knowing about `glyphFor`, which is still the default for every tile:
 ## Notes
 
 - **The switcher appears instantly: no delay, and no fade on the card.** Only
-  the scrim behind it fades in. Two separate things have to be right for that,
-  and they fail independently.
+  the scrim behind it fades in — and with the scrim switched off (`showScrim`,
+  see *Look*) nothing fades at all. Two separate things have to be right for
+  that, and they fail independently.
   - *No timer in the QML.* The panel maps as soon as its content is ready,
     exactly as `Menu.qml:1019` does (`visible: root.opened && root.rowsLoaded`;
     here `opened` is set when the client list parses). A 150ms show delay was

@@ -80,7 +80,8 @@ circular arc; 2.1, 2.2 and a real 3-3.4 squircle were all tried and dropped /
 Omarchy pins those to `1.0 0.985` otherwise) + 3× animation speeds (floor 1) +
 `layer_rule` blur on the shell surfaces + `layer_rule` re-enabling the layer
 fade on the keyboard-driven panels and the supermenu + `layer_rule` `no_anim`
-on the window switcher (its card is instant; `Hud.qml` fades the scrim alone)
+on the window switcher (its card is instant; `Hud.qml` fades the scrim alone,
+and that scrim is switched off for now via `showScrim`)
 
 ## From the step table
 

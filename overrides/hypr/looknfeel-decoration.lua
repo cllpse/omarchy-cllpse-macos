@@ -303,12 +303,16 @@ hl.config({
 -- window-switcher-hud is our own plugin (omarchy-cllpse-plugin-switcher/, symlinked to
 -- ~/.config/omarchy/plugins/cllpse.window-switcher). Its card already binds
 -- Color.menu.background / .scrim, so it tracks the menu either way: opaque
--- while the menu is opaque, frosted the moment the menu frosts.
+-- while the menu is opaque, frosted the moment the menu frosts. Its scrim is
+-- switched off (showScrim in Hud.qml), so it draws no dim at all until that is
+-- flipped back; the binding is kept for when it is.
 --
 -- supermenu is our other plugin (omarchy-cllpse-plugin-supermenu/, symlinked to
 -- ~/.config/omarchy/plugins/cllpse.supermenu), the launcher SUPER+SPACE opens.
--- Same arrangement: its card and scrim bind the menu's tokens, so it frosts
--- exactly when the Omarchy menu does, and is inert with it until then.
+-- Same arrangement: its card binds the menu's tokens, so it frosts exactly
+-- when the Omarchy menu does, and is inert with it until then. It draws no
+-- scrim by default (Raycast dims nothing); with `backdrop` on in Supermenu.qml
+-- its scrim binds the menu's too.
 --
 -- Not matched: omarchy-background (the wallpaper itself) and the transient
 -- omarchy-bar-drag-ghost / -move-ghost surfaces.
@@ -359,6 +363,10 @@ hl.layer_rule({
 -- keypress, and only its scrim fades in -- from Hud.qml (120ms, Easing.OutCubic),
 -- because the compositor cannot do that split: a card and its scrim are one
 -- layer surface, so a layer fade takes both or neither.
+--
+-- The scrim is currently switched off (showScrim in Hud.qml), so the strip
+-- opens with no fade at all. Its code and its fade are kept for turning it back
+-- on, and this rule is what keeps that working the moment it is.
 --
 -- Omarchy's no_anim list never named this namespace, so leaving it out of the
 -- rule above is not enough -- it would still fade on layersIn like any other

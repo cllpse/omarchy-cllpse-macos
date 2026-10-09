@@ -330,7 +330,9 @@ keyboard-panel — and for the supermenu, which replaced the menu on
 `SUPER+SPACE` and opens the way it did. A third gives the switcher `no_anim`
 instead: its card lands instantly and only its scrim fades in, from inside
 `Hud.qml` (120ms, `OutCubic`), which the compositor cannot do because card and
-scrim are one surface. It spent a while in the fade rule for consistency and
+scrim are one surface. The scrim itself is switched off for now (`showScrim` in
+`Hud.qml`), so the strip opens with no fade at all; the scrim and its fade are
+kept for turning back on. It spent a while in the fade rule for consistency and
 came back out because a ramping card read as slower (`looknfeel-decoration.lua`
 has the history). Omarchy opts its panels
 out in `default/hypr/apps/omarchy-shell.lua` while leaving notifications, OSD,

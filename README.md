@@ -250,8 +250,9 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   `reminders|image-selector|network-qr|keyboard-panel|lock-preview`) plus our own
   `omarchy-window-switcher-hud` and `omarchy-supermenu` into that blur — `blur_popups` on,
   `ignore_alpha = 0.6`, which sits between the scrims (0.25) and the cards
-  (all 1.0) so the dimmed backdrop stays sharp — the windows being switched
-  between remain readable. With every card opaque the blur is currently inert;
+  (all 1.0) so the dimmed backdrop stays sharp. (The window switcher draws no
+  scrim for now — `showScrim` in its `Hud.qml` is off — so nothing behind its
+  card is dimmed at all.) With every card opaque the blur is currently inert;
   the rule is kept so it returns if an alpha is lowered again. Additive to Omarchy's own `no_anim` layer rules.
 - **The window switcher opens from any screen corner as well as `SUPER+TAB`.**
   The plugin maps four one-pixel layer surfaces
@@ -370,7 +371,9 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   4.0.4**, see below). **Every card is α 1.0 — opaque.** The scrims are the
   exception and stay translucent at 0.25, kept low and unblurred so the window
   switcher stays usable. The switcher binds `Color.menu.scrim` rather than
-  composing its own, so its dim is the menu's dim in both light and dark.
+  composing its own, so its dim is the menu's dim in both light and dark —
+  when it draws one: it is switched off for now (`showScrim` in its `Hud.qml`),
+  with the code kept for turning back on.
   Nothing reads `launcher.*`: `Color.qml` has no launcher surface, there is no
   launcher plugin, and what Omarchy calls the launcher is the menu plugin drawing
   on `Color.menu.*`. The `[launcher]` section is spliced into the generated
