@@ -26,10 +26,11 @@
 # Every per-folder script is also runnable on its own. They source lib.sh for
 # say/skip/backup/sync_fenced/record_prior, STATE and MARK.
 #
-# keyd, ryzenadj and tailscale are the three packages this depends on and it
-# installs NONE of them -- each step configures its tool if present and says so
-# if it is not. Only keyd's step needs sudo; tailscale's is passwordless, since
-# Omarchy's own installer already grants this user Tailscale's operator bit.
+# keyd, ryzenadj, tailscale and flea are the four packages this depends on and
+# it installs NONE of them -- each step configures its tool if present and says
+# so if it is not. Only keyd's step needs sudo; tailscale's is passwordless,
+# since Omarchy's own installer already grants this user Tailscale's operator
+# bit, and flea's writes nothing outside $HOME.
 #
 # What each step does, and where to read about it:
 #
@@ -56,6 +57,7 @@
 #   7f2. post-update repair hook                                       hooks/
 #   7h.  Omarchy shell.json: switcher, bar, disabled plugins           omarchy/
 #   7i.  Tailscale SSH -- no sshd, no open port                      tailscale/
+#   7j.  Flea: folders, Show in folder, file dialogs, SUPER+ALT+SPACE  flea/
 #   8.   apply the theme                                               [inline]
 #   8b.  keyd identity config + Figma modifier remap (sudo)            keyd/
 #   8c.  hyprctl reload -- after 8b so the focus handler is seeded
@@ -410,7 +412,8 @@ echo "        omarchy plymouth set by theme omarchy-cllpse-theme-dark   # or -li
 #
 # Out: anything not about appearance -- keyboard layout (xkb), `git` (the pager,
 # not a palette), session env, the Figma launcher entry, the repair hook, input
-# remapping (keyd), and everything needing sudo or the network. Also out, and
+# remapping (keyd), which file manager the desktop asks for (flea), and
+# everything needing sudo or the network. Also out, and
 # deliberately: `display`, which is a hardware preference rather than a theme
 # and can resize everything on screen; and `chromium-user`, whose neutral UI is
 # appearance but which also sets page zoom and the device scale factor.
@@ -461,6 +464,7 @@ STEPS=(
   "hooks||Post-update repair hook|run:hooks|"
   "omarchy||Omarchy shell.json|run:omarchy|symlinks"
   "tailscale||Tailscale SSH — no sshd, no open port|run:tailscale|"
+  "flea||Flea: default file manager + file dialogs, SUPER+ALT+SPACE|run:flea|hypr"
   "theme||Apply the theme|fn:step_theme|symlinks"
   "keyd|sudo|keyd: Figma modifier remap (sudo)|run:keyd|hypr"
   "hypr-reload|auto|hyprctl reload|fn:step_hypr_reload|"
@@ -644,9 +648,10 @@ esac
 # that is not there. `theme` asks Omarchy to set a theme `symlinks` puts in
 # place. `omarchy` enables a plugin id whose directory is that same symlink.
 # `keyd` defines the figma:C and figma_ctrl:C layers that hypr's
-# macos-shortcuts.lua actually binds. `figma` installs the app whose launcher
-# entry `applications` corrects, which is why figma.sh normally calls apply.sh
-# itself.
+# macos-shortcuts.lua actually binds. `flea` binds SUPER+ALT+SPACE in a block
+# that only survives if it lands after the `keybinds` block `hypr` writes.
+# `figma` installs the app whose launcher entry `applications` corrects, which
+# is why figma.sh normally calls apply.sh itself.
 #
 # Rather than refuse a selection, pull the missing ones in and say so. The loop
 # repeats because a prerequisite can have its own.

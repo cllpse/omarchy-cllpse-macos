@@ -48,7 +48,8 @@ aliases, but it is also where fzf's colours are read out of the active theme's
 `colors.toml` and where `lsd`'s filetypes are moved onto ANSI slots that track
 it, so leaving it out stranded the picker and `ls` on the previous palette. It
 leaves out keyboard layout, the `git` pager, session env, the repair hook, input
-remapping, and everything needing sudo or the network; also `display`, a
+remapping, which file manager the desktop asks for (`flea`), and everything
+needing sudo or the network; also `display`, a
 hardware preference that can resize everything on screen, and `chromium-user`,
 whose neutral UI is appearance but which also sets page zoom and the device
 scale factor. The set is named explicitly in `apply.sh` and validated
@@ -102,9 +103,10 @@ Some steps are inert or actively wrong alone: `monospace` points the monospace
 font at a family `fonts` installs, `theme` asks Omarchy to set a theme
 `symlinks` puts in place, `omarchy` enables a plugin id whose directory is that
 same symlink, `keyd` defines the `figma:C` / `figma_ctrl:C` layers that
-`hypr`'s `macos-shortcuts.lua` actually binds, and `figma` installs the app
-whose launcher entry `applications` corrects. `--list` shows what each one
-needs.
+`hypr`'s `macos-shortcuts.lua` actually binds, `flea` binds SUPER+ALT+SPACE in a
+block that only survives if it lands after the `keybinds` block `hypr` writes,
+and `figma` installs the app whose launcher entry `applications` corrects.
+`--list` shows what each one needs.
 
 Order is always the canonical one regardless of what you pick or the order you
 name it in: several steps only work after an earlier one — `hypr-reload` reloads
@@ -151,6 +153,7 @@ Install these first for a complete result.
 | `yay -S` (AUR) | `ryzenadj` | the CPU power limits (step 10), and only on the machine this repo was measured on — a Ryzen 7 8745HS in a Geekom A8. The step checks `/proc/cpuinfo` and DMI before writing anything, so on any other hardware it is inert whether or not `ryzenadj` is installed. `ryzen_smu` (DKMS) is optional and only buys the read-back of the live limits |
 | `pacman -S` (daemon) | `keyd` | Figma's Cmd+click / Cmd+scroll (step 8b). The first dependency that is a system service rather than a program — `tailscale` below is the other — and the only one `apply.sh` configures with **sudo** — it writes `/etc/keyd/default.conf` and adds you to the `keyd` group. Install it *before* applying, or the step skips and you re-run later |
 | `pacman -S` (daemon) | `tailscale` | reaching this machine's shell from the tailnet (step 7i). The second dependency that is a system service, and unlike `keyd` it needs no sudo here — install it with Omarchy's own `omarchy-install-service-tailscale`, which enables the daemon, logs in, and grants this user Tailscale's operator bit, which is what keeps step 7i passwordless. Absent, the step skips and says so |
+| AUR, via `omarchy pkg aur add` | `flea-bin` | the file manager (step 7j): folders, "Show in folder" and Open/Save dialogs all go to Flea, opened on SUPER+ALT+SPACE. The fourth dependency `apply.sh` configures but does not install. Upstream's recommended package: `omarchy pkg aur add flea-bin`, kept current by `omarchy update`. Omarchy's repository carries the same release as `flea` a day or more later. Install one, never both. Absent, the step skips and gives the command |
 | `mise use -g` | `hunk` `gh` | the `git diff` pager and the generated theme its hook writes; `gh` is what the row below runs through — this machine takes it from mise rather than `pacman`, so it is missing from a package-list restore too |
 | `gh extension install` | `dlvhdr/gh-dash` | the `dash` alias, and its theme-set colour hook |
 | `omarchy plugin add` + its own `setup` | [`io.github.thisisgm.omapods`](https://github.com/thisisgm/omarchy-pods) | the AirPods widget — the one third-party plugin step 7h's `bar.layout` names, and the only entry in it this repo does not ship. Two commands, because the widget is a front end to a daemon: `omarchy plugin add https://github.com/thisisgm/omarchy-pods` clones the plugin, and `~/.config/omarchy/plugins/io.github.thisisgm.omapods/setup` builds `librepods` into `~/.local` and enables `librepods.service`. Skip `--enable`: it would place the widget on the bar itself, and the recorded layout already names it. Without the plugin the layout entry is inert; with the plugin but no daemon the icon is there and reads nothing |
@@ -183,8 +186,10 @@ a property of how the call is written, not a promise:
   component, so the slot loads nothing and the bar looks merely one widget
   shorter. The daemon behind it is *not* checked — `librepods` missing shows
   up as an icon that reads nothing, which at least points at itself.
-- *Guarded, with a skip message, and the skip tells you the command*: `keyd`
-  and `ytm-player`. Without `keyd`, Figma keeps Ctrl+click and Ctrl+scroll on
+- *Guarded, with a skip message, and the skip tells you the command*: `keyd`,
+  `ytm-player` and `flea`. Without `flea`, folders, "Show in folder" and file
+  dialogs stay on Nautilus and the GTK chooser, and SUPER+ALT+SPACE is never
+  bound. Without `keyd`, Figma keeps Ctrl+click and Ctrl+scroll on
   the pinky; nothing else on the desktop changes, since the only remap is issued
   at runtime on Figma focus and dropped again on blur. Without `ytm-player`,
   the theme template and its hook are skipped — and `python-secretstorage` is
@@ -283,6 +288,7 @@ script works the same whether you run it by hand or `apply.sh` calls it.
 | 7f2 | Post-update repair hook — re-link what an `omarchy update` could quietly take out. **Full detail: [`hooks/README.md`](hooks/README.md).** | `~/.config/omarchy/hooks/post-update.d/cllpse-macos-repair.sh` (symlinked) |
 | 7h | Five targeted `jq` writes into `shell.json`: the switcher and supermenu plugins, a transparent bar, the recorded bar layout, disabled first-party plugins. **Full detail: [`omarchy/README.md`](omarchy/README.md).** | `~/.config/omarchy/shell.json` |
 | 7i | Tailscale SSH: one `RunSSH` pref so other tailnet nodes can reach this machine's shell — **no** `sshd`, host keys, `authorized_keys` or open port, and `ufw` untouched. Needs no sudo (Omarchy's installer already granted the operator bit) and never prompts. Also warns when the tailnet's policy allows nobody. **Full detail: [`tailscale/README.md`](tailscale/README.md).** | `RunSSH` in tailscaled's prefs, and nothing on disk |
+| 7j | Flea as the desktop's file manager: the folder handler, the user-level `org.freedesktop.FileManager1` registration behind "Show in folder", and Flea's own `flea --picker` for Open/Save dialogs. That is everything `flea --default` does except its keys block, which takes SUPER+SHIFT+F from the Cmd+Shift+F forward. The step removes that block when it finds it and binds Flea to SUPER+ALT+SPACE instead (macOS's Cmd+Option+Space). Needs no sudo. **Full detail: [`flea/README.md`](flea/README.md).** | `~/.config/mimeapps.list`, `~/.local/share/dbus-1/services/org.freedesktop.FileManager1.service`, `~/.config/xdg-desktop-portal/portals.conf`, the `flea --picker` block and a `: flea` fenced block in `~/.config/hypr/bindings.lua` |
 | 8 | Apply the theme — refreshes whichever cllpse-macos theme is already active, else sets dark | `omarchy theme set …` |
 | 8b | keyd, for Figma alone: an identity config, the inert `[figma:C]` and `[figma_ctrl:C]` layers, the focus helper and the group grant, plus a `keyd.service` drop-in that restarts the daemon on a segfault (it has one, twice measured, and the packaged unit has no restart policy at all). The config is published — and the daemon disturbed — only when the file actually changed. Needs **sudo**. **Full detail: [`keyd/README.md`](keyd/README.md).** | `/etc/keyd/default.conf`, `/etc/systemd/system/keyd.service.d/restart.conf`, `~/.local/bin/cllpse-figma-keyd`, the `keyd` group |
 | 8c | `hyprctl reload` — determinism, since autoreload already covers the hypr files. After 8b on purpose: a keyd restart drops every runtime bind, and the reload is what makes `macos-shortcuts.lua` re-seed its remap state from the live focus | the running compositor |
@@ -347,8 +353,8 @@ and frames nobody sees.
 Injected blocks are wrapped in `>>> cllpse-macos overrides >>>` fences (comment
 leader `--` in Lua, `#` in shell — Ghostty config takes `#`), optionally suffixed
 `: <name>` for a second/third/fourth block in the same file (`bindings.lua` carries
-five: the plain one plus `: keybinds` / `: macos-shortcuts` /
-`: window-management-mod` / `: supermenu`);
+six: the plain one plus `: keybinds` / `: macos-shortcuts` /
+`: window-management-mod` / `: supermenu` / `: flea`);
 `revert.sh` deletes all of them, matching the suffix generically. Pre-existing
 `~/.config/bat/config` / `~/.config/lazygit/config.yml` /
 `~/.config/lsd/{config,colors}.yaml` / `~/.config/Cursor/User/settings.json` /
@@ -460,7 +466,7 @@ It is **not** a complete machine build. On a clean install these are the gaps:
 | **Tailscale has to be logged in already, and step 7i cannot verify itself.** The step skips unless `.BackendState` reads `Running`, so a clean install reaches it before `omarchy-install-service-tailscale` has ever run and it does nothing. Even when it succeeds it can only confirm the pref and the tailnet policy: a node cannot Tailscale-SSH to itself, so the connection is untestable from the machine it was just enabled on | Silently skipped until Tailscale is up; afterwards, working-but-unproven until a second node tries it |
 | **Some settings need a relogin** — the `environment.d` drop-in (Figma → Wayland) and `OMARCHY_MENU_FONT` are read at session start | State immediately after `apply.sh` is not the final state |
 | **`sync_fenced` creates the target if absent.** If `~/.config/ghostty/config` does not exist, the file it writes contains only our block — losing Omarchy's `config-file` line that pulls in theme colours | Terminal colours silently unthemed |
-| **Plugin-owned regions are won on file position, not ownership.** A settings plugin writing its own block into `looknfeel.lua`/`input.lua` beats ours if it lands later — and its block outlives the plugin, since uninstalling leaves it behind. OmaSettings is the sharpest case: it writes a whole separate `~/.config/hypr/omasettings.lua` and appends `require("hypr.omasettings")` to the *end* of `hyprland.lua`, i.e. after every user file, so while that file exists it wins every key it sets. Folding one of its values into this repo means deleting the line there too, not just adding it here. The keyboard layout sits after `default.hypr.toggles` for the same reason | Look/mouse/keyboard settings can be silently overridden by a leftover block |
+| **Plugin-owned regions are won on file position, not ownership.** A settings plugin writing its own block into `looknfeel.lua`/`input.lua` beats ours if it lands later — and its block outlives the plugin, since uninstalling leaves it behind. OmaSettings is the sharpest case: it writes a whole separate `~/.config/hypr/omasettings.lua` and appends `require("hypr.omasettings")` to the *end* of `hyprland.lua`, i.e. after every user file, so while that file exists it wins every key it sets. Folding one of its values into this repo means deleting the line there too, not just adding it here. The keyboard layout sits after `default.hypr.toggles` for the same reason. `flea --default` has the same shape: run by hand, or through Flea's Settings ▸ About switch, it appends its keys block after ours and takes Cmd+Shift+F until the next `apply.sh flea` removes it (step 7j) | Look/mouse/keyboard settings can be silently overridden by a leftover block |
 | **Figma updates need one manual step, then `apply.sh`.** There is no self-updater: download the new AppImage and extract it over `~/Applications/figma-desktop/`, then re-run this script to restore the launcher entry. Nothing inside the app directory belongs to this repo, so an extraction has nothing of ours to destroy | Extract, then `apply.sh` — no hand-editing |
 | **`revert.sh`'s restore paths are unit-tested but never run end-to-end** | Unverified on a real machine |
 
@@ -576,6 +582,8 @@ keyd/default.conf             identity config pinned to the Preonic, plus the in
 keyd/keyd.service.d/restart.conf  Restart=on-failure + a 5-in-60 start limit for keyd, which ships with no restart policy and segfaults (installed to /etc/systemd/system with sudo)
 keyd/cllpse-figma-keyd        toggles that layer in the running daemon on Figma focus; diagnoses its own failures, since it is only ever reached through exec_raw
 figma/figma.sh                installs/updates the AppImage repack, and is the ONLY thing here that writes inside the app directory: it reapplies the Electron argv cap (electron/electron#52020) that keeps figma:// login working under FIGMA_USE_WAYLAND=1 -- see the follow-ups section
+flea/flea.sh                  Flea as the file manager for folders, Show in folder (a user D-Bus registration byte-identical to flea's own) and file dialogs (`flea --picker`), minus the keys block `flea --default` writes
+flea/flea-bindings.lua        SUPER+ALT+SPACE -> Flea, macOS's Cmd+Option+Space; synced after the keybinds block so the allowlist's unbind cannot reach it
 tailscale/tailscale.sh        turns Tailscale SSH on, once, recording what the machine had first; verifies the pref read back and the tailnet policy, and states plainly that it cannot test the connection (a node cannot Tailscale-SSH to itself)
 ryzen/ryzen-tdp.env           the power limits themselves: 50W sustained / 58W burst, with the measurements behind them (installed to /etc/default/ryzen-tdp with sudo)
 ryzen/ryzen-tdp.service       reapplies them at boot AND on resume -- ryzenadj's settings survive neither (installed to /etc/systemd/system with sudo)

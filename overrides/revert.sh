@@ -17,10 +17,11 @@ say() { printf '\033[34m▸\033[0m %s\n' "$*"; }
 
 # Delete every fenced overrides block from a file, if present. Matches both
 # comment leaders ("#" for shell, "--" for Lua) and an optional ": <suffix>"
-# marker (apply.sh's sync_fenced $3) -- bindings.lua carries four separate
+# marker (apply.sh's sync_fenced $3) -- bindings.lua carries six separate
 # blocks (the plain one plus ": keybinds" / ": macos-shortcuts" /
-# ": window-management-mod"), and GNU sed's range address re-arms after each
-# closing match, so one pass here removes all of them, not just the first.
+# ": window-management-mod" / ": supermenu" / ": flea"), and GNU sed's range
+# address re-arms after each closing match, so one pass here removes all of
+# them, not just the first.
 strip_fenced() { # $1 target
   [[ -f $1 ]] || return 0
   grep -q 'cllpse-macos overrides' "$1" || return 0
@@ -412,6 +413,50 @@ if [[ -s $STATE/previous-tailscale-ssh ]] && command -v tailscale >/dev/null 2>&
       rm -f "$STATE/previous-tailscale-ssh"
     fi
   fi
+fi
+
+# Flea (apply.sh step 7j). The SUPER+ALT+SPACE block went with strip_fenced
+# above. The rest is undone only if apply.sh is what made Flea the default --
+# the handler it recorded verbatim at first apply says which. A Flea set up by
+# hand before this repo touched it is left as it was, keys block included:
+# apply.sh removed that block, so it is put back. flea/README.md has the detail.
+flea_desktop=com.thisisgm.flea.desktop
+flea_dbus=~/.local/share/dbus-1/services/org.freedesktop.FileManager1.service
+if [[ -s $STATE/previous-flea-handler ]]; then
+  prev_handler="$(<"$STATE/previous-flea-handler")"
+  if [[ $prev_handler == "$flea_desktop" ]]; then
+    say "Flea left as the default file manager — it already was before apply.sh ran"
+    if [[ -s $STATE/previous-flea-keys ]] && command -v flea >/dev/null 2>&1; then
+      say "putting back flea --default's SUPER+SHIFT+F block, which apply.sh removed"
+      flea --default >/dev/null 2>&1 || say "  could not — run: flea --default"
+    fi
+  elif command -v flea >/dev/null 2>&1; then
+    say "Flea -> no longer the default for folders, Show in folder or file dialogs"
+    flea --default off >/dev/null 2>&1 || say "  flea --default off failed — run it yourself"
+    if [[ "$(xdg-mime query default inode/directory 2>/dev/null)" != "$prev_handler" ]]; then
+      xdg-mime default "$prev_handler" inode/directory
+      say "  folders -> $prev_handler (restored)"
+    fi
+    # Piped, flea leaves this to the caller. Portal config is read at startup.
+    systemctl --user try-restart xdg-desktop-portal.service >/dev/null 2>&1 || true
+  else
+    # No binary to run the undo with. The D-Bus file is the one leftover that
+    # is not inert -- it names a binary pacman took away, and D-Bus does not
+    # fall through to the next FileManager1 claimant -- so it goes. The rest
+    # do nothing without flea on PATH and are named rather than edited.
+    if [[ -f $flea_dbus ]] && head -1 "$flea_dbus" | grep -q 'flea --default'; then
+      rm -f "$flea_dbus"
+      say "removed Flea's Show-in-folder registration ($flea_dbus)"
+    fi
+    say "Flea is not installed, so its other leftovers are inert; delete them by hand if you like:"
+    say "  the inode/directory line in ~/.config/mimeapps.list, the FileChooser key in"
+    say "  ~/.config/xdg-desktop-portal/portals.conf, and the flea --picker block in bindings.lua"
+  fi
+  if [[ -e $flea_dbus.pre-cllpse ]]; then
+    mv -f "$flea_dbus.pre-cllpse" "$flea_dbus"
+    say "restored $flea_dbus"
+  fi
+  rm -f "$STATE/previous-flea-handler" "$STATE/previous-flea-keys"
 fi
 
 rmdir "$STATE" 2>/dev/null || true

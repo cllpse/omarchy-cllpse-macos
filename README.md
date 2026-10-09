@@ -53,6 +53,7 @@ no `gh` extensions, no `mise` tools. These are the ones a stock Omarchy box does
 sudo pacman -S lsd ghostty yazi keyd python-secretstorage msedit
 sudo pacman -S cursor-bin                        # the `omarchy` repo, not `extra`
 yay -S bibata-cursor-theme-bin ytm-player        # AUR — pacman -S will NOT find these two
+omarchy pkg aur add flea-bin                     # AUR too — the file manager, step 7j
 mise use -g hunk gh
 gh extension install dlvhdr/gh-dash
 ```
@@ -459,6 +460,16 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   `sudo tailscale up --accept-routes` — what that installer runs — fails until
   `--ssh` is added to it. It refuses rather than silently turning SSH back off.
   Full detail in [`overrides/tailscale/README.md`](overrides/tailscale/README.md).
+- **Flea is the file manager, but not on SUPER+SHIFT+F.** Step 7j makes
+  [Flea](https://github.com/thisisgm/flea) the answer for opening a folder,
+  for "Show in folder" and for Open/Save dialogs. That is what Flea's own
+  `flea --default` does, minus its keys block: that block takes SUPER+SHIFT+F,
+  which here is the Cmd+Shift+F → Ctrl+Shift+F forward (find in files in
+  Cursor). Flea opens on SUPER+ALT+SPACE instead, macOS's Cmd+Option+Space.
+  Re-running `flea --default` by hand, or flipping *Make Flea the default* in
+  Flea's Settings ▸ About, puts the block back and takes the chord until the
+  next `apply.sh flea`. Full detail in
+  [`overrides/flea/README.md`](overrides/flea/README.md).
 
 ## Also on the author's machine (not installed by `apply.sh`)
 
@@ -510,10 +521,10 @@ comm -23 <(pacman -Qqe | sort -u) \
 ```
 
 That prints every explicitly-installed package Omarchy's own lists do not
-contain — 29 here. Ten of them are this repo's dependencies and are covered in
+contain — 30 here. Eleven of them are this repo's dependencies and are covered in
 [`overrides/README.md`](overrides/README.md) (`bibata-cursor-theme-bin`,
-`cursor-bin`, `ghostty`, `keyd`, `lsd`, `msedit`, `python-secretstorage`,
-`ryzenadj`, `yazi`, `ytm-player`). Four more — `cmake`, `ninja`,
+`cursor-bin`, `flea-bin`, `ghostty`, `keyd`, `lsd`, `msedit`,
+`python-secretstorage`, `ryzenadj`, `yazi`, `ytm-player`). Four more — `cmake`, `ninja`,
 `qt6-connectivity`, `qt6-tools` — are build dependencies, not runtime ones:
 the `io.github.thisisgm.omapods` `setup` script pulls them in to compile the
 `librepods` daemon, and they are covered in the same table. They can be removed

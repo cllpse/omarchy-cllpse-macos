@@ -158,7 +158,8 @@ not rejected.
 - **The Finder go-to-folder family** — Shift-Cmd-C/D/F/G/H/I/K/O/U,
   Option-Cmd-L, Cmd-1/2/3/4 as view modes, Command-Left/Right-Bracket as folder
   history, Cmd-Up as parent folder. No desktop-wide referent; the file manager's
-  own bindings are the right home.
+  own bindings are the right home. That file manager is Flea now (step 7j), and
+  its settings offer a Mac key preset. Not evaluated here.
 - **The fn layer** — Fn-A/C/D/N/Q, Fn-Shift-A, Fn-Fn, Fn-Delete, Fn-arrows.
   There is no fn modifier to bind.
 - **Power-button chords, Siri, Quick Look, Type to Siri, Mission Control
@@ -184,7 +185,7 @@ Everything else on Apple's page resolves to something here:
 | Cmd-S | Save, terminal-guarded |
 | Cmd-W | Close tab (Ctrl+Shift+W in a terminal) |
 | Cmd-Q | Close window — see the file for why it is not the app |
-| Cmd-A, F, G, O, D, E, I, U, B, J, Y and their Shift pairs | the generic Cmd→Ctrl forwarder |
+| Cmd-A, F, G, O, D, E, I, U, B, J, Y and their Shift pairs | the generic Cmd→Ctrl forwarder. Shift-Cmd-F is the one `flea --default` would take for the file manager; step 7j removes that block and keeps the forward ([`overrides/flea/README.md`](overrides/flea/README.md) §5) |
 | Cmd-comma "open settings for the front app" | forwarder |
 | Cmd-semicolon "find misspelled words" | forwarder |
 | Cmd-1…9 | forwarder — which is also browser tab N |
@@ -192,6 +193,7 @@ Everything else on Apple's page resolves to something here:
 | Cmd-T new tab, Shift-Cmd-T reopen, Cmd-R reload, Shift-Cmd-R force reload, Cmd-N new window, Cmd-L address bar, Shift-Cmd-P command palette | explicit binds |
 | Cmd-P "open a print dialog" | forwarder — with the known conflict that Ctrl+P is Quick Open in Cursor, recorded in the file |
 | Cmd-Space "show or hide the Spotlight search field" | `SUPER+SPACE`, the supermenu — a search over apps and the Omarchy menu, as Spotlight / Raycast are; Omarchy put its own menu tree here |
+| Option-Cmd-Space, in the same entry: "To perform a Spotlight search from a Finder window" | `SUPER+ALT+SPACE` opens a Flea window (step 7j, [`overrides/flea/`](overrides/flea/README.md)). Flea's search is then `f`, so it lands one key short of Apple's |
 | Cmd-Tab "switch to the next most recently used app" | `SUPER+TAB`, the window switcher |
 | Cmd-Left/Right, Shift-Cmd-Left/Right | line start/end and select-to |
 | Option-Left/Right, Option-Shift-Left/Right | word jump and select-word |

@@ -68,6 +68,17 @@ for our drop-in icon sets (`~/.icons/cllpse-flat/` and `cllpse-color/`).
 The switcher reads four icon sources; the optional `~/.icons/cllpse-flat/apps/`
 is one of them. See `overrides/icons/AGENTS.md`.
 
+### `flea --default` takes Cmd+Shift+F
+
+Flea (AUR `flea-bin`) is the file manager. Its own `flea --default` appends a
+keys block to the **end** of `bindings.lua` that rebinds SUPER+SHIFT+F (our
+Cmd+Shift+F → Ctrl+Shift+F forward) and SUPER+ALT+SHIFT+F (allowlist-pruned).
+It lands after our fences, so it wins on file position and the allowlist cannot
+prune it. Flea's Settings ▸ About switch runs the same command. `apply.sh flea`
+does the rest of `--default` itself, removes that block and binds Flea to
+SUPER+ALT+SPACE. Probe: `grep -n 'flea --default: begin' ~/.config/hypr/bindings.lua`.
+See `overrides/flea/README.md`.
+
 ### The two plugins cancel each other over Hyprland's event socket
 
 Opening either one sends `hl.dsp.event("overlay-open>><plugin id>")`, which

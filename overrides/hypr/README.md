@@ -64,8 +64,9 @@ unbinds it; the line's description now says `Supermenu`.
 
 Omarchy's menu itself stays installed and reachable through `omarchy menu` and
 the scripts that use it as a picker. Its other chord, `SUPER+ALT+SPACE`, is one
-the allowlist already prunes. Every entry it holds is searchable in the
-supermenu.
+the allowlist already prunes, and it now opens Flea instead
+([`../flea/README.md`](../flea/README.md) §6). Every entry the menu holds is
+searchable in the supermenu.
 
 ## From the step table
 

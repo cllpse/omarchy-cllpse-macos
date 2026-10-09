@@ -1,0 +1,22 @@
+-- Flea (github.com/thisisgm/flea): SUPER + ALT + SPACE opens a file manager
+-- window -- macOS's Cmd+Option+Space, which Apple lists under Spotlight as the
+-- way to search "from a Finder window" and which opens one from anywhere.
+-- Flea's own search is then `f`, so this lands one key short of Apple's.
+--
+-- NOT SUPER + SHIFT + F, which is where `flea --default` puts it. That chord is
+-- macos-shortcuts.lua's Cmd+Shift+F -> Ctrl+Shift+F forward (find in files in
+-- Cursor, and the same in every app that has it), and flea's block appended
+-- after ours would win it on file position. flea.sh therefore does the rest of
+-- `flea --default` itself and removes that block -- see flea/README.md (5).
+--
+-- SUPER + ALT + SPACE was Omarchy's "Apps menu" until keybind-allowlist.conf
+-- pruned it, and it stays OUT of the allowlist on purpose: the `keybinds` block
+-- above unbinds whatever Omarchy puts there now or later, and this block, synced
+-- after it, is the one that survives -- the SUPER+W pattern macos-shortcuts.lua
+-- describes. The unbind below is belt and braces for a machine whose allowlist
+-- lists the chord.
+--
+-- Not reachable while Figma is focused, like every SUPER chord the figma:C keyd
+-- layer does not carve out -- see the note in macos-shortcuts.lua.
+hl.unbind("SUPER + ALT + SPACE")
+o.bind("SUPER + ALT + SPACE", "Flea", { launch = "flea --gui" })

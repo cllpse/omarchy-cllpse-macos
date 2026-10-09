@@ -17,7 +17,8 @@
 -- Omarchy's own menu is not removed, only moved off this chord: `omarchy menu`
 -- and every script that uses it as a picker prompt still open it. It has no
 -- other chord here -- its SUPER + ALT + SPACE is one keybind-allowlist.conf
--- already prunes -- and needs none: every entry it holds is in the supermenu.
+-- already prunes, and Flea's now (flea/flea-bindings.lua) -- and needs none:
+-- every entry it holds is in the supermenu.
 -- If the shell is not running the dispatch is a no-op, which is the same
 -- outcome the old IPC toggle had.
 --
