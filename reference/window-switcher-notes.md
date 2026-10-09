@@ -755,52 +755,51 @@ Worth knowing about `glyphFor`, which is still the default for every tile:
 
 ## Notes
 
-- **The switcher appears instantly: no delay, and no fade on the card.** Only
-  the scrim behind it fades in — and with the scrim switched off (`showScrim`,
-  see *Look*) nothing fades at all. Two separate things have to be right for
-  that, and they fail independently.
+- **The switcher appears with no delay, and fades in with the panels.** The
+  whole strip ramps in on Hyprland's layer fade, the same as the SUPER+SPACE
+  menu. Two separate things have to be right for that.
   - *No timer in the QML.* The panel maps as soon as its content is ready,
     exactly as `Menu.qml:1019` does (`visible: root.opened && root.rowsLoaded`;
     here `opened` is set when the client list parses). A 150ms show delay was
     tried — borrowed from GNOME's `POPUP_DELAY_TIMEOUT`, to stop a quick tap
     flashing the strip — and removed. Don't re-add one.
-  - *A scrim-only fade, 120ms.* The scrim `Rectangle` in `Hud.qml` animates its
-    own `opacity` (`Behavior` + `NumberAnimation`, 120ms, `Easing.OutCubic` —
-    Omarchy's own curve for a QML fade) while the card maps at full opacity. The
-    compositor cannot express this: a card and its scrim are one layer surface,
-    so a layer-rule fade takes both and the card stops landing under the
-    keypress. Measured when it first shipped — card interior `269 → 118` in a
-    single step, scrim `259 → 230 → 228 → 227 → 225` decelerating over ~120ms.
-    A `no_anim` layer rule on `omarchy-window-switcher-hud` keeps the compositor
-    fade from stacking on top. It has to be stated: Omarchy's own `no_anim` list
-    does not name this namespace, so leaving it out of our fade rule is not
-    enough. There is no fade-out — the surface unmaps in the frame `opened`
-    goes false.
-  - *The Omarchy panels cannot do the same.* Their scrim lives in Omarchy's own
-    `Menu.qml`; editing that is a patch to `/usr/share/omarchy` that the next
-    update overwrites. They keep the whole-surface compositor fade, re-enabled
-    by a layer rule (see below).
-  - *Historic:* Hyprland fades a layer surface
-    as it maps (`layersIn`, `style=fade`, ~130ms at our speeds). Omarchy opts
-    its own panels out of that in `default/hypr/apps/omarchy-shell.lua` — line 5
-    for the bar, line 10 for
+  - *The fade is the compositor's.* `omarchy-window-switcher-hud` is in the
+    `animation = "fade"` layer rule in `overrides/hypr/looknfeel-decoration.lua`
+    alongside the panels, so it ramps over `layersIn` and out over `layersOut`.
+    Duration is those leaves' speed, shared with every animated layer — there
+    is no per-rule duration.
+  - *The scrim is off, and its own fade is kept.* With `showScrim` false (see
+    *Look*) the card is all there is to fade. The scrim `Rectangle` in
+    `Hud.qml` still carries its own `opacity` animation (`Behavior` +
+    `NumberAnimation`, 120ms, `Easing.OutCubic` — Omarchy's own curve for a QML
+    fade), written for a surface the compositor does *not* fade. Turned back on
+    as things stand, the scrim fades with the card and that ramp stacks on top,
+    so the dim lands a little behind. For a card that lands instantly with only
+    the scrim fading, the namespace needs `no_anim = true, animation = "none"`
+    as well as leaving the fade rule: Omarchy's own `no_anim` list does not name
+    it, so leaving it out alone still fades it.
+  - *History.* Hyprland fades a layer surface as it maps (`layersIn`,
+    `style=fade`, ~130ms at our speeds). Omarchy opts its own panels out of that
+    in `default/hypr/apps/omarchy-shell.lua` — line 5 for the bar, line 10 for
     `^(omarchy-menu|omarchy-image-selector|omarchy-emojis|omarchy-clipboard|omarchy-keyboard-panel)$`
     — a literal alternation a third-party namespace cannot join, so the HUD
     faded while the menu snapped, and that mismatch was the original complaint.
     It was first fixed by opting the switcher out too, with the scrim-only fade
-    above. Then `overrides/hypr/looknfeel-decoration.lua` re-enabled the fade
-    for the whole panel family, so they are consistent with notifications /
-    OSD / polkit, which were never opted out and always faded — and for a while
-    the switcher joined them, taking the whole-surface fade with the
-    `Hud.qml` `Behavior` removed. Measured by burst-`grim`ing the scrim as it
-    opens: menu 276 → 271 → 254 → 239 → 238, switcher
-    276 → 273 → 265 → 255 → 246 → 239, both ~100ms ramps where they were
-    previously a single hard step. The switcher came back out because a card
-    that ramps in reads as slower than one that is simply there; the panels
-    keep the fade. A later layer rule wins over an earlier one, so none of this
-    needs an edit to Omarchy's file. Duration of the compositor fade is
-    `layersIn`'s speed, shared with every animated layer — there is no
-    per-rule duration.
+    above: card interior `269 → 118` in a single step, scrim
+    `259 → 230 → 228 → 227 → 225` decelerating over ~120ms. Then
+    `overrides/hypr/looknfeel-decoration.lua` re-enabled the fade for the whole
+    panel family, so they are consistent with notifications / OSD / polkit,
+    which were never opted out and always faded, and the switcher joined them.
+    Measured by burst-`grim`ing the scrim as it opens: menu
+    276 → 271 → 254 → 239 → 238, switcher 276 → 273 → 265 → 255 → 246 → 239,
+    both ~100ms ramps where they were previously a single hard step. The
+    switcher then went back to the scrim-only split, because a card that ramps
+    in reads as slower than one that is simply there. Then its scrim was
+    switched off, which left nothing fading at all, and it rejoined the fade
+    rule. The panels kept the fade throughout; their scrim lives in Omarchy's own
+    `Menu.qml`, so the split is not available to them without patching
+    `/usr/share/omarchy`. A later layer rule wins over an earlier one, so none
+    of this needs an edit to Omarchy's file.
 - The plugins dir is watched with `inotifywait -r`; live edits inside a
   *symlinked* plugin may not auto-reload. Run `omarchy-restart-shell` after
   changing files here.

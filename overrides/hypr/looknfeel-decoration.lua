@@ -323,8 +323,8 @@ hl.layer_rule({
   ignore_alpha = 0.6,
 })
 
--- A short fade-in on the keyboard-driven panels, and on our supermenu. Not on
--- the switcher -- see the rule after this one.
+-- A short fade-in on the keyboard-driven panels, and on our switcher and
+-- supermenu.
 --
 -- Hyprland fades a layer surface as it maps (`layersIn`, style = fade, ~130ms
 -- at our speeds), but Omarchy opts its own panels out of it:
@@ -354,36 +354,29 @@ hl.layer_rule({
 -- list never named it, so it would fade without this line too; stating it keeps
 -- the two in step if that list ever grows.
 hl.layer_rule({
-  match = { namespace = "^(omarchy-menu|omarchy-image-selector|omarchy-emojis|omarchy-clipboard|omarchy-keyboard-panel|omarchy-supermenu)$" },
+  match = { namespace = "^(omarchy-menu|omarchy-image-selector|omarchy-emojis|omarchy-clipboard|omarchy-keyboard-panel|omarchy-window-switcher-hud|omarchy-supermenu)$" },
   no_anim = false,
   animation = "fade",
 })
 
--- The switcher gets no compositor fade, in or out. Its card lands under the
--- keypress, and only its scrim fades in -- from Hud.qml (120ms, Easing.OutCubic),
--- because the compositor cannot do that split: a card and its scrim are one
--- layer surface, so a layer fade takes both or neither.
+-- The switcher has been in and out of the list above.
 --
--- The scrim is currently switched off (showScrim in Hud.qml), so the strip
--- opens with no fade at all. Its code and its fade are kept for turning it back
--- on, and this rule is what keeps that working the moment it is.
+-- It shipped with a no_anim rule of its own: the card landed under the
+-- keypress while Hud.qml faded the scrim alone (120ms, Easing.OutCubic), the
+-- one split the compositor cannot make, since a card and its scrim are one
+-- layer surface. It then joined this rule for consistency with the panels
+-- (measured at 133ms on easeOutQuint, layersIn speed 1.33 ds), and left it
+-- again because a card that ramps in reads as slower than one that is simply
+-- there. Then its scrim was switched off (showScrim in Hud.qml), which left
+-- the strip opening as a hard cut with nothing fading at all, and it came back
+-- in for the fade.
 --
--- Omarchy's no_anim list never named this namespace, so leaving it out of the
--- rule above is not enough -- it would still fade on layersIn like any other
--- layer. It needs a no_anim of its own, or the compositor's fade stacks on top
--- of the QML one and takes the card with it.
---
--- This is the arrangement it shipped with, now back. In between it sat in the
--- rule above, taking the whole-surface fade for consistency with the panels
--- (measured then at 133ms on easeOutQuint, layersIn speed 1.33 ds). That was
--- reverted because a card that ramps in reads as slower than one that is simply
--- there -- the same observation that had made it the odd one out, which was
--- the reason for the split in the first place.
-hl.layer_rule({
-  match = { namespace = "^omarchy-window-switcher-hud$" },
-  no_anim = true,
-  animation = "none",
-})
+-- The scrim's code and its QML fade are kept. Turned back on as things stand,
+-- it fades with the card here and that QML ramp runs on top, so the dim lands a
+-- little behind the card. For the split instead, take the namespace out of the
+-- list above AND give it `no_anim = true, animation = "none"`: leaving it out
+-- is not enough, since Omarchy's no_anim list never named it and it would
+-- still fade on layersIn like any other layer.
 
 -- The supermenu's keystroke catcher (omarchy-supermenu-catcher) is a 1x1
 -- transparent surface that takes the keyboard while the card is being built,
@@ -423,8 +416,8 @@ hl.layer_rule({
 -- instead of 100ms.
 --
 -- What prompted it: the layer fades read a shade slow once the switcher joined
--- the whole-surface fade (it has since left it again; see the layer rules
--- above). layersIn lands at 1.14 here, against 1.33 at 3x and a hand-set 1.2
+-- the whole-surface fade (it has been out and back in since; see the layer
+-- rule above). layersIn lands at 1.14 here, against 1.33 at 3x and a hand-set 1.2
 -- that this reset discards.
 hl.animation({ leaf = "global", enabled = true, speed = 2.86, bezier = "default" })
 hl.animation({ leaf = "border", enabled = true, speed = 1.54, bezier = "easeOutQuint" })
