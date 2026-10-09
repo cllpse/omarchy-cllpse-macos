@@ -491,19 +491,20 @@ plugin-side theming. Under **omarchy-cllpse-theme** that means:
   **The one deliberate departure is the icon** at `Style.font.display` (2.0 rem):
   in the menu the icon sits inline beside a label, here it is the primary
   element of a card, like a macOS Cmd-Tab tile;
-- **the highlight slides, and the name does not change colour.** The selected
-  fill and `selected-border` are one surface (`selectionSurface`) beneath the
-  tiles, not each tile's own background, and it moves between tiles over 140ms
-  on `OutCubic`. It sits in a clipped viewport and is shifted by the strip's
-  scroll without animation, so a scroll carries it with the tiles and only a
-  change of index travels. The slide is enabled only while the strip is open,
-  and `_openStepped()` sets the index before `opened`, so an open puts it
-  straight onto its tile. The tile name stays `Color.menu.text` when selected.
-  It used to switch to `selected-text` (blue) the way a menu row does, but with
-  a sliding fill the colour arrived before the highlight did. The Nerd Font
-  glyph fallback still takes the selection tint. Measured by burst-`grim`ing a
-  line through the tiles: open lands at x 1044 with no slide-in, `next`
-  travels 1044 → 1221 → 1263 → 1266, `prev` 1170 → 1068 → 1045 → 1044;
+- **the highlight fades, and the name does not change colour.** Each tile
+  carries the selected fill and `selected-border` as its own `selectionFill`,
+  beneath its content, and fades it over 140ms on `OutCubic` (Omarchy's
+  opacity fade for a hovered widget, `WidgetButton.qml`) rather than switching
+  it. The tile losing the selection fades out while the one gaining it fades
+  in, under the pointer and under TAB alike, since both move `root.index`. The
+  fade is enabled only while the strip is open, and `_openStepped()` sets the
+  index before `opened`, so an open shows the selected tile already lit. A slide
+  was tried first — one surface beneath the list, moving between tiles; it
+  measured 1044 → 1221 → 1263 → 1266 on a step — and dropped for the fade. The
+  tile name stays `Color.menu.text` when selected. It used to switch to
+  `selected-text` (blue) the way a menu row does, but with an animated fill the
+  colour arrived before the highlight did. The Nerd Font glyph fallback still
+  takes the selection tint;
 - blur comes from the `hl.layer_rule` in
   `overrides/hypr/looknfeel-decoration.lua`, whose namespace match includes
   `window-switcher-hud` so the HUD blurs exactly like the Omarchy menu.
