@@ -1,20 +1,20 @@
 {
   "manifest_version": 3,
   "name": "cllpse-macos theme (scaffold)",
-  "version": "0.0.7",
-  "description": "Scaffold: white frame and inactive tabs in every state, active tab the light theme's darker_background grey. Hand-copied. See ../README.md.",
+  "version": "0.0.8",
+  "description": "Scaffold: the light theme's darker_background grey and white; unfocused windows take the inactive-border grey instead. Hand-copied. See ../README.md.",
   "theme": {
     "colors": {
-      "frame": [255, 255, 255],
-      "frame_inactive": [255, 255, 255],
+      "frame": [230, 230, 230],
+      "frame_inactive": [189, 189, 189],
 
-      "toolbar": [230, 230, 230],
+      "toolbar": [255, 255, 255],
       "tab_text": [0, 0, 0],
       "toolbar_text": [0, 0, 0],
       "toolbar_button_icon": [0, 0, 0],
 
-      "background_tab": [255, 255, 255],
-      "background_tab_inactive": [255, 255, 255],
+      "background_tab": [230, 230, 230],
+      "background_tab_inactive": [189, 189, 189],
       "tab_background_text": [0, 0, 0],
       "tab_background_text_inactive": [0, 0, 0]
     }
