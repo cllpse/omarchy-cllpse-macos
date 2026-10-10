@@ -160,6 +160,13 @@ expected: the unfocused keys did not change. The strip's right-most ~100 px
 shaded toward `[172,184,194]`. That shading comes from outside the theme: the
 strip is flat up to that point. It was not traced.
 
+**Seen with 0.0.6** (focused, then unfocused). Focused: frame `[230,230,230]`
+and active tab `[255,255,255]`, exact. The dividers before the new-tab button
+and beside the extensions button read about `[244,244,244]` and `[236,236,236]`:
+visible, but faint. Unfocused: the border grey, as with 0.0.3. The right-end
+shading appeared again. Hyprland's window shadows are off
+(`decoration:shadow:enabled` false), so it is not a Hyprland shadow.
+
 ## 3. Following theme changes — the subscription problem
 
 A theme extension is static, so following `omarchy theme set` means
