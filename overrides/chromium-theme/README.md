@@ -187,6 +187,14 @@ the rounding allows. So the icons are computed, not a theme variable:
 This is exact against Chromium 152's arithmetic; a change to either function
 breaks the match.
 
+**Seen in dark with dark 1.0.5** (focused, one device-pixel column). The field
+reads `#3B3B3B` exactly, over 41 rows. The line cannot be read directly: one
+DIP at 1.25 lands between device rows, so it shows as two blended rows,
+`#2F3030` (with the toolbar) and `#252525` (with the page). With the white
+icons before, the same rows read `#3E3F3F` and `#343434`. Both fit the same
+~40–50% coverage per row, of `#595959` then and `#3B3B3B` now. The `#262626`
+row directly under the toolbar was there before too, and is not the line.
+
 **Separators have no key and cannot be made transparent.** Checked in Chromium
 152.0.7977.82's source:
 - **Tab dividers** (between two inactive tabs, and before the new-tab button)
