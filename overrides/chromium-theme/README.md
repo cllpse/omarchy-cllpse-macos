@@ -9,7 +9,7 @@ generated. **Nothing here is wired into `apply.sh` or `revert.sh`, and nothing
 is installed.**
 
 ```
-extension/manifest.json   the theme (MV3), the light theme's lightest grey, white and inactive-border grey
+extension/manifest.json   the theme (MV3), the light theme's darker_background grey, white and inactive-border grey
 policy.json.tpl           the managed-policy file that would load it and mask Omarchy's colour
 ```
 
@@ -45,10 +45,10 @@ applied. Every key below was checked to exist in Chromium 152's binary.
 
 | Surface | Keys (focused, unfocused) | Colour now | From `colors.toml` |
 |---|---|---|---|
-| Frame / tab strip, focused — the general colour | `frame` | `#F6F6F6` | `dark_background` (light) |
+| Frame / tab strip, focused — the general colour | `frame` | `#E6E6E6` | `darker_background` (light) |
 | Frame / tab strip, unfocused | `frame_inactive` | `#BDBDBD` | `hyprland_inactive_border` (= `muted`) |
 | Active tab (and toolbar), either state | `toolbar` (one key for both) | `#FFFFFF` | `background` (light) |
-| Inactive tabs, focused | `background_tab` | `#F6F6F6` | `dark_background` (light) |
+| Inactive tabs, focused | `background_tab` | `#E6E6E6` | `darker_background` (light) |
 | Inactive tabs, unfocused | `background_tab_inactive` | `#BDBDBD` | `hyprland_inactive_border` (= `muted`) |
 | Active tab text | `tab_text` | `#000000` | not chosen yet |
 | Inactive tab text and tab-strip icons, focused | `tab_background_text` | `#000000` | not chosen yet |
@@ -79,12 +79,14 @@ terminal templates use `white` for `foreground`, which in the light theme is
 make the active tab dark. When the generator exists it has to decide whether
 that is right or whether white should be a literal.
 
-**The frame is the lightest grey** (0.0.5, 2026-10-10), replacing the blue of
-0.0.2–0.0.4. It is the light theme's `dark_background`, macOS
-`underPageBackgroundColor`. The dark theme files that role under a different
-key: `lighter_background` (`#282828`). There, `dark_background` is `#1A1A1A`,
-macOS `gridColor`. So a generator has to choose by macOS role, not by key name.
-Black text on `#F6F6F6` is about 19:1. Unfocused, the frame goes to the darker
+**The frame is the light theme's `darker_background`** (`#E6E6E6`, macOS
+`gridColor`; 0.0.6, 2026-10-10). That is one step darker than 0.0.5's
+`dark_background` (`#F6F6F6`, macOS `underPageBackgroundColor`). The step darker
+was asked for after seeing 0.0.5 on screen. Both replaced the blue of 0.0.2–0.0.4. The dark
+theme files these roles under different keys. There, `gridColor` is
+`dark_background` (`#1A1A1A`), and `darker_background` is `#000000`, macOS
+`shadowColor`. So a generator has to choose by macOS role, not by key name.
+Black text on `#E6E6E6` is about 17:1. Unfocused, the frame goes to the darker
 `#BDBDBD`. The blue was `blue`, `#0088FF` in both themes (`accent` is
 `#007AFF`). White text on it was about 3.5:1, below the 4.5:1 WCAG asks of body
 text.
@@ -108,9 +110,10 @@ text.
 - So a divider disappears only if its source colour matches what it sits on.
   For tab dividers, the active tab would need the inactive tabs' colour. For
   the extensions divider, the inactive tabs would need the toolbar's colour.
-  0.0.5's `#F6F6F6` beside white comes close on both counts, at about 1.1:1:
-  white dividers on `#F6F6F6` tabs, and a `#F6F6F6` divider on the white
-  toolbar. The one switch that hides tab dividers is the
+  A light grey beside white comes close on both counts. The dividers were
+  about 1.1:1 with 0.0.5's `#F6F6F6` and are about 1.25:1 with 0.0.6's
+  `#E6E6E6`. That covers white dividers on the grey tabs, and a grey divider
+  on the white toolbar. The one switch that hides tab dividers is the
   tab-strip declutter feature (`TabStripDeclutter`, or `DesktopGlowUp`), and
   it hides them only at 20 tabs or more
   (`kTabStripDeclutterMinTabsForSeparatorHide`).
@@ -150,6 +153,12 @@ tabs' titles and ×, and the tab-search ⌄ and new-tab +, are white, so the
 `CR` mapping above holds. The default globe favicon (a tab with no favicon,
 such as `about:blank`) stays dark grey: `tab_background_text` does not
 colour it. Real sites show their own favicons there.
+
+**Seen with 0.0.5** (unfocused only; focus had moved on before the capture).
+The frame and inactive tabs read `[195,194,194]`, the same as 0.0.3, as
+expected: the unfocused keys did not change. The strip's right-most ~100 px
+shaded toward `[172,184,194]`. That shading comes from outside the theme: the
+strip is flat up to that point. It was not traced.
 
 ## 3. Following theme changes — the subscription problem
 
