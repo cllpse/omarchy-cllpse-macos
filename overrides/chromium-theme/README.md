@@ -481,8 +481,8 @@ no longer what keeps the UI neutral (see the end of §2).
    installed, and **neither theme's folder was recreated** (mtimes unchanged
    across both switches), so nothing was reinstalled. Frame: light
    `[231,230,230]`; dark `[23,23,23]`, with toolbar `[35,35,35]` (`#1A1A1A` and
-   `#282828` under the unfocused translucency). Whether the bar showed was
-   checked by eye, not by a screenshot.
+   `#282828` under the unfocused translucency). **No "Installed theme" bar on
+   either switch**, as the user confirmed by eye (not by screenshot).
 
 ## 7. What `apply.sh chromium-theme` does
 
