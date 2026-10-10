@@ -127,6 +127,15 @@ extension theme. That step would have to stand down.
    surface in the §2 table, the active tab in an unfocused window, and whether
    the theme applies at all while `color.json` is in force. Takes focus (a
    window opens).
+   **Run 2026-10-10, under the live policy: refused.** Chromium's log
+   (`--enable-logging=stderr`): `Failed to load extension from: …/extension.
+   cllpse-macos theme (scaffold) (extension ID "dhimobpmbjncgndljeoncdpkcdhlmpld")
+   is blocked by the administrator.` Nothing in `cllpse-macos.json` restricts
+   extensions, and Omarchy's own command-line extensions (not themes) load in the
+   main profile, so the block is almost certainly `BrowserThemeColor` refusing
+   *any* theme. That makes step 2 a precondition, not an option. The second
+   `--load-extension` replaces the flags file's one (last value wins), so the
+   test instance had none of Omarchy's three.
 2. **Masking.** Install a `zz-…json` with only `"BrowserThemeColor": ""`
    (needs sudo), refresh policy, and read `chrome://policy`: is `color.json`'s
    seed gone?
