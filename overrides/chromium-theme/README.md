@@ -66,7 +66,7 @@ applied. Every key below was checked to exist in Chromium 152's binary.
 | Inactive tabs | `background_tab`, `background_tab_inactive` | light `darker_background`, dark `dark_background` | `#E6E6E6` | `#1A1A1A` |
 | Active tab (and toolbar), either state | `toolbar` (one key for both) | `lighter_background` | `#FFFFFF` | `#282828` |
 | Text: tabs, tab-strip ⌄ and +, toolbar text | `tab_text`, `tab_background_text`, `tab_background_text_inactive`, `toolbar_text` | `light_foreground` | `#000000` | `#FFFFFF` |
-| Toolbar icons (and, derived, the line above the page) | `toolbar_button_icon` | `dark_foreground` | `#808080` | `#9A9A9A` |
+| Toolbar icons (and, derived, the line above the page) | `toolbar_button_icon` | computed in `build.py` (below) | `#7C7C7E` | `#7B7B7B` |
 
 **The design** (2026-10-10; `build.py` holds the mapping). The background,
 meaning the frame and the inactive tabs, is `darker_background` in light and
@@ -148,6 +148,8 @@ lightest surface", says its comment) and `#282828` in dark.
   change and was not repacked.
 - **light 1.0.2, dark 1.0.4:** toolbar icons `dark_foreground`, to soften the
   line above the page (see "The line between the toolbar and the page").
+- **light 1.0.3, dark 1.0.5:** toolbar icons computed so that line equals the
+  address field's background exactly.
 
 **The line between the toolbar and the page** is `ContentsSeparator`, a
 one-DIP view that paints `kColorToolbarContentAreaSeparator`, with no flag or
@@ -165,6 +167,25 @@ page. Asked to tone it down (2026-10-10), the icons moved from
 | Dark | `#FFFFFF` → `#9A9A9A` | `#595959` → `#424242` |
 
 Icon contrast on the toolbar is then about 3.9:1 (light) and 5.6:1 (dark).
+
+**Then made identical to the address field's background** (asked the same day).
+The field (`kColorToolbarBackgroundSubtleEmphasis`) has no key either: the
+theme's `omnibox_background` sets the drop-down results
+(`kColorOmniboxResultsBackground`). The theme pack derives the field from the
+toolbar: `BlendForMinContrast(toolbar, toolbar, target, 1.3)`, with the toolbar
+pushed toward white or `kGoogleGrey900` until the contrast is 1.3
+(`kMinOmniboxToolbarContrast`). `build.py` reproduces that function, and it
+matches the `[202,202,203]` measured under the `#E6E6E6` toolbar. It then solves
+the icon colour whose 23% blend lands on the field, per channel, as neutral as
+the rounding allows. So the icons are computed, not a theme variable:
+
+| | Toolbar | Field = separator | Icons | Icon contrast |
+|---|---|---|---|---|
+| Light | `#FFFFFF` | `#E1E1E2` | `#7C7C7E` | 4.2:1 |
+| Dark | `#282828` | `#3B3B3B` | `#7B7B7B` | 3.5:1 |
+
+This is exact against Chromium 152's arithmetic; a change to either function
+breaks the match.
 
 **Separators have no key and cannot be made transparent.** Checked in Chromium
 152.0.7977.82's source:
