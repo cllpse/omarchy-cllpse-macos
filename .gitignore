@@ -18,3 +18,7 @@ overrides/hypr/keybind-current.conf
 # Python bytecode — overrides/chromium/default-zoom.py is imported by its tests.
 __pycache__/
 *.pyc
+
+# Chromium writes this into an unpacked theme extension's folder when it loads
+# the theme (overrides/chromium-theme/extension/).
+Cached Theme.pak
