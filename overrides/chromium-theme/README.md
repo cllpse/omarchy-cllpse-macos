@@ -165,6 +165,14 @@ visible, but faint. Unfocused: the border grey, as with 0.0.3. The right-end
 shading appeared again. Hyprland's window shadows are off
 (`decoration:shadow:enabled` false), so it is not a Hyprland shadow.
 
+**Seen with 0.0.7** (focused, then unfocused). The frame and inactive tabs are
+`[255,255,255]` and the active tab and toolbar `[230,230,230]` in both states,
+exact. The lift seen on earlier unfocused windows does not show on these
+colours. The address field is white `[255,255,255]` while it has keyboard
+focus. Without it, it turns darker than the toolbar, `[202,202,203]`. That
+colour is Chromium's derived default, and the theme's `omnibox_background`
+key (overwritable, unset here) would set it.
+
 ## 3. Following theme changes — the subscription problem
 
 A theme extension is static, so following `omarchy theme set` means
