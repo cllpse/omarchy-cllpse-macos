@@ -130,9 +130,9 @@ strip_fenced ~/.config/hypr/bindings.lua
 strip_fenced ~/.config/hypr/input.lua
 strip_fenced ~/.bashrc
 strip_fenced ~/.config/git/config
-# Chromium's device-pixel-ratio flag (apply.sh step 7d). Omitting this left
-# --force-device-scale-factor=1 in place after a full revert, so the browser UI
-# stayed at 0.8x forever with nothing in the repo still pointing at the cause.
+# Chromium's flags block (apply.sh step 7d). Omitting this once left the old
+# --force-device-scale-factor=1 in place after a full revert, with nothing in
+# the repo still pointing at the cause.
 strip_fenced ~/.config/chromium-flags.conf
 
 # The other half of that pair: page zoom. Same rule as the font — put back what

@@ -1,38 +1,65 @@
 # Chromium
 
-Two halves that run at opposite ends of an apply run: user-level flags, zoom and a neutral UI early; the managed policy last, because it is the only part needing sudo.
+Two halves that run at opposite ends of an apply run: user-level flags and a neutral UI early; the managed policy last, because it is the only part needing sudo.
 
 ## 1. Two halves
 
 Two halves, and they run at DIFFERENT points of an apply.sh run: the
-user-level flags/zoom/UI half early (it was step 7d), the managed policy last
+user-level flags/UI half early (it was step 7d), the managed policy last
 because it is the only part needing sudo and a password prompt should not
 stall a run halfway through (it was step 9). Calling this with no argument
 -- which is what running it by hand does -- does both, in that order.
 
-## 2. Two settings that only make sense together
+## 2. No scale flag and no page zoom
 
-**Correction, measured 2026-10-10 on Chromium 152:** under Wayland the flag no
-longer pins the ratio. It only cancels the GTK text-scaling factor, so UI and
-pages follow the monitor scale (back at 1.25 since 2026-10-10, after 1.33333
-from 2026-10-08), and pages render at scale × zoom: 1.4667 measured at 1.33333,
-1.375 at 1.25. What follows is the original design, true when it was tuned.
+Since 2026-10-10 there is no scale flag. Browser UI follows the monitor scale
+times the GTK text-scaling factor, which `omarchy display text size` sets.
+That is 10/9 at text size 13 with the 9pt GTK font, rounded by Chromium to
+71/64: 1.25 × 71/64 = 1.387 device pixels per DIP. Tab titles and menus are
+the GTK UI font in DIP (12) times the same factor, which is the text size,
+like every other app (`../README.md`, "One text size"). Pages render at
+Chromium's own 100% (§4), so at the same 1.387: page text follows the text
+size as well, and only the page's own CSS decides how big it is.
 
-Two settings that only make sense together: the flag pins the device pixel
-ratio to 1 (25% under the TV's 1.33333; tuned as 20% under DP-2's 1.25), and
-the preference puts page zoom back on top. Page size is the product of the two —
-110% ships, so 0.75 x 1.1 = 0.825 (0.88 back at 1.25); ~133% would be exactly
-1:1 with native (125% at 1.25). **110% was kept on purpose** when display.conf
-moved to 1.33333 (b177be7, 2026-10-08): re-asked on 2026-10-09, the answer was
-to stay at 110% rather than chase the old 0.88, which would take ~117% — not a
-step on Chromium's zoom ladder, so Ctrl+/- would leave it and never land on it
-again. Browser UI stays at 0.75 either way (0.8 at
-1.25), since zoom does not touch it. See the header of each file.
+**Why the flag went.** `--force-device-scale-factor=1` was written to pin the
+device pixel ratio to 1 under the monitor scale (browser UI 20% under the
+desktop at 1.25, as tuned on DP-2; 25% at 1.33333), paired with 110% zoom.
+On Chromium 152 under Wayland it no longer did that (measured 2026-10-10):
+the window renders at the monitor scale whatever the flag says, and the flag
+only replaced the GTK text factor with 1
+(`WaylandWindowManager::DetermineUiScale`). It still made Chromium report the
+display's scale as exactly 1, and that had a cost:
 
-The flag file is Omarchy's, so it takes a fenced block like every other
-shared config here; the launcher skips "#" lines, which makes the markers
-inert. Drop any bare copy of the flag first: it predates the fenced block on
-this machine and would otherwise be passed twice.
+- Chromium has a fix for fractional scales.
+  `AvoidCrackingForFractionalDisplay()` in
+  `browser_view_tabbed_layout_impl.cc` shows an opaque, toolbar-coloured
+  background behind the toolbar whenever the display scale is not a whole
+  number. The forced 1 kept it off.
+- The toolbar background is an anti-aliased path (`CustomCornersBackground`).
+  At 1.25 its bottom edge ends three quarters of the way into a device row.
+  Chromium's window on Linux is always translucent, so that row stayed 75%
+  opaque, and the wallpaper showed through just above the toolbar/page line,
+  focused or not.
+- Measured in dark, one device row above the line: `#1E1E1E` along the whole
+  width with Hyprland's `force_rgbx` (alpha ignored), which is 75% of the
+  `#282828` toolbar. Without it, `#27251E` and `#393F49` toward the right,
+  where the wallpaper behind is coloured.
+
+Measured after the relaunch without the flag (unfocused, 2026-10-10): the row
+above the line matches the toolbar rows to within 1 per channel, including
+where the wallpaper behind is coloured, and the line is a single device row.
+Dropping the flag brings the text factor back, so UI and pages both grew by
+9%. Asked on 2026-10-10, the zoom stays at 110% rather than dropping to 100%,
+which would have kept pages where they were. Later that day the GTK UI font
+went from 11pt to 9pt, so every app's text is the text size. Tab text went
+from 16.4 to 13.3 desktop px. The factor went from 12/11 to 10/9, so the rest
+of the UI and pages grew by another 1.4%. Then the 110% zoom went (§4), and
+pages came down 9% to 1.387 device px per CSS px.
+
+The flag file is Omarchy's, so our lines go in a fenced block, as in every
+other shared config here. The launcher skips "#" lines, which makes the
+markers inert. A copy of the flag outside the block would turn the fix off
+again, so `chromium.sh` deletes one wherever it finds it.
 
 ## 3. A repeated --enable-features is not merged
 
@@ -48,15 +75,20 @@ an Omarchy feature off on the next update.
 way: Omarchy ships no such line today, but if it ever adds one, ours would
 drop it just as silently.
 
-## 4. There is no command-line flag for default page
+## 4. No default page zoom
 
-There is no command-line flag for default page zoom — see the script header
-for what was checked and for the log-scale the preference is stored in.
+No default page zoom since 2026-10-10. The step used to set 110%, as the other
+half of the scale flag in §2 (page size was the product of the two). With the
+flag gone and every app's text at the text size, 110% only made pages 10%
+larger than everything else, and it was removed when asked. The step now
+clears `partition.default_zoom_level` if it still holds that 110%, so
+Chromium's own 100% applies. It leaves any other value alone, since that is a
+choice made in Chromium's settings, not ours. Like every Preferences write, it
+needs Chromium closed (see the script).
 
-Recorded before it is changed, on the same terms as the font and the theme
-above: revert.sh restores what this machine had rather than picking a zoom of
-its own, and a value that already matches what we are about to write is
-refused so a re-run can't turn revert into a no-op.
+There is no command-line flag for default page zoom; the script header has
+what was checked, and the log scale the preference is stored in. revert.sh
+still restores a zoom recorded before the first apply, if there was one.
 
 ## 5. The third Chromium setting with no flag and
 
@@ -166,11 +198,11 @@ as a DevTools bug.
 
 ## From the step table
 
-Chromium: `--force-device-scale-factor=1` (meant to put browser UI 20% under
-the desktop at 1.25, as tuned; on Chromium 152 under Wayland it only cancels the
-text factor, see §2) + `110%` default
-page zoom [chosen, kept at 1.33333 on 2026-10-09] — page size is the product of
-the two, and ~133% would be exactly 1:1 with native (125% at 1.25); `--enable-features=…,OverlayScrollbar` for the
+Chromium: no default page zoom (the 110% this step set until 2026-10-10 is
+cleared), so pages render at the monitor scale times the GTK text factor,
+1.25 × 71/64 = 1.387; no scale flag, since
+`--force-device-scale-factor=1` turned off Chromium's fix for the see-through
+row above the toolbar/page line at fractional scales (§2); `--enable-features=…,OverlayScrollbar` for the
 thin auto-hiding scrollbar (restating Omarchy's own feature, because a
 repeated `--enable-features` is last-wins rather than merged);
 `--disable-features=MediaSessionService`, the only lever that removes the
@@ -200,7 +232,10 @@ get handed a policy root it didn't have. No relaunch needed if Chromium is
 running: the step calls Chromium's `--refresh-platform-policy` itself after
 writing (step 8's `omarchy-theme-set-browser` refresh has already run by
 then), which reloads the whole managed directory, same as Omarchy's own
-`color.json`. The same file also carries
+`color.json`. The same file sets `NewTabPageLocation` to `about:blank`
+(2026-10-11, asked for), so a new tab is an empty page rather than Chromium's
+New Tab page. Like the declutter keys, it is policy rather than a Preferences
+key, so Settings shows it as managed. It also carries
 `ExtensionInstallForcelist`, which pins two extensions by ID against Google's
 CRX endpoint: **uBlock Origin Lite** (`ddkjiahejlhfcafbddmgiahcphecmpfh`) and
 **Proton Pass** (`ghmbeldphafepmbegfdlkpapadhbakde`). uBOL rather than uBlock

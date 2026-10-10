@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Set Chromium's default page zoom for every site.
+"""Set, report or clear Chromium's default page zoom for every site.
+
+apply.sh no longer sets one (2026-10-10): it only clears the 110% it used to,
+so pages render at Chromium's own 100%. See README.md (4).
 
 There is no command-line flag for this. Checked against the shipped binary on
 4.0.2 / Chromium 151: the only zoom-related switches are pinch-zoom, camera
@@ -28,7 +31,7 @@ Two things worth knowing before running this:
     own level. Those are deliberate user choices, so this leaves them alone and
     just reports how many exist.
 
-Usage:  default-zoom.py [PERCENT]   set the default zoom (default 110)
+Usage:  default-zoom.py PERCENT     set the default zoom
         default-zoom.py --print     print the current default as a percent, or
                                     nothing if none is set (apply.sh records it)
         default-zoom.py --reset     delete the key, so Chromium's own default
@@ -113,7 +116,11 @@ def read_percent():
 def main():
     # apply.sh pipes CLLPSE_CHROMIUM_ZOOM straight through, so a typo arrives
     # here as an argument. Fail with a sentence, not a traceback.
-    raw = sys.argv[1].strip() if len(sys.argv) > 1 and sys.argv[1].strip() else "110"
+    # No default any more: apply.sh stopped setting a zoom on 2026-10-10 and
+    # only calls --print / --reset, as revert.sh does.
+    if len(sys.argv) < 2 or not sys.argv[1].strip():
+        sys.exit("usage: default-zoom.py PERCENT | --print | --reset")
+    raw = sys.argv[1].strip()
 
     # `--print` reports, `--reset` un-sets. Both exist so revert.sh can undo
     # this step without inventing a zoom of its own: record the prior value at

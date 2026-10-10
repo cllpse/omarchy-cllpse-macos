@@ -1,5 +1,5 @@
 #!/bin/bash
-# Chromium: scale/zoom/UI flags, and the managed policy (sudo)
+# Chromium: flags, page zoom and a neutral UI, and the managed policy (sudo)
 #
 # See README.md in this directory for what this does and why.
 # Runnable on its own, and called by ../apply.sh. $HERE is bound to overrides/
@@ -18,10 +18,9 @@ if _want user; then
 # See README.md (2)
 if [[ -f "$HERE/chromium/chromium-flags.conf" ]]; then
   if [[ -f ~/.config/chromium-flags.conf ]] &&
-     grep -q '^--force-device-scale-factor=' ~/.config/chromium-flags.conf &&
-     ! grep -q "$MARK" ~/.config/chromium-flags.conf; then
+     grep -q '^--force-device-scale-factor=' ~/.config/chromium-flags.conf; then
     sed -i '/^--force-device-scale-factor=/d' ~/.config/chromium-flags.conf
-    skip "dropped a pre-existing --force-device-scale-factor line"
+    skip "dropped a --force-device-scale-factor line: it turns off Chromium's fractional-scale fix (chromium/README.md (2))"
   fi
   sync_fenced ~/.config/chromium-flags.conf "$HERE/chromium/chromium-flags.conf"
 
@@ -43,12 +42,10 @@ if [[ -f "$HERE/chromium/chromium-flags.conf" ]]; then
 fi
 
 # See README.md (4)
-if [[ -x "$HERE/chromium/default-zoom.py" ]]; then
-  _zoom="${CLLPSE_CHROMIUM_ZOOM:-110}"
-  record_prior "$STATE/previous-chromium-zoom" \
-    "$("$HERE/chromium/default-zoom.py" --print 2>/dev/null || true)" "$_zoom"
-  say "Chromium default page zoom -> ${_zoom}%"
-  "$HERE/chromium/default-zoom.py" "$_zoom" || true
+if [[ -x "$HERE/chromium/default-zoom.py" ]] &&
+   [[ "$("$HERE/chromium/default-zoom.py" --print 2>/dev/null || true)" == 110 ]]; then
+  say "Chromium default page zoom -> its own default (clearing the 110% this step used to set)"
+  "$HERE/chromium/default-zoom.py" --reset || true
 fi
 
 # See README.md (5)
