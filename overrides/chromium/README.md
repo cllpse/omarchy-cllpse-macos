@@ -12,6 +12,12 @@ stall a run halfway through (it was step 9). Calling this with no argument
 
 ## 2. Two settings that only make sense together
 
+**Correction, measured 2026-10-10 on Chromium 152:** under Wayland the flag no
+longer pins the ratio. It only cancels the GTK text-scaling factor, so UI and
+pages follow the monitor scale (back at 1.25 since 2026-10-10, after 1.33333
+from 2026-10-08), and pages render at scale × zoom: 1.4667 measured at 1.33333,
+1.375 at 1.25. What follows is the original design, true when it was tuned.
+
 Two settings that only make sense together: the flag pins the device pixel
 ratio to 1 (25% under the TV's 1.33333; tuned as 20% under DP-2's 1.25), and
 the preference puts page zoom back on top. Page size is the product of the two —
@@ -160,8 +166,9 @@ as a DevTools bug.
 
 ## From the step table
 
-Chromium: `--force-device-scale-factor=1` (browser UI 25% under the TV's
-1.33333; 20% under DP-2's 1.25, which it was tuned against) + `110%` default
+Chromium: `--force-device-scale-factor=1` (meant to put browser UI 20% under
+the desktop at 1.25, as tuned; on Chromium 152 under Wayland it only cancels the
+text factor, see §2) + `110%` default
 page zoom [chosen, kept at 1.33333 on 2026-10-09] — page size is the product of
 the two, and ~133% would be exactly 1:1 with native (125% at 1.25); `--enable-features=…,OverlayScrollbar` for the
 thin auto-hiding scrollbar (restating Omarchy's own feature, because a

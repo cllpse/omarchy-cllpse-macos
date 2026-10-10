@@ -239,7 +239,7 @@ Use `String.fromCodePoint` for U+10000+ (Material Design range).
 
 Leaving it unset rasterises at the SVG's intrinsic size, then scales up.
 Set it to `drawn × Screen.devicePixelRatio` (2 here, not the output scale —
-1.33333 now, 1.25 when measured).
+1.25 now, as when measured; 1.33333 from 2026-10-08 to 2026-10-10).
 
 ### Recolouring SVGs with regex has three failure modes
 
