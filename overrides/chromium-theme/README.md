@@ -2,13 +2,13 @@
 
 A Chromium **theme extension** that will colour the browser from the active
 Omarchy theme: a background colour for the frame and the inactive tabs, and a
-colour for the active tab. In an unfocused window the background turns the grey
-of an unfocused window border (§2). Right now it is a scaffold: the colours are the
-light theme's, copied in by hand, not generated. **Nothing here is wired into
+colour for the active tab, the same whether the window is focused or not (§2).
+Right now it is a scaffold: the colours are the light theme's, copied in by
+hand, not generated. **Nothing here is wired into
 `apply.sh` or `revert.sh`, and nothing is installed.**
 
 ```
-extension/manifest.json   the theme (MV3), the light theme's darker_background grey, white and inactive-border grey
+extension/manifest.json   the theme (MV3), the light theme's darker_background grey background and white active tab
 policy.json.tpl           the managed-policy file that would load it and mask Omarchy's colour
 ```
 
@@ -44,21 +44,27 @@ applied. Every key below was checked to exist in Chromium 152's binary.
 
 | Surface | Keys (focused, unfocused) | Colour now | From `colors.toml` |
 |---|---|---|---|
-| Frame / tab strip, focused — the background | `frame` | `#E6E6E6` | `darker_background` (light) |
-| Frame / tab strip, unfocused | `frame_inactive` | `#BDBDBD` | `hyprland_inactive_border` |
-| Inactive tabs, focused | `background_tab` | `#E6E6E6` | `darker_background` (light) |
-| Inactive tabs, unfocused | `background_tab_inactive` | `#BDBDBD` | `hyprland_inactive_border` |
+| Frame / tab strip — the background | `frame`, `frame_inactive` | `#E6E6E6` | `darker_background` (light) |
+| Inactive tabs | `background_tab`, `background_tab_inactive` | `#E6E6E6` | `darker_background` (light) |
 | Active tab (and toolbar), either state | `toolbar` (one key for both) | `#FFFFFF` | `background` (light) |
 | All text and icons: tabs, tab-strip ⌄ and +, toolbar | `tab_text`, `tab_background_text`, `tab_background_text_inactive`, `toolbar_text`, `toolbar_button_icon` | `#000000` | not chosen yet |
 
-**The design** (0.0.8, 2026-10-10). The background, meaning the frame and the
+**The design** (0.0.9, 2026-10-10). The background, meaning the frame and the
 inactive tabs, is the light theme's `darker_background` (`#E6E6E6`, macOS
-`gridColor`). The active tab, and the toolbar under it, is white. In an
-unfocused window the background turns the colour Hyprland draws an unfocused
-window's border in, `hyprland_inactive_border` (`#BDBDBD`; `#565656` in the dark
-theme). That key equals `muted`, but the theme keeps the two unlinked, so read
-the border key and drop its alpha. Text is black everywhere: about 17:1 on
-`#E6E6E6` and 11:1 on `#BDBDBD`.
+`gridColor`). The active tab, and the toolbar under it, is white. Nothing
+changes with window focus: every `_inactive` key equals its focused twin. Text
+is black everywhere, about 17:1 on `#E6E6E6`.
+
+**Unfocused translucency is Hyprland's, not the theme's.**
+`../hypr/looknfeel-decoration.lua` re-matches the browser tags with
+`opacity = "1.0 0.875"`, the same unfocused frost as the rest of the desktop.
+It overrides the `1.0 0.985` that Omarchy's `default/hypr/apps/browser.lua`
+sets. Checked live: `hyprctl getprop address:<test window> opacity_inactive` is
+`0.875`. So an unfocused browser shows 12.5% of the blurred wallpaper through
+every surface, whatever the theme says. With a light wallpaper that reads as a
+lift toward white; where the wallpaper is coloured it reads as a tint, the
+"right-end shading" in the log below. A theme cannot prevent it. Only that
+Hyprland rule can.
 
 **The active tab cannot follow focus.** Of the manifest keys
 (`kOverwritableColorTable` in `browser_theme_pack.cc`), only `toolbar` sets the
@@ -86,7 +92,9 @@ that is right or whether white should be a literal.
 - **0.0.2:** the theme's `blue` (`#0088FF`) on the frame and inactive tabs,
   with a white active tab and no focus switching.
 - **0.0.3:** in an unfocused window, the frame and inactive tabs switched to
-  the unfocused-border grey.
+  the unfocused-border grey, `hyprland_inactive_border` (`#BDBDBD`; `#565656`
+  in the dark theme). That key equals `muted`, but the theme keeps the two
+  unlinked. A generator would read the border key and drop its alpha.
 - **0.0.4:** white text and icons on the blue, about 3.5:1 (WCAG asks 4.5:1
   for body text).
 - **0.0.5:** the blue replaced by `dark_background` (`#F6F6F6`), with black
@@ -95,6 +103,7 @@ that is right or whether white should be a literal.
 - **0.0.7:** inverted. A white background in every state, and the active tab
   fixed at `#E6E6E6`.
 - **0.0.8:** back to 0.0.6's colours, after 0.0.7 was seen on screen.
+- **0.0.9:** the background no longer changes when the window loses focus.
 
 **Separators have no key and cannot be made transparent.** Checked in Chromium
 152.0.7977.82's source:
@@ -135,10 +144,10 @@ that is right or whether white should be a literal.
 - In an **unfocused** window something lifts every surface about 11% toward
   white, on top of the keys. `frame_inactive` `[128,255,255]` read
   `[142,252,252]`, and the active tab's `[255,0,255]` read `[253,29,252]`.
-  Hyprland's unfocused browser opacity (0.985, `default/hypr/apps/browser.lua`)
-  accounts for 2–3 levels at most, so the wash is most likely Chromium's own.
-  If it is, matching keys will not keep an unfocused window identical: its
-  blue lifts slightly, while white cannot get lighter.
+  At the time I put this down to Chromium, assuming browsers were at Omarchy's
+  unfocused opacity of 0.985. **That was wrong** (corrected with 0.0.9): this
+  repo sets browsers to 0.875, and the lift is the blurred wallpaper showing
+  through. See "Unfocused translucency" above.
 
 **Measured with 0.0.2** (two tabs, no focus switching, 2026-10-10). Focused: frame
 and inactive tab `[0,136,255]`, active tab and toolbar `[255,255,255]`, all
@@ -146,6 +155,8 @@ exact. Unfocused: frame and inactive tab `[30,148,252]`, active tab
 `[253,252,252]`. That fits about 12% of a light grey (~250) over the keys,
 plus Hyprland's 0.985. So the wash survives identical `_inactive` keys: an
 unfocused window's blue reads a shade lighter, and no theme key removes it.
+(Corrected with 0.0.9: the "light grey" is the blurred wallpaper through
+Hyprland's 0.875, not a 0.985 opacity plus a Chromium wash.)
 The inactive tab is the frame colour, so it shows only as a separator.
 
 **Measured with 0.0.3** (unfocused grey, 2026-10-10). Unfocused: frame and
@@ -163,7 +174,8 @@ colour it. Real sites show their own favicons there.
 The frame and inactive tabs read `[195,194,194]`, the same as 0.0.3, as
 expected: the unfocused keys did not change. The strip's right-most ~100 px
 shaded toward `[172,184,194]`. That shading comes from outside the theme: the
-strip is flat up to that point. It was not traced.
+strip is flat up to that point. (Traced with 0.0.9: it is the wallpaper behind
+the window, blurred, showing through Hyprland's 0.875 unfocused opacity.)
 
 **Seen with 0.0.6** (focused, then unfocused). Focused: frame `[230,230,230]`
 and active tab `[255,255,255]`, exact. The dividers before the new-tab button
@@ -174,8 +186,9 @@ shading appeared again. Hyprland's window shadows are off
 
 **Seen with 0.0.7** (focused, then unfocused). The frame and inactive tabs are
 `[255,255,255]` and the active tab and toolbar `[230,230,230]` in both states,
-exact. The lift seen on earlier unfocused windows does not show on these
-colours. The address field is white `[255,255,255]` while it has keyboard
+exact. The lift seen on earlier unfocused windows does not show. (Probably
+because the capture came 0.5 s after focus left, before Hyprland had finished
+fading the window. Captures now wait 3 s.) The address field is white `[255,255,255]` while it has keyboard
 focus. Without it, it turns darker than the toolbar, `[202,202,203]`. That
 colour is Chromium's derived default, and the theme's `omnibox_background`
 key (overwritable, unset here) would set it.
@@ -185,6 +198,13 @@ active tab and toolbar `[255,255,255]`, exact. Unfocused: the frame reads
 `[193,194,195]` and the active tab white. The right-end shading is back. It
 has appeared each time the unfocused frame was grey (0.0.5, 0.0.6, 0.0.8),
 and not with 0.0.7's white frame.
+
+**Seen with 0.0.9.** Focused: frame `[230,230,230]`, and active tab and toolbar
+`[255,255,255]`, exact. Unfocused, 0.5 s after focus left: frame
+`[230,230,230]` across the strip, which was mid-fade. Recaptured once fully
+faded: `[231,230,230]` at the left, but `[210,223,230]` and `[219,218,210]`
+toward the right, where the wallpaper behind is coloured. So the theme
+holds and Hyprland's translucency tints it.
 
 ## 3. Following theme changes — the subscription problem
 
