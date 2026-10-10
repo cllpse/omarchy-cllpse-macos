@@ -98,6 +98,11 @@ plus Hyprland's 0.985. So the wash survives identical `_inactive` keys: an
 unfocused window's blue reads a shade lighter, and no theme key removes it.
 The inactive tab is the frame colour, so it shows only as a separator.
 
+**Measured with 0.0.3** (unfocused grey, 2026-10-10). Unfocused: frame and
+inactive tab `[195,195,195]`, active tab `[253,252,252]`. That is `#BDBDBD`
+plus the same lift, which is barely visible on a grey. The focused keys are
+0.0.2's, so the focused window was not re-measured.
+
 ## 3. Following theme changes — the subscription problem
 
 A theme extension is static, so following `omarchy theme set` means
