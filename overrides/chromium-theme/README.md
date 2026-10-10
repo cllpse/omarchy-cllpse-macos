@@ -472,9 +472,17 @@ no longer what keeps the UI neutral (see the end of §2).
    **Second design run 2026-10-10: failed.** Both themes were installed and the
    switch flipped which one was forced. The bar still showed, and the theme
    came out reversed, because each flip reinstalled both extensions (location
-   6 ↔ 7). Replaced by the switcher extension. Not yet run: does a switch apply
-   the other theme with no bar, and leave the previous one disabled but
-   installed?
+   6 ↔ 7). Replaced by the switcher extension.
+   **Switcher run 2026-10-10: works.** After `apply.sh chromium-theme` the
+   profile was on the dark theme. Light was disabled with reason 1
+   (`DISABLE_USER_ACTION`), both themes were at location 6, and the switcher was
+   at location 7. Then `omarchy theme set …-light` and back to `…-dark`. Each
+   time the profile's theme followed, the other theme ended up disabled but
+   installed, and **neither theme's folder was recreated** (mtimes unchanged
+   across both switches), so nothing was reinstalled. Frame: light
+   `[231,230,230]`; dark `[23,23,23]`, with toolbar `[35,35,35]` (`#1A1A1A` and
+   `#282828` under the unfocused translucency). Whether the bar showed was
+   checked by eye, not by a screenshot.
 
 ## 7. What `apply.sh chromium-theme` does
 
@@ -611,4 +619,4 @@ fresh installs per switch, and whichever came last was applied.
   re-enables the target, so it re-applies on startup, on its own install, and
   1 s after any theme installs.
 
-Designed from source on 2026-10-10. Not yet run: see §6 step 5.
+Designed from source on 2026-10-10 and run the same day (§6 step 5).
