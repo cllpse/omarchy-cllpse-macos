@@ -195,6 +195,20 @@ which no theme key reaches.** Traced in 152.0.7977.82's source:
     `[219,228,230]`), not this theme.
   - With both removed, the next launch re-applied the theme ("Installed theme"
     infobar) and the colours were back.
+  - Grayscale retried properly. The theme id was intact, `Cached Theme.pak`
+    was kept, and `is_grayscale2` was written with Chromium closed. Within
+    seconds of launch Chromium rewrote `Preferences` without it, and the theme
+    id was kept. **An extension loaded with `--load-extension` is installed
+    afresh on every launch**, and installing a theme clears the pref. So with
+    this test setup grayscale cannot stick at all.
+- **Where grayscale could stick:** with a theme installed by policy (§4). An
+  already-installed CRX loads at startup without being installed again, so
+  `OnExtensionLoaded` returns early and nothing clears the pref. It would
+  still be cleared on every theme swap, which is an update. It would then have
+  to be rewritten with Chromium closed, so it cannot follow a live theme
+  switch. Untested; this is §6 step 3. Chromium has no managed policy for
+  grayscale or a user colour: `BrowserThemeColor` is the only theme-colour
+  policy name in the binary.
 - So these two colours cannot be redefined alongside a theme extension in any
   way that lasts. A profile pref only survives until the theme is next applied,
   and this design applies a new theme on every Omarchy theme switch (§3).
