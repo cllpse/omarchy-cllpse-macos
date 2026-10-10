@@ -540,7 +540,8 @@ current theme. Omarchy calls it after `omarchy-theme-set-browser` has written
 `color.json` and refreshed, so ours lands last. The theme name decides the mode:
 `omarchy-cllpse-theme-light` gives light, `-dark` gives dark, anything else
 gives `off`. It runs the writer through `sudo -n`, so it never prompts and does
-nothing without the rule. Then it refreshes a running Chromium.
+nothing without the rule. Then, unless the writer changed nothing, it refreshes
+a running Chromium, detached (§7.6).
 
 The policy the hook writes lists all three extensions every time (§7.5), so
 the first run installs both themes and the switcher. Each theme install applies
@@ -620,3 +621,47 @@ fresh installs per switch, and whichever came last was applied.
   1 s after any theme installs.
 
 Designed from source on 2026-10-10 and run the same day (§6 step 5).
+
+### 7.6 Performance
+
+Measured 2026-10-10 on this machine.
+
+**Per theme switch: the hook.** `omarchy-hook` runs hooks one after another and
+waits for each, so the hook's time is added to `omarchy theme set`.
+
+| | Before | After |
+|---|---|---|
+| Whole hook, blocking | ~130 ms | ~22 ms |
+| `chromium --refresh-platform-policy` (spawns a whole Chromium to send one message) | ~85 ms, waited for | ~85 ms, detached with `setsid -f` |
+| Is Chromium running? | `pgrep -x chromium`, ~23 ms (scans `/proc`) | `SingletonLock`'s pid, with `/proc/<pid>/exe` checked so a stale lock cannot pass: ~3 ms |
+| `sudo -n` writer | ~16 ms | ~16 ms |
+
+The writer now also exits 3 when the file would not change (the same mode
+again, or `off` with no file). The hook then skips the refresh, and because the
+file is untouched, Chromium's own reload never fires either. Chromium watches
+the managed directory itself (`ConfigDirPolicyLoader`'s `FilePathWatcher`) and
+reloads `kSettleInterval` = 5 s after the last change. The explicit refresh
+only makes that immediate.
+
+**Per theme switch: Chromium.** Across all Chromium processes, over 10 s windows
+against an idle baseline of ~1.4 s per 10 s (a playing video makes that noisy):
+- A no-op refresh added about 0.26 s.
+- A real light↔dark switch added about 0.4–0.7 s: rebuilding the theme pack and
+  repainting.
+
+Any theme change costs that, Omarchy's own `BrowserThemeColor` included, and it
+happens once per switch.
+
+**Steady state.** Nothing runs:
+- **The switcher** is an MV3 service worker with no timers and no open ports. It
+  wakes only on a policy change, a browser start, or an extension install, and
+  Chromium stops it after 30 s idle. That is from the design; no renderer could
+  be attributed to it to measure.
+- **The themes** are colour-only (no images, no code), and one is disabled.
+- **Update checks** for the three policy-installed extensions are Chromium's
+  periodic ones, reading local `file://` manifests.
+
+**Not this approach's cost, but nearby:** an unfocused browser is 0.875 opaque
+(`../hypr/looknfeel-decoration.lua`), so Hyprland renders a blur pass under it.
+That rule's own comment measures it as the dominant blur cost.
+

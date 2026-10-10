@@ -8,6 +8,10 @@
 #   cllpse-chromium-theme-policy light|dark   write our policy file with that mode
 #   cllpse-chromium-theme-policy off          delete it (Omarchy's colour applies)
 #
+# Exit 3 means "already so, nothing written": the caller then skips refreshing
+# Chromium, and since the file was not touched, Chromium's own inotify watch on
+# the policy directory has nothing to reload either (README.md §7.6).
+#
 # The policy is the same for both modes except one value. Both themes are
 # installed as normal_installed and the switcher extension as force_installed,
 # always. The mode goes to the switcher through the "3rdparty" section, and the
@@ -43,6 +47,7 @@ usage() { echo "usage: cllpse-chromium-theme-policy light|dark|off" >&2; exit 1;
 
 case $1 in
   off)
+    [[ -e $DEST || -L $DEST ]] || exit 3
     rm -f -- "$DEST"
     exit 0
     ;;
@@ -77,5 +82,8 @@ printf '%s\n' \
   '  } }' \
   '}' >"$staged"
 
+if [[ -f $DEST && ! -L $DEST ]] && cmp -s "$staged" "$DEST"; then
+  exit 3
+fi
 [[ -L $DEST || -d $DEST ]] && rm -rf -- "$DEST"
 install -m 0644 -o root -g root -T "$staged" "$DEST"
