@@ -1,0 +1,66 @@
+#!/bin/bash
+# Point Chromium's managed policy at the light or dark theme extension, or
+# take ours out of the way. Installed root-owned to /usr/local/bin by
+# chromium-theme.sh, and run without a password through
+# /etc/sudoers.d/cllpse-chromium-theme, which names exactly the three
+# invocations below. Modelled on Omarchy's omarchy-theme-set-browser-policy.
+#
+#   cllpse-chromium-theme-policy light|dark   force-install that theme, mask Omarchy's seed
+#   cllpse-chromium-theme-policy off          delete our policy file (Omarchy's colour applies)
+#
+# The caller chooses a word, never a path or an id. The ids and the update
+# manifests are read from root-owned files that chromium-theme.sh installed, so
+# a user-level process cannot make Chromium force-install something else.
+# Refreshing the running browser is the caller's job, done unprivileged
+# (hooks/theme-set.d/chromium-theme.sh).
+set -euo pipefail
+
+# Under sudo, secure_path decides where bare names resolve. Pin it, as Omarchy
+# does, so nothing resolves out of a user-writable directory.
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/bin:/sbin
+
+SHARE=/usr/local/share/cllpse-macos/chromium-theme
+DIR=/etc/chromium/policies/managed
+# Sorts after Omarchy's color.json, so its "BrowserThemeColor": "" wins the
+# merge (see ../chromium-theme/README.md §5).
+DEST=$DIR/zz-cllpse-macos-theme.json
+
+usage() { echo "usage: cllpse-chromium-theme-policy light|dark|off" >&2; exit 1; }
+(( $# == 1 )) || usage
+(( EUID == 0 )) || { echo "cllpse-chromium-theme-policy: needs root" >&2; exit 1; }
+
+# Only a Chromium that Omarchy (or apply.sh) gave a policy root has one.
+[[ -d $DIR && ! -L $DIR ]] || exit 0
+
+case $1 in
+  off)
+    rm -f -- "$DEST"
+    exit 0
+    ;;
+  light | dark) mode=$1 ;;
+  *) usage ;;
+esac
+
+id=$(<"$SHARE/$mode.id")
+[[ $id =~ ^[a-p]{32}$ ]] || { echo "cllpse-chromium-theme-policy: bad id in $SHARE/$mode.id" >&2; exit 1; }
+[[ -f $SHARE/$mode.xml && -f $SHARE/$mode.crx ]] ||
+  { echo "cllpse-chromium-theme-policy: $SHARE/$mode.{xml,crx} missing" >&2; exit 1; }
+
+staged=$(mktemp)
+trap 'rm -f "$staged"' EXIT
+# ExtensionSettings, not ExtensionInstallForcelist: cllpse-macos.json sets the
+# forcelist, and the same key in two files is not merged -- one replaces the
+# other, which would drop those extensions.
+printf '%s\n' \
+  '{' \
+  '  "ExtensionSettings": {' \
+  "    \"$id\": {" \
+  '      "installation_mode": "force_installed",' \
+  "      \"update_url\": \"file://$SHARE/$mode.xml\"" \
+  '    }' \
+  '  },' \
+  '  "BrowserThemeColor": ""' \
+  '}' >"$staged"
+
+[[ -L $DEST || -d $DEST ]] && rm -rf -- "$DEST"
+install -m 0644 -o root -g root -T "$staged" "$DEST"

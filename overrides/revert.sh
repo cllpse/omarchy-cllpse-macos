@@ -1,9 +1,10 @@
 #!/bin/bash
 # Undo everything overrides/apply.sh did. Idempotent.
-# Sudo is needed by four steps near the end: removing the keyd config apply.sh
+# Sudo is needed by five steps near the end: removing the keyd config apply.sh
 # installed, dropping the CPU power limits back to the firmware's own and
-# removing their unit, putting /etc/fstab's Btrfs compression level back, and
-# removing the Chromium managed-policy file. Everything else is user-level.
+# removing their unit, putting /etc/fstab's Btrfs compression level back,
+# removing the Chromium managed-policy file, and removing the Chromium theme
+# extension's policy, files and sudoers rule. Everything else is user-level.
 # Neither keyd nor ryzenadj is ever uninstalled -- this script did not install
 # them.
 # Only ever restores what this machine had before apply.sh first ran; it never
@@ -600,6 +601,25 @@ dest=/etc/chromium/policies/managed/cllpse-macos.json
 if [[ -f $dest ]]; then
   say "Removing Chromium managed policy + forced extensions (needs sudo): $dest"
   sudo rm -f "$dest" || say "  could not remove $dest — remove it yourself: sudo rm -f $dest"
+fi
+
+# The Chromium theme extension (apply.sh step 9b). Policy file first, so the
+# themes stop being forced before the files they point at go; then the writer,
+# its passwordless rule, the root-owned CRXs, and the theme-set hook. The
+# signing keys in $STATE/chromium-theme are left: they fix the extension ids,
+# and a later apply.sh would otherwise force-install different ones.
+_ct_policy=/etc/chromium/policies/managed/zz-cllpse-macos-theme.json
+_ct_files=(/usr/local/bin/cllpse-chromium-theme-policy /etc/sudoers.d/cllpse-chromium-theme
+           /usr/local/share/cllpse-macos/chromium-theme)
+rm -f ~/.config/omarchy/hooks/theme-set.d/chromium-theme.sh
+if [[ -e $_ct_policy || -e ${_ct_files[0]} || -e ${_ct_files[2]} ]]; then
+  say "Removing the Chromium theme extension's policy, writer, sudoers rule and CRXs (needs sudo)"
+  sudo rm -rf -- "$_ct_policy" "${_ct_files[@]}" ||
+    say "  could not remove them — remove yourself: sudo rm -rf $_ct_policy ${_ct_files[*]}"
+  sudo rmdir /usr/local/share/cllpse-macos 2>/dev/null || true
+  if command -v chromium >/dev/null 2>&1 && pgrep -x chromium >/dev/null; then
+    chromium --refresh-platform-policy --no-startup-window &>/dev/null || true
+  fi
 fi
 
 echo

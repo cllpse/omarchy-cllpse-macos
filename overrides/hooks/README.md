@@ -32,6 +32,7 @@ The set is therefore written out rather than described:
 | `theme-set.d/cursor-chrome.sh` | `cursor/cursor.sh` |
 | `theme-set.d/gh-dash-colors.sh` | `gh-dash/gh-dash.sh` |
 | `theme-set.d/ytm-player.sh` | `ytm/ytm.sh` |
+| `theme-set.d/chromium-theme.sh` | `chromium-theme/chromium-theme.sh` — linked here from 2026-10-10, the day it was added |
 | `themed/ytm-player.toml.tpl` | `ytm/ytm.sh` — the only link outside `theme-set.d/`, which is why it was one of the three this hook was missing |
 | `post-boot.d/cllpse-bar-layout.sh` | `omarchy/omarchy.sh` — the only `post-boot.d` link, and the second one outside `theme-set.d/` |
 | `post-update.d/cllpse-macos-repair.sh` | itself |

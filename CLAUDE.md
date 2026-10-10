@@ -79,6 +79,19 @@ does the rest of `--default` itself, removes that block and binds Flea to
 SUPER+ALT+SPACE. Probe: `grep -n 'flea --default: begin' ~/.config/hypr/bindings.lua`.
 See `overrides/flea/README.md`.
 
+### Chromium's theme is a policy-forced extension, swapped on theme set
+
+Not Omarchy's `BrowserThemeColor` seed: `zz-cllpse-macos-theme.json` masks it
+(the policy file that sorts last wins a key) and force-installs a light or dark
+theme CRX from `/usr/local/share/cllpse-macos/chromium-theme/`. The theme-set
+hook swaps it through a passwordless, root-owned writer (`apply.sh
+chromium-theme`, step 9b). A `colors.toml` change needs that step again (repack
+plus sudo). Applying any extension theme deletes `browser.theme.user_color2` /
+`is_grayscale2` / `color_variant2`, so the blue menu separators and omnibox
+selection (`#D3E3FD`, Chromium's palette) cannot be fixed alongside it. Probe:
+`jq -r .extensions.theme.id ~/.config/chromium/Default/Preferences`. See
+`overrides/chromium-theme/README.md`.
+
 ### The two plugins cancel each other over Hyprland's event socket
 
 Opening either one sends `hl.dsp.event("overlay-open>><plugin id>")`, which
@@ -240,6 +253,7 @@ or `<`, and files with no paint at all (simple-icons bare `<path>`).
 | Supermenu ranking, invariants, traps | `omarchy-cllpse-plugin-supermenu/AGENTS.md` |
 | Task patterns for agents | `AGENTS.md` (this dir) |
 | Per-app override details | `overrides/<app>/README.md` |
+| Chromium theme extension: design, mechanism, Chromium source findings | `overrides/chromium-theme/README.md` |
 | Window switcher design log | `reference/window-switcher-notes.md` |
 | Keybind parity audit | `KEYBINDS-PARITY.md` |
 

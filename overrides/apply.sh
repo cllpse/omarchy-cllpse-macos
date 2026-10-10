@@ -7,7 +7,7 @@
 #   apply.sh --all      everything, no prompt
 #   apply.sh --look     only the steps that change how it looks
 #   apply.sh <id>...    only these, always in the order below
-#   apply.sh --list     every id, and which four need sudo
+#   apply.sh --list     every id, and which five need sudo
 #
 # This script is now an ORCHESTRATOR. Each override owns a script and a README
 # in its own directory -- overrides/cursor/cursor.sh and overrides/cursor/
@@ -18,10 +18,11 @@
 #     apply, hyprctl reload, the Btrfs mount option). They have no folder to
 #     live in and stay inline here.
 #   * the ORDER itself, which is the one thing a per-folder script cannot own.
-#     Sudo is needed by exactly four steps and they are all late on purpose:
-#     8b (keyd), 9 (the Chromium managed policy), 10 (CPU power limits) and
-#     11 (Btrfs). chromium/chromium.sh takes a `user`/`policy` argument for
-#     precisely this reason -- its two halves run at opposite ends of a run.
+#     Sudo is needed by exactly five steps and they are all late on purpose:
+#     8b (keyd), 9 (the Chromium managed policy), 9b (the Chromium theme
+#     extension), 10 (CPU power limits) and 11 (Btrfs). chromium/chromium.sh
+#     takes a `user`/`policy` argument for precisely this reason -- its two
+#     halves run at opposite ends of a run.
 #
 # Every per-folder script is also runnable on its own. They source lib.sh for
 # say/skip/backup/sync_fenced/record_prior, STATE and MARK.
@@ -63,6 +64,8 @@
 #   8c.  hyprctl reload -- after 8b so the focus handler is seeded
 #        against the keyd that is now running                          [inline]
 #   9.   Chromium managed policy (sudo)                                chromium/ (policy)
+#   9b.  Chromium theme extension, light + dark, swapped live on
+#        every theme set; installs a passwordless sudo rule (sudo)    chromium-theme/
 #   10.  CPU power limits (sudo), hardware-gated, opt-in               ryzen/
 #   11.  Btrfs compression level (sudo) -- last, and the only step
 #        that edits a file the machine will not boot without           [inline]
@@ -370,6 +373,8 @@ echo "    • relaunch running GTK/Qt apps + the bar for hintnone"
 echo "    • light theme:  omarchy theme set omarchy-cllpse-theme-light"
 echo "    • the spellcheck/translate/password/autofill/Print/Cast/QR/reading-list policy (9)"
 echo "      already refreshed live if Chromium was running — no relaunch needed"
+echo "    • Chromium's theme extension (9b) follows every theme set from now on;"
+echo "      the light/dark swap is live, a changed colors.toml lands on restart"
 echo "    • Figma's Cmd+click / Cmd+scroll / Ctrl+C (eyedropper) work now — the focus"
 echo "      hook reaches keyd through newgrp, since a granted group never reaches a"
 echo "      (the systemd user manager outlives a logout; only a reboot reseeds it)."
@@ -469,6 +474,7 @@ STEPS=(
   "keyd|sudo|keyd: Figma modifier remap (sudo)|run:keyd|hypr"
   "hypr-reload|auto|hyprctl reload|fn:step_hypr_reload|"
   "chromium-policy|sudo|Chromium managed policy (sudo)|run:chromium policy|"
+  "chromium-theme|sudo|Chromium theme extension, light/dark on theme set (sudo)|run:chromium-theme|"
   "ryzen|optin|CPU power limits (sudo)|run:ryzen|"
   "btrfs|sudo|Btrfs compression level (sudo)|fn:step_btrfs|"
 )
@@ -508,7 +514,7 @@ Apply the cllpse-macos theme + the system overrides it needs. Idempotent.
   apply.sh --help          this
 
 Ids are listed by --list, with whatever each one needs. Prerequisites are
-added automatically and announced. Four steps need sudo and are marked; skip
+added automatically and announced. Five steps need sudo and are marked; skip
 those and the run needs no password at all.
 EOF
 }

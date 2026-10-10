@@ -74,7 +74,7 @@ own work, which must not be recorded as what the machine came with.
 ## 7. LAST on purpose
 
 LAST on purpose. This is the only half of this script that needs sudo, so it
-runs late (step 9, with apply.sh's other sudo steps 8b, 10 and 11) rather than
+runs late (step 9, with apply.sh's other sudo steps 8b, 9b, 10 and 11) rather than
 stalling a run halfway through on a password prompt. It used to sit between
 7f2 and 7h.
 Spellcheck / Translate / password-save-prompt / Autofill / Print / Cast /

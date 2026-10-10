@@ -1,16 +1,32 @@
-# chromium-theme — scaffold
+# chromium-theme
 
-A Chromium **theme extension** that will colour the browser from the active
-Omarchy theme: a background colour for the frame and the inactive tabs, and a
-colour for the active tab, the same whether the window is focused or not (§2).
-Right now it is a scaffold: the colours are the light theme's, copied in by
-hand, not generated. **Nothing here is wired into
-`apply.sh` or `revert.sh`, and nothing is installed.**
+Chromium's frame and tabs coloured from the active Omarchy theme by a **theme
+extension**. There is a light and a dark one, generated from the two themes'
+`colors.toml`. A managed policy force-installs one of them, and it is
+**swapped live on every `omarchy theme set`**. Installed by `apply.sh
+chromium-theme` (sudo) and removed by `revert.sh`. Only our two themes have one:
+any other Omarchy theme turns ours off and hands Chromium back to Omarchy's own
+colour.
 
 ```
-extension/manifest.json   the theme (MV3), the light theme's darker_background grey background and white active tab
-policy.json.tpl           the managed-policy file that would load it and mask Omarchy's colour
+build.py                       renders a theme manifest from a colors.toml; the colour mapping lives here
+chromium-theme.sh              the apply step: build, pack, install root-owned, link the hook (sudo)
+cllpse-chromium-theme-policy   the root-owned policy writer: light | dark | off
+../hooks/theme-set.d/chromium-theme.sh   runs on every theme set: writer, then a policy refresh
 ```
+
+| What | Where | Owner |
+|---|---|---|
+| Signing keys (fix the extension ids), build output, version counters | `~/.local/state/cllpse-macos/chromium-theme/` | you, `0700`; keys `0600`, never committed |
+| Packed themes, update manifests, ids | `/usr/local/share/cllpse-macos/chromium-theme/{light,dark}.{crx,xml,id}` | root |
+| The writer | `/usr/local/bin/cllpse-chromium-theme-policy` | root |
+| Its passwordless rule | `/etc/sudoers.d/cllpse-chromium-theme` | root, `0440` |
+| The policy it writes | `/etc/chromium/policies/managed/zz-cllpse-macos-theme.json` | root |
+| The hook | `~/.config/omarchy/hooks/theme-set.d/chromium-theme.sh` → repo | symlink (re-linked by the post-update repair hook) |
+
+**Probe:** `jq -r .extensions.theme.id ~/.config/chromium/Default/Preferences`
+should equal `/usr/local/share/cllpse-macos/chromium-theme/<mode>.id`. Chromium
+writes `Preferences` a few seconds after a change, not at once.
 
 ## 1. What Omarchy does — there is no Omarchy extension
 
@@ -42,18 +58,22 @@ Firefox's). The only way an extension colours Chromium's UI is a *theme*
 extension: a manifest whose `theme.colors` are read once, when the theme is
 applied. Every key below was checked to exist in Chromium 152's binary.
 
-| Surface | Keys (focused, unfocused) | Colour now | From `colors.toml` |
-|---|---|---|---|
-| Frame / tab strip — the background | `frame`, `frame_inactive` | `#E6E6E6` | `darker_background` (light) |
-| Inactive tabs | `background_tab`, `background_tab_inactive` | `#E6E6E6` | `darker_background` (light) |
-| Active tab (and toolbar), either state | `toolbar` (one key for both) | `#FFFFFF` | `background` (light) |
-| All text and icons: tabs, tab-strip ⌄ and +, toolbar | `tab_text`, `tab_background_text`, `tab_background_text_inactive`, `toolbar_text`, `toolbar_button_icon` | `#000000` | not chosen yet |
+| Surface | Keys (focused, unfocused) | `colors.toml` variable | Light | Dark |
+|---|---|---|---|---|
+| Frame / tab strip — the background | `frame`, `frame_inactive` | light `darker_background`, dark `dark_background` | `#E6E6E6` | `#1A1A1A` |
+| Inactive tabs | `background_tab`, `background_tab_inactive` | light `darker_background`, dark `dark_background` | `#E6E6E6` | `#1A1A1A` |
+| Active tab (and toolbar), either state | `toolbar` (one key for both) | `background` | `#FFFFFF` | `#1E1E1E` |
+| All text and icons: tabs, tab-strip ⌄ and +, toolbar | `tab_text`, `tab_background_text`, `tab_background_text_inactive`, `toolbar_text`, `toolbar_button_icon` | `light_foreground` | `#000000` | `#FFFFFF` |
 
-**The design** (0.0.9, 2026-10-10). The background, meaning the frame and the
-inactive tabs, is the light theme's `darker_background` (`#E6E6E6`, macOS
-`gridColor`). The active tab, and the toolbar under it, is white. Nothing
-changes with window focus: every `_inactive` key equals its focused twin. Text
-is black everywhere, about 17:1 on `#E6E6E6`.
+**The design** (2026-10-10; `build.py` holds the mapping). The background,
+meaning the frame and the inactive tabs, is `darker_background` in light and
+`dark_background` in dark. The active tab, and the toolbar under it, is
+`background`. Every text and icon key is `light_foreground`, macOS
+`textColor`. Nothing changes with window focus: every `_inactive` key equals its
+focused twin. In light that is the `#E6E6E6` / white the design was iterated to
+(history below), with black text at about 17:1. **The dark theme uses the same
+variable names**, except for the background, one step lighter (see "Grey keys
+differ" below).
 
 **Unfocused translucency is Hyprland's, not the theme's.**
 `../hypr/looknfeel-decoration.lua` re-matches the browser tags with
@@ -77,15 +97,21 @@ colour.
 **Grey keys differ between the themes.** The dark theme files the same macOS
 roles under other keys. There, `gridColor` is `dark_background` (`#1A1A1A`),
 `underPageBackgroundColor` is `lighter_background` (`#282828`), and
-`darker_background` is `#000000`, macOS `shadowColor`. A generator has to choose
-by macOS role, not by key name.
+`darker_background` is `#000000`, macOS `shadowColor`. Mapping by macOS role
+would have given dark a `#1A1A1A` background beside a `#1E1E1E` active tab,
+four levels apart. The decision (2026-10-10) was to map by **variable name**
+instead: "map the color variable names for the dark theme 1-1 with what's used
+in the light theme". That gave dark `#000000` behind a `#1E1E1E` tab (1.0.1).
+Seen live, dark's background was then asked to be "a shade lighter (within
+theme variables)". The next variable up is `dark_background` (`#1A1A1A`), so
+dark is `#1A1A1A` behind `#1E1E1E` from 1.0.2. That is the four-level step the
+role mapping would have given; this time it was chosen by eye.
 
 **"White" is `background`.** `colors.toml` has no `white` key. Omarchy's
 terminal templates use `white` for `foreground`, which in the light theme is
 `#272727`. The white meant here is the light theme's `background`, macOS
-`windowBackgroundColor`. In the dark theme that key is `#1E1E1E`, which would
-make the background dark. When the generator exists it has to decide whether
-that is right or whether white should be a literal.
+`windowBackgroundColor`. Read by name, it is `#1E1E1E` in the dark theme,
+which is the dark active tab.
 
 **How it got here** (all 2026-10-10):
 - **0.0.1:** CMYK test colours, one per key.
@@ -104,6 +130,11 @@ that is right or whether white should be a literal.
   fixed at `#E6E6E6`.
 - **0.0.8:** back to 0.0.6's colours, after 0.0.7 was seen on screen.
 - **0.0.9:** the background no longer changes when the window loses focus.
+- **1.0.1:** generated by `build.py` from both themes, force-installed by
+  policy and swapped on theme set (§7). The light build has the same colours as
+  0.0.9; dark's background was `darker_background`, `#000000`.
+- **1.0.2 (dark only):** dark's background one shade lighter, `dark_background`
+  (`#1A1A1A`).
 
 **Separators have no key and cannot be made transparent.** Checked in Chromium
 152.0.7977.82's source:
@@ -233,7 +264,11 @@ which no theme key reaches.** Traced in 152.0.7977.82's source:
   way that lasts. A profile pref only survives until the theme is next applied,
   and this design applies a new theme on every Omarchy theme switch (§3).
   `../chromium/neutral-theme.py` writes `is_grayscale2` for the policy-themed
-  setup, where no extension theme clears it.
+  setup, where no extension theme clears it. It is still run by `apply.sh
+  chromium-user`, and has not been retired for this setup. With the theme
+  installed by policy it should now stick until the next swap, but that is
+  untested. `system_theme` was seen flipped to `0` by Chromium the moment the
+  forced theme applied.
 
 **Measured with the first scaffold** (0.0.1, CMYK test colours, one per key):
 - A focused window paints `frame` and `toolbar` exactly.
@@ -311,12 +346,13 @@ regenerating it (colours from the theme's `colors.toml`, rendered by a
 `theme-set.d` hook like the repo's others) and getting Chromium to load the new
 one. Options, best first:
 
-1. **Swap by policy, live** — the Omarchy-shaped answer. Per theme, a separately
-   packed CRX; the theme-set hook rewrites which one the policy force-installs
-   and runs `--refresh-platform-policy`. A policy change installs and removes
-   force-installed extensions immediately, so this is the one route that can be
-   live. Cost: writing `/etc` on every theme switch needs root, as Omarchy's own
-   writer does (sudo or pkexec).
+1. **Swap by policy, live** — the Omarchy-shaped answer, and **the one built**
+   (§7). Per theme, a separately packed CRX; the theme-set hook rewrites which
+   one the policy force-installs and runs `--refresh-platform-policy`. A policy
+   change installs and removes force-installed extensions immediately, so this
+   is the one route that can be live. Writing `/etc` on every switch needs root.
+   That is solved the way Omarchy solves it for `color.json`: a passwordless
+   sudo rule for one root-owned writer, and only for the exact words it takes.
 2. **Update in place** — one extension ID, the hook bumps `version` and repacks.
    Chromium only checks for updates periodically (hours) and at startup, and
    Chromium 152 no longer has the `--extensions-update-frequency` switch that
@@ -326,22 +362,26 @@ one. Options, best first:
    No packing, but it is a flag rather than a policy, and an unpacked theme is
    only re-read on a manual reload or a restart.
    Loading it also makes Chromium write `Cached Theme.pak` into the extension's
-   own folder. That file is gitignored, and it is stale once the colours change.
+   own folder, stale once the colours change. It is also reinstalled on every
+   launch, which wipes the palette prefs (§2). This was the test setup only.
 
 ## 4. Loading it through this repo's policy
 
-`policy.json.tpl` is the shape: an `ExtensionSettings` entry with
-`installation_mode: force_installed` and an `update_url` pointing at a local
-update manifest (`update.xml`, naming the CRX and its version). This would be a
-**second** policy file next to `../chromium/policies-managed.json` rather than a
-key in it, because it is per machine: the extension ID is derived from the key
-the CRX is signed with. That private key should be generated once per machine
-into `$STATE` and never committed. Packing needs `chromium --pack-extension`
-with a throwaway `--user-data-dir`, so it cannot hand off to a running browser.
+The writer puts an `ExtensionSettings` entry in
+`zz-cllpse-macos-theme.json`, with `installation_mode: force_installed` and an
+`update_url` pointing at a local update manifest (`<mode>.xml`, naming the CRX
+and its version). It is a **separate** policy file from
+`../chromium/policies-managed.json` (`cllpse-macos.json`) for two reasons:
+- The extension ids are per machine. Each comes from the key its CRX is signed
+  with, generated once into `$STATE` and never committed.
+- That file sets `ExtensionInstallForcelist`. The same key in two files is not
+  merged (one replaces the other), so ours uses `ExtensionSettings`.
 
-Unverified (§6): whether Chromium 152 accepts a `file://` `update_url` for a
-force-installed extension, and whether a force-installed *theme* is applied
-automatically.
+Both questions this section left open were answered on 2026-10-10 (§6 step 3):
+- Chromium 152 accepts a `file://` `update_url` for a force-installed
+  extension. The source agrees: `ExtensionDownloader::GetURLLoaderFactoryToUse`
+  builds a file URL loader.
+- A force-installed **theme** is applied automatically: installing it sets it.
 
 ## 5. Disabling Omarchy's colour through the policy overrides
 
@@ -351,7 +391,7 @@ managed, so an extension theme would not take effect.
 
 The policy route is **masking**. Chromium merges every file in the managed
 directory, and when two files set the same key **the file that sorts last
-lexicographically wins**. So the scaffold's policy file must be named to sort
+lexicographically wins**. So our policy file must be named to sort
 after `color.json` (for example `zz-cllpse-macos-theme.json`; the existing
 `cllpse-macos.json` sorts *before* it). It sets `BrowserThemeColor` to `""`. That
 value takes precedence at the merge and is then rejected as an invalid colour,
@@ -359,14 +399,15 @@ which should leave no policy theme at all. `chrome://policy` will show it as an
 error, which is expected.
 
 Verified in effect (§6 step 2): with `zz-cllpse-theme-test.json` beside
-`color.json`, a theme extension installs. The precedence rule itself comes from
-my reading of Chromium's policy loader; `chrome://policy` has not been read to
-confirm it. Also note that once the seed is masked,
-`../chromium/neutral-theme.py`'s two preferences (the GTK system theme, plus
-grayscale) stop being needed, and the system-theme one actively competes with an
-extension theme. That step would have to stand down.
+`color.json`, a theme extension installs. The writer now carries the mask in
+`zz-cllpse-macos-theme.json`, and `chromium-theme.sh` deleted the hand-made
+test file when it installed. `off` deletes ours, which is how any other Omarchy
+theme gets its own colour back. The precedence rule comes from my reading of
+Chromium's policy loader; `chrome://policy` has not been read to confirm it.
+Once the seed is masked, `../chromium/neutral-theme.py`'s two preferences are
+no longer what keeps the UI neutral (see the end of §2).
 
-## 6. Verification plan, in order
+## 6. Verification, in order
 
 1. **Theme alone, no policy.** Launch Chromium with a throwaway
    `--user-data-dir` and `--load-extension=<this>/extension`. Confirm each
@@ -396,8 +437,93 @@ extension theme. That step would have to stand down.
    accepted the theme (step 1's re-run), so the empty value displaced
    `color.json`'s seed. `chrome://policy` was not read: a `chrome://` URL handed
    to a running instance on the command line opens a blank new window instead.
-3. **Policy load.** Pack a CRX with a fresh key, write `update.xml`, and install
-   the rendered `policy.json.tpl` (sudo). Does the theme install and apply from a
-   `file://` update URL?
+3. **Policy load.** Pack a CRX with a fresh key, write `update.xml`, and
+   install the policy (sudo). Does the theme install and apply from a `file://`
+   update URL?
+   **Run 2026-10-10 through `apply.sh chromium-theme`: yes, live.** The running
+   main Chromium installed `klehdjbaeipmaiaejecohhogfjmjkfgf` 1.0.1 into
+   `Default/Extensions/` and set it as the profile's theme within seconds of the
+   refresh. Sampled from a sliver of the tab strip, while unfocused: frame
+   `[232,231,229]` (`#E6E6E6` under the 0.875 translucency), toolbar
+   `[254,253,251]`. The ids in both CRX headers match the ones derived from the
+   keys.
 4. **Swap.** Two CRXs, change which one is forced, refresh: does the theme change
    live?
+   **Run 2026-10-10: yes, both ways, no relaunch.**
+   - `omarchy theme set omarchy-cllpse-theme-dark`: the policy named the dark
+     id. The profile switched to it in about 10 s, and the light theme's folder
+     was gone. Frame `#000000`; toolbar `#1A1A1A` (`#1E1E1E`, unfocused).
+   - Back to light: about 3 s, frame exactly `#E6E6E6`.
+   - Forcing `off` then `light` uninstalled the theme and installed it afresh
+     (new folder). That is the path §7.4 uses to land a repacked version live.
+   - Not looked for: whether the default theme flashes between the uninstall
+     and the install.
+
+## 7. What `apply.sh chromium-theme` does
+
+Idempotent. Without Chromium, without a managed-policy directory, or without
+`openssl` / `python3`, it says so and does nothing.
+
+### 7.1 Build and pack each mode
+
+- **Keys and ids.** One RSA key per mode, generated once into `$STATE` (`0600`).
+  The extension id is the first 128 bits of the SHA-256 of the public key, as
+  hex mapped `0–f` to `a–p`, and is computed with `openssl`. Deleting a key
+  changes that mode's id, and the next run force-installs a different extension.
+- **Manifest.** `build.py <colors.toml> <mode> <version>` renders it from the
+  repo's own theme folders, not from `~/.config/omarchy/themes`.
+- **Version.** `1.0.<n>`, where `<n>` is bumped only when the rendered colours
+  change. The test is a hash of a render made with a fixed version. A run with
+  nothing changed repacks nothing.
+- **Packing.** The real binary (`/usr/lib/chromium/chromium`, not the
+  `chromium-flags.conf` wrapper) is run with `--pack-extension` and a throwaway
+  `--user-data-dir`. It opens no window and does not hand off to a running
+  browser (checked: no new client, focus unchanged).
+- **Update manifest.** `<mode>.xml` points at
+  `file:///usr/local/share/cllpse-macos/chromium-theme/<mode>.crx`.
+
+### 7.2 The passwordless rule
+
+`/etc/sudoers.d/cllpse-chromium-theme`, for the user who ran apply.sh:
+
+```
+<user> ALL=(root) NOPASSWD: /usr/local/bin/cllpse-chromium-theme-policy light, …dark, …off
+```
+
+It names three exact invocations, the way Omarchy's own rules do
+(`omarchy-dns Cloudflare, …`). The writer takes a word, never a path or an id.
+It reads the id and the update manifest from root-owned files, and pins `PATH`
+as Omarchy's `omarchy-theme-set-browser-policy` does. The rule is checked with
+`visudo -c` before it is installed. Since `/etc/sudoers.d` cannot be read from
+user space, "already installed" is decided by `sudo -n -l -l <writer> <word>`
+listing `!authenticate`, for all three words. That is Omarchy's own probe.
+
+### 7.3 Install root-owned
+
+Only what differs is reinstalled; a run with nothing to do needs no password.
+The CRXs, update manifests and ids are root-owned on purpose: a managed policy
+that force-installs from a file your user account can write would let any
+user-level program choose what Chromium force-installs, silently and with any
+permission. The keys stay in `$STATE`, because the policy names a root-owned
+CRX; a key alone cannot get anything installed.
+
+### 7.4 The hook, and landing a repack
+
+The hook is linked into `~/.config/omarchy/hooks/theme-set.d/` (and re-linked
+by `../hooks/post-update.d/cllpse-macos-repair.sh`), then run once for the
+current theme. Omarchy calls it after `omarchy-theme-set-browser` has written
+`color.json` and refreshed, so ours lands last. The theme name decides the mode:
+`omarchy-cllpse-theme-light` gives light, `-dark` gives dark, anything else
+gives `off`. It runs the writer through `sudo -n`, so it never prompts and does
+nothing without the rule. Then it refreshes a running Chromium.
+
+A **repack** (changed colours) would otherwise wait for Chromium's next update
+check: the policy names the same id, so a refresh alone changes nothing. When
+something was repacked and Chromium is running, the step first forces `off`,
+refreshes, and waits 3 s. That uninstalls the theme, and the hook then installs
+it afresh from the new update manifest. Checked with the off→on cycle in §6
+step 4. Not yet checked with a real repack.
+
+**Revert** (`revert.sh`) removes the policy file first, so the themes stop being
+forced, then the writer, the rule, the CRX folder and the hook, and refreshes
+Chromium. The keys in `$STATE` are left, so a later apply reuses the same ids.

@@ -51,6 +51,7 @@ link "$OVERRIDES/hooks/theme-set.d/yazi-syntax.sh"      "$HOME/.config/omarchy/h
 link "$OVERRIDES/hooks/theme-set.d/cursor-chrome.sh"    "$HOME/.config/omarchy/hooks/theme-set.d/cursor-chrome.sh"
 link "$OVERRIDES/hooks/theme-set.d/gh-dash-colors.sh"   "$HOME/.config/omarchy/hooks/theme-set.d/gh-dash-colors.sh"
 link "$OVERRIDES/hooks/theme-set.d/ytm-player.sh"       "$HOME/.config/omarchy/hooks/theme-set.d/ytm-player.sh"
+link "$OVERRIDES/hooks/theme-set.d/chromium-theme.sh"   "$HOME/.config/omarchy/hooks/theme-set.d/chromium-theme.sh"
 # ytm's hook renders this template, which lives in Omarchy's themed/ directory
 # -- also Omarchy's territory, so it is exposed to the same repopulation.
 link "$OVERRIDES/themed/ytm-player.toml.tpl"            "$HOME/.config/omarchy/themed/ytm-player.toml.tpl"

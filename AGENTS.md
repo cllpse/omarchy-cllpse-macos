@@ -112,6 +112,13 @@ Policies go in `/etc/chromium/policies/managed/*.json`, installed by
 `overrides/chromium/chromium.sh` with `sudo install`. The step is late in
 `apply.sh` (step 9, among the sudo steps) because it needs sudo.
 
+Never put `ExtensionInstallForcelist` or `BrowserThemeColor` in a second file:
+the same key in two policy files is not merged, the file that sorts last wins.
+`zz-cllpse-macos-theme.json` (step 9b, `overrides/chromium-theme/`) relies on
+exactly that to mask Omarchy's `color.json`, and it uses `ExtensionSettings`
+so as not to replace `cllpse-macos.json`'s forcelist. It is written by a
+root-owned script on every theme set, not by hand; see that README.
+
 Policies are live-reloaded by `chromium --refresh-platform-policy` without a
 browser restart. `omarchy-theme-set-browser` already calls this on every theme
 set.
