@@ -132,6 +132,12 @@ inactive tab `[195,195,195]`, active tab `[253,252,252]`. That is `#BDBDBD`
 plus the same lift, which is barely visible on a grey. The focused keys are
 0.0.2's, so the focused window was not re-measured.
 
+**Seen with 0.0.4** (white on the blue, three tabs, focused). The inactive
+tabs' titles and ×, and the tab-search ⌄ and new-tab +, are white, so the
+`CR` mapping above holds. The default globe favicon (a tab with no favicon,
+such as `about:blank`) stays dark grey: `tab_background_text` does not
+colour it. Real sites show their own favicons there.
+
 ## 3. Following theme changes — the subscription problem
 
 A theme extension is static, so following `omarchy theme set` means
