@@ -12,7 +12,14 @@ same #FFFFFF as background, so only dark moves and the name still holds 1-1.
   background (frame + inactive tabs)  light darker_background #E6E6E6
                                       dark  dark_background   #1A1A1A
   active tab + toolbar                lighter_background  light #FFFFFF  dark #282828
-  every text and icon key             light_foreground    light #000000  dark #FFFFFF
+  text keys (tabs, toolbar text)      light_foreground    light #000000  dark #FFFFFF
+  toolbar icons                       dark_foreground     light #808080  dark #9A9A9A
+
+The toolbar icons are the secondary grey because Chromium derives the line
+between the toolbar and the page from them: with a custom theme,
+kColorToolbarContentAreaSeparator = AlphaBlend(toolbar_button_icon, toolbar,
+0x3A). Black icons on white drew it at #C5C5C5; these draw it at #E2E2E2
+(light) and #424242 instead of #595959 (dark). README.md §2.
 
 Every `_inactive` key equals its focused twin: nothing changes with window
 focus (README.md §2). The active tab has no unfocused key at all.
@@ -37,7 +44,7 @@ MAPPING = {
     "tab_background_text": "light_foreground",
     "tab_background_text_inactive": "light_foreground",
     "toolbar_text": "light_foreground",
-    "toolbar_button_icon": "light_foreground",
+    "toolbar_button_icon": "dark_foreground",
 }
 
 

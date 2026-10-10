@@ -65,7 +65,8 @@ applied. Every key below was checked to exist in Chromium 152's binary.
 | Frame / tab strip — the background | `frame`, `frame_inactive` | light `darker_background`, dark `dark_background` | `#E6E6E6` | `#1A1A1A` |
 | Inactive tabs | `background_tab`, `background_tab_inactive` | light `darker_background`, dark `dark_background` | `#E6E6E6` | `#1A1A1A` |
 | Active tab (and toolbar), either state | `toolbar` (one key for both) | `lighter_background` | `#FFFFFF` | `#282828` |
-| All text and icons: tabs, tab-strip ⌄ and +, toolbar | `tab_text`, `tab_background_text`, `tab_background_text_inactive`, `toolbar_text`, `toolbar_button_icon` | `light_foreground` | `#000000` | `#FFFFFF` |
+| Text: tabs, tab-strip ⌄ and +, toolbar text | `tab_text`, `tab_background_text`, `tab_background_text_inactive`, `toolbar_text` | `light_foreground` | `#000000` | `#FFFFFF` |
+| Toolbar icons (and, derived, the line above the page) | `toolbar_button_icon` | `dark_foreground` | `#808080` | `#9A9A9A` |
 
 **The design** (2026-10-10; `build.py` holds the mapping). The background,
 meaning the frame and the inactive tabs, is `darker_background` in light and
@@ -145,6 +146,25 @@ lightest surface", says its comment) and `#282828` in dark.
 - **1.0.3 (dark only):** the active tab one shade lighter, `lighter_background`
   (`#282828`). Light's `lighter_background` is `#FFFFFF`, so light did not
   change and was not repacked.
+- **light 1.0.2, dark 1.0.4:** toolbar icons `dark_foreground`, to soften the
+  line above the page (see "The line between the toolbar and the page").
+
+**The line between the toolbar and the page** is `ContentsSeparator`, a
+one-DIP view that paints `kColorToolbarContentAreaSeparator`, with no flag or
+key to hide it. With a custom theme, `chrome_color_mixer.cc` derives it as
+`AlphaBlend(kColorToolbarButtonIcon, kColorToolbar, 0x3A)`: the icon colour at
+23% over the toolbar. So the only way to tone it down is softer toolbar icons.
+At 1.25 it smears across 2–3 device rows. Measured in dark with white icons, the
+rows read `#262626`, `#3E3F3F`, `#343434` between the `#282828` toolbar and the
+page. Asked to tone it down (2026-10-10), the icons moved from
+`light_foreground` to `dark_foreground` (macOS `secondaryLabelColor`):
+
+| | Icons | Separator |
+|---|---|---|
+| Light | `#000000` → `#808080` | `#C5C5C5` → `#E2E2E2` |
+| Dark | `#FFFFFF` → `#9A9A9A` | `#595959` → `#424242` |
+
+Icon contrast on the toolbar is then about 3.9:1 (light) and 5.6:1 (dark).
 
 **Separators have no key and cannot be made transparent.** Checked in Chromium
 152.0.7977.82's source:
