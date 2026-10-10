@@ -2,11 +2,19 @@
 # Point Chromium's managed policy at the light or dark theme extension, or
 # take ours out of the way. Installed root-owned to /usr/local/bin by
 # chromium-theme.sh, and run without a password through
-# /etc/sudoers.d/cllpse-chromium-theme, which names exactly the three
+# /etc/sudoers.d/cllpse-chromium-theme, which names exactly the four
 # invocations below. Modelled on Omarchy's omarchy-theme-set-browser-policy.
 #
-#   cllpse-chromium-theme-policy light|dark   force-install that theme, mask Omarchy's seed
+#   cllpse-chromium-theme-policy light|dark   force that theme, keep the other installed but optional
+#   cllpse-chromium-theme-policy both         both installed, neither forced (setup and repacks only)
 #   cllpse-chromium-theme-policy off          delete our policy file (Omarchy's colour applies)
+#
+# Both themes stay installed, and a swap flips which one is FORCED rather than
+# which one is installed. Forcing the disabled one makes Chromium re-enable it,
+# and a theme applied by enabling is applied without the "Installed theme" bar,
+# which only a fresh install raises (README.md §7.5). Chromium disables the
+# previous theme as it applies the new one, which policy allows for a
+# normal_installed ("recommended") extension and forbids for a forced one.
 #
 # The caller chooses a word, never a path or an id. The ids and the update
 # manifests are read from root-owned files that chromium-theme.sh installed, so
@@ -25,7 +33,7 @@ DIR=/etc/chromium/policies/managed
 # merge (see ../chromium-theme/README.md §5).
 DEST=$DIR/zz-cllpse-macos-theme.json
 
-usage() { echo "usage: cllpse-chromium-theme-policy light|dark|off" >&2; exit 1; }
+usage() { echo "usage: cllpse-chromium-theme-policy light|dark|both|off" >&2; exit 1; }
 (( $# == 1 )) || usage
 (( EUID == 0 )) || { echo "cllpse-chromium-theme-policy: needs root" >&2; exit 1; }
 
@@ -37,14 +45,20 @@ case $1 in
     rm -f -- "$DEST"
     exit 0
     ;;
-  light | dark) mode=$1 ;;
+  light) light=force_installed dark=normal_installed ;;
+  dark) light=normal_installed dark=force_installed ;;
+  both) light=normal_installed dark=normal_installed ;;
   *) usage ;;
 esac
 
-id=$(<"$SHARE/$mode.id")
-[[ $id =~ ^[a-p]{32}$ ]] || { echo "cllpse-chromium-theme-policy: bad id in $SHARE/$mode.id" >&2; exit 1; }
-[[ -f $SHARE/$mode.xml && -f $SHARE/$mode.crx ]] ||
-  { echo "cllpse-chromium-theme-policy: $SHARE/$mode.{xml,crx} missing" >&2; exit 1; }
+for m in light dark; do
+  [[ $(<"$SHARE/$m.id") =~ ^[a-p]{32}$ ]] ||
+    { echo "cllpse-chromium-theme-policy: bad id in $SHARE/$m.id" >&2; exit 1; }
+  [[ -f $SHARE/$m.xml && -f $SHARE/$m.crx ]] ||
+    { echo "cllpse-chromium-theme-policy: $SHARE/$m.{xml,crx} missing" >&2; exit 1; }
+done
+light_id=$(<"$SHARE/light.id")
+dark_id=$(<"$SHARE/dark.id")
 
 staged=$(mktemp)
 trap 'rm -f "$staged"' EXIT
@@ -54,9 +68,13 @@ trap 'rm -f "$staged"' EXIT
 printf '%s\n' \
   '{' \
   '  "ExtensionSettings": {' \
-  "    \"$id\": {" \
-  '      "installation_mode": "force_installed",' \
-  "      \"update_url\": \"file://$SHARE/$mode.xml\"" \
+  "    \"$light_id\": {" \
+  "      \"installation_mode\": \"$light\"," \
+  "      \"update_url\": \"file://$SHARE/light.xml\"" \
+  '    },' \
+  "    \"$dark_id\": {" \
+  "      \"installation_mode\": \"$dark\"," \
+  "      \"update_url\": \"file://$SHARE/dark.xml\"" \
   '    }' \
   '  },' \
   '  "BrowserThemeColor": ""' \

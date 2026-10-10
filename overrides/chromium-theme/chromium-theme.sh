@@ -68,11 +68,11 @@ for mode in light dark; do
 EOF
 done
 
-# See README.md (§7.2): the passwordless rule names the three invocations.
+# See README.md (§7.2): the passwordless rule names the four invocations.
 printf '%s\n' \
   "# Written by omarchy-cllpse-macos overrides/chromium-theme/chromium-theme.sh." \
   "# Lets the theme-set hook swap Chromium's theme extension without a prompt." \
-  "$USER ALL=(root) NOPASSWD: $WRITER light, $WRITER dark, $WRITER off" \
+  "$USER ALL=(root) NOPASSWD: $WRITER light, $WRITER dark, $WRITER both, $WRITER off" \
   >"$WORK/sudoers"
 
 # See README.md (§7.3): install root-owned, only what differs.
@@ -90,7 +90,7 @@ cmp -s "$CT/cllpse-chromium-theme-policy" "$WRITER" 2>/dev/null || _stale+=(writ
 # (the same probe Omarchy's omarchy-theme-set-browser-policy uses). Listing
 # runs nothing and, under -n, prompts for nothing.
 _granted() { sudo -n -l -l "$WRITER" "$1" 2>/dev/null | grep -q '!authenticate'; }
-for _arg in light dark off; do _granted "$_arg" || { _stale+=(sudoers); break; }; done
+for _arg in light dark both off; do _granted "$_arg" || { _stale+=(sudoers); break; }; done
 [[ -e $TEST_MASK ]] && _stale+=(test-mask)
 
 if (( ${#_stale[@]} == 0 )); then
@@ -112,15 +112,31 @@ else
   fi
 fi
 
-# See README.md (§7.4): a new build only reaches a running Chromium through a
-# fresh install -- the policy names the same id, so a refresh alone changes
-# nothing and the new version would wait for an update check. Unforcing the
-# theme uninstalls it; the hook below forces it again, and the install reads
-# the new update manifest. Only when an installed CRX was replaced.
-if (( _new_build )) && pgrep -x chromium >/dev/null && sudo -n "$WRITER" off 2>/dev/null; then
-  chromium --refresh-platform-policy --no-startup-window &>/dev/null || true
-  sleep 3
-  skip "unforced the old build so Chromium installs the new one"
+# See README.md (§7.4, §7.5): get both themes installed in the running
+# Chromium before the hook forces one. A swap re-enables an installed theme,
+# which raises no "Installed theme" bar; only a fresh install does, so these
+# installs (and their bars) happen here, once, rather than on a theme switch.
+#   - A new build first goes through `off`: the policy names the same ids, so a
+#     refresh alone changes nothing and the new version would wait for an
+#     update check. Unlisting uninstalls; `both` then installs the new version.
+#   - `both` lists the two themes as installed-but-optional. Each install applies
+#     its theme and disables the one before, which policy allows for optional.
+_refresh() { chromium --refresh-platform-policy --no-startup-window &>/dev/null || true; }
+_installed() { compgen -G "$HOME/.config/chromium/*/Extensions/$1" >/dev/null; }
+if (( ${#_stale[@]} )) && pgrep -x chromium >/dev/null; then
+  if (( _new_build )) && sudo -n "$WRITER" off 2>/dev/null; then
+    _refresh; sleep 3
+    skip "unlisted the old builds so Chromium installs the new ones"
+  fi
+  if sudo -n "$WRITER" both 2>/dev/null; then
+    _refresh
+    for _ in $(seq 1 40); do
+      _installed "$(<"$WORK/light.id")" && _installed "$(<"$WORK/dark.id")" && break
+      sleep 0.5
+    done
+    sleep 2
+    skip "both themes installed in Chromium (an \"Installed theme\" bar now is expected, once)"
+  fi
 fi
 
 # The hook, then the current theme's mode, now.

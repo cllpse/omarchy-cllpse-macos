@@ -2,8 +2,9 @@
 
 Chromium's frame and tabs coloured from the active Omarchy theme by a **theme
 extension**. There is a light and a dark one, generated from the two themes'
-`colors.toml`. A managed policy force-installs one of them, and it is
-**swapped live on every `omarchy theme set`**. Installed by `apply.sh
+`colors.toml`. Both are installed by managed policy, one of them forced, and
+the forced one is **swapped live on every `omarchy theme set`**, without
+Chromium's "Installed theme" bar (§7.5). Installed by `apply.sh
 chromium-theme` (sudo) and removed by `revert.sh`. Only our two themes have one:
 any other Omarchy theme turns ours off and hands Chromium back to Omarchy's own
 colour.
@@ -11,7 +12,7 @@ colour.
 ```
 build.py                       renders a theme manifest from a colors.toml; the colour mapping lives here
 chromium-theme.sh              the apply step: build, pack, install root-owned, link the hook (sudo)
-cllpse-chromium-theme-policy   the root-owned policy writer: light | dark | off
+cllpse-chromium-theme-policy   the root-owned policy writer: light | dark | both | off
 ../hooks/theme-set.d/chromium-theme.sh   runs on every theme set: writer, then a policy refresh
 ```
 
@@ -463,9 +464,12 @@ no longer what keeps the UI neutral (see the end of §2).
      was gone. Frame `#000000`; toolbar `#1A1A1A` (`#1E1E1E`, unfocused).
    - Back to light: about 3 s, frame exactly `#E6E6E6`.
    - Forcing `off` then `light` uninstalled the theme and installed it afresh
-     (new folder). That is the path §7.4 uses to land a repacked version live.
+     (new folder). That is how §7.4 lands a repacked version live.
    - Not looked for: whether the default theme flashes between the uninstall
      and the install.
+5. **Switch without the bar** (§7.5): both themes installed, one forced. Does a
+   switch apply the other theme with no "Installed theme" bar, and does the
+   previous one end up disabled but installed?
 
 ## 7. What `apply.sh chromium-theme` does
 
@@ -495,16 +499,16 @@ Idempotent. Without Chromium, without a managed-policy directory, or without
 `/etc/sudoers.d/cllpse-chromium-theme`, for the user who ran apply.sh:
 
 ```
-<user> ALL=(root) NOPASSWD: /usr/local/bin/cllpse-chromium-theme-policy light, …dark, …off
+<user> ALL=(root) NOPASSWD: /usr/local/bin/cllpse-chromium-theme-policy light, …dark, …both, …off
 ```
 
-It names three exact invocations, the way Omarchy's own rules do
+It names four exact invocations, the way Omarchy's own rules do
 (`omarchy-dns Cloudflare, …`). The writer takes a word, never a path or an id.
 It reads the id and the update manifest from root-owned files, and pins `PATH`
 as Omarchy's `omarchy-theme-set-browser-policy` does. The rule is checked with
 `visudo -c` before it is installed. Since `/etc/sudoers.d` cannot be read from
 user space, "already installed" is decided by `sudo -n -l -l <writer> <word>`
-listing `!authenticate`, for all three words. That is Omarchy's own probe.
+listing `!authenticate`, for all four words. That is Omarchy's own probe.
 
 ### 7.3 Install root-owned
 
@@ -525,13 +529,56 @@ current theme. Omarchy calls it after `omarchy-theme-set-browser` has written
 gives `off`. It runs the writer through `sudo -n`, so it never prompts and does
 nothing without the rule. Then it refreshes a running Chromium.
 
-A **repack** (changed colours) would otherwise wait for Chromium's next update
-check: the policy names the same id, so a refresh alone changes nothing. When
-something was repacked and Chromium is running, the step first forces `off`,
-refreshes, and waits 3 s. That uninstalls the theme, and the hook then installs
-it afresh from the new update manifest. Checked with the off→on cycle in §6
-step 4. Not yet checked with a real repack.
+When anything was installed and Chromium is running, the step gets **both themes
+installed** before the hook forces one (§7.5): it writes `both`, refreshes, and
+waits until both ids have a folder under `~/.config/chromium/*/Extensions/`.
+Each of those installs applies its theme and raises the "Installed theme" bar.
+That is expected, and happens here rather than on a theme switch.
+
+A **repack** (changed colours) goes through `off` before `both`. The policy names
+the same ids, so a refresh alone changes nothing and the new version would wait
+for Chromium's next update check. Unlisting uninstalls both; `both` then
+installs the new versions. The uninstall-and-reinstall path was checked with the
+off→on cycle in §6 step 4, not yet with a real repack.
+
+If Chromium was **not running** during the step, the policy is only read at its
+next launch. Both themes install then, and the one installed last is applied,
+which may be the wrong mode. The next theme switch, or `apply.sh
+chromium-theme` again with Chromium open, puts it right.
 
 **Revert** (`revert.sh`) removes the policy file first, so the themes stop being
 forced, then the writer, the rule, the CRX folder and the hook, and refreshes
 Chromium. The keys in `$STATE` are left, so a later apply reuses the same ids.
+
+### 7.5 No "Installed theme" bar on a switch
+
+The first design (1.0.1–1.0.3) forced only the current mode's theme, so every
+switch uninstalled one theme and freshly installed the other. A fresh install
+is what raises Chromium's "Installed theme … Undo" bar, so every switch did.
+From Chromium 152.0.7977.82's `theme_service.cc`:
+- `ThemeObserver::OnExtensionLoaded` calls `DoSetTheme(extension,
+  !is_new_version)`, so `suppress_infobar` is false exactly when the load
+  is an install (`OnExtensionWillBeInstalled` fired).
+- **A theme that is enabled again** is a load without an install. It is applied
+  with `suppress_infobar = true` ("b) enabling a disabled theme").
+- `OnThemeBuiltFromExtension` shows the bar only if `!suppress_infobar` and
+  `can_revert_theme`. An update of the current theme returns before that
+  ("Same old theme … auto-updated").
+
+So both themes stay installed, and a switch changes which one is **forced**.
+The writer's `light` is light `force_installed` with dark `normal_installed`;
+`dark` is the reverse.
+- **Forcing the disabled one** makes Chromium enable it, which applies it with
+  no bar. Applying it disables the previous theme (`DisableExtension`,
+  `DISABLE_USER_ACTION`).
+- **That disable is allowed** because the previous theme is by then only
+  `normal_installed`. `StandardManagementPolicyProvider` maps it to
+  `kRecommended`: "disabling of recommended extension is allowed", while
+  `MustRemainEnabled` holds for a forced one.
+- **The disabled theme survives** `RemoveUnusedThemes`, which tries to uninstall
+  themes disabled by user action with `UNINSTALL_REASON_ORPHANED_THEME`. That
+  reason is not exempt in `ExtensionRegistrar::UninstallExtension`, so
+  `MustRemainInstalled` refuses, and it is true for `kRecommended` ("Disallow
+  removing of recommended extension").
+
+Designed from source on 2026-10-10. Not yet run: see §6 step 5.

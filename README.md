@@ -25,7 +25,7 @@ opt-in: `--all` skips it, and `apply.sh ryzen` runs it. Five steps need
 sudo (keyd, the Chromium managed policy, the Chromium theme extension, those
 power limits, and the Btrfs compression level in `/etc/fstab`) and everything
 else is user-level. The theme extension's step also installs a passwordless sudo
-rule, scoped to one root-owned script and three exact arguments, so that
+rule, scoped to one root-owned script and four exact arguments, so that
 `omarchy theme set` can swap Chromium between light and dark without a prompt. Six things to settle first; everything after
 them can be handed to an agent.
 
