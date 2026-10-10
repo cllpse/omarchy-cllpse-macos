@@ -163,14 +163,43 @@ which no theme key reaches.** Traced in 152.0.7977.82's source:
 - **Grayscale and a user colour exclude each other.** Grayscale is checked
   first. So the choice is either grey separators with a baseline-blue
   selection, or both tinted from one seed. Neither path gives a grey selection.
-- **Writing the pref directly keeps the theme.** The UI setter
-  (`SetIsGrayscale`) calls `ClearThemeData`, which would remove the extension
-  theme. Writing `browser.theme.is_grayscale2` into `Preferences` while Chromium
-  is closed does not. Checked on the test profile (2026-10-10): the theme id was
-  kept, and the frame and tab colours were unchanged.
-  `../chromium/neutral-theme.py` already writes this pref. Its other half, the
-  GTK system theme (`extensions.theme.system_theme`), competes with an extension
-  theme and would have to stand down.
+- **A profile colour does not set a colour, it sets a seed.** The separators
+  and the selection become tone 90 of the seed's generated primary palette, and
+  Chromium never lets that palette go grey. Its least colourful variant,
+  Neutral (`browser.theme.color_variant2` = 2), still keeps a chroma of 12, or
+  20 for hues 260–315 (`palette_factory.cc`). Computed with Material's colour
+  library for Chromium's configs:
+
+  | Seed (`browser.theme.user_color2`) | Variant | Separators and selection |
+  |---|---|---|
+  | none | baseline | `#D3E3FD` |
+  | `#E6E6E6` (`darker_background`) | Neutral | `#D4E6E9` |
+  | `#007AFF` (`accent`) | Tonal Spot or Neutral | `#D8E2FF` |
+  | `#B3D7FF` (`selection`) | Neutral | `#DAE3F1` |
+
+- **And a profile colour does not coexist with an extension theme.** Applying
+  an extension theme runs `SetThemePrefsForExtension`, which calls
+  `ClearThemePrefs`. That deletes `user_color2`, `is_grayscale2` and
+  `color_variant2` ("Extensions are incompatible with device themes").
+  Chromium applies a theme on every install or update, whenever its cache file
+  (`Cached Theme.pak`) is missing (`MigrateTheme`), and whenever the profile's
+  theme id has been cleared. Run on the test profile, 2026-10-10:
+  - With `is_grayscale2` written behind Chromium's back, the theme rendered at
+    startup but the profile's theme id was empty after exit. The grayscale
+    pref was gone by the next look, so the grayscale separators were most
+    likely never in effect. An earlier note here said the pref "kept the
+    theme"; that was read from `Preferences` before Chromium had written it,
+    and is withdrawn.
+  - With `user_color2` = `#E6E6E6` and Neutral written instead, and the theme
+    id empty, the window came up in Chromium's own seeded palette (frame
+    `[219,228,230]`), not this theme.
+  - With both removed, the next launch re-applied the theme ("Installed theme"
+    infobar) and the colours were back.
+- So these two colours cannot be redefined alongside a theme extension in any
+  way that lasts. A profile pref only survives until the theme is next applied,
+  and this design applies a new theme on every Omarchy theme switch (§3).
+  `../chromium/neutral-theme.py` writes `is_grayscale2` for the policy-themed
+  setup, where no extension theme clears it.
 
 **Measured with the first scaffold** (0.0.1, CMYK test colours, one per key):
 - A focused window paints `frame` and `toolbar` exactly.
