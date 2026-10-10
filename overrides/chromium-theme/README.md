@@ -60,7 +60,16 @@ for G with M and B with Y.
 
 **One state has no key:** the active tab in an *unfocused* window. The active
 tab is painted with `toolbar` in both focus states; Chromium offers no
-`toolbar_inactive`. To be confirmed on screen (§6), but expect M100 there too.
+`toolbar_inactive`. Confirmed on screen (§6): M100 there too, washed as below.
+
+Measured on screen (§6): a focused window paints `frame` and `toolbar` exactly.
+The tab strip's own buttons (tab search, new tab) take `background_tab` and
+`background_tab_inactive`. In an **unfocused** window Chromium washes every
+surface about 11% toward white, on top of the keys: `frame_inactive`
+`[128,255,255]` reads `[142,252,252]`, and the active tab's M100 reads
+`[253,29,252]`. That wash is Chromium's own. Hyprland's unfocused browser opacity
+(0.985, `default/hypr/apps/browser.lua`) accounts for 2–3 levels at most. So
+unfocused colours should be chosen with that lift in mind.
 
 ## 3. Following theme changes — the subscription problem
 
@@ -114,8 +123,10 @@ value takes precedence at the merge and is then rejected as an invalid colour,
 which should leave no policy theme at all. `chrome://policy` will show it as an
 error, which is expected.
 
-Unverified (§6), and the precedence rule is from Chromium's policy loader as I
-understand it, not measured here. Also note that once the seed is masked,
+Verified in effect (§6 step 2): with `zz-cllpse-theme-test.json` beside
+`color.json`, a theme extension installs. The precedence rule itself comes from
+my reading of Chromium's policy loader; `chrome://policy` has not been read to
+confirm it. Also note that once the seed is masked,
 `../chromium/neutral-theme.py`'s two preferences (the GTK system theme, plus
 grayscale) stop being needed, and the system-theme one actively competes with an
 extension theme. That step would have to stand down.
@@ -136,9 +147,20 @@ extension theme. That step would have to stand down.
    *any* theme. That makes step 2 a precondition, not an option. The second
    `--load-extension` replaces the flags file's one (last value wins), so the
    test instance had none of Omarchy's three.
+   **Re-run 2026-10-10 with step 2's mask in place: applied.** No block in the
+   log. Chromium showed "Installed theme "cllpse-macos theme (scaffold)"" with
+   Undo, and the surfaces measured as recorded in §2. Not yet seen: an inactive
+   tab beside an active one (a test window had only one tab) and its text
+   colours.
 2. **Masking.** Install a `zz-…json` with only `"BrowserThemeColor": ""`
    (needs sudo), refresh policy, and read `chrome://policy`: is `color.json`'s
    seed gone?
+   **Run 2026-10-10: works.** Installed as
+   `/etc/chromium/policies/managed/zz-cllpse-theme-test.json` with `pkexec
+   install` (`sudo` cannot prompt without a terminal). A fresh test instance then
+   accepted the theme (step 1's re-run), so the empty value displaced
+   `color.json`'s seed. `chrome://policy` was not read: a `chrome://` URL handed
+   to a running instance on the command line opens a blank new window instead.
 3. **Policy load.** Pack a CRX with a fresh key, write `update.xml`, and install
    the rendered `policy.json.tpl` (sudo). Does the theme install and apply from a
    `file://` update URL?
