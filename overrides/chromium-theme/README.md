@@ -62,18 +62,19 @@ applied. Every key below was checked to exist in Chromium 152's binary.
 |---|---|---|---|---|
 | Frame / tab strip — the background | `frame`, `frame_inactive` | light `darker_background`, dark `dark_background` | `#E6E6E6` | `#1A1A1A` |
 | Inactive tabs | `background_tab`, `background_tab_inactive` | light `darker_background`, dark `dark_background` | `#E6E6E6` | `#1A1A1A` |
-| Active tab (and toolbar), either state | `toolbar` (one key for both) | `background` | `#FFFFFF` | `#1E1E1E` |
+| Active tab (and toolbar), either state | `toolbar` (one key for both) | `lighter_background` | `#FFFFFF` | `#282828` |
 | All text and icons: tabs, tab-strip ⌄ and +, toolbar | `tab_text`, `tab_background_text`, `tab_background_text_inactive`, `toolbar_text`, `toolbar_button_icon` | `light_foreground` | `#000000` | `#FFFFFF` |
 
 **The design** (2026-10-10; `build.py` holds the mapping). The background,
 meaning the frame and the inactive tabs, is `darker_background` in light and
 `dark_background` in dark. The active tab, and the toolbar under it, is
-`background`. Every text and icon key is `light_foreground`, macOS
+`lighter_background`. Every text and icon key is `light_foreground`, macOS
 `textColor`. Nothing changes with window focus: every `_inactive` key equals its
 focused twin. In light that is the `#E6E6E6` / white the design was iterated to
 (history below), with black text at about 17:1. **The dark theme uses the same
 variable names**, except for the background, one step lighter (see "Grey keys
-differ" below).
+differ" below). The active tab's `lighter_background` is `#FFFFFF` in light, the
+same as `background`, so its bump moved dark alone.
 
 **Unfocused translucency is Hyprland's, not the theme's.**
 `../hypr/looknfeel-decoration.lua` re-matches the browser tags with
@@ -105,13 +106,17 @@ in the light theme". That gave dark `#000000` behind a `#1E1E1E` tab (1.0.1).
 Seen live, dark's background was then asked to be "a shade lighter (within
 theme variables)". The next variable up is `dark_background` (`#1A1A1A`), so
 dark is `#1A1A1A` behind `#1E1E1E` from 1.0.2. That is the four-level step the
-role mapping would have given; this time it was chosen by eye.
+role mapping would have given; this time it was chosen by eye. The active tab
+then got "a shade-bump as well (still within theme variables)": from
+`background` (`#1E1E1E`) to `lighter_background` (`#282828`, macOS
+`underPageBackgroundColor`), 1.0.3. Dark is now `#1A1A1A` behind `#282828`.
 
-**"White" is `background`.** `colors.toml` has no `white` key. Omarchy's
+**"White" was `background`.** `colors.toml` has no `white` key. Omarchy's
 terminal templates use `white` for `foreground`, which in the light theme is
-`#272727`. The white meant here is the light theme's `background`, macOS
-`windowBackgroundColor`. Read by name, it is `#1E1E1E` in the dark theme,
-which is the dark active tab.
+`#272727`. The white meant in the iterations was the light theme's
+`background`, macOS `windowBackgroundColor`. From 1.0.3 the active tab reads
+`lighter_background`, which is the same `#FFFFFF` in light ("white is the
+lightest surface", says its comment) and `#282828` in dark.
 
 **How it got here** (all 2026-10-10):
 - **0.0.1:** CMYK test colours, one per key.
@@ -135,6 +140,9 @@ which is the dark active tab.
   0.0.9; dark's background was `darker_background`, `#000000`.
 - **1.0.2 (dark only):** dark's background one shade lighter, `dark_background`
   (`#1A1A1A`).
+- **1.0.3 (dark only):** the active tab one shade lighter, `lighter_background`
+  (`#282828`). Light's `lighter_background` is `#FFFFFF`, so light did not
+  change and was not repacked.
 
 **Separators have no key and cannot be made transparent.** Checked in Chromium
 152.0.7977.82's source:

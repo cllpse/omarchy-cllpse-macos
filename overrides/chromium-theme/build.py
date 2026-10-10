@@ -5,12 +5,14 @@ The colour mapping lives here and nowhere else. It is the same theme VARIABLE
 for both of our themes (decided 2026-10-10: "map the color variable names for
 the dark theme 1-1 with what's used in the light theme"), except the
 background: dark was then asked to be "a shade lighter (within theme
-variables)", which is the next variable up from darker_background.
+variables)", which is the next variable up from darker_background. The active
+tab then got the same "shade-bump": lighter_background, which in light is the
+same #FFFFFF as background, so only dark moves and the name still holds 1-1.
 
   background (frame + inactive tabs)  light darker_background #E6E6E6
                                       dark  dark_background   #1A1A1A
-  active tab + toolbar                background         light #FFFFFF  dark #1E1E1E
-  every text and icon key             light_foreground   light #000000  dark #FFFFFF
+  active tab + toolbar                lighter_background  light #FFFFFF  dark #282828
+  every text and icon key             light_foreground    light #000000  dark #FFFFFF
 
 Every `_inactive` key equals its focused twin: nothing changes with window
 focus (README.md §2). The active tab has no unfocused key at all.
@@ -30,7 +32,7 @@ MAPPING = {
     "frame_inactive": "@background",
     "background_tab": "@background",
     "background_tab_inactive": "@background",
-    "toolbar": "background",
+    "toolbar": "lighter_background",
     "tab_text": "light_foreground",
     "tab_background_text": "light_foreground",
     "tab_background_text_inactive": "light_foreground",
