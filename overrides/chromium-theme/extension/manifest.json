@@ -1,22 +1,22 @@
 {
   "manifest_version": 3,
   "name": "cllpse-macos theme (scaffold)",
-  "version": "0.0.1",
-  "description": "Scaffold: CMYK test colours, one per theme key, so each key is identifiable on screen. See ../README.md.",
+  "version": "0.0.2",
+  "description": "Scaffold: the light theme's blue and white, hand-copied, the same whether the window is focused or not. See ../README.md.",
   "theme": {
     "colors": {
-      "frame": [0, 255, 255],
-      "frame_inactive": [128, 255, 255],
+      "frame": [0, 136, 255],
+      "frame_inactive": [0, 136, 255],
 
-      "toolbar": [255, 0, 255],
+      "toolbar": [255, 255, 255],
       "tab_text": [0, 0, 0],
       "toolbar_text": [0, 0, 0],
       "toolbar_button_icon": [0, 0, 0],
 
-      "background_tab": [255, 255, 0],
-      "background_tab_inactive": [255, 255, 128],
+      "background_tab": [0, 136, 255],
+      "background_tab_inactive": [0, 136, 255],
       "tab_background_text": [0, 0, 0],
-      "tab_background_text_inactive": [128, 128, 128]
+      "tab_background_text_inactive": [0, 0, 0]
     }
   }
 }

@@ -1,14 +1,14 @@
 # chromium-theme — scaffold
 
 A Chromium **theme extension** that will colour the browser from the active
-Omarchy theme: one general colour for the frame, and separate colours for tabs
-by state (active / inactive, window focused / unfocused). Right now it is a
-scaffold: the colours are CMYK test values, one per key, so you can see which
-key paints which surface. **Nothing here is wired into `apply.sh` or
-`revert.sh`, and nothing is installed.**
+Omarchy theme: one general colour for the frame, and a colour for the active
+and inactive tabs. They do **not** change with window focus (§2). Right now it
+is a scaffold: the colours are the light theme's, copied in by hand, not
+generated. **Nothing here is wired into `apply.sh` or `revert.sh`, and nothing
+is installed.**
 
 ```
-extension/manifest.json   the theme (MV3), CMYK test colours
+extension/manifest.json   the theme (MV3), the light theme's blue and white
 policy.json.tpl           the managed-policy file that would load it and mask Omarchy's colour
 ```
 
@@ -42,34 +42,41 @@ Firefox's). The only way an extension colours Chromium's UI is a *theme*
 extension: a manifest whose `theme.colors` are read once, when the theme is
 applied. Every key below was checked to exist in Chromium 152's binary.
 
-| State | Key | CMYK test colour |
-|---|---|---|
-| Frame / tab strip, window focused — the general colour | `frame` | C100 `[0,255,255]` |
-| Frame / tab strip, window unfocused | `frame_inactive` | C50 `[128,255,255]` |
-| Active tab (and toolbar), either focus state | `toolbar` | M100 `[255,0,255]` |
-| Active tab text | `tab_text` | K100 `[0,0,0]` |
-| Inactive tab, window focused | `background_tab` | Y100 `[255,255,0]` |
-| Inactive tab, window unfocused | `background_tab_inactive` | Y50 `[255,255,128]` |
-| Inactive tab text, window focused | `tab_background_text` | K100 `[0,0,0]` |
-| Inactive tab text, window unfocused | `tab_background_text_inactive` | K50 `[128,128,128]` |
-| Toolbar text and icons | `toolbar_text`, `toolbar_button_icon` | K100 `[0,0,0]` |
+| Surface | Keys (focused, unfocused) | Colour now | From `colors.toml` |
+|---|---|---|---|
+| Frame / tab strip — the general colour | `frame`, `frame_inactive` | `#0088FF` | `blue` |
+| Active tab (and toolbar) | `toolbar` (one key for both) | `#FFFFFF` | `background` (light) |
+| Inactive tabs | `background_tab`, `background_tab_inactive` | `#0088FF` | `blue` |
+| Active tab text | `tab_text` | `#000000` | not chosen yet |
+| Inactive tab text | `tab_background_text`, `tab_background_text_inactive` | `#000000` | not chosen yet |
+| Toolbar text and icons | `toolbar_text`, `toolbar_button_icon` | `#000000` | not chosen yet |
 
-Focused surfaces are the 100% process colour; their unfocused counterparts are
-the 50% tint of the same ink. Converted naively, R = 255(1−C)(1−K), and the same
-for G with M and B with Y.
+**No focus switching** (decided 2026-10-10): every `_inactive` key carries the
+same colour as its focused twin. The active tab has no unfocused key anyway.
+Chromium paints it with `toolbar` in both states and offers no
+`toolbar_inactive`.
 
-**One state has no key:** the active tab in an *unfocused* window. The active
-tab is painted with `toolbar` in both focus states; Chromium offers no
-`toolbar_inactive`. Confirmed on screen (§6): M100 there too, washed as below.
+**"White" is `background`.** `colors.toml` has no `white` key. Omarchy's
+terminal templates use `white` for `foreground`, which in the light theme is
+`#272727`. The white meant here is the light theme's `background`, macOS
+`windowBackgroundColor`. In the dark theme that key is `#1E1E1E`, which would
+make the active tab dark. When the generator exists it has to decide whether
+that is right or whether white should be a literal. `blue` is `#0088FF` in both
+themes (`accent` is `#007AFF`). Black text on that blue is about 6:1 contrast;
+white text would be about 3.5:1.
 
-Measured on screen (§6): a focused window paints `frame` and `toolbar` exactly.
-The tab strip's own buttons (tab search, new tab) take `background_tab` and
-`background_tab_inactive`. In an **unfocused** window Chromium washes every
-surface about 11% toward white, on top of the keys: `frame_inactive`
-`[128,255,255]` reads `[142,252,252]`, and the active tab's M100 reads
-`[253,29,252]`. That wash is Chromium's own. Hyprland's unfocused browser opacity
-(0.985, `default/hypr/apps/browser.lua`) accounts for 2–3 levels at most. So
-unfocused colours should be chosen with that lift in mind.
+**Measured with the first scaffold** (0.0.1, CMYK test colours, one per key):
+- A focused window paints `frame` and `toolbar` exactly.
+- The tab strip's own buttons (tab search, new tab) take `background_tab` and
+  `background_tab_inactive`.
+- In an **unfocused** window something lifts every surface about 11% toward
+  white, on top of the keys. `frame_inactive` `[128,255,255]` read
+  `[142,252,252]`, and the active tab's `[255,0,255]` read `[253,29,252]`.
+  Hyprland's unfocused browser opacity (0.985, `default/hypr/apps/browser.lua`)
+  accounts for 2–3 levels at most, so the wash is most likely Chromium's own.
+  If it is, matching keys will not keep an unfocused window identical: its
+  blue lifts slightly, while white cannot get lighter. To check with this
+  version.
 
 ## 3. Following theme changes — the subscription problem
 
@@ -134,8 +141,8 @@ extension theme. That step would have to stand down.
 ## 6. Verification plan, in order
 
 1. **Theme alone, no policy.** Launch Chromium with a throwaway
-   `--user-data-dir` and `--load-extension=<this>/extension`. Confirm each CMYK
-   surface in the §2 table, the active tab in an unfocused window, and whether
+   `--user-data-dir` and `--load-extension=<this>/extension`. Confirm each
+   surface in the §2 table (then CMYK test colours), the active tab in an unfocused window, and whether
    the theme applies at all while `color.json` is in force. Takes focus (a
    window opens).
    **Run 2026-10-10, under the live policy: refused.** Chromium's log
