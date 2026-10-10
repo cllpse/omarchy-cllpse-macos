@@ -99,6 +99,8 @@ one. Options, best first:
 3. **Unpacked via `--load-extension`** — how Omarchy loads its three extensions.
    No packing, but it is a flag rather than a policy, and an unpacked theme is
    only re-read on a manual reload or a restart.
+   Loading it also makes Chromium write `Cached Theme.pak` into the extension's
+   own folder. That file is gitignored, and it is stale once the colours change.
 
 ## 4. Loading it through this repo's policy
 
