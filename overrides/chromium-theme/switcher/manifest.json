@@ -1,0 +1,9 @@
+{
+  "manifest_version": 3,
+  "name": "cllpse-macos theme switcher",
+  "version": "0",
+  "description": "Enables the cllpse-macos light or dark theme named by managed policy. Installed by overrides/chromium-theme/chromium-theme.sh.",
+  "permissions": ["management", "storage"],
+  "background": { "service_worker": "background.js" },
+  "storage": { "managed_schema": "schema.json" }
+}

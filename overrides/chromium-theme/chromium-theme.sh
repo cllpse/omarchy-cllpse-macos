@@ -27,58 +27,70 @@ done
 CHROMIUM=/usr/lib/chromium/chromium
 [[ -x $CHROMIUM ]] || CHROMIUM=$(command -v chromium)
 
-# See README.md (§7.1): build and pack each mode.
+# See README.md (§7.1): build and pack the two themes and the switcher.
+# Each is rendered with version "0" to hash it, so the version moves only when
+# its content does.
+_render() { # $1 name  $2 version  $3 out-dir
+  case $1 in
+    light | dark) "$CT/build.py" "$REPO/omarchy-cllpse-theme-$1/colors.toml" "$1" "$2" >"$3/manifest.json" ;;
+    switcher)
+      cp "$CT/switcher/background.js" "$CT/switcher/schema.json" "$3/"
+      python3 -c 'import json,sys; m=json.load(open(sys.argv[1])); m["version"]=sys.argv[2]; json.dump(m,sys.stdout,indent=2)' \
+        "$CT/switcher/manifest.json" "$2" >"$3/manifest.json"
+      ;;
+  esac
+}
 mkdir -p "$WORK"; chmod 700 "$WORK"
-for mode in light dark; do
-  toml="$REPO/omarchy-cllpse-theme-$mode/colors.toml"
-  key="$WORK/$mode.pem"
+for name in light dark switcher; do
+  key="$WORK/$name.pem"
   if [[ ! -f $key ]]; then
     (umask 077; openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out "$key" 2>/dev/null)
-    say "Chromium theme: generated the $mode signing key ($key, never committed)"
+    say "Chromium theme: generated the $name signing key ($key, never committed)"
   fi
   id=$(openssl pkey -in "$key" -pubout -outform DER 2>/dev/null | sha256sum | cut -c1-32 | tr '0-9a-f' 'a-p')
 
-  # The version moves only when the colours do: hash a render with a fixed one.
-  sum=$("$CT/build.py" "$toml" "$mode" 0 | sha256sum | cut -d' ' -f1)
-  n=$(cat "$WORK/$mode.n" 2>/dev/null || echo 0)
+  _probe=$(mktemp -d); _render "$name" 0 "$_probe"
+  sum=$(cd "$_probe" && cat $(ls | sort) | sha256sum | cut -d' ' -f1); rm -rf "$_probe"
+  n=$(cat "$WORK/$name.n" 2>/dev/null || echo 0)
   changed=0
-  [[ $sum == "$(cat "$WORK/$mode.sum" 2>/dev/null || true)" ]] || { n=$((n + 1)); changed=1; }
+  [[ $sum == "$(cat "$WORK/$name.sum" 2>/dev/null || true)" ]] || { n=$((n + 1)); changed=1; }
   version="1.0.$n"
-  if (( changed )) || [[ ! -f $WORK/$mode.crx ]]; then
-    rm -rf "${WORK:?}/$mode" "$WORK/$mode.crx"
-    mkdir -p "$WORK/$mode"
-    "$CT/build.py" "$toml" "$mode" "$version" >"$WORK/$mode/manifest.json"
+  if (( changed )) || [[ ! -f $WORK/$name.crx ]]; then
+    rm -rf "${WORK:?}/$name" "$WORK/$name.crx"
+    mkdir -p "$WORK/$name"
+    _render "$name" "$version" "$WORK/$name"
     _profile=$(mktemp -d)
-    "$CHROMIUM" --pack-extension="$WORK/$mode" --pack-extension-key="$key" \
+    "$CHROMIUM" --pack-extension="$WORK/$name" --pack-extension-key="$key" \
       --user-data-dir="$_profile" --no-message-box >/dev/null 2>&1 || true
     rm -rf "$_profile"
-    [[ -f $WORK/$mode.crx ]] || { echo "chromium-theme: packing $mode failed" >&2; exit 1; }
-    printf '%s\n' "$sum" >"$WORK/$mode.sum"
-    printf '%s\n' "$n" >"$WORK/$mode.n"
-    say "Chromium theme: packed $mode $version ($id)"
+    [[ -f $WORK/$name.crx ]] || { echo "chromium-theme: packing $name failed" >&2; exit 1; }
+    printf '%s\n' "$sum" >"$WORK/$name.sum"
+    printf '%s\n' "$n" >"$WORK/$name.n"
+    say "Chromium theme: packed $name $version ($id)"
   fi
-  printf '%s\n' "$id" >"$WORK/$mode.id"
-  cat >"$WORK/$mode.xml" <<EOF
+  printf '%s\n' "$id" >"$WORK/$name.id"
+  cat >"$WORK/$name.xml" <<EOF
 <?xml version='1.0' encoding='UTF-8'?>
 <gupdate xmlns='http://www.google.com/update2/response' protocol='2.0'>
   <app appid='$id'>
-    <updatecheck codebase='file://$SHARE/$mode.crx' version='$version' />
+    <updatecheck codebase='file://$SHARE/$name.crx' version='$version' />
   </app>
 </gupdate>
 EOF
 done
+_FILES=(light.crx light.xml light.id dark.crx dark.xml dark.id switcher.crx switcher.xml switcher.id)
 
-# See README.md (§7.2): the passwordless rule names the four invocations.
+# See README.md (§7.2): the passwordless rule names the three invocations.
 printf '%s\n' \
   "# Written by omarchy-cllpse-macos overrides/chromium-theme/chromium-theme.sh." \
   "# Lets the theme-set hook swap Chromium's theme extension without a prompt." \
-  "$USER ALL=(root) NOPASSWD: $WRITER light, $WRITER dark, $WRITER both, $WRITER off" \
+  "$USER ALL=(root) NOPASSWD: $WRITER light, $WRITER dark, $WRITER off" \
   >"$WORK/sudoers"
 
 # See README.md (§7.3): install root-owned, only what differs.
 _stale=()
 _new_build=0
-for f in light.crx light.xml light.id dark.crx dark.xml dark.id; do
+for f in "${_FILES[@]}"; do
   if ! cmp -s "$WORK/$f" "$SHARE/$f" 2>/dev/null; then
     _stale+=("$f")
     [[ $f == *.crx && -e $SHARE/$f ]] && _new_build=1
@@ -90,7 +102,7 @@ cmp -s "$CT/cllpse-chromium-theme-policy" "$WRITER" 2>/dev/null || _stale+=(writ
 # (the same probe Omarchy's omarchy-theme-set-browser-policy uses). Listing
 # runs nothing and, under -n, prompts for nothing.
 _granted() { sudo -n -l -l "$WRITER" "$1" 2>/dev/null | grep -q '!authenticate'; }
-for _arg in light dark both off; do _granted "$_arg" || { _stale+=(sudoers); break; }; done
+for _arg in light dark off; do _granted "$_arg" || { _stale+=(sudoers); break; }; done
 [[ -e $TEST_MASK ]] && _stale+=(test-mask)
 
 if (( ${#_stale[@]} == 0 )); then
@@ -100,7 +112,7 @@ else
   sudo visudo -cqf "$WORK/sudoers" ||
     { echo "chromium-theme: sudo visudo -c failed (no sudo, or the rule is invalid)" >&2; exit 1; }
   sudo install -d -m 755 -o root -g root "$SHARE"
-  for f in light.crx light.xml light.id dark.crx dark.xml dark.id; do
+  for f in "${_FILES[@]}"; do
     sudo install -m 644 -o root -g root "$WORK/$f" "$SHARE/$f"
   done
   sudo install -m 755 -o root -g root "$CT/cllpse-chromium-theme-policy" "$WRITER"
@@ -112,31 +124,16 @@ else
   fi
 fi
 
-# See README.md (§7.4, §7.5): get both themes installed in the running
-# Chromium before the hook forces one. A swap re-enables an installed theme,
-# which raises no "Installed theme" bar; only a fresh install does, so these
-# installs (and their bars) happen here, once, rather than on a theme switch.
-#   - A new build first goes through `off`: the policy names the same ids, so a
-#     refresh alone changes nothing and the new version would wait for an
-#     update check. Unlisting uninstalls; `both` then installs the new version.
-#   - `both` lists the two themes as installed-but-optional. Each install applies
-#     its theme and disables the one before, which policy allows for optional.
-_refresh() { chromium --refresh-platform-policy --no-startup-window &>/dev/null || true; }
-_installed() { compgen -G "$HOME/.config/chromium/*/Extensions/$1" >/dev/null; }
-if (( ${#_stale[@]} )) && pgrep -x chromium >/dev/null; then
-  if (( _new_build )) && sudo -n "$WRITER" off 2>/dev/null; then
-    _refresh; sleep 3
-    skip "unlisted the old builds so Chromium installs the new ones"
-  fi
-  if sudo -n "$WRITER" both 2>/dev/null; then
-    _refresh
-    for _ in $(seq 1 40); do
-      _installed "$(<"$WORK/light.id")" && _installed "$(<"$WORK/dark.id")" && break
-      sleep 0.5
-    done
-    sleep 2
-    skip "both themes installed in Chromium (an \"Installed theme\" bar now is expected, once)"
-  fi
+# See README.md (§7.4): a new build only reaches a running Chromium through a
+# fresh install. The policy names the same ids, so a refresh alone changes
+# nothing and the new version would wait for an update check. Unlisting
+# everything uninstalls it; the hook below lists it again, Chromium installs
+# the new versions, and the switcher re-applies the right theme. Fresh installs
+# raise the "Installed theme" bar, once each, here rather than on a switch.
+if (( _new_build )) && pgrep -x chromium >/dev/null && sudo -n "$WRITER" off 2>/dev/null; then
+  chromium --refresh-platform-policy --no-startup-window &>/dev/null || true
+  sleep 3
+  skip "unlisted the old builds so Chromium installs the new ones"
 fi
 
 # The hook, then the current theme's mode, now.

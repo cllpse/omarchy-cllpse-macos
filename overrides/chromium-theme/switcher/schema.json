@@ -1,0 +1,8 @@
+{
+  "type": "object",
+  "properties": {
+    "mode": { "type": "string", "description": "light or dark" },
+    "light": { "type": "string", "description": "the light theme's extension id" },
+    "dark": { "type": "string", "description": "the dark theme's extension id" }
+  }
+}
