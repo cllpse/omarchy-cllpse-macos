@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "cllpse-macos theme (scaffold)",
-  "version": "0.0.3",
-  "description": "Scaffold: the light theme's blue and white; unfocused windows take the inactive-border grey instead of blue. Hand-copied. See ../README.md.",
+  "version": "0.0.4",
+  "description": "Scaffold: the light theme's blue and white; white text and icons on the blue; unfocused windows take the inactive-border grey instead. Hand-copied. See ../README.md.",
   "theme": {
     "colors": {
       "frame": [0, 136, 255],
@@ -15,7 +15,7 @@
 
       "background_tab": [0, 136, 255],
       "background_tab_inactive": [189, 189, 189],
-      "tab_background_text": [0, 0, 0],
+      "tab_background_text": [255, 255, 255],
       "tab_background_text_inactive": [0, 0, 0]
     }
   }
