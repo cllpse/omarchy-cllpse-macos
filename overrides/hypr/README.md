@@ -78,8 +78,10 @@ circular arc; 2.1, 2.2 and a real 3-3.4 squircle were all tried and dropped /
 `border_part_of_window = true`, `blur` on @ size 7 / passes 4 / vibrancy 0.30,
 `border_size = 2`, `gaps_in/out = 12/24`) + window `opacity = 1.0 0.875`
 (re-matched onto `chromium-based-browser` / `firefox-based-browser` too, since
-Omarchy pins those to `1.0 0.985` otherwise) + 3.5× animation speeds (floor 0.6;
-was 3×, floor 1) +
+Omarchy pins those to `1.0 0.985` otherwise) + 4× animation speeds on whole
+120Hz frames (floor 7 frames, 58ms; was 3.5× on 0.6, 3× on 1), except the
+focus fade (`fadeSwitch`), which Omarchy leaves off and which runs here at the
+58ms floor on `default`, like the plugins' fades +
 `layer_rule` blur on the shell surfaces + `layer_rule` re-enabling the layer
 fade on the keyboard-driven panels, the window switcher and the supermenu (the
 switcher's scrim is switched off for now via `showScrim` in its `Hud.qml`, so

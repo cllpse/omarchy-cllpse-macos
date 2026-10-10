@@ -249,8 +249,12 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   1.0), keeps `general.border_size = 2` (Omarchy's default) with `gaps_in = 12` / `gaps_out = 24` (§5's Apple 8pt grid, `md`/`xxl` steps),
   overrides window opacity to `1.0 0.875` (re-matched onto browsers directly too,
   since Omarchy pins those to their own `1.0 0.985` otherwise), and divides every `hl.animation` leaf's
-  stock speed by 3.5 for 3.5× faster animations (was 3×), floored at 0.6
-  (was 1) so the fastest leaves don't read as a hard cut. It sets no border *colour*: both borders come from
+  stock speed by 4 for 4× faster animations (was 3.5×, then 3×), rounded to a
+  whole number of frames at the TV's 120Hz (speeds in twelfths: 250ms global,
+  100ms in, 58ms fades), floored at 7 frames, 58ms (was 0.6, then 1), so the
+  fastest leaves don't read as a hard cut. The one exception is the focus fade
+  (`fadeSwitch`): Omarchy leaves it off, so the opacity and blur snap on focus
+  change; here it runs at the 58ms floor on `default`, the plugins' timing. It sets no border *colour*: both borders come from
   the active theme's `colors.toml` via the generated `hyprland.lua`.
   `looknfeel-decoration.lua` also carries an `hl.layer_rule` opting the Omarchy
   shell surfaces (`omarchy-bar|notifications|osd|polkit|clipboard|emojis|`

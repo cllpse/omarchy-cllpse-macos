@@ -335,7 +335,7 @@ hl.layer_rule({
 -- A short fade-in on the keyboard-driven panels, and on our switcher and
 -- supermenu.
 --
--- Hyprland fades a layer surface as it maps (`fadeLayersIn`, 60ms on
+-- Hyprland fades a layer surface as it maps (`fadeLayersIn`, 58ms on
 -- almostLinear at our speeds), but Omarchy opts its own panels out of it:
 -- `default/hypr/apps/omarchy-shell.lua:5` for the bar and :10 for
 -- ^(omarchy-menu|omarchy-image-selector|omarchy-emojis|omarchy-clipboard|
@@ -384,7 +384,7 @@ hl.layer_rule({
 -- the strip opening as a hard cut with nothing fading at all, and it came back
 -- in for the fade.
 --
--- The scrim's code and its QML fade are kept; the QML fade is now 60ms on
+-- The scrim's code and its QML fade are kept; the QML fade is now 58ms on
 -- Hyprland's `default` curve, shared with the selection fade
 -- (root.animDuration / root.animCurve in Hud.qml). Turned back on as things stand,
 -- it fades with the card here and that QML ramp runs on top, so the dim lands a
@@ -404,52 +404,65 @@ hl.layer_rule({
   animation = "none",
 })
 
--- ── Animation speed (3.5x) ─────────────────────────────────────────────────
+-- ── Animation speed (4x, on whole 120Hz frames) ────────────────────────────
 -- Can't live in the theme: colors.toml/shell.toml carry no animation keys at
 -- all (checked shell.toml.tpl), and the shell's own per-component durations
--- (e.g. Hud.qml's 60ms selection fade) are hardcoded per QML file, not
+-- (e.g. Hud.qml's 58ms selection fade) are hardcoded per QML file, not
 -- theme-driven either. Hyprland's animation speed is the only lever, so this
 -- has to be a hypr override, same as everything else in this file.
 --
--- IMPORTANT direction: Hyprland's hl.animation `speed` is inversely
--- proportional to duration -- SMALLER speed = FASTER animation. Verified
--- empirically (burst-screenshotted a window spawn at speed=0.3 vs speed=20;
--- 0.3 finished before the first capture, 20 was still mid pop-in several
--- frames in). Every leaf below is Omarchy's stock speed divided by 3.5 (3.5x
--- faster) -- not multiplied by 3.5, which would have made it 3.5x *slower* --
--- with a floor of 0.6: six leaves (windowsOut, fadeIn, fadeOut, layersOut,
--- fadeLayersIn, fadeLayersOut) land at 0.40-0.51 on a straight 1/3.5 scale and
--- are clamped to 0.6 instead, rather than let the fastest animations get fast
--- enough to look like a hard cut.
+-- IMPORTANT direction: Hyprland's hl.animation `speed` is the duration in
+-- tenths of a second -- SMALLER speed = FASTER animation. Verified empirically
+-- (burst-screenshotted a window spawn at speed=0.3 vs speed=20; 0.3 finished
+-- before the first capture, 20 was still mid pop-in several frames in). Every
+-- leaf below is Omarchy's stock speed divided by 4 (4x faster), then rounded
+-- to a whole number of frames at the TV's 120Hz: one frame is 8.33ms, so a
+-- whole frame count is a speed in twelfths, written `frames / 12` so the
+-- count reads off the line. An animation that ends between two frames shows
+-- its last step for a partial frame; one that ends on a frame boundary does
+-- not. The floor is 7 frames (58ms): six leaves (windowsOut, fadeIn, fadeOut,
+-- layersOut, fadeLayersIn, fadeLayersOut) land at 4-5 frames on a straight
+-- 1/4 and are clamped to 7 instead, rather than let the fastest animations get
+-- fast enough to look like a hard cut.
 --
--- Was 3x on a floor of 1, and the floor is why the divisor could move. At floor
--- 1 the scheme was already saturating: those same six leaves were pinned there,
--- and a straight 4x would have pinned ten of the fourteen enabled leaves --
--- which stops being "divide by N" and becomes "set almost everything to 100ms",
--- with the floor rather than the divisor setting the timings. 3.5x on 0.6 keeps
--- the divisor in charge. The clamped set is the same six as at 3x, now at 60ms
--- instead of 100ms.
+-- 4x lands unusually close to whole frames before any rounding: global is
+-- exactly 30 (250ms), layersIn exactly 12 (100ms), specialWorkspace exactly 9
+-- (75ms), and windowsIn and fade within a tenth of a frame. 5x and 6x line up
+-- too, but push most leaves down onto the floor, where the floor rather than
+-- the divisor sets the timings.
 --
--- What prompted it: the layer fades read a shade slow once the switcher joined
--- the whole-surface fade (it has been out and back in since; see the layer
--- rule above). layersIn lands at 1.14 here, against 1.33 at 3x and a hand-set 1.2
--- that this reset discards.
-hl.animation({ leaf = "global", enabled = true, speed = 2.86, bezier = "default" })
-hl.animation({ leaf = "border", enabled = true, speed = 1.54, bezier = "easeOutQuint" })
-hl.animation({ leaf = "windows", enabled = true, speed = 1.08, bezier = "easeOutQuint" })
-hl.animation({ leaf = "windowsIn", enabled = true, speed = 1.17, bezier = "easeOutQuint", style = "popin 87%" })
-hl.animation({ leaf = "windowsOut", enabled = true, speed = 0.6, bezier = "linear", style = "popin 87%" })
-hl.animation({ leaf = "fadeIn", enabled = true, speed = 0.6, bezier = "almostLinear" })
-hl.animation({ leaf = "fadeOut", enabled = true, speed = 0.6, bezier = "almostLinear" })
-hl.animation({ leaf = "fade", enabled = true, speed = 0.87, bezier = "quick" })
-hl.animation({ leaf = "fadeSwitch", enabled = false })
-hl.animation({ leaf = "layers", enabled = true, speed = 1.09, bezier = "easeOutQuint" })
-hl.animation({ leaf = "layersIn", enabled = true, speed = 1.14, bezier = "easeOutQuint", style = "fade" })
-hl.animation({ leaf = "layersOut", enabled = true, speed = 0.6, bezier = "linear", style = "fade" })
-hl.animation({ leaf = "fadeLayersIn", enabled = true, speed = 0.6, bezier = "almostLinear" })
-hl.animation({ leaf = "fadeLayersOut", enabled = true, speed = 0.6, bezier = "almostLinear" })
+-- History: 3x on a floor of 1 (100ms), then 3.5x on a floor of 0.6 (60ms,
+-- 7.2 frames) from 2026-09-11, then this on 2026-10-11 (asked for an even
+-- multiplier that matches 120Hz, with a 58ms floor). The 3.5x step was
+-- prompted by the layer fades reading a shade slow once the switcher joined
+-- the whole-surface fade (see the layer rule above).
+hl.animation({ leaf = "global", enabled = true, speed = 30 / 12, bezier = "default" })
+hl.animation({ leaf = "border", enabled = true, speed = 16 / 12, bezier = "easeOutQuint" })
+hl.animation({ leaf = "windows", enabled = true, speed = 11 / 12, bezier = "easeOutQuint" })
+hl.animation({ leaf = "windowsIn", enabled = true, speed = 12 / 12, bezier = "easeOutQuint", style = "popin 87%" })
+hl.animation({ leaf = "windowsOut", enabled = true, speed = 7 / 12, bezier = "linear", style = "popin 87%" })
+hl.animation({ leaf = "fadeIn", enabled = true, speed = 7 / 12, bezier = "almostLinear" })
+hl.animation({ leaf = "fadeOut", enabled = true, speed = 7 / 12, bezier = "almostLinear" })
+hl.animation({ leaf = "fade", enabled = true, speed = 9 / 12, bezier = "quick" })
+hl.animation({ leaf = "fadeSwitch", enabled = true, speed = 7 / 12, bezier = "default" })
+hl.animation({ leaf = "layers", enabled = true, speed = 11 / 12, bezier = "easeOutQuint" })
+hl.animation({ leaf = "layersIn", enabled = true, speed = 12 / 12, bezier = "easeOutQuint", style = "fade" })
+hl.animation({ leaf = "layersOut", enabled = true, speed = 7 / 12, bezier = "linear", style = "fade" })
+hl.animation({ leaf = "fadeLayersIn", enabled = true, speed = 7 / 12, bezier = "almostLinear" })
+hl.animation({ leaf = "fadeLayersOut", enabled = true, speed = 7 / 12, bezier = "almostLinear" })
 hl.animation({ leaf = "workspaces", enabled = false })
-hl.animation({ leaf = "specialWorkspace", enabled = true, speed = 0.86, bezier = "easeOutQuint", style = "slidevert" })
+hl.animation({ leaf = "specialWorkspace", enabled = true, speed = 9 / 12, bezier = "easeOutQuint", style = "slidevert" })
+
+-- fadeSwitch is the one leaf not derived from Omarchy's speeds, since Omarchy
+-- turns it off. It is the focus fade: a window going from 1.0 to 0.875 when it
+-- loses focus (the opacity rule above), with the blur behind fading in as it
+-- goes. Off, the opacity and the blur snapped in one frame. It runs at the
+-- floor, 7 frames on Hyprland's `default` curve, the timing the switcher's own
+-- fades use (root.animDuration / root.animCurve in Hud.qml), so focus changes
+-- and the plugins fade alike. It was previewed live on 2026-10-09 and never
+-- written down, so the next reload dropped it; written here on 2026-10-11.
+-- Hyprland also runs a second, layout-side window alpha on this leaf, so it
+-- moves more than the focus fade.
 
 -- ── Presentation-popup width ───────────────────────────────────────────────
 -- The floating terminal Omarchy shows for `omarchy pkg remove` / install /

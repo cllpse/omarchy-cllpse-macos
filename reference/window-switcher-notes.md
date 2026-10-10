@@ -559,7 +559,7 @@ plugin-side theming. Under **omarchy-cllpse-theme** that means:
   overrides the derived value;
 - **the highlight fades, and the name does not change colour.** Each tile
   carries the selected fill and `selected-border` as its own `selectionFill`,
-  beneath its content, and fades it over 60ms on Hyprland's `default` curve
+  beneath its content, and fades it over 58ms on Hyprland's `default` curve
   rather than switching it. It shares `root.animDuration` / `root.animCurve`
   with the scrim's fade. It was 140ms on `OutCubic`, Omarchy's opacity fade
   for a hovered widget (`WidgetButton.qml`). The tile losing the selection fades out while the one gaining it fades
@@ -859,7 +859,7 @@ Worth knowing about `glyphFor`, which is still the default for every tile:
   - *The fade is the compositor's.* `omarchy-window-switcher-hud` is in the
     `animation = "fade"` layer rule in `overrides/hypr/looknfeel-decoration.lua`
     alongside the panels, so it fades in over `fadeLayersIn` and out over
-    `fadeLayersOut`: 60ms on `almostLinear` at our speeds. Those two leaves
+    `fadeLayersOut`: 58ms (7 frames at 120Hz) on `almostLinear` at our speeds. Those two leaves
     drive a layer's alpha (Hyprland v0.56.2 `LayerSurface.cpp:213-215`, :251-253).
     `layersIn` / `layersOut` drive only its position and size, which the `fade`
     style leaves still. Duration is the fade leaves' speed, shared with every
@@ -867,7 +867,7 @@ Worth knowing about `glyphFor`, which is still the default for every tile:
   - *The scrim is off, and its own fade is kept.* With `showScrim` false (see
     *Look*) the card is all there is to fade. The scrim `Rectangle` in
     `Hud.qml` still carries its own `opacity` animation (`Behavior` +
-    `NumberAnimation`, 60ms on Hyprland's `default` curve, cubic-bezier(0, 0.75,
+    `NumberAnimation`, 58ms on Hyprland's `default` curve, cubic-bezier(0, 0.75,
     0.15, 1); it was 120ms on `Easing.OutCubic`, Omarchy's own curve for a QML
     fade), written for a surface the compositor does *not* fade. Turned back on
     as things stand, the scrim fades with the card and that ramp stacks on top,
