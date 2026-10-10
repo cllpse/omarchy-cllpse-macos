@@ -9,7 +9,7 @@ generated. **Nothing here is wired into `apply.sh` or `revert.sh`, and nothing
 is installed.**
 
 ```
-extension/manifest.json   the theme (MV3), the light theme's blue, white and inactive-border grey
+extension/manifest.json   the theme (MV3), the light theme's lightest grey, white and inactive-border grey
 policy.json.tpl           the managed-policy file that would load it and mask Omarchy's colour
 ```
 
@@ -45,21 +45,22 @@ applied. Every key below was checked to exist in Chromium 152's binary.
 
 | Surface | Keys (focused, unfocused) | Colour now | From `colors.toml` |
 |---|---|---|---|
-| Frame / tab strip, focused — the general colour | `frame` | `#0088FF` | `blue` |
+| Frame / tab strip, focused — the general colour | `frame` | `#F6F6F6` | `dark_background` (light) |
 | Frame / tab strip, unfocused | `frame_inactive` | `#BDBDBD` | `hyprland_inactive_border` (= `muted`) |
 | Active tab (and toolbar), either state | `toolbar` (one key for both) | `#FFFFFF` | `background` (light) |
-| Inactive tabs, focused | `background_tab` | `#0088FF` | `blue` |
+| Inactive tabs, focused | `background_tab` | `#F6F6F6` | `dark_background` (light) |
 | Inactive tabs, unfocused | `background_tab_inactive` | `#BDBDBD` | `hyprland_inactive_border` (= `muted`) |
 | Active tab text | `tab_text` | `#000000` | not chosen yet |
-| Inactive tab text and tab-strip icons, focused (on the blue) | `tab_background_text` | `#FFFFFF` | `background` (light) |
+| Inactive tab text and tab-strip icons, focused | `tab_background_text` | `#000000` | not chosen yet |
 | Inactive tab text, unfocused (on the grey) | `tab_background_text_inactive` | `#000000` | not chosen yet |
 | Toolbar text and icons | `toolbar_text`, `toolbar_button_icon` | `#000000` | not chosen yet |
 
 **Focus follows the window border** (decided 2026-10-10). An unfocused window
-swaps the blue for the colour Hyprland draws an unfocused window's border in.
-The active border is the accent gradient, not the blue, so the focused side
-does not mirror the border. Text and icons on the blue are white (0.0.4). On the
-unfocused grey they stay black, because white on `#BDBDBD` is about 1.9:1. The active
+swaps the frame colour for the colour Hyprland draws an unfocused window's
+border in. The active border is the accent gradient, so the focused side does
+not mirror the border. Text is black in every state. 0.0.4 had white text and
+icons on the blue, kept black on the unfocused grey (white on `#BDBDBD` is about
+1.9:1). The grey frame cannot carry white at all. The active
 tab cannot follow focus at all: Chromium paints it with `toolbar` in both
 states and offers no `toolbar_inactive`. Before this, briefly (0.0.2), the
 decision was no focus switching at all, with every `_inactive` key equal to its
@@ -76,9 +77,17 @@ terminal templates use `white` for `foreground`, which in the light theme is
 `#272727`. The white meant here is the light theme's `background`, macOS
 `windowBackgroundColor`. In the dark theme that key is `#1E1E1E`, which would
 make the active tab dark. When the generator exists it has to decide whether
-that is right or whether white should be a literal. `blue` is `#0088FF` in both
-themes (`accent` is `#007AFF`). White text on that blue (chosen) is about 3.5:1,
-below the 4.5:1 WCAG asks of body text. Black would be about 6:1.
+that is right or whether white should be a literal.
+
+**The frame is the lightest grey** (0.0.5, 2026-10-10), replacing the blue of
+0.0.2–0.0.4. It is the light theme's `dark_background`, macOS
+`underPageBackgroundColor`. The dark theme files that role under a different
+key: `lighter_background` (`#282828`). There, `dark_background` is `#1A1A1A`,
+macOS `gridColor`. So a generator has to choose by macOS role, not by key name.
+Black text on `#F6F6F6` is about 19:1. Unfocused, the frame goes to the darker
+`#BDBDBD`. The blue was `blue`, `#0088FF` in both themes (`accent` is
+`#007AFF`). White text on it was about 3.5:1, below the 4.5:1 WCAG asks of body
+text.
 
 **Separators have no key and cannot be made transparent.** Checked in Chromium
 152.0.7977.82's source:
@@ -88,16 +97,20 @@ below the 4.5:1 WCAG asks of body text. Black would be about 6:1.
 - **The divider between the extensions button and the avatar** is a
   `ToolbarDivider` painting `kColorToolbarExtensionSeparatorEnabled`. With a
   custom theme, `chrome_color_mixer.cc` sets that to
-  `kColorTabBackgroundInactiveFrameActive`, the theme's `background_tab`. That is
-  blue in both focus states, so it stays blue in an unfocused window. The
+  `kColorTabBackgroundInactiveFrameActive`, the theme's `background_tab`. It
+  ignores focus, so an unfocused window keeps the focused colour there (blue
+  before 0.0.5). The
   toolbar shows it whenever the extensions container is visible
   (`toolbar_view.cc`).
 - **Alpha cannot hide either one.** Theme colours do accept a fourth alpha
   value. But `BrowserThemePack::GetColor` forces `frame`, `frame_inactive`,
   `background_tab`, `background_tab_inactive` and `toolbar` opaque.
 - So a divider disappears only if its source colour matches what it sits on.
-  For tab dividers that means a blue active tab; for the extensions divider it
-  means white inactive tabs. The one switch that hides tab dividers is the
+  For tab dividers, the active tab would need the inactive tabs' colour. For
+  the extensions divider, the inactive tabs would need the toolbar's colour.
+  0.0.5's `#F6F6F6` beside white comes close on both counts, at about 1.1:1:
+  white dividers on `#F6F6F6` tabs, and a `#F6F6F6` divider on the white
+  toolbar. The one switch that hides tab dividers is the
   tab-strip declutter feature (`TabStripDeclutter`, or `DesktopGlowUp`), and
   it hides them only at 20 tabs or more
   (`kTabStripDeclutterMinTabsForSeparatorHide`).
