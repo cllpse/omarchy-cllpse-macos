@@ -209,6 +209,26 @@ which no theme key reaches.** Traced in 152.0.7977.82's source:
   switch. Untested; this is §6 step 3. Chromium has no managed policy for
   grayscale or a user colour: `BrowserThemeColor` is the only theme-colour
   policy name in the binary.
+- **"Grey default color" in Chromium's settings *is* grayscale, without the
+  theme.** Its handler (`ThemeColorPickerHandler::SetGreyDefaultColor`) calls
+  `SetIsGrayscale(true)`, which runs `ClearThemeData` first. Chosen in the test
+  window on 2026-10-10, it removed this extension theme: the profile's theme id
+  became empty, with `is_grayscale2` true. Chromium's own grey theme then
+  measured as follows (same window, same spot, both under Hyprland's 0.875
+  unfocused opacity):
+
+  | | Focused | Unfocused |
+  |---|---|---|
+  | Grey default: frame and inactive tabs | `[227,227,227]` (`#E3E3E3`) | `[244,242,241]` |
+  | Grey default: active tab and toolbar | `[255,255,255]` | — |
+  | This theme 0.0.9: frame | `[230,230,230]` | `[231,230,230]` |
+
+  So Grey default nearly matches this design focused, and gives grey menu
+  separators besides. It lightens the background when unfocused, though: the
+  grayscale `kColorSysHeaderInactive` is a blend toward `kColorRefNeutral98`.
+  Without an extension theme, no key can stop that. Nothing clears the pref
+  either, because only applying an extension theme does, and
+  `../chromium/neutral-theme.py` already writes it.
 - So these two colours cannot be redefined alongside a theme extension in any
   way that lasts. A profile pref only survives until the theme is next applied,
   and this design applies a new theme on every Omarchy theme switch (§3).
