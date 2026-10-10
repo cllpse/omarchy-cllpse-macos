@@ -2,13 +2,14 @@
 
 A Chromium **theme extension** that will colour the browser from the active
 Omarchy theme: one general colour for the frame, and a colour for the active
-and inactive tabs. They do **not** change with window focus (§2). Right now it
+and inactive tabs. In an unfocused window the frame and inactive tabs turn the
+grey of an unfocused window border; the active tab stays put (§2). Right now it
 is a scaffold: the colours are the light theme's, copied in by hand, not
 generated. **Nothing here is wired into `apply.sh` or `revert.sh`, and nothing
 is installed.**
 
 ```
-extension/manifest.json   the theme (MV3), the light theme's blue and white
+extension/manifest.json   the theme (MV3), the light theme's blue, white and inactive-border grey
 policy.json.tpl           the managed-policy file that would load it and mask Omarchy's colour
 ```
 
@@ -44,17 +45,29 @@ applied. Every key below was checked to exist in Chromium 152's binary.
 
 | Surface | Keys (focused, unfocused) | Colour now | From `colors.toml` |
 |---|---|---|---|
-| Frame / tab strip — the general colour | `frame`, `frame_inactive` | `#0088FF` | `blue` |
-| Active tab (and toolbar) | `toolbar` (one key for both) | `#FFFFFF` | `background` (light) |
-| Inactive tabs | `background_tab`, `background_tab_inactive` | `#0088FF` | `blue` |
+| Frame / tab strip, focused — the general colour | `frame` | `#0088FF` | `blue` |
+| Frame / tab strip, unfocused | `frame_inactive` | `#BDBDBD` | `hyprland_inactive_border` (= `muted`) |
+| Active tab (and toolbar), either state | `toolbar` (one key for both) | `#FFFFFF` | `background` (light) |
+| Inactive tabs, focused | `background_tab` | `#0088FF` | `blue` |
+| Inactive tabs, unfocused | `background_tab_inactive` | `#BDBDBD` | `hyprland_inactive_border` (= `muted`) |
 | Active tab text | `tab_text` | `#000000` | not chosen yet |
 | Inactive tab text | `tab_background_text`, `tab_background_text_inactive` | `#000000` | not chosen yet |
 | Toolbar text and icons | `toolbar_text`, `toolbar_button_icon` | `#000000` | not chosen yet |
 
-**No focus switching** (decided 2026-10-10): every `_inactive` key carries the
-same colour as its focused twin. The active tab has no unfocused key anyway.
-Chromium paints it with `toolbar` in both states and offers no
-`toolbar_inactive`.
+**Focus follows the window border** (decided 2026-10-10). An unfocused window
+swaps the blue for the colour Hyprland draws an unfocused window's border in.
+The active border is the accent gradient, not the blue, so the focused side
+does not mirror the border. Text keeps one colour in both states. The active
+tab cannot follow focus at all: Chromium paints it with `toolbar` in both
+states and offers no `toolbar_inactive`. Before this, briefly (0.0.2), the
+decision was no focus switching at all, with every `_inactive` key equal to its
+focused twin. That version measured below.
+
+`hyprland_inactive_border` is `rgba(bdbdbdff)` in the light theme and
+`rgba(565656ff)` in the dark theme. It is `muted` at full opacity, but the theme
+keeps the two unlinked (see `colors.toml`), so a generator should read
+`hyprland_inactive_border` and drop its alpha. Black text on `#BDBDBD` is
+about 11:1.
 
 **"White" is `background`.** `colors.toml` has no `white` key. Omarchy's
 terminal templates use `white` for `foreground`, which in the light theme is
@@ -77,7 +90,7 @@ white text would be about 3.5:1.
   If it is, matching keys will not keep an unfocused window identical: its
   blue lifts slightly, while white cannot get lighter.
 
-**Measured with this version** (0.0.2, two tabs, 2026-10-10). Focused: frame
+**Measured with 0.0.2** (two tabs, no focus switching, 2026-10-10). Focused: frame
 and inactive tab `[0,136,255]`, active tab and toolbar `[255,255,255]`, all
 exact. Unfocused: frame and inactive tab `[30,148,252]`, active tab
 `[253,252,252]`. That fits about 12% of a light grey (~250) over the keys,
