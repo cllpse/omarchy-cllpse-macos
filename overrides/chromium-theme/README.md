@@ -137,6 +137,41 @@ that is right or whether white should be a literal.
   (a disabled grey over `toolbar`) in an unfocused one. Their circles are
   `background_tab` / `background_tab_inactive`.
 
+**Menu separators and the omnibox selection come from the Material palette,
+which no theme key reaches.** Traced in 152.0.7977.82's source:
+- **Context-menu separators:** `kColorMenuSeparator` → `kColorSeparator` →
+  `kColorSysDivider` (`ui_color_mixer.cc`, `material_ui_color_mixer.cc`).
+- **Omnibox text selection:** with a custom theme,
+  `kColorOmniboxSelectionBackground` → `kColorTextfieldSelectionBackground` →
+  `kColorTextSelectionBackground` → `kColorSysTonalContainer`
+  (`omnibox_color_mixer.cc`, `material_ui_color_mixer.cc`).
+- In light mode **both resolve to `kColorRefPrimary90`** (`sys_color_mixer.cc`).
+- **What seeds that palette** is decided by `ThemeService::GetColorProviderKey`
+  from profile prefs, and the extension theme has no say:
+  - Incognito, or grayscale (`browser.theme.is_grayscale2`), gives the
+    grayscale source.
+  - Otherwise, no user colour (`browser.theme.user_color2`) gives Google's
+    baseline. Its `kColorRefPrimary90` is `#D3E3FD`, the light blue seen here.
+  - A user colour seeds a generated palette. Its primary is a tint of that seed
+    (Tonal Spot gives chroma 40). Chromium's own comment in `ref_color_mixer.cc`
+    notes that grey seeds come out as the default blue.
+- **Grayscale fixes the separators but not the selection.**
+  `AddGrayscaleSysColorOverrides` moves `kColorSysDivider` to
+  `kColorRefNeutral90`, which is `#E3E3E3` in light mode. It leaves
+  `kColorSysTonalContainer` alone, and the reference palette under grayscale is
+  still the baseline, so the selection stays `#D3E3FD`.
+- **Grayscale and a user colour exclude each other.** Grayscale is checked
+  first. So the choice is either grey separators with a baseline-blue
+  selection, or both tinted from one seed. Neither path gives a grey selection.
+- **Writing the pref directly keeps the theme.** The UI setter
+  (`SetIsGrayscale`) calls `ClearThemeData`, which would remove the extension
+  theme. Writing `browser.theme.is_grayscale2` into `Preferences` while Chromium
+  is closed does not. Checked on the test profile (2026-10-10): the theme id was
+  kept, and the frame and tab colours were unchanged.
+  `../chromium/neutral-theme.py` already writes this pref. Its other half, the
+  GTK system theme (`extensions.theme.system_theme`), competes with an extension
+  theme and would have to stand down.
+
 **Measured with the first scaffold** (0.0.1, CMYK test colours, one per key):
 - A focused window paints `frame` and `toolbar` exactly.
 - The tab strip's own buttons (tab search, new tab) take `background_tab` and
