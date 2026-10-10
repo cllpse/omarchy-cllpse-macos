@@ -150,6 +150,12 @@ lightest surface", says its comment) and `#282828` in dark.
   line above the page (see "The line between the toolbar and the page").
 - **light 1.0.3, dark 1.0.5:** toolbar icons computed so that line equals the
   address field's background exactly.
+- **light 1.0.4, dark 1.0.6:** toolbar icons faded one step (`ICON_FADE` 0.7),
+  which fades the line with them.
+- **light 1.0.5, dark 1.0.7:** one more step (`ICON_FADE` 0.5).
+- **light 1.0.6, dark 1.0.8:** and one more (`ICON_FADE` 0.35).
+- **light 1.0.7, dark 1.0.9:** back to the 1.0.3 / 1.0.5 icons: the line equals
+  the address field again.
 
 **The line between the toolbar and the page** is `ContentsSeparator`, a
 one-DIP view that paints `kColorToolbarContentAreaSeparator`, with no flag or
@@ -187,13 +193,37 @@ the rounding allows. So the icons are computed, not a theme variable:
 This is exact against Chromium 152's arithmetic; a change to either function
 breaks the match.
 
+**Fading it further was tried and set back** (same day, asked to remove the
+line altogether). The line cannot be removed or coloured on its own. It is
+drawn above the page in every layout except split view, and it is always 23%
+of the way from the toolbar to the icons. A partly transparent icon colour
+would not help: `AlphaBlend` weights by alpha, so on screen the ratio stays
+23%. The line only matches the toolbar when the icons are invisible. So the
+icons were faded in three steps, keeping 0.7, 0.5 and then 0.35 of the
+field-matching icon's distance from the toolbar, and the line faded by the
+same share:
+
+| | Toolbar | Separator | Icons | Icon contrast |
+|---|---|---|---|---|
+| Light | `#FFFFFF` | `#E1E1E2` → `#EAEAEB` → `#F0F0F0` → `#F5F5F5` | `#7C7C7E` → `#A3A3A5` → `#BEBEBF` → `#D1D1D2` | 4.2 → 2.5 → 1.9 → 1.5:1 |
+| Dark | `#282828` | `#3B3B3B` → `#353535` → `#323232` → `#2F2F2F` | `#7B7B7B` → `#626262` → `#525252` → `#454545` | 3.5 → 2.4 → 1.9 → 1.5:1 |
+
+After seeing 0.35 on screen, the answer was "go back to keeping the same color
+as the address field" (light 1.0.7, dark 1.0.9, the same colours as light
+1.0.3 and dark 1.0.5).
+
 **Seen in dark with dark 1.0.5** (focused, one device-pixel column). The field
 reads `#3B3B3B` exactly, over 41 rows. The line cannot be read directly: one
 DIP at 1.25 lands between device rows, so it shows as two blended rows,
 `#2F3030` (with the toolbar) and `#252525` (with the page). With the white
 icons before, the same rows read `#3E3F3F` and `#343434`. Both fit the same
 ~40–50% coverage per row, of `#595959` then and `#3B3B3B` now. The `#262626`
-row directly under the toolbar was there before too, and is not the line.
+row directly under the toolbar was there before too, and is not the line. It
+is a row Chromium left partly transparent, with the wallpaper showing through.
+Our `--force-device-scale-factor=1` had turned off Chromium's fix for that at
+fractional scales, and the flag was dropped on 2026-10-10
+(`../chromium/README.md` §2). After that, the row matches the toolbar, and the
+line is a single device row.
 
 **Separators have no key and cannot be made transparent.** Checked in Chromium
 152.0.7977.82's source:

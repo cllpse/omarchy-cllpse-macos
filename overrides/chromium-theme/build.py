@@ -27,6 +27,8 @@ So omnibox_field() reproduces the second exactly (it matches the [202,202,203]
 measured under a #E6E6E6 toolbar), and separator_icon() picks the icon whose
 23% blend over the toolbar lands on it, per channel, as neutral as possible.
 Exact against Chromium 152's code; re-check if those functions change.
+Fainter icons, to fade the line further, were tried the same day and set back
+(README.md §2).
 README.md §2.
 
 Every `_inactive` key equals its focused twin: nothing changes with window
