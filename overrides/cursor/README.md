@@ -25,28 +25,33 @@ cursor/derive-dark-from-light.py and scoped to the dark variant by name,
 so light mode is untouched. jq's `*` merges objects recursively and takes
 the right-hand side for arrays, which is what the textMateRules list wants.
 
-## 4. editor.fontSize is DERIVED
+## 4. Text is Omarchy's text size
 
-editor.fontSize is DERIVED, not pinned. `omarchy display text size` is the
-one knob for apparent text size across the desktop -- it already drives the
-shell base size (px), the GTK scaling factor and the terminal point size
-(px * 9/12) -- and VS Code's editor.fontSize is in px like the first of
-those, so Cursor can ride the same knob instead of holding its own number.
-The value in cursor/settings.json is the fallback for when the reading
-fails; it is not the source of truth.
+Cursor's text is Omarchy's text size, like every other app's (2026-10-10;
+`../README.md`, "One text size"). Cursor runs on Electron 42, which multiplies
+every CSS px by the GTK text factor, about text size / 12. Measured with a
+hidden Electron 42 window: `devicePixelRatio` 1.09375, the 12/11 factor at the
+time, before any surface scale. So a CSS size of 12 lands on the text size.
+The text size isn't held here; the factor carries it.
 
-## 5. The derivation above is a one-shot
+VS Code draws its own UI (sidebar, tabs) at 13 CSS px, and the editor and
+terminal take their own sizes. `window.zoomLevel` -0.439 is 1.2^-0.439 = 12/13,
+which puts the 13px UI at 12. `editor.fontSize` and
+`terminal.integrated.fontSize` are 13 so they land there too. At text size 13
+all three come out at 13.3 desktop px (13 × 12/13 × 71/64).
 
-The derivation above is a one-shot, taken during this merge. Keeping it
-tracking a LATER `omarchy display text size` needs a trigger, and
-omarchy offers none: that command fires no hook, and none of the hook
-dirs it does have (battery-low / font-set / post-boot / post-update /
-pre-refresh-pacman / theme-set) covers text size. So the trigger is a
-systemd path unit on the file the command writes.
+History, same day: `editor.fontSize` used to be copied from the text size in
+px. That counted the text size twice, once in the px and once in Electron's
+factor. Both sizes were then 15 for a few hours, to match Chromium's tab titles
+before those were brought down to the text size too.
 
-User units, not system: the target is $HOME/.config/Cursor. The .path
-is what gets enabled; it starts the oneshot .service, which is why only
-the former is in [Install].
+## 5. No watcher
+
+Following a later text-size change used to take a systemd path unit on
+`~/.config/omarchy/shell.toml` (`cllpse-cursor-text-size.path`, its oneshot
+`.service`, and the script in `~/.local/bin`), since that command fires no
+hook. Electron's GTK factor carries the change now, so `cursor.sh` disables
+and deletes those where an earlier apply installed them.
 
 ## 6. Cursor's window layout
 

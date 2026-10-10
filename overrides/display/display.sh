@@ -25,6 +25,9 @@ if [[ -f "$HERE/display/display.conf" ]]; then
   if [[ -n $want_text && "$(read_text_size)" != "$want_text" ]]; then
     say "omarchy display text size $want_text  (shell + GTK factor + terminals)"
     omarchy display text size "$want_text" >/dev/null 2>&1 || true
+  elif [[ -n $want_text ]] && ! gtk_factor_current "$want_text"; then
+    say "omarchy display text size $want_text  (GTK factor was computed for another GTK font size)"
+    omarchy display text size "$want_text" >/dev/null 2>&1 || true
   else
     skip "text size already $want_text"
   fi

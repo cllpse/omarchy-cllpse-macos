@@ -51,8 +51,8 @@ leaves out keyboard layout, the `git` pager, session env, the repair hook, input
 remapping, which file manager the desktop asks for (`flea`), and everything
 needing sudo or the network; also `display`, a
 hardware preference that can resize everything on screen, and `chromium-user`,
-whose neutral UI is appearance but which also sets page zoom and the device
-scale factor. The set is named explicitly in `apply.sh` and validated
+whose neutral UI is appearance but which also clears the old page zoom and
+sets Chromium's flags. The set is named explicitly in `apply.sh` and validated
 against `STEPS` at startup, so a typo in it fails loudly instead of quietly
 dropping a step. `--look` is the same set without the prompt.
 
@@ -287,7 +287,7 @@ script works the same whether you run it by hand or `apply.sh` calls it.
 | 7\* | Prompt and diff colours that must be BAKED per theme rather than named: Starship has no config-import mechanism, and hunk's validator takes hex only.<br>**Detail: [`starship/`](starship/README.md), [`hunk/`](hunk/README.md)** | `~/.config/omarchy/hooks/theme-set.d/{starship-colors,hunk-colors}.sh` (symlinked), `~/.config/starship.toml`, `~/.config/hunk/config.toml` |
 | 7b | Restore saved display scaling + text size. **Full detail: [`display/README.md`](display/README.md).** | `omarchy display text size`, the two scale variables in `~/.config/hypr/monitors.lua` |
 | 7c | Session environment drop-ins (Figma → native Wayland). Read at session start, so they need a relogin. **Full detail: [`environment.d/README.md`](environment.d/README.md).** | `~/.config/environment.d/50-cllpse-macos-figma-wayland.conf` |
-| 7d | Chromium scale, default page zoom, overlay scrollbars and a neutral browser UI. **Full detail: [`chromium/README.md`](chromium/README.md).** | fenced block in `~/.config/chromium-flags.conf` + `partition.default_zoom_level`, `extensions.theme.system_theme` and `browser.theme.is_grayscale2` in each `~/.config/chromium/*/Preferences` |
+| 7d | Chromium flags (no scale flag, no page zoom: the old 110% is cleared), overlay scrollbars and a neutral browser UI. **Full detail: [`chromium/README.md`](chromium/README.md).** | fenced block in `~/.config/chromium-flags.conf` + `partition.default_zoom_level`, `extensions.theme.system_theme` and `browser.theme.is_grayscale2` in each `~/.config/chromium/*/Preferences` |
 | 7e | Figma Desktop's launcher entry — the app gets `Name=` and `StartupWMClass` wrong for this desktop and regenerates its own entry on every launch. **Full detail: [`applications/README.md`](applications/README.md).** | `~/.local/share/applications/figma-desktop-appimage.desktop`, and `~/Applications/figma-desktop/AppRun` restored if wrapped |
 | 7f | App icons for the menu, which draws app rows as a plain image and cannot recolour. **Full detail: [`icons/README.md`](icons/README.md).** | `~/.icons/cllpse-flat/apps/`, `~/.icons/cllpse-color/apps/`, `~/.config/omarchy/hooks/theme-set.d/app-icons.sh` (symlinked) |
 | 7f2 | Post-update repair hook — re-link what an `omarchy update` could quietly take out. **Full detail: [`hooks/README.md`](hooks/README.md).** | `~/.config/omarchy/hooks/post-update.d/cllpse-macos-repair.sh` (symlinked) |
@@ -297,7 +297,7 @@ script works the same whether you run it by hand or `apply.sh` calls it.
 | 8 | Apply the theme — refreshes whichever cllpse-macos theme is already active, else sets dark | `omarchy theme set …` |
 | 8b | keyd, for Figma alone: an identity config, the inert `[figma:C]` and `[figma_ctrl:C]` layers, the focus helper and the group grant, plus a `keyd.service` drop-in that restarts the daemon on a segfault (it has one, twice measured, and the packaged unit has no restart policy at all). The config is published — and the daemon disturbed — only when the file actually changed. Needs **sudo**. **Full detail: [`keyd/README.md`](keyd/README.md).** | `/etc/keyd/default.conf`, `/etc/systemd/system/keyd.service.d/restart.conf`, `~/.local/bin/cllpse-figma-keyd`, the `keyd` group |
 | 8c | `hyprctl reload` — determinism, since autoreload already covers the hypr files. After 8b on purpose: a keyd restart drops every runtime bind, and the reload is what makes `macos-shortcuts.lua` re-seed its remap state from the live focus | the running compositor |
-| 9 | Chromium managed policy: context-menu declutter plus two force-installed extensions. Needs **sudo**. **Full detail: [`chromium/README.md`](chromium/README.md).** | `/etc/chromium/policies/managed/cllpse-macos.json` |
+| 9 | Chromium managed policy: context-menu declutter, new tabs open `about:blank`, plus two force-installed extensions. Needs **sudo**. **Full detail: [`chromium/README.md`](chromium/README.md).** | `/etc/chromium/policies/managed/cllpse-macos.json` |
 | 9b | Chromium theme extension: a light and a dark theme generated from the two themes' `colors.toml`, packed with per-machine keys, force-installed by managed policy and swapped live by a theme-set hook on every `omarchy theme set` (any other Omarchy theme turns it off). Installs a passwordless sudo rule for one root-owned writer and its three exact arguments, the way Omarchy's own `color.json` writer is set up. Needs **sudo**. **Full detail: [`chromium-theme/README.md`](chromium-theme/README.md).** | `/usr/local/share/cllpse-macos/chromium-theme/`, `/usr/local/bin/cllpse-chromium-theme-policy`, `/etc/sudoers.d/cllpse-chromium-theme`, `/etc/chromium/policies/managed/zz-cllpse-macos-theme.json`, `~/.config/omarchy/hooks/theme-set.d/chromium-theme.sh`, keys in `$STATE/chromium-theme/` |
 | 10 | CPU power limits via `ryzenadj`, reapplied at boot and on resume. Hardware-gated, and **opt-in**: `--all` skips it; `apply.sh ryzen` or the checklist runs it. Needs **sudo**. **Full detail: [`ryzen/README.md`](ryzen/README.md).** | `/etc/default/ryzen-tdp`, `/etc/systemd/system/ryzen-tdp.service` |
 | 11 | Btrfs compression: `compress=zstd` (a bare `zstd` is the kernel's level 3) → `compress=zstd:1` on every btrfs line in `/etc/fstab`, then a live `mount -o remount` of each so it doesn't wait for a reboot. Level 3 costs ~2–3× the CPU of level 1 at compression for ~5–10% better ratio — the wrong trade on a disk that was 4% full when this was decided (10% on 2026-10-09) and a CPU that is thermally capped. Backs `/etc/fstab` up first, rewrites **only** lines whose FS-type field is `btrfs` (a commented line, a `compress-force=`, or the same string on an ext4 line are all left alone — tested), and verifies with `findmnt --verify` before leaving it in place, restoring the backup if that fails. Bails out entirely if the machine mounts btrfs at mixed levels. Needs **sudo** | `/etc/fstab`, plus a live remount of each btrfs mountpoint |
@@ -400,6 +400,31 @@ though the values themselves are a preference.
 `text-size` goes through `omarchy display text size`, which moves the shell's rem
 root, the GTK `text-scaling-factor` and the terminal point size together.
 
+**One text size** (2026-10-10). Every app's body text is that one number,
+13.3 desktop px at text size 13:
+
+| App | Base size | Times |
+|---|---|---|
+| Omarchy shell, bar, switcher, supermenu, Flea | `base-size` = text size | — |
+| GTK apps (Files, Evince, file dialogs…) | `font-name` 9pt = 12px | GTK factor |
+| Chromium tab titles and menus (and Chrome, web apps) | `font-name` → 12 DIP | GTK factor |
+| Cursor: UI / editor / terminal | 13 CSS px × zoom 12/13 | GTK factor |
+| Ghostty | `font-size=9` pt = 12px | GTK factor (`gtk-xft-dpi`) |
+
+The GTK factor is round(pt × text size / 12) / pt for the 9pt UI font: 10/9 at
+13. So base 12px times the factor is the text size, up to that rounding.
+Chromium and Electron round the factor again, to 1/64ths (71/64). Omarchy anchors 12px to factor
+1.0 and 9pt terminals. Its stock GTK font of 11pt (14.7px) sits above that
+anchor, which put every GTK, Chromium and Electron surface ~25% above the
+shell: 16-16.4px at 13. Hence the 9pt fonts in `apply.sh`'s gtk-fonts step.
+The display step re-runs the text size when the GTK factor was computed for
+another font size. Ghostty and Cursor are pinned in `ghostty/ghostty.conf` and
+`cursor/settings.json`.
+
+On Wayland the factor is also Chromium's and every Electron app's whole-UI
+scale (toolbars, icons, pages), not a text-only one. Raising the text size
+grows them with it.
+
 These are **the author's values**, tuned for a 43" 3840x2160 TV, and they are
 not part of the macOS look — edit `display.conf` or re-run `display/save-display.sh` on
 your own machine. Since `apply.sh` reasserts them on every run, retuning by hand
@@ -491,7 +516,7 @@ differences above are the ones to check by hand.
 - **Relaunch running GTK/Qt apps + the bar** to pick up `hintnone`.
 - **Log out / back in** for the `environment.d` drop-in — the systemd user session reads it at session start.
 - **The app icons (7f) appear as soon as the menu next opens** — `AppLibrary.refreshIcons()` rescans when a consumer opens, so no restart is needed to *find* them. Changing their *colour* is different: Qt caches decoded images by URL, and the path does not change between themes, so a re-render only shows up after a shell restart. `omarchy theme set` does not restart the shell (it pushes the palette over IPC), so `app-icons.sh` restarts it itself whenever its output actually changed — except on a locked session, where `omarchy-restart-shell` refuses and the old colour stands until the next theme change or shell restart.
-- **Quit Chromium before the step 7d zoom and theme halves**, and relaunch after. Chromium rewrites `Preferences` from memory on exit, so a write made while it is running is discarded; the script detects this and skips rather than reporting a change that will not survive. The flag half needs only a relaunch. Sites already zoomed with ctrl+/- keep their own `per_host_zoom_levels` and ignore the default.
+- **Quit Chromium before the step 7d zoom-clearing and theme halves**, and relaunch after. Chromium rewrites `Preferences` from memory on exit, so a write made while it is running is discarded; the script detects this and skips rather than reporting a change that will not survive. The flag half needs only a relaunch. Sites already zoomed with ctrl+/- keep their own `per_host_zoom_levels` and ignore the default.
 - **Step 9 (the whole managed policy — the context-menu declutter *and* the two force-installed extensions) needs no relaunch** if Chromium is already running: the step calls `chromium --refresh-platform-policy --no-startup-window` itself after writing the file — the same live reload `omarchy-theme-set-browser` uses for Omarchy's own `color.json` — and that reloads the whole managed-policy directory. (This used to lean on step 8's own refresh, back when the policy step ran before the theme; it runs after it now, so that refresh comes too early.)
 - **DevTools is deliberately not in the policy.** `DeveloperToolsAvailability:
   2` was there originally, as part of the same context-menu declutter, and it
@@ -549,9 +574,6 @@ yazi/generate-icons.py        rewrites yazi's ~725 icon rules onto ANSI names, r
 yazi/cllpse-macos.tmTheme.tpl  previewer syntax theme with {{ placeholders }} — Xcode's scope assignment in the macOS palette; hex-only, so generated per theme
 hooks/theme-set.d/yazi-syntax.sh  renders the template above into ~/.config/yazi/cllpse-macos.tmTheme on every theme switch, raising hues to 4.5:1 against the background
 hooks/theme-set.d/cursor-chrome.sh  copies Omarchy's window-chrome colours into Cursor's workbench.colorCustomizations (plus the muted@25% sidebar/tab dividers), scoped to the Bearded themes named in cursor/settings.json
-cursor/cllpse-cursor-text-size      re-derives Cursor's editor.fontSize from `omarchy display text size`
-cursor/cllpse-cursor-text-size.path systemd user path unit on ~/.config/omarchy/shell.toml that runs it
-cursor/cllpse-cursor-text-size.service oneshot started by the .path unit above
 gh-dash/theme.yml.tpl         theme.colors as HEX, baked from colors.toml by the theme-set hook and merged into gh-dash's own config.yml
 hooks/theme-set.d/gh-dash-colors.sh  that hook: renders the template above and replaces only theme.colors in ~/.config/gh-dash/config.yml on every theme switch
 hunk/config.toml.tpl          hunk's custom theme with {{ placeholders }} — hex only, so it is generated per theme
@@ -591,9 +613,9 @@ figma/                        installs/updates Figma Desktop from IliyaBrook/fig
 cursor/derive-dark-from-light.py  generates the dark scheme FROM Bearded Theme Light: contrast-preserving for text, delta-mirroring for surfaces, verbatim for alpha/accents/transparent. Re-run after a Bearded update
 cursor/bearded-dark-colors.json   GENERATED -- 318 workbench colours, merged by the theme hook under the chrome copy (dark mode only)
 cursor/bearded-dark-tokens.json   GENERATED -- 55 textMate + 10 semantic rules, merged into settings.json by apply.sh, scoped to the dark variant so light mode is untouched
-chromium/chromium-flags.conf  --force-device-scale-factor=1 + --enable-features=…,OverlayScrollbar + --disable-features=MediaSessionService (fenced into Omarchy's flags file)
+chromium/chromium-flags.conf  --enable-features=…,OverlayScrollbar + --disable-features=MediaSessionService (fenced into Omarchy's flags file)
 chromium/chromium_prefs.py    shared plumbing for the two profile-preference scripts below
-chromium/default-zoom.py      default page zoom -> 110% (no flag exists; it is a profile preference)
+chromium/default-zoom.py      reads, sets or clears the default page zoom (a profile preference, no flag exists); apply.sh only clears the 110% it used to set
 chromium/neutral-theme.py     system (GTK) theme + grayscale -> a neutral browser UI (the theme-colour policy can only give a tinted palette)
 keyd/default.conf             identity config pinned to the Preonic, plus the inert [figma:C] / [figma_ctrl:C] layers the runtime bind activates (installed to /etc with sudo)
 keyd/keyd.service.d/restart.conf  Restart=on-failure + a 5-in-60 start limit for keyd, which ships with no restart policy and segfaults (installed to /etc/systemd/system with sudo)
@@ -606,7 +628,7 @@ ryzen/ryzen-tdp.env           the power limits themselves: 50W sustained / 58W b
 ryzen/ryzen-tdp.service       reapplies them at boot AND on resume -- ryzenadj's settings survive neither (installed to /etc/systemd/system with sudo)
 ryzen/burst-bench.py          times fixed all-core work at several burst limits, which is what settled the 58W figure; needs sudo, restores the env file's limits on exit, not run by apply.sh
 ryzen/hwgraph.py              live bar graphs (bright top, dimmed body) with dotted, labelled gridlines: CPU clock + Tctl, with sustained power against its limit as a label line (needs ryzen_smu), the memory clock, each RAM stick's and the SSD's temperature, each labelled with its current reading, mean and peak, the CPU's and RAM's throttle points as red lines; logs every sample to ~/.local/state/hwgraph/ and replays the last 24 h on start; no root, no deps, not run by apply.sh
-chromium/policies-managed.json  spellcheck/translate/password/autofill/Print/Cast/QR-code/Reading-list off, plus ExtensionInstallForcelist pinning uBlock Origin Lite + Proton Pass (managed policy, installed to /etc with sudo). DevTools deliberately absent — see the follow-ups section
+chromium/policies-managed.json  spellcheck/translate/password/autofill/Print/Cast/QR-code/Reading-list off, NewTabPageLocation about:blank, plus ExtensionInstallForcelist pinning uBlock Origin Lite + Proton Pass (managed policy, installed to /etc with sudo). DevTools deliberately absent — see the follow-ups section
 chromium-theme/build.py        renders a Chromium theme manifest from a colors.toml: background = darker_background (light) / dark_background (dark), active tab = lighter_background, text = light_foreground, toolbar icons computed so the derived toolbar/page line equals the address field's background, the same focused or not
 chromium-theme/chromium-theme.sh  step 9b (sudo): packs light + dark with per-machine keys in $STATE, installs the CRXs root-owned to /usr/local/share/cllpse-macos/chromium-theme, the writer to /usr/local/bin and its passwordless rule to /etc/sudoers.d/cllpse-chromium-theme, links the theme-set hook, applies the current mode
 chromium-theme/cllpse-chromium-theme-policy  the root-owned writer (light|dark|off): writes /etc/chromium/policies/managed/zz-cllpse-macos-theme.json, which installs both themes (optional) and the switcher (forced), hands the switcher the mode through 3rdparty policy, and masks Omarchy's BrowserThemeColor

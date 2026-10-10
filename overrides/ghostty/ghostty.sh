@@ -1,5 +1,5 @@
 #!/bin/bash
-# Ghostty overrides: freetype-load-flags (hinting none)
+# Ghostty overrides: font family and size, freetype-load-flags (hinting none)
 #
 # See README.md in this directory for what this does and why.
 # Runnable on its own, and called by ../apply.sh. $HERE is bound to overrides/

@@ -38,6 +38,20 @@ read_text_size() {
   ' "$DISPLAY_SHELL_TOML"
 }
 
+# Is the GTK text-scaling-factor the one `omarchy display text size $1` would
+# set for the CURRENT GTK UI font? Omarchy derives it from that font's point
+# size (round(pt * px / 12) / pt), so a factor computed before apply.sh's
+# gtk-fonts step changed the font is stale even though the text size matches.
+gtk_factor_current() { # $1 text size (px)
+  local pt have
+  pt="$(gsettings get org.gnome.desktop.interface font-name 2>/dev/null)"
+  pt="${pt%\'}"; pt="${pt##* }"
+  have="$(gsettings get org.gnome.desktop.interface text-scaling-factor 2>/dev/null)"
+  [[ $pt =~ ^[0-9]+(\.[0-9]+)?$ && -n $have ]] || return 0
+  awk -v s="$1" -v f="$pt" -v h="$have" \
+    'BEGIN { want = int(f * s / 12 + 0.5) / f; d = want - h; exit !(d < 0.0001 && d > -0.0001) }'
+}
+
 # `key = value` from a display.conf, ignoring comments and blank lines.
 conf_get() { # $1 key  $2 conf-file
   [[ -f $2 ]] || return 0

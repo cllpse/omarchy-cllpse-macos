@@ -178,10 +178,17 @@ for q in monospace sans-serif; do printf '    %-11s -> %s\n' "$q" "$(fc-match "$
 }
 
 step_gtk_fonts() {
-say "gsettings: GTK/GNOME fonts -> SF Pro / SF Mono"
-gsettings set org.gnome.desktop.interface font-name           'SFProText Nerd Font Propo 11'
-gsettings set org.gnome.desktop.interface document-font-name  'SFProText Nerd Font Propo 12'
-gsettings set org.gnome.desktop.interface monospace-font-name 'SFMono Nerd Font Mono 10'
+# 9pt is 12px, Omarchy's text-size anchor (12px = factor 1.0), so GTK text
+# times the factor `omarchy display text size` sets lands on the text size
+# itself: 10pt = 13.3px at 13. Chromium and Electron take their UI font from
+# font-name and their whole-UI scale from the same factor, so their text lands
+# there too (2026-10-10; was 11/12/10, which put every GTK, Chromium and
+# Electron surface ~25% above the shell). The display step recomputes the
+# factor when this changes it. See overrides/README.md, "One text size".
+say "gsettings: GTK/GNOME fonts -> SF Pro / SF Mono, 9pt"
+gsettings set org.gnome.desktop.interface font-name           'SFProText Nerd Font Propo 9'
+gsettings set org.gnome.desktop.interface document-font-name  'SFProText Nerd Font Propo 9'
+gsettings set org.gnome.desktop.interface monospace-font-name 'SFMono Nerd Font Mono 9'
 
 
 }
@@ -444,7 +451,7 @@ STEPS=(
   "monospace||Point monospace at SF Mono (omarchy font set)|fn:step_monospace|fonts"
   "gtk-fonts||Point GTK / GNOME apps at SF Pro / SF Mono|fn:step_gtk_fonts|fonts"
   "hinting||Font hinting -> none (GTK/GNOME side)|fn:step_hinting|"
-  "ghostty||Ghostty hinting|run:ghostty|"
+  "ghostty||Ghostty font and hinting|run:ghostty|"
   "gtk-buttons||Strip GTK window buttons|fn:step_gtk_buttons|"
   "xkb||Danish letters on the Preonic M0 layer|run:xkb|"
   "hypr||Hyprland env, decoration, binds, input + keybind allowlist|run:hypr|"

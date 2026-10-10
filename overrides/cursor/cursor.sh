@@ -43,38 +43,10 @@ if [[ -x /usr/bin/cursor || -d ${cursor_settings%/*} ]]; then
         jq -s '.[0] * .[1]' "$HERE/cursor/settings.json" "$_tokens" >"$_merged" 2>/dev/null || true
       fi
     fi
-# See README.md (4)
-    _px="$(omarchy display text size 2>/dev/null | sed -n '1s/[^0-9]*\([0-9][0-9]*\).*/\1/p')"
-    if [[ $_px =~ ^[0-9]+$ ]] && (( _px >= 6 && _px <= 40 )); then
-      _sized=$(mktemp)
-      if jq --argjson px "$_px" '.["editor.fontSize"] = $px' "$_merged" >"$_sized" 2>/dev/null && [[ -s $_sized ]]; then
-        mv "$_sized" "$_merged"
-      else
-        rm -f "$_sized"
-        skip "could not write derived editor.fontSize — kept the value from cursor/settings.json"
-      fi
-    else
-      skip "could not read \`omarchy display text size\` — kept editor.fontSize from cursor/settings.json"
-    fi
-
+# See README.md (4): the font sizes are plain keys in cursor/settings.json now.
     if [[ -s $_merged ]]; then
       mv "$_merged" "$cursor_settings"
-      say "Cursor -> $cursor_settings (jq merge, editor.fontSize ${_px:-fallback} from display text size)"
-
-# See README.md (5)
-      mkdir -p ~/.local/bin ~/.config/systemd/user
-      ln -sfn "$HERE/cursor/cllpse-cursor-text-size" ~/.local/bin/cllpse-cursor-text-size
-      _units_changed=0
-      for _u in cllpse-cursor-text-size.path cllpse-cursor-text-size.service; do
-        if ! cmp -s "$HERE/cursor/$_u" ~/.config/systemd/user/"$_u"; then
-          cp "$HERE/cursor/$_u" ~/.config/systemd/user/"$_u"
-          _units_changed=1
-        fi
-      done
-      (( _units_changed )) && systemctl --user daemon-reload >/dev/null 2>&1
-      systemctl --user enable --now cllpse-cursor-text-size.path >/dev/null 2>&1 \
-        && say "Cursor text size -> follows \`omarchy display text size\` (systemd path unit)" \
-        || skip "could not enable cllpse-cursor-text-size.path — editor.fontSize will only update on apply"
+      say "Cursor -> $cursor_settings (jq merge)"
     else
       rm -f "$_merged"
       skip "Cursor settings merge produced nothing — left settings.json untouched"
@@ -82,6 +54,16 @@ if [[ -x /usr/bin/cursor || -d ${cursor_settings%/*} ]]; then
   fi
 else
   skip "Cursor not installed — skipped settings.json merge"
+fi
+
+# See README.md (5): retire the text-size watcher an earlier apply installed.
+if [[ -e ~/.config/systemd/user/cllpse-cursor-text-size.path || -L ~/.local/bin/cllpse-cursor-text-size ]]; then
+  systemctl --user disable --now cllpse-cursor-text-size.path >/dev/null 2>&1 || true
+  rm -f ~/.config/systemd/user/cllpse-cursor-text-size.path \
+    ~/.config/systemd/user/cllpse-cursor-text-size.service \
+    ~/.local/bin/cllpse-cursor-text-size
+  systemctl --user daemon-reload >/dev/null 2>&1 || true
+  say "Cursor text-size watcher removed (Electron's GTK factor carries text size now)"
 fi
 
 # See README.md (6)

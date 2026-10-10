@@ -311,23 +311,23 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   only moved off the chord. Its plugin README has the ranking in full and one
   Omarchy 4.0.4 bug it works around: a third-party `menu` plugin is never
   handed the shell's app library, so it runs its own.
-- **Chromium scale is two settings that multiply, not one.**
-  `overrides/chromium/chromium-flags.conf` is fenced into
-  `~/.config/chromium-flags.conf` (the launcher skips `#` lines, so the markers
-  are inert) and passes `--force-device-scale-factor=1`, written to pin the
-  device pixel ratio to 1 under the monitor scale (browser UI 20% under the
-  desktop at 1.25, as tuned on DP-2). **On Chromium 152 it no longer does**
-  (measured 2026-10-10): under Wayland it only cancels the GTK text-scaling
-  factor, and UI and pages follow the monitor scale. That is the TV's 1.25
-  (1.33333 from 2026-10-08 to 2026-10-10). `overrides/chromium/default-zoom.py`
-  sets page zoom to 110% on top, so pages render at 1.25 × 1.1 = 1.375 device
-  pixels per CSS pixel (1.4667 measured at 1.33333). 110% was kept deliberately
-  (2026-10-09) rather than moved off Chromium's zoom ladder.
-  There is no command-line flag for default zoom — it is the profile
-  preference `partition.default_zoom_level`, stored as `ln(factor)/ln(1.2)` —
-  and Chromium must be closed when it is written, since it rewrites
+- **Chromium scale is the desktop's, with no scale flag and no page zoom.**
+  Browser UI follows the monitor scale (the TV's 1.25) times the GTK
+  text-scaling factor that `omarchy display text size` sets (10/9 at 13,
+  rounded by Chromium to 71/64): 1.387 device pixels per DIP. Its tab titles
+  come out at the text size, like every app (`overrides/README.md`, "One text
+  size"). Pages render at Chromium's own 100%, the same 1.387 device pixels
+  per CSS pixel. The 110% default zoom that paired with the old scale flag
+  was dropped on 2026-10-10, and the step clears it where it is still set.
+  `--force-device-scale-factor=1` was dropped on 2026-10-10. On Chromium 152
+  under Wayland it only cancelled the text factor, and it made Chromium report
+  a whole-number scale, which turned off its fix for fractional scales: one
+  device row above the toolbar/page line stayed 25% transparent and showed the
+  wallpaper. `overrides/chromium/README.md` §2 has the source trail.
+  Clearing it needs Chromium closed: the default zoom is the profile
+  preference `partition.default_zoom_level`, and Chromium rewrites
   `Preferences` from memory on exit.
-- **Three more Chromium settings, same step.** The flags file also carries
+- **Three more Chromium settings, same step.** The flags file carries
   `--enable-features=…,OverlayScrollbar` — the thin, auto-hiding scrollbar
   macOS has, where Chromium otherwise draws a permanent gutter. It restates
   Omarchy's own feature deliberately: a repeated `--enable-features` is
@@ -609,9 +609,10 @@ no install step and appear in no package list. All but `ghui` and `hermes` are
 *also* pinned in `~/.config/mise/config.toml` (with `node`, `go` and `uv`) —
 was four, `claude`, `codex`, `gh`, `hunk`; a wrapper's `mise use -g` writes its
 pin on first run — so they are installed whether or not their wrapper ever runs
-again; only `hunk` and `gh` matter to this repo. The three `cllpse-*` entries
-beside them (`cllpse-cursor-text-size`, `cllpse-figma-keyd`,
-`cllpse-ytm-signin`) are this repo's, installed by `apply.sh`.
+again; only `hunk` and `gh` matter to this repo. The two `cllpse-*` entries
+beside them (`cllpse-figma-keyd`, `cllpse-ytm-signin`) are this repo's,
+installed by `apply.sh`. A third, `cllpse-cursor-text-size`, was retired on
+2026-10-10, and `apply.sh cursor` deletes it.
 
 **Arch and Omarchy base** — `amd-ucode`, `efibootmgr`, `fwupd`, `mkinitcpio`,
 `sudo`, `omarchy`, `omarchy-keyring`, `omarchy-settings`. Listed only so that
