@@ -315,22 +315,28 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   only moved off the chord. Its plugin README has the ranking in full and one
   Omarchy 4.0.4 bug it works around: a third-party `menu` plugin is never
   handed the shell's app library, so it runs its own.
-- **Chromium scale is the desktop's, with no scale flag and no page zoom.**
-  Browser UI follows the monitor scale (the TV's 1.25) times the GTK
-  text-scaling factor that `omarchy display text size` sets (10/9 at 13,
-  rounded by Chromium to 71/64): 1.387 device pixels per DIP. Its tab titles
-  come out at the text size, like every app (`overrides/README.md`, "One text
-  size"). Pages render at Chromium's own 100%, the same 1.387 device pixels
-  per CSS pixel. The 110% default zoom that paired with the old scale flag
-  was dropped on 2026-10-10, and the step clears it where it is still set.
-  `--force-device-scale-factor=1` was dropped on 2026-10-10. On Chromium 152
-  under Wayland it only cancelled the text factor, and it made Chromium report
-  a whole-number scale, which turned off its fix for fractional scales: one
-  device row above the toolbar/page line stayed 25% transparent and showed the
-  wallpaper. `overrides/chromium/README.md` §2 has the source trail.
-  Clearing it needs Chromium closed: the default zoom is the profile
-  preference `partition.default_zoom_level`, and Chromium rewrites
-  `Preferences` from memory on exit.
+- **Chromium's UI scale is pinned at 0.95, and page zoom undoes it for pages.**
+  `overrides/chromium/chromium-flags.conf` passes
+  `--force-device-scale-factor=0.95`, which on Wayland replaces the GTK text
+  factor as Chromium's UI scale: 1.25 × 0.95 = 1.1875 device pixels per DIP,
+  19 for every 16, so Chromium's mostly-multiple-of-2-and-4 DIP sizes fall on
+  16ths of a pixel and multiples of 8 on half pixels. Chromium's toolbar is fixed in DIPs with 14-DIP address bar
+  text whatever the GTK font, so following the GTK factor made the address
+  bar read as huge (15.5px text in a 37.7px bar). At 0.95 that text is
+  13.3px, the same as every other app's, and tab titles 11.4px. The cost is that
+  Chromium no longer follows `omarchy display text size`.
+  The default page zoom is 100/0.95 = 105.263%, derived from the flag by
+  `overrides/chromium/chromium.sh` and written by `default-zoom.py`, so pages
+  render at 1.25 device pixels per CSS pixel: one CSS pixel per desktop
+  pixel, as on macOS. The flag has to be
+  fractional: the old `--force-device-scale-factor=1` made Chromium report a
+  whole-number scale, which turned off its fix for fractional scales, and one
+  device row above the toolbar/page line stayed 25% transparent and showed
+  the wallpaper. `overrides/chromium/README.md` §2 has the source trail. There
+  is no command-line flag for default zoom — it is the profile preference
+  `partition.default_zoom_level`, stored as `ln(factor)/ln(1.2)` — and
+  Chromium must be closed when it is written, since it rewrites `Preferences`
+  from memory on exit.
 - **Three more Chromium settings, same step.** The flags file carries
   `--enable-features=…,OverlayScrollbar` — the thin, auto-hiding scrollbar
   macOS has, where Chromium otherwise draws a permanent gutter. It restates

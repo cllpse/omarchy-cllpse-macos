@@ -10,18 +10,39 @@ because it is the only part needing sudo and a password prompt should not
 stall a run halfway through (it was step 9). Calling this with no argument
 -- which is what running it by hand does -- does both, in that order.
 
-## 2. No scale flag and no page zoom
+## 2. A fractional scale flag, 0.95, and the page zoom that undoes it
 
-Since 2026-10-10 there is no scale flag. Browser UI follows the monitor scale
-times the GTK text-scaling factor, which `omarchy display text size` sets.
-That is 10/9 at text size 13 with the 9pt GTK font, rounded by Chromium to
-71/64: 1.25 × 71/64 = 1.387 device pixels per DIP. Tab titles and menus are
-the GTK UI font in DIP (12) times the same factor, which is the text size,
-like every other app (`../README.md`, "One text size"). Pages render at
-Chromium's own 100% (§4), so at the same 1.387: page text follows the text
-size as well, and only the page's own CSS decides how big it is.
+Since 2026-10-11, `--force-device-scale-factor=0.95` pins Chromium's UI
+scale: 1.25 × 0.95 = 1.1875 device pixels per DIP, exactly 19 for every 16.
+Chromium's
+toolbar is fixed in DIPs (a 34-DIP address bar and buttons, 35-DIP tabs), and
+the address bar text is always 14 DIP, whatever the GTK font. Only tab titles
+follow the GTK font. So the one control is the UI scale, and it moves the
+whole toolbar and its text together:
 
-**Why the flag went.** `--force-device-scale-factor=1` was written to pin the
+| UI scale | Tab titles | Address bar text | Bar height | (desktop px) |
+|---|---|---|---|---|
+| GTK factor, 71/64 (2026-10-10 to 11) | 13.3 | 15.5 | 37.7 | |
+| 0.9 (measured, a few hours on 2026-10-11) | 10.8 | 12.6 | 30.6 | |
+| **0.95 (now)** | **11.4** | **13.3** | **32.3** | |
+
+At the GTK factor, tab titles matched the desktop's text, but the address bar
+read as huge next to everything else. At 0.95 its text is 13.3, the same as
+every other app's, and tab titles are a step smaller, as Safari's are. The
+scale was picked for its ratio. 0.9 came first, at 9/8, the cleanest under 1.
+Asked to go up a step, 0.95 was the clean one between 0.91 and 0.98: 19/16,
+so edges fall on 16ths of a pixel and multiples of 8 DIP on half pixels. At
+1.387 none line up. The flags file has the candidates. The cost: Chromium no
+longer follows `omarchy display text size`, so this number has to move by
+hand with it. Pages scale with it too, so the default zoom is 1/0.95,
+105.263% (§4), which puts them back at the monitor's 1.25 device px per CSS
+px.
+
+For a day before that there was no flag at all. The UI followed the monitor
+scale times the GTK text factor, 10/9 at text size 13, which Chromium rounds
+to 71/64 (1.387 device px per DIP), and pages were at Chromium's own 100%.
+
+**Why the old `=1` flag went, and why this one is fractional.** `--force-device-scale-factor=1` was written to pin the
 device pixel ratio to 1 under the monitor scale (browser UI 20% under the
 desktop at 1.25, as tuned on DP-2; 25% at 1.33333), paired with 110% zoom.
 On Chromium 152 under Wayland it no longer did that (measured 2026-10-10):
@@ -54,12 +75,14 @@ which would have kept pages where they were. Later that day the GTK UI font
 went from 11pt to 9pt, so every app's text is the text size. Tab text went
 from 16.4 to 13.3 desktop px. The factor went from 12/11 to 10/9, so the rest
 of the UI and pages grew by another 1.4%. Then the 110% zoom went (§4), and
-pages came down 9% to 1.387 device px per CSS px.
+pages came down 9% to 1.387 device px per CSS px. The next day a 0.9, then 0.95, flag
+and 110% zoom replaced both (§2, §4).
 
 The flag file is Omarchy's, so our lines go in a fenced block, as in every
 other shared config here. The launcher skips "#" lines, which makes the
-markers inert. A copy of the flag outside the block would turn the fix off
-again, so `chromium.sh` deletes one wherever it finds it.
+markers inert. Our scale flag is inside the block. A copy outside it would be
+passed twice, or, if it is an old whole-number `=1`, turn the fix off again,
+so `chromium.sh` deletes any copy outside the block.
 
 ## 3. A repeated --enable-features is not merged
 
@@ -75,16 +98,25 @@ an Omarchy feature off on the next update.
 way: Omarchy ships no such line today, but if it ever adds one, ours would
 drop it just as silently.
 
-## 4. No default page zoom
+## 4. Default page zoom 105.263%, derived from the scale flag
 
-No default page zoom since 2026-10-10. The step used to set 110%, as the other
-half of the scale flag in §2 (page size was the product of the two). With the
-flag gone and every app's text at the text size, 110% only made pages 10%
-larger than everything else, and it was removed when asked. The step now
-clears `partition.default_zoom_level` if it still holds that 110%, so
-Chromium's own 100% applies. It leaves any other value alone, since that is a
-choice made in Chromium's settings, not ours. Like every Preferences write, it
-needs Chromium closed (see the script).
+Since 2026-10-11 the default zoom is 100 divided by the scale flag in §2:
+105.263% for 0.95. `chromium.sh` reads the flag and computes it, so the two
+can't drift apart. Page size is the product of the two, 1.1875 × 1.0526 =
+1.25 device px per CSS px. That is exactly the monitor scale, so a CSS pixel
+is one desktop pixel. Page content renders the way any app does at 1.25, and
+the scale-down only reaches the browser's own UI. It is also the macOS
+relationship: there a CSS pixel is one point, so web body text is 16 against
+the system's 13; here it is 16 desktop px against every app's 13.3.
+
+105.263% is not a step on Chromium's zoom ladder (100, 110, 125…). Ctrl+0
+returns to it, since it is the default. Ctrl+plus and Ctrl+minus go to 110% or
+100% and never land back on it.
+
+History: 110% paired with the old `=1` flag until 2026-10-10. It was dropped
+with the flag (pages then followed the GTK factor at 100%). It came back a day
+later with the new flag, at 125% (with 0.9), then 110% (with 0.95), then this. Like every Preferences write, it needs
+Chromium closed (see the script).
 
 There is no command-line flag for default page zoom; the script header has
 what was checked, and the log scale the preference is stored in. revert.sh
@@ -198,9 +230,10 @@ as a DevTools bug.
 
 ## From the step table
 
-Chromium: no default page zoom (the 110% this step set until 2026-10-10 is
-cleared), so pages render at the monitor scale times the GTK text factor,
-1.25 × 71/64 = 1.387; no scale flag, since
+Chromium: `--force-device-scale-factor=0.95`, so the UI is 19/16 device px
+per DIP and the address bar text is the desktop's 13.3 (§2), with the default
+page zoom at 100/0.95 = `105.263%`, so pages render at the monitor's 1.25;
+fractional, since
 `--force-device-scale-factor=1` turned off Chromium's fix for the see-through
 row above the toolbar/page line at fractional scales (§2); `--enable-features=…,OverlayScrollbar` for the
 thin auto-hiding scrollbar (restating Omarchy's own feature, because a

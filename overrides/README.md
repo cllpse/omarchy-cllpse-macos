@@ -51,8 +51,8 @@ leaves out keyboard layout, the `git` pager, session env, the repair hook, input
 remapping, which file manager the desktop asks for (`flea`), and everything
 needing sudo or the network; also `display`, a
 hardware preference that can resize everything on screen, and `chromium-user`,
-whose neutral UI is appearance but which also clears the old page zoom and
-sets Chromium's flags. The set is named explicitly in `apply.sh` and validated
+whose neutral UI is appearance but which also sets page zoom and Chromium's
+UI scale. The set is named explicitly in `apply.sh` and validated
 against `STEPS` at startup, so a typo in it fails loudly instead of quietly
 dropping a step. `--look` is the same set without the prompt.
 
@@ -287,7 +287,7 @@ script works the same whether you run it by hand or `apply.sh` calls it.
 | 7\* | Prompt and diff colours that must be BAKED per theme rather than named: Starship has no config-import mechanism, and hunk's validator takes hex only.<br>**Detail: [`starship/`](starship/README.md), [`hunk/`](hunk/README.md)** | `~/.config/omarchy/hooks/theme-set.d/{starship-colors,hunk-colors}.sh` (symlinked), `~/.config/starship.toml`, `~/.config/hunk/config.toml` |
 | 7b | Restore saved display scaling + text size. **Full detail: [`display/README.md`](display/README.md).** | `omarchy display text size`, the two scale variables in `~/.config/hypr/monitors.lua` |
 | 7c | Session environment drop-ins (Figma → native Wayland). Read at session start, so they need a relogin. **Full detail: [`environment.d/README.md`](environment.d/README.md).** | `~/.config/environment.d/50-cllpse-macos-figma-wayland.conf` |
-| 7d | Chromium flags (no scale flag, no page zoom: the old 110% is cleared), overlay scrollbars and a neutral browser UI. **Full detail: [`chromium/README.md`](chromium/README.md).** | fenced block in `~/.config/chromium-flags.conf` + `partition.default_zoom_level`, `extensions.theme.system_theme` and `browser.theme.is_grayscale2` in each `~/.config/chromium/*/Preferences` |
+| 7d | Chromium flags (UI scale pinned at 0.95, page zoom 100/0.95 so pages stay at 1.25), overlay scrollbars and a neutral browser UI. **Full detail: [`chromium/README.md`](chromium/README.md).** | fenced block in `~/.config/chromium-flags.conf` + `partition.default_zoom_level`, `extensions.theme.system_theme` and `browser.theme.is_grayscale2` in each `~/.config/chromium/*/Preferences` |
 | 7e | Figma Desktop's launcher entry — the app gets `Name=` and `StartupWMClass` wrong for this desktop and regenerates its own entry on every launch. **Full detail: [`applications/README.md`](applications/README.md).** | `~/.local/share/applications/figma-desktop-appimage.desktop`, and `~/Applications/figma-desktop/AppRun` restored if wrapped |
 | 7f | App icons for the menu, which draws app rows as a plain image and cannot recolour. **Full detail: [`icons/README.md`](icons/README.md).** | `~/.icons/cllpse-flat/apps/`, `~/.icons/cllpse-color/apps/`, `~/.config/omarchy/hooks/theme-set.d/app-icons.sh` (symlinked) |
 | 7f2 | Post-update repair hook — re-link what an `omarchy update` could quietly take out. **Full detail: [`hooks/README.md`](hooks/README.md).** | `~/.config/omarchy/hooks/post-update.d/cllpse-macos-repair.sh` (symlinked) |
@@ -401,13 +401,14 @@ though the values themselves are a preference.
 root, the GTK `text-scaling-factor` and the terminal point size together.
 
 **One text size** (2026-10-10). Every app's body text is that one number,
-13.3 desktop px at text size 13:
+13.3 desktop px at text size 13, with Chromium pinned close to it:
 
 | App | Base size | Times |
 |---|---|---|
 | Omarchy shell, bar, switcher, supermenu, Flea | `base-size` = text size | — |
 | GTK apps (Files, Evince, file dialogs…) | `font-name` 9pt = 12px | GTK factor |
-| Chromium tab titles and menus (and Chrome, web apps) | `font-name` → 12 DIP | GTK factor |
+| Chromium address bar / tab titles (and its web apps) | 14 DIP / `font-name` → 12 DIP | 0.95, pinned: 13.3 / 11.4 px |
+| Google Chrome tab titles | `font-name` → 12 DIP | GTK factor (its own flags file, not ours) |
 | Cursor: UI / editor / terminal | 13 CSS px × zoom 12/13 | GTK factor |
 | Ghostty | `font-size=9` pt = 12px | GTK factor (`gtk-xft-dpi`) |
 
@@ -423,7 +424,11 @@ another font size. Ghostty and Cursor are pinned in `ghostty/ghostty.conf` and
 
 On Wayland the factor is also Chromium's and every Electron app's whole-UI
 scale (toolbars, icons, pages), not a text-only one. Raising the text size
-grows them with it.
+grows them with it. That is why Chromium is pinned instead (2026-10-11,
+`chromium/README.md` §2). Its toolbar is fixed in DIPs, with 14-DIP address
+bar text whatever the GTK font, so at the factor its address bar read as
+huge. `--force-device-scale-factor=0.95` puts that text at 13.3 and tab titles
+a step below. The cost is that Chromium no longer follows the text size.
 
 These are **the author's values**, tuned for a 43" 3840x2160 TV, and they are
 not part of the macOS look — edit `display.conf` or re-run `display/save-display.sh` on
@@ -613,9 +618,9 @@ figma/                        installs/updates Figma Desktop from IliyaBrook/fig
 cursor/derive-dark-from-light.py  generates the dark scheme FROM Bearded Theme Light: contrast-preserving for text, delta-mirroring for surfaces, verbatim for alpha/accents/transparent. Re-run after a Bearded update
 cursor/bearded-dark-colors.json   GENERATED -- 318 workbench colours, merged by the theme hook under the chrome copy (dark mode only)
 cursor/bearded-dark-tokens.json   GENERATED -- 55 textMate + 10 semantic rules, merged into settings.json by apply.sh, scoped to the dark variant so light mode is untouched
-chromium/chromium-flags.conf  --enable-features=…,OverlayScrollbar + --disable-features=MediaSessionService (fenced into Omarchy's flags file)
+chromium/chromium-flags.conf  --force-device-scale-factor=0.95 + --enable-features=…,OverlayScrollbar + --disable-features=MediaSessionService (fenced into Omarchy's flags file)
 chromium/chromium_prefs.py    shared plumbing for the two profile-preference scripts below
-chromium/default-zoom.py      reads, sets or clears the default page zoom (a profile preference, no flag exists); apply.sh only clears the 110% it used to set
+chromium/default-zoom.py      reads, sets or clears the default page zoom (a profile preference, no flag exists); apply.sh sets 100 / the UI scale, 105.263% for 0.95
 chromium/neutral-theme.py     system (GTK) theme + grayscale -> a neutral browser UI (the theme-colour policy can only give a tinted palette)
 keyd/default.conf             identity config pinned to the Preonic, plus the inert [figma:C] / [figma_ctrl:C] layers the runtime bind activates (installed to /etc with sudo)
 keyd/keyd.service.d/restart.conf  Restart=on-failure + a 5-in-60 start limit for keyd, which ships with no restart policy and segfaults (installed to /etc/systemd/system with sudo)

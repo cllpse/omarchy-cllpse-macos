@@ -17,10 +17,14 @@ if _want user; then
 
 # See README.md (2)
 if [[ -f "$HERE/chromium/chromium-flags.conf" ]]; then
+  # Ours is inside the fenced block. A copy outside it would either be passed
+  # twice or, as Omarchy-era `=1` lines are, a whole number, which turns off
+  # Chromium's fractional-scale fix.
+  _fence="/^# >>> $MARK >>>\$/,/^# <<< $MARK <<<\$/"
   if [[ -f ~/.config/chromium-flags.conf ]] &&
-     grep -q '^--force-device-scale-factor=' ~/.config/chromium-flags.conf; then
-    sed -i '/^--force-device-scale-factor=/d' ~/.config/chromium-flags.conf
-    skip "dropped a --force-device-scale-factor line: it turns off Chromium's fractional-scale fix (chromium/README.md (2))"
+     sed "${_fence}d" ~/.config/chromium-flags.conf | grep -q '^--force-device-scale-factor='; then
+    sed -i "${_fence}!{/^--force-device-scale-factor=/d}" ~/.config/chromium-flags.conf
+    skip "dropped a --force-device-scale-factor line outside our block (chromium/README.md (2))"
   fi
   sync_fenced ~/.config/chromium-flags.conf "$HERE/chromium/chromium-flags.conf"
 
@@ -42,10 +46,18 @@ if [[ -f "$HERE/chromium/chromium-flags.conf" ]]; then
 fi
 
 # See README.md (4)
-if [[ -x "$HERE/chromium/default-zoom.py" ]] &&
-   [[ "$("$HERE/chromium/default-zoom.py" --print 2>/dev/null || true)" == 110 ]]; then
-  say "Chromium default page zoom -> its own default (clearing the 110% this step used to set)"
-  "$HERE/chromium/default-zoom.py" --reset || true
+if [[ -x "$HERE/chromium/default-zoom.py" ]]; then
+  # 100 / the UI scale in chromium-flags.conf, so page content is back at the
+  # monitor scale: 105.263% for 0.95. Printed with %g, as
+  # `default-zoom.py --print` reports it, so record_prior recognises the value
+  # as ours on a re-run.
+  _zoom="$(awk -F= '/^--force-device-scale-factor=/ { printf "%g", 100 / $2; exit }' \
+    "$HERE/chromium/chromium-flags.conf")"
+  [[ -n $_zoom ]] || _zoom=100
+  record_prior "$STATE/previous-chromium-zoom" \
+    "$("$HERE/chromium/default-zoom.py" --print 2>/dev/null || true)" "$_zoom"
+  say "Chromium default page zoom -> ${_zoom}%"
+  "$HERE/chromium/default-zoom.py" "$_zoom" || true
 fi
 
 # See README.md (5)
