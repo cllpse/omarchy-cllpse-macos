@@ -75,8 +75,15 @@ white text would be about 3.5:1.
   Hyprland's unfocused browser opacity (0.985, `default/hypr/apps/browser.lua`)
   accounts for 2–3 levels at most, so the wash is most likely Chromium's own.
   If it is, matching keys will not keep an unfocused window identical: its
-  blue lifts slightly, while white cannot get lighter. To check with this
-  version.
+  blue lifts slightly, while white cannot get lighter.
+
+**Measured with this version** (0.0.2, two tabs, 2026-10-10). Focused: frame
+and inactive tab `[0,136,255]`, active tab and toolbar `[255,255,255]`, all
+exact. Unfocused: frame and inactive tab `[30,148,252]`, active tab
+`[253,252,252]`. That fits about 12% of a light grey (~250) over the keys,
+plus Hyprland's 0.985. So the wash survives identical `_inactive` keys: an
+unfocused window's blue reads a shade lighter, and no theme key removes it.
+The inactive tab is the frame colour, so it shows only as a separator.
 
 ## 3. Following theme changes — the subscription problem
 
