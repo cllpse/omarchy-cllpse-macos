@@ -31,9 +31,7 @@ whole toolbar and its text together:
 
 At the GTK factor, tab titles matched the desktop's text, but the address bar
 read as huge next to everything else. At 0.95 its text is 13.3, the same as
-every other app's at text size 13, and tab titles are a step smaller, as
-Safari's are. At text size 14 (since 2026-10-11) the rest is at 14.7, so
-Chromium sits a step under until the flag moves with it. The
+every other app's, and tab titles are a step smaller, as Safari's are. The
 scale was picked for its ratio. 0.9 came first, at 9/8, the cleanest under 1.
 Asked to go up a step, 0.95 was the clean one between 0.91 and 0.98: 19/16,
 so edges fall on 16ths of a pixel and multiples of 8 DIP on half pixels. At
@@ -237,7 +235,7 @@ as a DevTools bug.
 ## From the step table
 
 Chromium: `--force-device-scale-factor=0.95`, so the UI is 19/15 device px
-per DIP at 1.33333 (19/16 at 1.25) and the address bar text is 13.3, the desktop's at text size 13 (§2), with the default
+per DIP at 1.33333 (19/16 at 1.25) and the address bar text is the desktop's 13.3 (§2), with the default
 page zoom at 100/0.95 = `105.263%`, so pages render at the monitor scale;
 fractional, since
 `--force-device-scale-factor=1` turned off Chromium's fix for the see-through

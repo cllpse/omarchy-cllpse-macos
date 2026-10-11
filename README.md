@@ -326,9 +326,8 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   the sizes in desktop pixels below are the same at either scale. Chromium's toolbar is fixed in DIPs with 14-DIP address bar
   text whatever the GTK font, so following the GTK factor made the address
   bar read as huge (15.5px text in a 37.7px bar). At 0.95 that text is
-  13.3px, the same as every other app's at text size 13, and tab titles 11.4px.
-  The cost is that Chromium no longer follows `omarchy display text size`: at
-  14 (since 2026-10-11) the rest is at 14.7px and Chromium a step under.
+  13.3px, the same as every other app's, and tab titles 11.4px. The cost is that
+  Chromium no longer follows `omarchy display text size`.
   The default page zoom is 100/0.95 = 105.263%, derived from the flag by
   `overrides/chromium/chromium.sh` and written by `default-zoom.py`, so pages
   render at the monitor scale (1.33333 device pixels per CSS pixel): one CSS
