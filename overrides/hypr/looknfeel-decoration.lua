@@ -93,6 +93,7 @@
 -- 1.0/0.875 currently. Focused was 1.0 (fully opaque), then 0.97, then 0.98,
 -- then 0.99 (with a brief return to 1.0 for the measurement above), and is
 -- back at 1.0; unfocused alone went through 0.9 and 0.88 on the way to 0.875.
+-- Ghostty and Cursor have 0.98 focused, below.
 o.window({ tag = "default-opacity" }, { opacity = "1.0 0.875" })
 
 -- ── Browser opacity: same unfocused glass as everything else ───────────────
@@ -106,6 +107,16 @@ o.window({ tag = "default-opacity" }, { opacity = "1.0 0.875" })
 -- excluded here too.
 o.window({ tag = "chromium-based-browser" }, { opacity = "1.0 0.875" })
 o.window({ tag = "firefox-based-browser" }, { opacity = "1.0 0.875" })
+
+-- ── Ghostty and Cursor: a hair of glass when focused ───────────────────────
+-- 0.98 focused (2026-10-11), for these two only: the terminal and the editor
+-- read as the same frosted material as the unfocused windows rather than a
+-- flat cutout. Tried live at 0.99 (the value every window had for a long
+-- while, above), 0.98 and 0.97, and 0.98 picked. Matched on the tag as well as the class, so a window Omarchy untags
+-- stays opaque. The cost measured above (~2 points of drm-engine-gfx, when it
+-- applied to every focused window) now applies only while one of these two
+-- has focus.
+o.window({ tag = "default-opacity", class = "(com\\.mitchellh\\.ghostty|cursor)" }, { opacity = "0.98 0.875" })
 
 -- ── Figma opacity: fully opaque, focused or not ────────────────────────────
 -- Figma Desktop (nickvdp/figma-desktop-linux, an AppImage repack of Figma's
@@ -209,34 +220,35 @@ sync_video_tags()
 -- ("macOS boosts saturation behind glass"), brightness/contrast 1.0 ("macOS
 -- does not darken"). Omarchy ships blur disabled.
 --
--- 7/4: effective spread (about size * 2^(passes-1)) is ~56, against ~32 for
--- section 5's original 8/3. This is where a long walk landed. 12/4 (~96), 10/4
--- and 8/4 all read muddy -- the backdrop turning into an undifferentiated wash
--- rather than a suggestion of what sits behind the surface -- while 6/3 (~24)
--- overshot the other way and lost the glass entirely.
+-- 3/5: effective spread (about size * 2^(passes-1)) is ~48, against ~32 for
+-- section 5's original 8/3. Picked by eye on 2026-10-11, live, from 7/4 (~56),
+-- where an earlier long walk had landed: 8/4, 6/4 and 4/5 (~64) were tried on
+-- the way, and 3/5 is a touch less blur than 7/4 with the 5th pass's smoother
+-- falloff. That walk found 12/4 (~96), 10/4 and 8/4 muddy -- the backdrop
+-- turning into an undifferentiated wash rather than a suggestion of what sits
+-- behind the surface -- and 6/3 (~24) overshot the other way and lost the glass.
 --
--- The two knobs are not equivalent, and they do not cost the same. Hyprland's
--- blur is dual-Kawase: `size` scales the sampling OFFSETS, so raising it is
--- essentially free (identical number of texture fetches, just further apart),
--- while each `pass` adds a whole downsample+upsample iteration -- roughly +30%
--- blur work going from 3 to 4, and it scales with how many blurred surfaces are
--- on screen. Trivial on this machine (RTX 3070 Ti driving 6.1 Mpx), but it is
--- the knob that actually costs something.
+-- Neither knob costs much. Hyprland's blur is dual-Kawase: `size` scales the
+-- sampling OFFSETS (the same number of texture fetches, just further apart),
+-- and each `pass` adds a downsample+upsample at half the previous resolution,
+-- so a 5th pass works at 1/16 and 1/32 of the screen's pixels. Measured: size
+-- 28 / passes 2 costs what size 7 / passes 4 does (see the opacity block). An
+-- earlier note here put a pass at +30% blur work; that was never measured, and
+-- the measurement says otherwise. What reach does change is how far Hyprland
+-- widens each redrawn area around damage behind glass.
 --
--- The reach is bought with a pass rather than more size on purpose: passes
--- change the character, giving the softer, more diffuse falloff a large macOS
--- material has, where more size just widens the same blur. So when it needed
--- toning down, size came off and the 4th pass stayed -- dropping to 3 passes
--- would have halved the spread and lost that falloff in one move. Size is now
--- below section 5's own figure; easing further is better done by raising the
--- unfocused window opacity (letting less of the blur through) than by shrinking
--- size again, which starts to make the 4th pass pointless.
+-- The reach is bought with passes rather than size on purpose: passes change
+-- the character, giving the softer, more diffuse falloff a large macOS material
+-- has, where more size just widens the same blur. So easing it is done with
+-- size: a pass halves the spread and loses the falloff in one move. At 5
+-- passes the next step down is size 2 (~32); below that, 4 passes at size 5
+-- or 6 (~40/48).
 --
 -- Note this is only visible through whatever a surface leaves translucent, and
 -- the shell surfaces no longer leave any: every shell.*.toml here now ships
 -- background-alpha = 1.0, so the ONLY thing these knobs still reach is the
--- unfocused window at 0.875 (the focused window is opaque, so nothing
--- blurs through it). The figures this was tuned against were the earlier
+-- unfocused window at 0.875, and a focused Ghostty or Cursor at 0.98 (every
+-- other focused window is opaque, so nothing blurs through it). The figures this was tuned against were the earlier
 -- alphas -- menu/notifications 0.92, where just 8% of the backdrop showed, and
 -- the bar at 0.72, where it actually read -- so treat the walk below as a
 -- record of how the knobs behave, not as a description of what is on screen.
@@ -261,13 +273,14 @@ hl.config({
     border_part_of_window = true,
     blur = {
       enabled = true,
-      size = 7,
-      passes = 4,
+      size = 3,
+      passes = 5,
       -- Saturation of the blurred backdrop. BUILD.md section 5 started at 0.20
-      -- ("macOS boosts saturation behind glass"); 0.30 pulls more colour
-      -- through. Pure shader parameters, no render cost.
+      -- ("macOS boosts saturation behind glass"); 0.30 pulled more colour
+      -- through, and 0.50 (2026-10-11, picked live) more again. Pure shader
+      -- parameters, no render cost.
       --
-      -- 0.30 is an ADDITIVE ceiling on HSL saturation, not a multiplier. From
+      -- Vibrancy is an ADDITIVE ceiling on HSL saturation, not a multiplier. From
       -- Hyprland's own blur shader (read out of the binary -- it is on disk
       -- nowhere):
       --
@@ -279,7 +292,7 @@ hl.config({
       -- saturation and its perceived brightness (0.299/0.587/0.114 through a
       -- sigmoid), so the effect is selective: the shader guards `hsl[1] > 0.0`,
       -- which means a NEUTRAL pixel gets exactly nothing, and an already
-      -- saturated one has no headroom left. Worked through at these settings:
+      -- saturated one has no headroom left. Worked through at 0.30 / 4 passes:
       -- #3B82F6 goes 0.901 -> 1.000, #E11D48 0.778 -> 0.971, a desaturated
       -- #6E8BA8 only 0.253 -> 0.258, and #ECECEC / #BDBDBD / any grey +0.000.
       --
@@ -288,7 +301,7 @@ hl.config({
       -- themselves. It only bites where something genuinely colourful sits
       -- behind an unfocused window -- a photo, a video, a syntax-highlighted
       -- editor. Don't reach for it to make the CHROME more colourful; it cannot.
-      vibrancy = 0.30,
+      vibrancy = 0.50,
       -- How far vibrancy reaches into dark areas. Hyprland defaults this to 0,
       -- which means dark backdrops get almost no boost -- so the dark theme's
       -- glass read flat next to the light theme's. Matched to vibrancy so both
@@ -297,7 +310,7 @@ hl.config({
       -- 0.30 the same row starts boosting. It enters as (1 - vibrancy_darkness)
       -- scaling both the sigmoid's knee and the smoothstep's centre, so raising
       -- it shifts WHICH colours qualify rather than how much they get.
-      vibrancy_darkness = 0.30,
+      vibrancy_darkness = 0.50,
       -- Frosted grain, a touch above Hyprland's 0.0117 default. Worth knowing
       -- how little this shows: measured at the alphas in force at the time --
       -- menu 0.92, windows 0.875 -- only 8-12% of the noisy backdrop was
