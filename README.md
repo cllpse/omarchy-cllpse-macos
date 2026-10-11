@@ -248,7 +248,8 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   passes 4, vibrancy 0.30, vibrancy_darkness 0.30, noise 0.02, brightness/contrast
   1.0), keeps `general.border_size = 2` (Omarchy's default) with `gaps_in = 12` / `gaps_out = 24` (§5's Apple 8pt grid, `md`/`xxl` steps),
   overrides window opacity to `1.0 0.875` (re-matched onto browsers directly too,
-  since Omarchy pins those to their own `1.0 0.985` otherwise), and divides every `hl.animation` leaf's
+  since Omarchy pins those to their own `1.0 0.985` otherwise, and lifted back to
+  `1 1` on a window showing a playing video), and divides every `hl.animation` leaf's
   stock speed by 4 for 4× faster animations (was 3.5×, then 3×), rounded to a
   whole number of frames at the TV's 120Hz (speeds in twelfths: 250ms global,
   100ms in, 58ms fades), floored at 7 frames, 58ms (was 0.6, then 1), so the
@@ -450,6 +451,21 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   untagged and
   pinned to `1 1` — same reasoning and idiom as Omarchy's own
   `davinci-resolve.lua`.
+  A window showing a playing video stays at `1 1` too, focused or not; paused,
+  or with another tab in front, it dims as usual. The signal is the idle
+  inhibitor a player holds while it plays, which Hyprland ties to a window
+  (`inhibitingIdle` in `hyprctl clients -j`). Chromium keeps it while the
+  playing tab is in the background, so for Chromium the site of the tab in view
+  (the last ` - ` part of the window title, `YouTube` for every YouTube page)
+  is recorded when the flag first shows, and the window counts only while the
+  tab in view is on that site. A checker in `looknfeel-decoration.lua` sets a
+  `video-playing` tag that a `1 1` rule matches. Hyprland has no event for the
+  flag, so focus, title and workspace changes re-check, and a 500ms timer runs
+  only while a visible window has the tag (a video pausing or ending while you
+  are elsewhere is the one case no event catches). One check is ~10µs with four
+  windows. Known gaps: another tab on the same site in front of a playing one
+  keeps the window opaque, and a video Chromium starts while none of its
+  windows has focus (autoplay while you are elsewhere) may raise no flag.
   Because `blur.ignore_opacity` is true, a semi-transparent window has the full
   blur pass rendered behind it, so unfocused windows read as glass over whatever
   is beneath. That is the intended effect, which is why `dim_inactive` is

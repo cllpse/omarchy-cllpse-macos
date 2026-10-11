@@ -88,7 +88,9 @@ sets. Checked live: `hyprctl getprop address:<test window> opacity_inactive` is
 every surface, whatever the theme says. With a light wallpaper that reads as a
 lift toward white; where the wallpaper is coloured it reads as a tint, the
 "right-end shading" in the log below. A theme cannot prevent it. Only that
-Hyprland rule can.
+Hyprland rule can. One exception: while the tab in view plays a video, a
+`video-playing` tag lifts the window back to `1 1` (see the opacity section
+of the top-level README).
 
 **The active tab cannot follow focus.** Of the manifest keys
 (`kOverwritableColorTable` in `browser_theme_pack.cc`), only `toolbar` sets the

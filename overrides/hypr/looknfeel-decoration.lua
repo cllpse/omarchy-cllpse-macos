@@ -121,6 +121,100 @@ o.window({ tag = "firefox-based-browser" }, { opacity = "1.0 0.875" })
 -- belt-and-suspenders as Omarchy's own steam.lua / qemu.lua.
 o.window(".*[Ff]igma.*", { tag = "-default-opacity", opacity = "1 1" })
 
+-- ── Playing video: opaque, focused or not ─────────────────────────────────
+-- An unfocused window showing a playing video stays fully opaque. The same
+-- window with the video paused, or with another tab in front, dims as usual.
+--
+-- The signal is the idle inhibitor: a player asks the compositor to keep the
+-- screen awake while it plays, and Hyprland ties that request to a window
+-- (`inhibiting_idle` here, `inhibitingIdle` in `hyprctl clients -j`). Other
+-- players (mpv) count while they hold it. Chromium attaches it to whichever of
+-- its windows has focus when playback starts and keeps it while the tab is in
+-- the background, so for Chromium the site of the tab in view -- the last
+-- " - " part of the window title, "YouTube" for every YouTube page -- is
+-- recorded when the flag first shows, and the window counts as playing only
+-- while the tab in view is on that site.
+--
+-- Hyprland has no event for the flag. Focus, title and workspace changes
+-- re-check, and a 500ms timer runs only while a visible window has the tag:
+-- the one case no event catches is a video pausing or ending while you are in
+-- another window. One check is ~10us with four windows (measured inside
+-- Hyprland, 2026-10-11). Windows on hidden workspaces are skipped: Hyprland
+-- reports no flag for a surface it is not showing, and clearing the tag there
+-- would flash the video dim on the way back.
+--
+-- Known gaps: another tab on the same site in front of a playing one keeps
+-- the window opaque; a video Chromium starts while none of its windows has
+-- focus (autoplay while you are elsewhere) may get no flag; a reload while a
+-- video plays in a background tab records the wrong site until the next
+-- pause and play.
+o.window({ tag = "video-playing" }, { opacity = "1 1" })
+
+local function has_tag(w, name)
+  for _, t in ipairs(w.tags or {}) do
+    if t == name or t == name .. "*" then -- dynamic tags carry a trailing "*"
+      return true
+    end
+  end
+  return false
+end
+
+local function site_of(title)
+  local page = title:gsub(" %- Chromium$", "")
+  return page:match(".* %- (.-)$") or page
+end
+
+local video_site = {} -- window address -> the site its video started on
+local video_timer
+
+local function sync_video_tags()
+  local open, watching = {}, false
+  for _, w in ipairs(hl.get_windows({})) do
+    local addr = tostring(w.address)
+    open[addr] = true
+    local ws = w.workspace
+    if ws and ws.visible then
+      local playing = w.inhibiting_idle == true
+      if not playing then
+        video_site[addr] = nil
+      elseif has_tag(w, "chromium-based-browser") then
+        local site = site_of(w.title or "")
+        video_site[addr] = video_site[addr] or site
+        playing = video_site[addr] == site
+      end
+      if playing ~= has_tag(w, "video-playing") then
+        hl.dispatch(hl.dsp.window.tag({ tag = (playing and "+" or "-") .. "video-playing", window = w }))
+      end
+      watching = watching or playing
+    end
+  end
+  for addr in pairs(video_site) do
+    if not open[addr] then
+      video_site[addr] = nil
+    end
+  end
+  video_timer:set_enabled(watching)
+end
+
+-- A reload re-runs this file. Should Hyprland keep the Lua state across it,
+-- the previous run's timer and hooks would still be live, so retire them.
+if cllpse_video_opacity then
+  cllpse_video_opacity.timer:set_enabled(false)
+  for _, hook in ipairs(cllpse_video_opacity.hooks) do
+    hook:remove()
+  end
+end
+video_timer = hl.timer(sync_video_tags, { timeout = 500, type = "repeat" })
+cllpse_video_opacity = {
+  timer = video_timer,
+  hooks = {
+    hl.on("window.active", sync_video_tags),
+    hl.on("window.title", sync_video_tags),
+    hl.on("workspace.active", sync_video_tags),
+  },
+}
+sync_video_tags()
+
 -- ── Blur (global) ─────────────────────────────────────────────────────────
 -- BUILD.md section 5 ("NSVisualEffectView is a heavy blur"): vibrancy 0.20
 -- ("macOS boosts saturation behind glass"), brightness/contrast 1.0 ("macOS

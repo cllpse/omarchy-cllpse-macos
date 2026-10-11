@@ -49,6 +49,11 @@ deliberate exclusion and dims colour-critical and video windows.
 Figma Desktop was added: `.*[Ff]igma.*` against the class (live class is
 lowercase `figma-desktop`), untagged and pinned to `1 1`.
 
+A window showing a playing video gets a `video-playing` tag at runtime (`1 1`),
+set by a Lua checker in `looknfeel-decoration.lua` from Hyprland's
+idle-inhibit flag; Hyprland has no event for that flag. Probe:
+`hyprctl clients -j | jq '.[] | {class, inhibitingIdle, tags}'`.
+
 ### Generated files (never commit)
 
 `btop.theme`, `hyprland.lua`, `vscode-theme.json`, `neovim.lua`, and terminal
