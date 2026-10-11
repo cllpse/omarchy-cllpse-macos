@@ -196,23 +196,12 @@ local function sync_video_tags()
   video_timer:set_enabled(watching)
 end
 
--- A reload re-runs this file. Should Hyprland keep the Lua state across it,
--- the previous run's timer and hooks would still be live, so retire them.
-if cllpse_video_opacity then
-  cllpse_video_opacity.timer:set_enabled(false)
-  for _, hook in ipairs(cllpse_video_opacity.hooks) do
-    hook:remove()
-  end
-end
+-- A reload starts a fresh Lua state (checked 2026-10-11: globals set before a
+-- reload are gone after it), so the timer and hooks never pile up.
 video_timer = hl.timer(sync_video_tags, { timeout = 500, type = "repeat" })
-cllpse_video_opacity = {
-  timer = video_timer,
-  hooks = {
-    hl.on("window.active", sync_video_tags),
-    hl.on("window.title", sync_video_tags),
-    hl.on("workspace.active", sync_video_tags),
-  },
-}
+hl.on("window.active", sync_video_tags)
+hl.on("window.title", sync_video_tags)
+hl.on("workspace.active", sync_video_tags)
 sync_video_tags()
 
 -- ── Blur (global) ─────────────────────────────────────────────────────────
