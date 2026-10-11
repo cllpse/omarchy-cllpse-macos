@@ -40,9 +40,16 @@ if mode == "unbinds" then
   end
 end
 
+-- `noop` has no array part: a numeric index answers nil, so `ipairs()` over
+-- a faked result (`hl.get_windows()` in looknfeel.lua's video checker, which
+-- runs once at load) sees an empty list. Answering noop there too made
+-- ipairs walk forever, and the scan hung at full CPU (2026-10-11).
 local noop
 noop = setmetatable({}, {
-  __index = function()
+  __index = function(_, key)
+    if type(key) == "number" then
+      return nil
+    end
     return noop
   end,
   __call = function()
