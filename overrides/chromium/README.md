@@ -13,7 +13,10 @@ stall a run halfway through (it was step 9). Calling this with no argument
 ## 2. A fractional scale flag, 0.95, and the page zoom that undoes it
 
 Since 2026-10-11, `--force-device-scale-factor=0.95` pins Chromium's UI
-scale: 1.25 × 0.95 = 1.1875 device pixels per DIP, exactly 19 for every 16.
+scale. It was picked at monitor scale 1.25, where 1.25 × 0.95 = 1.1875 device
+pixels per DIP, exactly 19 for every 16. At the current 1.33333 (also since
+2026-10-11) it is 1.2667, 19 for every 15. The sizes in desktop px below are
+the same at either scale.
 Chromium's
 toolbar is fixed in DIPs (a 34-DIP address bar and buttons, 35-DIP tabs), and
 the address bar text is always 14 DIP, whatever the GTK font. Only tab titles
@@ -35,8 +38,8 @@ so edges fall on 16ths of a pixel and multiples of 8 DIP on half pixels. At
 1.387 none line up. The flags file has the candidates. The cost: Chromium no
 longer follows `omarchy display text size`, so this number has to move by
 hand with it. Pages scale with it too, so the default zoom is 1/0.95,
-105.263% (§4), which puts them back at the monitor's 1.25 device px per CSS
-px.
+105.263% (§4), which puts them back at the monitor's 1.33333 device px per
+CSS px.
 
 For a day before that there was no flag at all. The UI followed the monitor
 scale times the GTK text factor, 10/9 at text size 13, which Chromium rounds
@@ -102,9 +105,10 @@ drop it just as silently.
 
 Since 2026-10-11 the default zoom is 100 divided by the scale flag in §2:
 105.263% for 0.95. `chromium.sh` reads the flag and computes it, so the two
-can't drift apart. Page size is the product of the two, 1.1875 × 1.0526 =
-1.25 device px per CSS px. That is exactly the monitor scale, so a CSS pixel
-is one desktop pixel. Page content renders the way any app does at 1.25, and
+can't drift apart. Page size is the product of the two, 1.2667 × 1.0526 =
+1.33333 device px per CSS px (1.1875 × 1.0526 = 1.25 when picked). That is
+exactly the monitor scale, so a CSS pixel is one desktop pixel. Page content
+renders the way any app does at the monitor scale, and
 the scale-down only reaches the browser's own UI. It is also the macOS
 relationship: there a CSS pixel is one point, so web body text is 16 against
 the system's 13; here it is 16 desktop px against every app's 13.3.
@@ -230,9 +234,9 @@ as a DevTools bug.
 
 ## From the step table
 
-Chromium: `--force-device-scale-factor=0.95`, so the UI is 19/16 device px
-per DIP and the address bar text is the desktop's 13.3 (§2), with the default
-page zoom at 100/0.95 = `105.263%`, so pages render at the monitor's 1.25;
+Chromium: `--force-device-scale-factor=0.95`, so the UI is 19/15 device px
+per DIP at 1.33333 (19/16 at 1.25) and the address bar text is the desktop's 13.3 (§2), with the default
+page zoom at 100/0.95 = `105.263%`, so pages render at the monitor scale;
 fractional, since
 `--force-device-scale-factor=1` turned off Chromium's fix for the see-through
 row above the toolbar/page line at fractional scales (§2); `--enable-features=…,OverlayScrollbar` for the

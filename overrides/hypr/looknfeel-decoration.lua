@@ -565,5 +565,7 @@ hl.animation({ leaf = "specialWorkspace", enabled = true, speed = 9 / 12, bezier
 -- later), so it wins by file position. Height is left at Omarchy's 600.
 --
 -- If `omarchy display text size` changes the Ghostty font size, the clean
--- width changes with the cell metrics -- re-sweep and update the 896.
+-- width changes with the cell metrics -- re-sweep and update the 896. The same
+-- goes for the monitor scale: the sweep was at 1.25, and at 1.33333 (since
+-- 2026-10-11) 896 x 4/3 = 1194.67 px, so the seams may be back. Not re-swept.
 hl.window_rule({ match = { tag = "floating-window", class = "org.omarchy.terminal" }, size = { 896, 600 } })
