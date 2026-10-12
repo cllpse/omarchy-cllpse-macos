@@ -70,8 +70,10 @@
 -- Focused shipped at 0.99 for a long while -- a hair of the same glass so the
 -- focused window read as the same material as unfocused rather than a flat
 -- cutout -- and was kept deliberately despite being the single most expensive
--- thing on this desktop. Measured on Hyprland's own drm-engine-gfx (10s
--- samples, animating scene, medians of three interleaved runs):
+-- thing on this desktop. Measured on Hyprland's own drm-engine-gfx (amdgpu's
+-- counter; this machine's GPU is the Ryzen 7 8745HS's integrated Radeon 780M,
+-- sharing DDR5 with the CPU) -- 10s samples, animating scene, medians of three
+-- interleaved runs:
 --
 --     blur off                    10.8%
 --     blur + focused opaque       13.0%

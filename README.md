@@ -432,7 +432,7 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   than a flat cutout — and was kept knowing it was the most expensive thing on
   this desktop: `blur.ignore_opacity` is true, so it made Hyprland render a full
   blur pass under the largest, most-damaged surface on screen. Measured on
-  Hyprland's own `drm-engine-gfx` — blur off 10.8%, focused opaque 13.0%,
+  Hyprland's own `drm-engine-gfx` on this machine's integrated Radeon 780M — blur off 10.8%, focused opaque 13.0%,
   focused `0.99` 15.1% — so it was ~60% of the blur bill for a difference two
   full-screen captures put at 1.3% of pixels. It went back to `1.0` on request:
   no translucency on the focused window at all, which drops that cost too.
