@@ -421,9 +421,6 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   (same α over each mode's own `background` colour); tune light up if it reads
   washed out.
 - **Focused windows fully opaque, unfocused at 0.875 so the blur renders through.**
-  The exceptions are Ghostty and Cursor, at `0.98` focused (2026-10-11; 0.99
-  and 0.97 tried live), matched on the tag as well as the class, so the
-  terminal and the editor read as the same glass as the unfocused windows.
   Omarchy's `windows.lua` tags every window `+default-opacity`, lets the per-app
   files strip that tag, then applies `0.985 0.96` to whatever still carries it.
   `looknfeel-decoration.lua` repeats that *same tag match* later in load order and

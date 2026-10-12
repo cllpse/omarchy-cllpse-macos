@@ -95,7 +95,7 @@
 -- 1.0/0.875 currently. Focused was 1.0 (fully opaque), then 0.97, then 0.98,
 -- then 0.99 (with a brief return to 1.0 for the measurement above), and is
 -- back at 1.0; unfocused alone went through 0.9 and 0.88 on the way to 0.875.
--- Ghostty and Cursor have 0.98 focused, below.
+-- Ghostty and Cursor alone had 0.98 focused on 2026-10-11, removed on request.
 o.window({ tag = "default-opacity" }, { opacity = "1.0 0.875" })
 
 -- ── Browser opacity: same unfocused glass as everything else ───────────────
@@ -109,16 +109,6 @@ o.window({ tag = "default-opacity" }, { opacity = "1.0 0.875" })
 -- excluded here too.
 o.window({ tag = "chromium-based-browser" }, { opacity = "1.0 0.875" })
 o.window({ tag = "firefox-based-browser" }, { opacity = "1.0 0.875" })
-
--- ── Ghostty and Cursor: a hair of glass when focused ───────────────────────
--- 0.98 focused (2026-10-11), for these two only: the terminal and the editor
--- read as the same frosted material as the unfocused windows rather than a
--- flat cutout. Tried live at 0.99 (the value every window had for a long
--- while, above), 0.98 and 0.97, and 0.98 picked. Matched on the tag as well as the class, so a window Omarchy untags
--- stays opaque. The cost measured above (~2 points of drm-engine-gfx, when it
--- applied to every focused window) now applies only while one of these two
--- has focus.
-o.window({ tag = "default-opacity", class = "(com\\.mitchellh\\.ghostty|cursor)" }, { opacity = "0.98 0.875" })
 
 -- ── Figma opacity: fully opaque, focused or not ────────────────────────────
 -- Figma Desktop (nickvdp/figma-desktop-linux, an AppImage repack of Figma's
@@ -249,8 +239,8 @@ sync_video_tags()
 -- Note this is only visible through whatever a surface leaves translucent, and
 -- the shell surfaces no longer leave any: every shell.*.toml here now ships
 -- background-alpha = 1.0, so the ONLY thing these knobs still reach is the
--- unfocused window at 0.875, and a focused Ghostty or Cursor at 0.98 (every
--- other focused window is opaque, so nothing blurs through it). The figures this was tuned against were the earlier
+-- unfocused window at 0.875 (the focused window is opaque, so nothing
+-- blurs through it). The figures this was tuned against were the earlier
 -- alphas -- menu/notifications 0.92, where just 8% of the backdrop showed, and
 -- the bar at 0.72, where it actually read -- so treat the walk below as a
 -- record of how the knobs behave, not as a description of what is on screen.
