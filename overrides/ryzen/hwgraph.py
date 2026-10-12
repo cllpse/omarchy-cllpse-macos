@@ -513,11 +513,14 @@ def main(win):
     curses.curs_set(0)
     curses.start_color()
     curses.use_default_colors()
-    # The GPU's orange is xterm's 208 (#FF8700): the sixteen ANSI colours are
-    # the six hues below and their bright twins.
-    names = ("freq", "power", "cpu", "gpu", "ram", "ssd", "hot")
+    # The GPU's two are xterm's: orange 208 (#FF8700) for its utilisation,
+    # mint 43 (#00D7AF) for its temperature. The sixteen ANSI colours are the
+    # six hues below and their bright twins.
+    extended = curses.COLORS >= 256
+    names = ("freq", "power", "cpu", "gpuload", "gputemp", "ram", "ssd", "hot")
     colors = (curses.COLOR_MAGENTA, curses.COLOR_CYAN, curses.COLOR_BLUE,
-              208 if curses.COLORS >= 256 else curses.COLOR_WHITE,
+              208 if extended else curses.COLOR_WHITE,
+              43 if extended else curses.COLOR_WHITE,
               curses.COLOR_YELLOW, curses.COLOR_GREEN, curses.COLOR_RED)
     c = {}
     for pair, (name, color) in enumerate(zip(names, colors), 1):
@@ -537,12 +540,12 @@ def main(win):
                         "cpu", "°", 1, "cpu_c"))
     try:
         busy = Busy()
-        graphs.append(Graph("GPU – utilisation", busy, "gpu", "%", 0,
+        graphs.append(Graph("GPU – utilisation", busy, "gpuload", "%", 0,
                             "gpu_pct"))
         for device, h in hwmons("amdgpu"):
             if device == busy.device:
                 graphs.append(Graph("GPU – temperature", Sensor(h, GPU_TEMP),
-                                    "gpu", "°", 1, "gpu_c"))
+                                    "gputemp", "°", 1, "gpu_c"))
     except OSError:
         pass  # no amdgpu: no GPU graphs
     try:

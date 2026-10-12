@@ -158,10 +158,14 @@ seconds, when it bursts towards 58 W until the slow average catches up (§3).
 Its temperature is Tctl from `k10temp` on 17-92°C.
 
 The GPU, the 8745HS's Radeon 780M, gets two graphs, added on 2026-10-12 on
-request. They are orange, xterm's colour 208 (`#FF8700`, near macOS's system
-orange): the sixteen ANSI colours are the six hues already in use and their
-bright twins, and Ghostty draws 16-255 as xterm's fixed palette
-(`palette-generate` is off). *GPU – utilisation* is amdgpu's
+request. Their colours are xterm's: orange 208 (`#FF8700`, near macOS's
+system orange) for utilisation and mint 43 (`#00D7AF`, near its system mint)
+for temperature, which was orange too for its first hour. The sixteen ANSI
+colours are the six hues already in use and their bright twins, and Ghostty
+draws 16-255 as xterm's fixed palette (`palette-generate` is off). Mint was
+picked from a swatch of the stack on both themes' backgrounds: violet (99)
+read close to the RAM clock's purple under it, 63 as the CPU's blue, 141
+washed out on white, and pink (205) sat near the red of a limit. *GPU – utilisation* is amdgpu's
 `gpu_busy_percent` (`/sys/class/drm/card1/device/`), the share of time the
 graphics engine was busy, on 0-100% in thirds (0, 33, 67, 100) for four
 lines like every other graph. *GPU – temperature* is the `edge` sensor
