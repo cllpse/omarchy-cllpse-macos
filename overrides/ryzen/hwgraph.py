@@ -92,7 +92,7 @@ SSD_TEMP = Scale(15, 90, (25,), degrees)
 GPU_LOAD = Scale(0, 100, (100 / 3,), percent)
 GPU_TEMP = CPU_TEMP._replace(limit=None)
 GAP = 3  # blank rows between blocks: the most, up to this, that leaves every
-         # graph its full grid
+         # graph its full grid, and at least one
 TIGHT = 1  # blank rows between a graph and a label-only block under it
 
 
@@ -386,8 +386,11 @@ def grids(scale):
 def layout(scales, budget):
     """(step, lines - 1, rows between lines) for each graph, in budget rows.
     Every graph starts with only its low and high lines. The one with the
-    fewest lines then takes its next finer grid, the cheapest first on a
-    tie, while rows last, so no graph is left coarse to make another fine.
+    fewest lines then takes its next finer grid, the costliest first on a
+    tie and then the topmost, while rows last, so no graph is left coarse
+    to make another fine. Costliest first because every graph costs the
+    same per line: a pair taken last can find two rows left that a single
+    graph would have used.
     Rows still spare stretch every graph's line spacing together, or none,
     so the graphs keep one height. Graphs on the same scale (the RAM
     sticks) move together, so they always match."""
@@ -405,7 +408,7 @@ def layout(scales, budget):
         finer = [f for f in finer if used + f[1] <= budget]
         if not finer:
             break
-        _, extra, k = min(finer)
+        _, extra, k = min(finer, key=lambda f: (f[0], -f[1], f[2]))
         pick[k] += 1
         used += extra
     taller = sum(o[p][0] * len(g) for g, o, p in zip(groups, opts, pick))
@@ -469,8 +472,10 @@ def draw(win, graphs, c):
     full = [grids(s)[-1][0] for s in scales]  # each scale's finest grid
     # rows for graphs: all of them but a label each and the gaps between.
     # The gap is the widest, up to GAP, that leaves every graph its full
-    # grid; failing that, the widest that leaves each its low and high lines.
-    # A label-only block sits TIGHT rows under the block above, not a gap.
+    # grid; failing that, one blank row and the finest grids that fit. No
+    # gap only when one row would leave a graph without its low and high
+    # lines. A label-only block sits TIGHT rows under the block above, not
+    # a gap.
     def above(block, g):
         return g if block.plot else min(TIGHT, g)
 
@@ -480,11 +485,9 @@ def draw(win, graphs, c):
         if budget < 2 * len(plotted):
             continue
         fit = layout(scales, budget)
-        if [n for _, n, _ in fit] == full:
+        if [n for _, n, _ in fit] == full or g <= 1:
             gap, specs = g, fit
             break
-        if gap is None:
-            gap, specs = g, fit
     if specs is None or cols < AXIS + 10:
         put(win, 0, 0, "window too small")
     elif not graphs[0].series.hist:
