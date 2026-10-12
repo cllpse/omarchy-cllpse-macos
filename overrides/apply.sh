@@ -39,11 +39,11 @@
 #   0.   record the pre-existing font and theme, for revert.sh        [inline]
 #   1.   symlink both themes + both plugins (switcher, supermenu)      [inline]
 #   2.   SF + Comic Code fonts                                         fonts/
-#        fontconfig drop-ins (UI font + hintnone)                      fontconfig/
+#        fontconfig drop-in (UI font)                                  fontconfig/
 #   3.   point monospace at SF Mono (omarchy font set)                 [inline]
 #   4.   point GTK / GNOME apps at SF Pro / SF Mono (gsettings)        [inline]
-#   5.   hinting none: gsettings                                       [inline]
-#        hinting none: Ghostty                                         ghostty/
+#   5.   hinting back to GTK's default, slight (gsettings)            [inline]
+#        Ghostty font                                                  ghostty/
 #   5b.  strip GTK window buttons (gsettings)                          [inline]
 #   5c.  the Preonic's Danish letters                                  xkb/
 #   6.   hypr env + decoration + switcher/supermenu binds + input,
@@ -196,10 +196,11 @@ gsettings set org.gnome.desktop.interface monospace-font-name 'SFMono Nerd Font 
 }
 
 step_hinting() {
-# fontconfig side is the 11-cllpse-macos-hinting.conf drop-in from step 2.
-# GTK/GNOME and Ghostty each read their own knob:
-say "gsettings: GTK/GNOME font-hinting -> none"
-gsettings set org.gnome.desktop.interface font-hinting 'none'
+# Hinting is the system's slight everywhere: fontconfig's own default, GTK's
+# schema default, Ghostty's default. This step set 'none' until 2026-10-12, so
+# it now resets the key, which puts a machine that ran it back on slight.
+say "gsettings: GTK/GNOME font-hinting -> its default (slight)"
+gsettings reset org.gnome.desktop.interface font-hinting
 }
 
 step_gtk_buttons() {
@@ -377,8 +378,8 @@ echo
 say "Done. Follow-ups:"
 echo "    • log out / back in (or reboot) for OMARCHY_MENU_FONT (shell popups)"
 echo "    • open a new shell for the fzf colours"
-echo "    • restart Ghostty / Foot windows for SF Mono + hintnone"
-echo "    • relaunch running GTK/Qt apps + the bar for hintnone"
+echo "    • restart Ghostty / Foot windows for SF Mono + slight hinting"
+echo "    • relaunch running Chromium / Electron / Qt apps for slight hinting"
 echo "    • light theme:  omarchy theme set omarchy-cllpse-theme-light"
 echo "    • the spellcheck/translate/password/autofill/Print/Cast/QR/reading-list policy (9)"
 echo "      already refreshed live if Chromium was running — no relaunch needed"
@@ -456,11 +457,11 @@ STEPS=(
   "state||Record the pre-existing font and theme, for revert.sh|fn:step_state|"
   "symlinks||Symlink both themes + both plugins (switcher, supermenu)|fn:step_symlinks|"
   "fonts||SF + Comic Code fonts|run:fonts|"
-  "fontconfig||fontconfig drop-ins (UI font + hintnone)|run:fontconfig|"
+  "fontconfig||fontconfig drop-in (UI font)|run:fontconfig|"
   "monospace||Point monospace at SF Mono (omarchy font set)|fn:step_monospace|fonts"
   "gtk-fonts||Point GTK / GNOME apps at SF Pro / SF Mono|fn:step_gtk_fonts|fonts"
-  "hinting||Font hinting -> none (GTK/GNOME side)|fn:step_hinting|"
-  "ghostty||Ghostty font and hinting|run:ghostty|"
+  "hinting||Font hinting -> the default, slight (GTK/GNOME side)|fn:step_hinting|"
+  "ghostty||Ghostty font|run:ghostty|"
   "gtk-buttons||Strip GTK window buttons|fn:step_gtk_buttons|"
   "xkb||Danish letters on the Preonic M0 layer|run:xkb|"
   "hypr||Hyprland env, decoration, binds, input + keybind allowlist|run:hypr|"

@@ -278,10 +278,10 @@ script works the same whether you run it by hand or `apply.sh` calls it.
 |---|---|---|
 | 0 | Record the font and theme the machine had *before* the first apply, so `revert.sh` has something true to restore. Written once; values already ours are refused | `~/.local/state/cllpse-macos/previous-{font,theme}` |
 | 1 | Symlink both `omarchy-cllpse-theme-{dark,light}/` folders as themes, and `omarchy-cllpse-plugin-switcher/` and `omarchy-cllpse-plugin-supermenu/` as plugins. All four are **submodules** ([dark](https://github.com/cllpse/omarchy-cllpse-theme-dark), [light](https://github.com/cllpse/omarchy-cllpse-theme-light), [switcher](https://github.com/cllpse/omarchy-cllpse-plugin-switcher), [supermenu](https://github.com/cllpse/omarchy-cllpse-plugin-supermenu)), so the step first refuses outright if any of those directories is empty — a plain `git clone` leaves it so, and symlinking a registered plugin id at nothing fails silently in the shell | `~/.config/omarchy/themes/omarchy-cllpse-theme-{dark,light}`, `~/.config/omarchy/plugins/cllpse.{window-switcher,supermenu}` |
-| 2 | Install SF + Comic Code fonts + fontconfig drop-ins (UI font + hintnone)<br>**Per-override detail: [`fonts/`](fonts/README.md), [`fontconfig/`](fontconfig/README.md)** | `~/.local/share/fonts/{SF,ComicCode}/`, `~/.config/fontconfig/conf.d/{99-cllpse-macos-ui-font,11-cllpse-macos-hinting}.conf` |
+| 2 | Install SF + Comic Code fonts + the fontconfig drop-in (UI font)<br>**Per-override detail: [`fonts/`](fonts/README.md), [`fontconfig/`](fontconfig/README.md)** | `~/.local/share/fonts/{SF,ComicCode}/`, `~/.config/fontconfig/conf.d/99-cllpse-macos-ui-font.conf` (and deletes the retired `11-cllpse-macos-hinting.conf`) |
 | 3 | Monospace → SF Mono (Omarchy's own knob) | `omarchy font set` → terminal configs + `fonts.conf` |
 | 4 | GTK/GNOME fonts → SF Pro / SF Mono | `gsettings org.gnome.desktop.interface` |
-| 5 | Font hinting → `none` — SF faces render unhinted; grid-snapped stems read as sharp under grayscale AA (Wayland fractional scaling)<br>**Per-override detail: [`ghostty/`](ghostty/README.md)** | `gsettings … font-hinting 'none'` (GTK/GNOME) + fenced `freetype-load-flags = no-hinting` in `~/.config/ghostty/config`, on top of Omarchy's stock config (fontconfig side is the step-2 drop-in) |
+| 5 | Font hinting → the default, slight: GTK's key is reset, which undoes the `none` this step set until 2026-10-12. fontconfig and Ghostty are at slight by their own defaults<br>**Per-override detail: [`fontconfig/`](fontconfig/README.md)** | `gsettings reset … font-hinting` (GTK/GNOME) |
 | 5b | GTK window buttons → none. Hyprland draws no titlebars; a GTK/libadwaita app's min/max/close is its own CSD, laid out from this key. `':'` vs Omarchy's `'appmenu:close'`. Electron/Qt ignore it — Cursor's are step 7 | `gsettings org.gnome.desktop.wm.preferences button-layout ':'` |
 | 5c | Danish letters on the Preonic's M0 layer — a static, single-group xkb symbols file, referenced by `hyprland-env.lua`'s `kb_layout`. **Full detail: [`xkb/README.md`](xkb/README.md).** | `~/.config/xkb/symbols/us-danish-letters` |
 | 6 | Five fenced snippets into the user's own hypr config: env + cursor theme + keyboard layout, decoration/blur/animations, window-switcher binds, mouse tuning, and `SUPER+SPACE` handed to the supermenu. **Full detail: [`hypr/README.md`](hypr/README.md).** | fenced blocks synced into `~/.config/hypr/hyprland.lua`, `looknfeel.lua`, `bindings.lua` and `input.lua` |
@@ -447,10 +447,12 @@ folder into `~/.local/state/omarchy/current/theme/` rather than symlinking it, s
 it is also what publishes a theme-folder edit — a new background, a changed
 `shell.*.toml` — to the live desktop.
 
-Hinting is `hintnone` on three fronts that don't share a knob: the fontconfig
-drop-in covers Qt / Alacritty / Electron; `gsettings font-hinting` covers
-GTK/GNOME; the Ghostty block covers Ghostty (Kitty hardcodes light hinting —
-no override). Middle ground if it reads too soft: `hintslight` + `autohint`.
+Hinting is slight, the system's, on all three fronts that don't share a knob:
+fontconfig's own default covers Qt / Alacritty / Electron / Chromium,
+`gsettings font-hinting` (reset to its default) covers GTK/GNOME, and Ghostty's
+default covers Ghostty (Kitty hardcodes light hinting). Until 2026-10-12 the
+repo forced `none` on all three; side by side on this TV, slight read sharper.
+Not reached by any of them: most of the bar's text, Figma's canvas.
 
 ## How each app is themed
 
@@ -523,8 +525,8 @@ differences above are the ones to check by hand.
 
 - **Log out / back in** (or reboot) for `OMARCHY_MENU_FONT` — `hl.env` only applies at Hyprland start. (The `looknfeel.lua` decoration block — rounding, blur — picks up on the theme-set reload in step 8; the Omarchy shell re-reads what it mirrors on that same `omarchy theme set`, or `omarchy-restart-shell`.)
 - **Open a new shell** for the `fzf` colours.
-- **Restart Ghostty / Foot** windows for the new monospace font + `hintnone` (Kitty/Alacritty reload themselves).
-- **Relaunch running GTK/Qt apps + the bar** to pick up `hintnone`.
+- **Restart Ghostty / Foot** windows for the new monospace font + slight hinting (Kitty/Alacritty reload themselves).
+- **Relaunch running Chromium / Electron / Qt apps** to pick up slight hinting (GTK apps follow the gsettings change live).
 - **Log out / back in** for the `environment.d` drop-in — the systemd user session reads it at session start.
 - **The app icons (7f) appear as soon as the menu next opens** — `AppLibrary.refreshIcons()` rescans when a consumer opens, so no restart is needed to *find* them. Changing their *colour* is different: Qt caches decoded images by URL, and the path does not change between themes, so a re-render only shows up after a shell restart. `omarchy theme set` does not restart the shell (it pushes the palette over IPC), so `app-icons.sh` restarts it itself whenever its output actually changed — except on a locked session, where `omarchy-restart-shell` refuses and the old colour stands until the next theme change or shell restart.
 - **Quit Chromium before the step 7d zoom-clearing and theme halves**, and relaunch after. Chromium rewrites `Preferences` from memory on exit, so a write made while it is running is discarded; the script detects this and skips rather than reporting a change that will not survive. The flag half needs only a relaunch. Sites already zoomed with ctrl+/- keep their own `per_host_zoom_levels` and ignore the default.
@@ -578,8 +580,7 @@ starship/starship.toml.tpl    stock starship.toml with {{ accent }} in place of 
 hooks/theme-set.d/starship-colors.sh  renders the template above into ~/.config/starship.toml on every theme switch
 fonts/                        20 SF .otf (SF Mono, SF Pro Text, SF Pro Display), plus comic-code/ -- 2 Comic Code .otf, the editor font, kept out of the SF glob
 fontconfig/conf.d/99-cllpse-macos-ui-font.conf   SF Pro for sans-serif/system-ui + optical-size crossover
-fontconfig/conf.d/11-cllpse-macos-hinting.conf   hintstyle -> hintnone (overrides system 10-hinting-slight)
-ghostty/ghostty.conf          freetype-load-flags = no-hinting, a few non-default prefs, and confirm-close-surface back on (Omarchy ships it off)
+ghostty/ghostty.conf          the Comic Code font at 9pt, a few non-default prefs, and confirm-close-surface back on (Omarchy ships it off)
 bat/config                    --theme="ansi"
 lazygit/config.yml            gui.theme with ANSI colour names
 lazydocker/config.yml         gui.theme with ANSI colour names (lazydocker's four keys)

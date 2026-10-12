@@ -1,5 +1,5 @@
 #!/bin/bash
-# fontconfig drop-ins: UI font + hintnone
+# fontconfig drop-in: UI font
 #
 # See README.md in this directory for what this does and why.
 # Runnable on its own, and called by ../apply.sh. $HERE is bound to overrides/
@@ -9,10 +9,12 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib.sh"
 HERE="$OVERRIDES"
 
-say "Installing fontconfig drop-ins -> ~/.config/fontconfig/conf.d/"
+say "Installing the fontconfig drop-in -> ~/.config/fontconfig/conf.d/"
 mkdir -p ~/.config/fontconfig/conf.d
 rm -f ~/.config/fontconfig/conf.d/99-sf-pro.conf     # legacy name
-rm -f ~/.config/fontconfig/conf.d/11-hinting-none.conf   # interim name
+# Hinting is the system's hintslight (/etc/fonts/conf.d/10-hinting-slight.conf).
+# These two forced hintnone until 2026-10-12; removed so a machine that has
+# either goes back to the system's.
+rm -f ~/.config/fontconfig/conf.d/11-cllpse-macos-hinting.conf ~/.config/fontconfig/conf.d/11-hinting-none.conf
 cp "$HERE/fontconfig/conf.d/99-cllpse-macos-ui-font.conf" ~/.config/fontconfig/conf.d/99-cllpse-macos-ui-font.conf
-cp "$HERE/fontconfig/conf.d/11-cllpse-macos-hinting.conf" ~/.config/fontconfig/conf.d/11-cllpse-macos-hinting.conf
 fc-cache -f >/dev/null 2>&1
