@@ -1,6 +1,6 @@
 # Chromium
 
-Two halves that run at opposite ends of an apply run: user-level flags and a neutral UI early; the managed policy last, because it is the only part needing sudo.
+Two halves that run at opposite ends of an apply run: user-level flags, a neutral UI and the profile avatar early; the managed policy last, because it is the only part needing sudo.
 
 ## 1. Two halves
 
@@ -276,6 +276,32 @@ means "available EXCEPT on force-installed extensions", so from here on there
 are two extensions whose own pages and service workers cannot be inspected.
 Pages we did not write, so this costs nothing; worth knowing before it reads
 as a DevTools bug.
+
+## 8. Profile avatar, by replacing a built-in one's picture
+
+There is no pref, policy or theme key for the avatar, and Customize profile
+only offers the built-in set. So `avatar.png` (192×192, the size of the stock
+pictures) goes over built-in avatar 55's picture,
+`~/.config/chromium/Avatars/avatar_abstract_sandwich.png`; the profile here
+uses 55, and the step warns about any profile that does not. From the
+Chromium 152 source (`chrome/browser/profiles/`):
+
+- The toolbar asks for the full-size picture
+  (`GetAvatarIconWithType(…, use_high_res_file=true)`), which is read from
+  that folder (`GetHighResAvatar`, `GetPathOfHighResAvatarAtIndex`).
+- It is decoded as PNG only (`ReadBitmap`: `CreateFrom1xPNGBytes`), so an SVG
+  has to be rendered first, and the toolbar crops it to a circle
+  (`SHAPE_CIRCLE`).
+- Chromium downloads it only when the file is missing (`RunCallbackIfFileMissing`),
+  which it checks for every profile's avatar at launch (`DownloadAvatars`). So
+  ours is never overwritten, and `revert.sh` just deletes it: the stock picture
+  comes back on the next launch.
+- It is read once per run and cached, so a change shows after a Chromium
+  restart. Writing it while Chromium runs is safe.
+
+The picker in Customize profile still shows the sandwich: its tiles come from
+the low-resolution copies built into Chromium. A signed-in profile's Google
+account picture would take precedence; the profile here is not signed in.
 
 ## From the step table
 

@@ -340,7 +340,7 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   `partition.default_zoom_level`, stored as `ln(factor)/ln(1.2)` — and
   Chromium must be closed when it is written, since it rewrites `Preferences`
   from memory on exit.
-- **Three more Chromium settings, same step.** The flags file carries
+- **Four more Chromium settings, same step.** The flags file carries
   `--enable-features=…,OverlayScrollbar` — the thin, auto-hiding scrollbar
   macOS has, where Chromium otherwise draws a permanent gutter. It restates
   Omarchy's own feature deliberately: a repeated `--enable-features` is
@@ -359,6 +359,10 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   still follows light/dark (GTK tracks `gsettings color-scheme` like
   everything else the `mode` key flips), and grayscale, which covers the accent
   the first one leaves tinted. Closed-Chromium rule applies to both.
+  The profile avatar is `overrides/chromium/avatar.png`, copied over built-in
+  avatar 55's picture in `~/.config/chromium/Avatars/`: nothing else can set
+  one, and Chromium only downloads that file when it is missing. It shows after
+  a Chromium restart.
 - **Cursor is Bearded inside the editor and Omarchy everywhere else.** The
   colour theme is Bearded (picked for its syntax colours), but a theme also
   paints the frame, the inputs, the lists and every hover state, and Bearded's

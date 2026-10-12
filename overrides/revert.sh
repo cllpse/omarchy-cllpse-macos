@@ -172,6 +172,15 @@ if [[ -x $HERE/chromium/neutral-theme.py ]]; then
   fi
 fi
 
+# The profile avatar (chromium/README.md (8)). Deleted rather than restored:
+# Chromium downloads a profile's missing avatar picture at every launch, so its
+# own comes back on the next one. Only while the file is still ours.
+_avatar=~/.config/chromium/Avatars/avatar_abstract_sandwich.png
+if [[ -f $_avatar ]] && cmp -s "$HERE/chromium/avatar.png" "$_avatar"; then
+  say "removing the Chromium profile avatar (Chromium downloads its own at next launch)"
+  rm -f "$_avatar"
+fi
+
 restore ~/.config/bat/config
 restore ~/.config/lazygit/config.yml
 restore ~/.config/lsd/config.yaml

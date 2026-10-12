@@ -1,5 +1,6 @@
 #!/bin/bash
-# Chromium: flags, page zoom and a neutral UI, and the managed policy (sudo)
+# Chromium: flags, page zoom, a neutral UI and the profile avatar, and the
+# managed policy (sudo)
 #
 # See README.md in this directory for what this does and why.
 # Runnable on its own, and called by ../apply.sh. $HERE is bound to overrides/
@@ -73,6 +74,27 @@ if [[ -x "$HERE/chromium/neutral-theme.py" ]]; then
   record_prior "$STATE/previous-chromium-theme" "$_prev_theme" ""
   say "Chromium UI -> neutral (system theme + grayscale), not the policy's cyan"
   "$HERE/chromium/neutral-theme.py" || true
+fi
+
+# See README.md (8)
+if [[ -f "$HERE/chromium/avatar.png" ]]; then
+  # Built-in avatar 55's picture. Chromium reads it at launch and downloads it
+  # only when it is missing, so ours stays; safe to write while it runs.
+  _avatar=~/.config/chromium/Avatars/avatar_abstract_sandwich.png
+  if cmp -s "$HERE/chromium/avatar.png" "$_avatar"; then
+    skip "Chromium profile avatar already current"
+  else
+    say "Chromium profile avatar -> $_avatar (shows after a Chromium restart)"
+    mkdir -p "${_avatar%/*}"
+    cp "$HERE/chromium/avatar.png" "$_avatar.tmp"
+    mv -f "$_avatar.tmp" "$_avatar"
+  fi
+  _others="$(jq -r '.profile.info_cache // {} | to_entries[]
+      | select(.value.avatar_icon != "chrome://theme/IDR_PROFILE_AVATAR_55") | .key' \
+    ~/.config/chromium/"Local State" 2>/dev/null | paste -sd, - || true)"
+  if [[ -n $_others ]]; then
+    skip "another avatar is chosen in $_others: pick the abstract sandwich in Customize profile to show ours"
+  fi
 fi
 fi
 
