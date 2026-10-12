@@ -168,8 +168,112 @@ if (( MODE_CHECK )); then
   exit 0
 fi
 
+# ── Electron singleton argv cap (electron/electron#52020) ────────────────────
+# One of the TWO THINGS THIS SCRIPT PUTS INSIDE THE APP DIRECTORY (the UI scale
+# below is the other), and the exception to the property the Swap section
+# relies on. Both are reapplied on every run, because an update replaces the
+# whole directory and takes them with it.
+#
+# The bug: when a second instance hands its argv to the running one over the
+# singleton socket, a payload of >= 9 elements fails to parse — Chromium logs
+# "additional_data_size exceeds payload length" (process_singleton_posix.cc) —
+# and the second instance then SEIZES the lock, killing the first. 8 or fewer is
+# fine. That is the figma:// login loop: the browser hands over
+# figma://app_auth/redeem?g_secret=..., the handoff fails, the app is killed and
+# relaunched WITHOUT the token, and it lands back on /login. It reads as "the app
+# closes and reopens and still asks me to log in", and it never self-corrects —
+# every retry is a fresh secret down the same hole.
+#
+# FIGMA_USE_WAYLAND=1 (environment.d, apply.sh step 7c) is what makes this
+# machine hit it. build_electron_args() adds ONE flag for XWayland and FOUR for
+# native Wayland, so the native path is electron + 6 flags + app.asar + URL =
+# exactly 9. XWayland installs are at 6 and never see it.
+#
+# Commenting out the two IME flags brings the native path to 7. What that costs
+# is Wayland input-method support in Figma alone: fcitx5 here runs a bare
+# keyboard-us passthrough with no engine installed, and the Danish letters come
+# from xkb via wl_keyboard, which text-input is not in the path of. Install a
+# real fcitx5 engine (CJK) and this becomes a real loss — see ../README.md
+# (overrides/), whose follow-ups record the alternative that keeps IME.
+#
+# A wrapper around AppRun is NOT an option: the .desktop Exec must stay
+# byte-exact or integrate_desktop() rewrites the launcher entry (see
+# applications/figma-desktop-appimage.desktop.tpl).
+LAUNCHER_LIB="$APP_DIR/usr/lib/figma-desktop/launcher-common.sh"
+ARGV_MARK='cllpse-macos: argv cap'
+patch_argv_cap() {
+  if grep -q "$ARGV_MARK" "$LAUNCHER_LIB"; then
+    skip "argv cap already applied"
+  elif ! grep -q "^[[:space:]]*electron_args+=('--enable-wayland-ime')" "$LAUNCHER_LIB"; then
+    warn "the IME flags are not where they were — argv cap NOT applied"
+    warn "  upstream changed build_electron_args(); re-check the flag count against"
+    warn "  the >= 9 threshold before trusting figma:// login"
+  else
+    sed -i \
+      -e "s|^\([[:space:]]*\)electron_args+=('--enable-wayland-ime')$|\1# ${ARGV_MARK} (electron/electron#52020): keeps the native-Wayland\n\1# launch at 7 argv elements so the figma:// handoff parses. See README.md.\n\1#electron_args+=('--enable-wayland-ime')|" \
+      -e "s|^\([[:space:]]*\)electron_args+=('--wayland-text-input-version=3')$|\1#electron_args+=('--wayland-text-input-version=3')|" \
+      "$LAUNCHER_LIB"
+    if bash -n "$LAUNCHER_LIB" 2>/dev/null &&
+       ! grep -q "^[[:space:]]*electron_args+=('--enable-wayland-ime')" "$LAUNCHER_LIB"; then
+      say "argv cap applied — native Wayland launches at 7 argv elements"
+    else
+      die "the argv cap patch corrupted $LAUNCHER_LIB — reinstall with --force"
+    fi
+  fi
+}
+
+# ── UI scale 1 on native Wayland ─────────────────────────────────────────────
+# --force-device-scale-factor=1 replaces the GTK text factor (1.109375 at text
+# size 13), so Figma's window renders at the monitor's 4/3 and nothing else.
+# Measured on 2026-10-12 across every combination of backend, fractional
+# scaling and forced scale, at 100%, 120% and 200% canvas zoom: this is the one
+# that stays crisp at all three at this interface size. Under the text factor
+# the tiled window comes out a fraction of a pixel off its buffer and Hyprland
+# resamples the whole canvas: at 100% the + glyph's edges measured 1.20 screen
+# px against 0.54 with this flag, text 1.02 against 0.76. Numbers and the
+# losing options in README.md.
+#
+# The cost: the UI is ~10% smaller than it was, by the text factor. And the
+# argv budget: this flag makes the native launch 8 argv elements with a
+# figma:// URL, the most the singleton handoff parses. Any further flag must
+# replace one (see the argv cap above).
+#
+# Native Wayland only: XWayland (no FIGMA_USE_WAYLAND) already renders 1:1
+# under xwayland:force_zero_scaling and would need 1.3333333 instead.
+SCALE_MARK='cllpse-macos: UI scale'
+SCALE_FLAG='--force-device-scale-factor=1'
+patch_ui_scale() {
+  if grep -q "$SCALE_MARK" "$LAUNCHER_LIB"; then
+    skip "UI scale already pinned"
+  elif ! grep -q "^[[:space:]]*electron_args+=('--ozone-platform=wayland')$" "$LAUNCHER_LIB"; then
+    warn "the Wayland branch is not where it was — UI scale NOT pinned"
+    warn "  Figma renders under the GTK text factor, a little blurred; see README.md"
+  else
+    sed -i \
+      "s|^\([[:space:]]*\)electron_args+=('--ozone-platform=wayland')$|&\n\1# ${SCALE_MARK}: renders at the monitor's 4/3, not 4/3 x the GTK text\n\1# factor, which blurs the canvas. 8 argv elements with a URL: the most\n\1# the figma:// handoff parses. See README.md.\n\1electron_args+=('${SCALE_FLAG}')|" \
+      "$LAUNCHER_LIB"
+    if bash -n "$LAUNCHER_LIB" 2>/dev/null &&
+       grep -q "^[[:space:]]*electron_args+=('${SCALE_FLAG}')$" "$LAUNCHER_LIB"; then
+      say "UI scale pinned to 1 — native Wayland launches at 8 argv elements"
+    else
+      die "the UI scale patch corrupted $LAUNCHER_LIB — reinstall with --force"
+    fi
+  fi
+}
+
+patch_launcher() {
+  if [[ ! -f $LAUNCHER_LIB ]]; then
+    warn "launcher-common.sh is not where it was — argv cap and UI scale NOT applied"
+    warn "  figma:// login will loop under FIGMA_USE_WAYLAND=1; see README.md"
+    return
+  fi
+  patch_argv_cap
+  patch_ui_scale
+}
+
 if [[ -n $INSTALLED && $INSTALLED == "$TARGET" && $FORCE -eq 0 ]]; then
   skip "Figma Desktop $INSTALLED is already installed — nothing to extract (--force to re-extract)"
+  patch_launcher
   if (( RUN_APPLY )); then
     say "re-running apply.sh anyway, so the launcher entry is known-good"
     exec "$HERE/../apply.sh" --all
@@ -283,59 +387,8 @@ fi
 [[ -n $OLD ]] && rm -rf "$OLD"
 say "installed to $APP_DIR"
 
-# ── Electron singleton argv cap (electron/electron#52020) ────────────────────
-# THE ONE THING THIS SCRIPT PUTS INSIDE THE APP DIRECTORY, and the exception to
-# the property the Swap section above relies on. It is reapplied here because an
-# update replaces the whole directory and takes the patch with it.
-#
-# The bug: when a second instance hands its argv to the running one over the
-# singleton socket, a payload of >= 9 elements fails to parse — Chromium logs
-# "additional_data_size exceeds payload length" (process_singleton_posix.cc) —
-# and the second instance then SEIZES the lock, killing the first. 8 or fewer is
-# fine. That is the figma:// login loop: the browser hands over
-# figma://app_auth/redeem?g_secret=..., the handoff fails, the app is killed and
-# relaunched WITHOUT the token, and it lands back on /login. It reads as "the app
-# closes and reopens and still asks me to log in", and it never self-corrects —
-# every retry is a fresh secret down the same hole.
-#
-# FIGMA_USE_WAYLAND=1 (environment.d, apply.sh step 7c) is what makes this
-# machine hit it. build_electron_args() adds ONE flag for XWayland and FOUR for
-# native Wayland, so the native path is electron + 6 flags + app.asar + URL =
-# exactly 9. XWayland installs are at 6 and never see it.
-#
-# Commenting out the two IME flags brings the native path to 7. What that costs
-# is Wayland input-method support in Figma alone: fcitx5 here runs a bare
-# keyboard-us passthrough with no engine installed, and the Danish letters come
-# from xkb via wl_keyboard, which text-input is not in the path of. Install a
-# real fcitx5 engine (CJK) and this becomes a real loss — see ../README.md
-# (overrides/), whose follow-ups record the alternative that keeps IME.
-#
-# A wrapper around AppRun is NOT an option: the .desktop Exec must stay
-# byte-exact or integrate_desktop() rewrites the launcher entry (see
-# applications/figma-desktop-appimage.desktop.tpl).
-LAUNCHER_LIB="$APP_DIR/usr/lib/figma-desktop/launcher-common.sh"
-ARGV_MARK='cllpse-macos: argv cap'
-if [[ ! -f $LAUNCHER_LIB ]]; then
-  warn "launcher-common.sh is not where it was — argv cap NOT applied"
-  warn "  figma:// login will loop under FIGMA_USE_WAYLAND=1; see README.md"
-elif grep -q "$ARGV_MARK" "$LAUNCHER_LIB"; then
-  skip "argv cap already applied"
-elif ! grep -q "^[[:space:]]*electron_args+=('--enable-wayland-ime')" "$LAUNCHER_LIB"; then
-  warn "the IME flags are not where they were — argv cap NOT applied"
-  warn "  upstream changed build_electron_args(); re-check the flag count against"
-  warn "  the >= 9 threshold before trusting figma:// login"
-else
-  sed -i \
-    -e "s|^\([[:space:]]*\)electron_args+=('--enable-wayland-ime')$|\1# ${ARGV_MARK} (electron/electron#52020): keeps the native-Wayland\n\1# launch at 7 argv elements so the figma:// handoff parses. See README.md.\n\1#electron_args+=('--enable-wayland-ime')|" \
-    -e "s|^\([[:space:]]*\)electron_args+=('--wayland-text-input-version=3')$|\1#electron_args+=('--wayland-text-input-version=3')|" \
-    "$LAUNCHER_LIB"
-  if bash -n "$LAUNCHER_LIB" 2>/dev/null &&
-     ! grep -q "^[[:space:]]*electron_args+=('--enable-wayland-ime')" "$LAUNCHER_LIB"; then
-    say "argv cap applied — native Wayland launches at 7 argv elements"
-  else
-    die "the argv cap patch corrupted $LAUNCHER_LIB — reinstall with --force"
-  fi
-fi
+# The launcher patches above, on the tree just swapped in.
+patch_launcher
 
 if [[ -z $LOCAL_APPIMAGE ]] && (( KEEP_APPIMAGE )); then
   mv "$IMG" "$APPS_DIR/$ASSET_NAME"

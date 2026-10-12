@@ -113,8 +113,10 @@ done
 # NOT undone: step 7e also removes a wrapper around ~/Applications/figma-desktop/
 # AppRun if it finds one, and that is not restored here. The wrapper was never
 # this repo's to begin with, and putting one back would re-break the path the
-# app derives its own desktop entry from. Nothing inside the app directory is
-# ours, which is the whole point -- there is nothing there to revert. restore() puts back a
+# app derives its own desktop entry from. Nor are figma/figma.sh's two
+# launcher-common.sh patches (the argv cap and the UI scale): they live inside
+# the app directory, and reinstalling Figma without figma.sh is their undo, since
+# an extraction replaces the whole tree. restore() puts back a
 # .pre-cllpse backup if one exists, and otherwise removes the file — which is
 # the honest undo here: the AppImage re-creates it on its next launch, with
 # upstream's Name=Figma and StartupWMClass=Figma. Removing it means Figma has no

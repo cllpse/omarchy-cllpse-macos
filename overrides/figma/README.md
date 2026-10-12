@@ -50,15 +50,70 @@ earlier project of nickvdp's and hardcoded upstream. That id is why this repo's
 docs once named a `nickvdp/figma-desktop-linux` repo, which does not exist —
 the id is real, the slug never was.
 
+## Inside the app directory
+
+The argv cap and the UI scale below are the only things in the repo written
+**inside** the app directory. An update replaces the directory and takes them
+with it, so `figma.sh` reapplies both on every run, including the
+already-up-to-date one: `./overrides/figma/figma.sh --no-apply` repairs an
+install without touching anything else. Both patch
+`usr/lib/figma-desktop/launcher-common.sh`, each behind a marker comment, so a
+second run changes nothing.
+
 ## The argv cap
 
-This is the only thing in the repo that writes **inside** the app directory, and
-it must be reapplied on every update. `figma://` login needs the launch to stay
+`figma://` login needs the launch to stay
 under 9 argv elements and `FIGMA_USE_WAYLAND=1` pushes it over
 ([electron/electron#52020](https://github.com/electron/electron/issues/52020)):
 at 9 or more, the second instance's argv fails to parse across the singleton
 socket, and it then seizes the lock and kills the first. The symptom is not a
 login error — the app closes, reopens and asks you to log in again, forever.
-The script comments out the two Wayland IME flags to bring the native path to 7.
-Diagnose from `~/.cache/figma-desktop-linux/launcher.log`, which records every
-launch's full argv.
+The script comments out the two Wayland IME flags to bring the native path to 7;
+the UI scale flag then takes it to 8, the most that parses. **There is no
+headroom left**: a flag added here, or by upstream, must replace one. Diagnose
+from `~/.cache/figma-desktop-linux/launcher.log`, which records every launch's
+full argv.
+
+## UI scale
+
+On native Wayland Figma gets `--force-device-scale-factor=1`. That flag
+replaces Chromium's UI scale, which here is the GTK text factor (1.109375 at
+text size 13), so the window renders at the monitor's 4/3 and nothing else. The
+interface comes out ~10% smaller than without it.
+
+Without it the canvas is blurred. At 4/3 × 1.109375 the tiled window's CSS
+size is not a whole number of device pixels, Chromium's output lands a
+fraction of a pixel off its buffer and Hyprland resamples the whole window.
+Snapping the window to whole device pixels by hand recovers it, but only for
+that one size. Forcing 1 removes the factor, so the tiled and snapped captures
+are identical.
+
+Measured 2026-10-12 on the + button and text of one file, across every
+combination of backend (Wayland, XWayland), fractional scaling (on, off) and
+forced scale, at 100%, 120% and 200% canvas zoom. Edge width is the mean
+background-to-ink transition in screen pixels, lower is sharper; tiled window:
+
+| Setup | Screen px per Figma px | + edge 100 / 120 / 200% | Text edge 100 / 120 / 200% |
+|---|---|---|---|
+| **Wayland, forced 1** (XWayland at 1.3333333 gives the same results) | 1.333 | 0.54 / 0.93 / 0.57 | 0.76 / 0.78 / 0.80 |
+| Wayland, no flag (the GTK text factor) | 1.479 | 1.20 / 1.43 / 1.41 | 1.02 / 1.12 / 1.14 |
+| Same, window snapped to whole device pixels | 1.479 | 0.93 / 0.95 / 0.92 | 0.76 / 0.79 / 0.80 |
+| Fractional scaling off (`WaylandFractionalScaleV1`), forced 2 | 1.333 | 1.14 / 1.16 / 0.54 | 0.75 / 0.79 / 0.78 |
+| Wayland forced 0.75, XWayland forced 1 or none | 1.0 | 1.00 / 0.95 / 0.96 | 0.75 / 0.77 / 0.77 |
+| Wayland forced 1.5, XWayland forced 2 | 2.0 | — / 0.74 / 0.12 | — / 0.79 / similar |
+
+- **The + glyph's sharpness depends on its stroke.** The stroke is 1.5 design
+  px, which at 4/3 is exactly 2 screen px at 100% and 4 at 200%, so it is
+  pixel-exact there. At 120% it is 2.4, and every setup at this interface size
+  gets one soft edge.
+- **Fractional scaling off gains nothing in Figma.** Its Electron then always
+  draws at buffer scale 2, and the forced flag only sizes the UI, at 2/3 ×
+  the flag. Hyprland's 1.5:1 downscale leaves a grey fringe at 100% and 120%.
+  Forced 2.6666667 in that mode is broken: Figma fills only the top-left
+  two-thirds of its window.
+- **Bigger is sharper, not fixed:** 2 screen px per Figma px is crispest, but
+  only because the whole interface is 1.5× larger.
+
+The flag sits in the Wayland branch only. XWayland, used without
+`FIGMA_USE_WAYLAND`, already renders 1:1 under `xwayland:force_zero_scaling`
+and would need 1.3333333 to match.
