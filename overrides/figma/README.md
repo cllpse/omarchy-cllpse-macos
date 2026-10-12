@@ -76,17 +76,37 @@ full argv.
 
 ## UI scale
 
-On native Wayland Figma gets `--force-device-scale-factor=1`. That flag
+On native Wayland Figma gets `--force-device-scale-factor=0.75`. That flag
 replaces Chromium's UI scale, which here is the GTK text factor (1.109375 at
-text size 13), so the window renders at the monitor's 4/3 and nothing else. The
-interface comes out ~10% smaller than without it.
+text size 13). The window still renders at the monitor's 4/3, and 0.75 on top
+makes that 4/3 × 0.75 = **one screen pixel per Figma pixel** at 100% canvas
+zoom, two at 200%. Every edge on a whole design pixel then lands on a whole
+screen pixel. At the monitor's 4/3 alone (the flag at 1, used until
+2026-10-12), only one edge in three did: the other two fell between screen
+pixels and were antialiased into a two-pixel grey smear, which is what read as
+a fuzzy canvas. The interface comes out 25% smaller than at 1.
 
-Without it the canvas is blurred. At 4/3 × 1.109375 the tiled window's CSS
+Chosen by eye on 2026-10-12 against 1 and 1.5. At 1.5 it is two screen pixels
+per Figma pixel, every edge crisp too, but the interface is 50% larger than at
+1 and the canvas shows a third less of the design. Canvas text is a separate
+matter: Figma antialiases its own glyphs, their edges measured 0.75–0.80
+screen px at every setting below, and fontconfig's hinting does not reach
+them. They only read firmer when they get more pixels.
+
+Hyprland does not resample Figma at any of these. Figma uses the
+fractional-scale protocol, and Hyprland 0.56.2 draws such a window pixel for
+pixel, switching to nearest-neighbour when the buffer is a pixel or two off its
+box (`MISALIGNEDFSV1` in `ElementRenderer.cpp`). Chromium's 2× setup does not
+reach Figma either: `~/.config/chromium-flags.conf` is read only by
+`/usr/bin/chromium`, and none of Figma's processes carries
+`WaylandFractionalScaleV1` or another scale (checked 2026-10-12).
+
+Without a forced scale the canvas is blurred. At 4/3 × 1.109375 the tiled window's CSS
 size is not a whole number of device pixels, Chromium's output lands a
 fraction of a pixel off its buffer and Hyprland resamples the whole window.
 Snapping the window to whole device pixels by hand recovers it, but only for
-that one size. Forcing 1 removes the factor, so the tiled and snapped captures
-are identical.
+that one size. Forcing a scale removes the factor (1 when this was measured,
+0.75 now), so the tiled and snapped captures are identical.
 
 Measured 2026-10-12 on the + button and text of one file, across every
 combination of backend (Wayland, XWayland), fractional scaling (on, off) and
@@ -95,17 +115,20 @@ background-to-ink transition in screen pixels, lower is sharper; tiled window:
 
 | Setup | Screen px per Figma px | + edge 100 / 120 / 200% | Text edge 100 / 120 / 200% |
 |---|---|---|---|
-| **Wayland, forced 1** (XWayland at 1.3333333 gives the same results) | 1.333 | 0.54 / 0.93 / 0.57 | 0.76 / 0.78 / 0.80 |
+| Wayland, forced 1 (until 2026-10-12; XWayland at 1.3333333 gives the same results) | 1.333 | 0.54 / 0.93 / 0.57 | 0.76 / 0.78 / 0.80 |
 | Wayland, no flag (the GTK text factor) | 1.479 | 1.20 / 1.43 / 1.41 | 1.02 / 1.12 / 1.14 |
 | Same, window snapped to whole device pixels | 1.479 | 0.93 / 0.95 / 0.92 | 0.76 / 0.79 / 0.80 |
 | Fractional scaling off (`WaylandFractionalScaleV1`), forced 2 | 1.333 | 1.14 / 1.16 / 0.54 | 0.75 / 0.79 / 0.78 |
-| Wayland forced 0.75, XWayland forced 1 or none | 1.0 | 1.00 / 0.95 / 0.96 | 0.75 / 0.77 / 0.77 |
+| **Wayland, forced 0.75** (XWayland forced 1 or none gives the same results) | 1.0 | 1.00 / 0.95 / 0.96 | 0.75 / 0.77 / 0.77 |
 | Wayland forced 1.5, XWayland forced 2 | 2.0 | — / 0.74 / 0.12 | — / 0.79 / similar |
 
 - **The + glyph's sharpness depends on its stroke.** The stroke is 1.5 design
   px, which at 4/3 is exactly 2 screen px at 100% and 4 at 200%, so it is
   pixel-exact there. At 120% it is 2.4, and every setup at this interface size
-  gets one soft edge.
+  gets one soft edge. At 0.75 it is 1.5 screen px, half a pixel, hence 1.00:
+  the one shape here that 0.75 makes softer. Edges on whole design pixels,
+  most of a design, were not in this measurement; 0.75 is what puts all of
+  them on screen pixels.
 - **Fractional scaling off gains nothing in Figma.** Its Electron then always
   draws at buffer scale 2, and the forced flag only sizes the UI, at 2/3 ×
   the flag. Hyprland's 1.5:1 downscale leaves a grey fringe at 100% and 120%.

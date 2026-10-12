@@ -222,39 +222,49 @@ patch_argv_cap() {
   fi
 }
 
-# ── UI scale 1 on native Wayland ─────────────────────────────────────────────
-# --force-device-scale-factor=1 replaces the GTK text factor (1.109375 at text
-# size 13), so Figma's window renders at the monitor's 4/3 and nothing else.
-# Measured on 2026-10-12 across every combination of backend, fractional
-# scaling and forced scale, at 100%, 120% and 200% canvas zoom: this is the one
-# that stays crisp at all three at this interface size. Under the text factor
-# the tiled window comes out a fraction of a pixel off its buffer and Hyprland
-# resamples the whole canvas: at 100% the + glyph's edges measured 1.20 screen
-# px against 0.54 with this flag, text 1.02 against 0.76. Numbers and the
-# losing options in README.md.
+# ── UI scale 0.75 on native Wayland ──────────────────────────────────────────
+# --force-device-scale-factor replaces Chromium's UI scale, which would
+# otherwise be the GTK text factor (1.109375 at text size 13). 0.75 makes it
+# 4/3 x 0.75 = one screen pixel per Figma pixel at 100% canvas zoom (and two at
+# 200%), so every edge on a whole design pixel lands on a whole screen pixel.
+# At the monitor's 4/3 alone, two edges in three fall between screen pixels
+# and are antialiased into a two-pixel smear. Chosen by eye on 2026-10-12 over
+# 1 (4/3) and 1.5 (two screen px per Figma px, the UI 50% larger).
 #
-# The cost: the UI is ~10% smaller than it was, by the text factor. And the
-# argv budget: this flag makes the native launch 8 argv elements with a
-# figma:// URL, the most the singleton handoff parses. Any further flag must
-# replace one (see the argv cap above).
+# Under the text factor the tiled window also comes out a fraction of a pixel
+# off its buffer and Hyprland resamples the whole canvas: at 100% the + glyph's
+# edges measured 1.20 screen px, against 0.54 at 1 and 1.00 at 0.75 (its stroke
+# is 1.5 design px, so half a pixel here). Numbers in README.md.
+#
+# The cost: the UI is 25% smaller than at 1. And the argv budget: this flag
+# makes the native launch 8 argv elements with a figma:// URL, the most the
+# singleton handoff parses. Any further flag must replace one (see the argv
+# cap above).
 #
 # Native Wayland only: XWayland (no FIGMA_USE_WAYLAND) already renders 1:1
-# under xwayland:force_zero_scaling and would need 1.3333333 instead.
+# under xwayland:force_zero_scaling.
 SCALE_MARK='cllpse-macos: UI scale'
-SCALE_FLAG='--force-device-scale-factor=1'
+SCALE_FLAG='--force-device-scale-factor=0.75'
 patch_ui_scale() {
+  if grep -q "^[[:space:]]*electron_args+=('${SCALE_FLAG}')$" "$LAUNCHER_LIB"; then
+    skip "UI scale already pinned to ${SCALE_FLAG#*=}"
+    return
+  fi
+  # A block from an earlier run with another value: drop it, comment and all,
+  # and insert the current one below.
   if grep -q "$SCALE_MARK" "$LAUNCHER_LIB"; then
-    skip "UI scale already pinned"
-  elif ! grep -q "^[[:space:]]*electron_args+=('--ozone-platform=wayland')$" "$LAUNCHER_LIB"; then
+    sed -i "/${SCALE_MARK}/,/^[[:space:]]*electron_args+=('--force-device-scale-factor=[0-9.]*')$/d" "$LAUNCHER_LIB"
+  fi
+  if ! grep -q "^[[:space:]]*electron_args+=('--ozone-platform=wayland')$" "$LAUNCHER_LIB"; then
     warn "the Wayland branch is not where it was — UI scale NOT pinned"
     warn "  Figma renders under the GTK text factor, a little blurred; see README.md"
   else
     sed -i \
-      "s|^\([[:space:]]*\)electron_args+=('--ozone-platform=wayland')$|&\n\1# ${SCALE_MARK}: renders at the monitor's 4/3, not 4/3 x the GTK text\n\1# factor, which blurs the canvas. 8 argv elements with a URL: the most\n\1# the figma:// handoff parses. See README.md.\n\1electron_args+=('${SCALE_FLAG}')|" \
+      "s|^\([[:space:]]*\)electron_args+=('--ozone-platform=wayland')$|&\n\1# ${SCALE_MARK}: 4/3 x 0.75 = one screen pixel per Figma pixel at\n\1# 100% zoom, so pixel-aligned canvas edges stay crisp. 8 argv elements with\n\1# a URL: the most the figma:// handoff parses. See README.md.\n\1electron_args+=('${SCALE_FLAG}')|" \
       "$LAUNCHER_LIB"
     if bash -n "$LAUNCHER_LIB" 2>/dev/null &&
        grep -q "^[[:space:]]*electron_args+=('${SCALE_FLAG}')$" "$LAUNCHER_LIB"; then
-      say "UI scale pinned to 1 — native Wayland launches at 8 argv elements"
+      say "UI scale pinned to ${SCALE_FLAG#*=} — native Wayland launches at 8 argv elements"
     else
       die "the UI scale patch corrupted $LAUNCHER_LIB — reinstall with --force"
     fi

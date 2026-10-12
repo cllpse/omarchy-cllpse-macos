@@ -557,7 +557,7 @@ differences above are the ones to check by hand.
   the browser's `figma://app_auth/redeem?g_secret=…` is lost in the failed
   handoff and every retry burns a fresh secret the same way. `figma/figma.sh`
   comments out the two Wayland IME flags to bring the native path to 7, and
-  its UI scale flag (`--force-device-scale-factor=1`, see `figma/README.md`)
+  its UI scale flag (`--force-device-scale-factor=0.75`, see `figma/README.md`)
   then takes it to 8, the most that parses, with no headroom. The two patches
   are the only things this repo writes *inside* the app directory, which is
   why `figma.sh` reapplies them on every run. Diagnose from
@@ -636,7 +636,7 @@ chromium/neutral-theme.py     system (GTK) theme + grayscale -> a neutral browse
 keyd/default.conf             identity config pinned to the Preonic, plus the inert [figma:C] / [figma_ctrl:C] layers the runtime bind activates (installed to /etc with sudo)
 keyd/keyd.service.d/restart.conf  Restart=on-failure + a 5-in-60 start limit for keyd, which ships with no restart policy and segfaults (installed to /etc/systemd/system with sudo)
 keyd/cllpse-figma-keyd        toggles that layer in the running daemon on Figma focus; diagnoses its own failures, since it is only ever reached through exec_raw
-figma/figma.sh                installs/updates the AppImage repack, and is the ONLY thing here that writes inside the app directory: on every run it reapplies the Electron argv cap (electron/electron#52020) that keeps figma:// login working under FIGMA_USE_WAYLAND=1, and --force-device-scale-factor=1, which keeps the canvas sharp -- see the follow-ups section and figma/README.md
+figma/figma.sh                installs/updates the AppImage repack, and is the ONLY thing here that writes inside the app directory: on every run it reapplies the Electron argv cap (electron/electron#52020) that keeps figma:// login working under FIGMA_USE_WAYLAND=1, and --force-device-scale-factor=0.75, one screen pixel per Figma pixel, which keeps the canvas sharp -- see the follow-ups section and figma/README.md
 flea/flea.sh                  Flea as the file manager for folders, Show in folder (a user D-Bus registration byte-identical to flea's own) and file dialogs (`flea --picker`), minus the keys block `flea --default` writes
 flea/flea-bindings.lua        SUPER+ALT+SPACE -> Flea, macOS's Cmd+Option+Space; synced after the keybinds block so the allowlist's unbind cannot reach it
 tailscale/tailscale.sh        turns Tailscale SSH on, once, recording what the machine had first; verifies the pref read back and the tailnet policy, and states plainly that it cannot test the connection (a node cannot Tailscale-SSH to itself)
