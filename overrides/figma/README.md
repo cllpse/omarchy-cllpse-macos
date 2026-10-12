@@ -76,19 +76,27 @@ full argv.
 
 ## UI scale
 
-On native Wayland Figma gets `--force-device-scale-factor=0.75`. That flag
-replaces Chromium's UI scale, which here is the GTK text factor (1.109375 at
-text size 13). The window still renders at the monitor's 4/3, and 0.75 on top
-makes that 4/3 × 0.75 = **one screen pixel per Figma pixel** at 100% canvas
-zoom, two at 200%. Every edge on a whole design pixel then lands on a whole
-screen pixel. At the monitor's 4/3 alone (the flag at 1, used until
-2026-10-12), only one edge in three did: the other two fell between screen
-pixels and were antialiased into a two-pixel grey smear, which is what read as
-a fuzzy canvas. The interface comes out 25% smaller than at 1.
+On native Wayland Figma gets `--force-device-scale-factor` = 1 / the monitor
+scale: **0.8 at the current 1.25**, 0.75 at 4/3. That flag replaces Chromium's
+UI scale, which here is the GTK text factor (1.109375 at text size 13). The
+window still renders at the monitor scale, and the flag on top makes it
+1.25 × 0.8 = **one screen pixel per Figma pixel** at 100% canvas zoom, two at
+200%. Every edge on a whole design pixel then lands on a whole screen pixel. At
+the monitor's 4/3 alone (the flag at 1, used until 2026-10-12), only one edge
+in three did: the other two fell between screen pixels and were antialiased
+into a two-pixel grey smear, which is what read as a fuzzy canvas. The
+interface is one screen pixel per CSS pixel, 25% smaller than at 4/3.
 
-Chosen by eye on 2026-10-12 against 1 and 1.5. At 1.5 it is two screen pixels
-per Figma pixel, every edge crisp too, but the interface is 50% larger than at
-1 and the canvas shows a third less of the design. Canvas text is a separate
+`figma.sh` works the flag out from `monitor-scale` in
+[`../display/display.conf`](../display/display.conf), snapped to the 1/120
+steps of the fractional-scale protocol as Hyprland snaps it (1.33333 is
+160/120, so exactly 0.75), and falls back to the first monitor's live scale.
+After changing the scale, run `save-display.sh` and then `figma.sh` again:
+it rewrites the flag in the launcher and Figma picks it up on its next start.
+
+Chosen by eye on 2026-10-12, at 4/3, against 1 and 1.5. At 1.5 it was two
+screen pixels per Figma pixel, every edge crisp too, but the interface was 50%
+larger than at 1 and the canvas showed a third less of the design. Canvas text is a separate
 matter: Figma antialiases its own glyphs, their edges measured 0.75–0.80
 screen px at every setting below, and fontconfig's hinting does not reach
 them. They only read firmer when they get more pixels.

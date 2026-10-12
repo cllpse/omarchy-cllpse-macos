@@ -222,32 +222,55 @@ patch_argv_cap() {
   fi
 }
 
-# ── UI scale 0.75 on native Wayland ──────────────────────────────────────────
+# ── UI scale 1 / the monitor scale, on native Wayland ───────────────────────
 # --force-device-scale-factor replaces Chromium's UI scale, which would
-# otherwise be the GTK text factor (1.109375 at text size 13). 0.75 makes it
-# 4/3 x 0.75 = one screen pixel per Figma pixel at 100% canvas zoom (and two at
-# 200%), so every edge on a whole design pixel lands on a whole screen pixel.
-# At the monitor's 4/3 alone, two edges in three fall between screen pixels
-# and are antialiased into a two-pixel smear. Chosen by eye on 2026-10-12 over
-# 1 (4/3) and 1.5 (two screen px per Figma px, the UI 50% larger).
+# otherwise be the GTK text factor (1.109375 at text size 13). Set to 1 / the
+# monitor scale, it makes the window's monitor scale x the flag = one screen
+# pixel per Figma pixel at 100% canvas zoom (and two at 200%), so every edge on
+# a whole design pixel lands on a whole screen pixel: 0.8 at 1.25, 0.75 at 4/3.
+# At the monitor scale alone, 4/3 put two edges in three between screen pixels,
+# antialiased into a two-pixel smear. Chosen by eye on 2026-10-12 over 1 and
+# 1.5 x 4/3 (two screen px per Figma px, the UI 50% larger).
+#
+# The monitor scale is display.conf's, so the flag follows it. That file is
+# what apply.sh's display step writes into monitors.lua, and it is read here
+# rather than the live one so the two cannot drift; with no number there, the
+# first monitor's live scale. Either is snapped to the 1/120 steps of the
+# fractional-scale protocol first, which is what Hyprland does: 1.33333 is
+# 160/120, so 0.75 exactly. After changing the scale, re-run this script.
 #
 # Under the text factor the tiled window also comes out a fraction of a pixel
 # off its buffer and Hyprland resamples the whole canvas: at 100% the + glyph's
-# edges measured 1.20 screen px, against 0.54 at 1 and 1.00 at 0.75 (its stroke
-# is 1.5 design px, so half a pixel here). Numbers in README.md.
+# edges measured 1.20 screen px, against 0.54 at 4/3 alone and 1.00 at one
+# screen px per Figma px (its stroke is 1.5 design px, so half a pixel there).
+# Numbers in README.md.
 #
-# The cost: the UI is 25% smaller than at 1. And the argv budget: this flag
-# makes the native launch 8 argv elements with a figma:// URL, the most the
-# singleton handoff parses. Any further flag must replace one (see the argv
-# cap above).
+# The cost: the UI is the size of one screen px per CSS px, 25% smaller than
+# at 4/3. And the argv budget: this flag makes the native launch 8 argv
+# elements with a figma:// URL, the most the singleton handoff parses. Any
+# further flag must replace one (see the argv cap above).
 #
 # Native Wayland only: XWayland (no FIGMA_USE_WAYLAND) already renders 1:1
 # under xwayland:force_zero_scaling.
 SCALE_MARK='cllpse-macos: UI scale'
-SCALE_FLAG='--force-device-scale-factor=0.75'
+ui_scale() {
+  local s
+  # shellcheck source=overrides/display/display-lib.sh
+  s=$(source "$HERE/../display/display-lib.sh" && conf_get monitor-scale "$HERE/../display/display.conf")
+  [[ $s =~ ^[0-9]+(\.[0-9]+)?$ ]] || s=$(hyprctl monitors -j 2>/dev/null | jq -r '.[0].scale // empty' 2>/dev/null)
+  [[ $s =~ ^[0-9]+(\.[0-9]+)?$ ]] || return 1
+  awk -v s="$s" 'BEGIN { n = int(s * 120 + 0.5); if (n < 60) exit 1; printf "%.9g\n", 120 / n }'
+}
 patch_ui_scale() {
-  if grep -q "^[[:space:]]*electron_args+=('${SCALE_FLAG}')$" "$LAUNCHER_LIB"; then
-    skip "UI scale already pinned to ${SCALE_FLAG#*=}"
+  local scale
+  if ! scale=$(ui_scale); then
+    warn "no monitor scale in display.conf or from Hyprland — UI scale NOT pinned"
+    warn "  Figma renders under the GTK text factor, a little blurred; see README.md"
+    return
+  fi
+  local SCALE_FLAG="--force-device-scale-factor=$scale"
+  if grep -qF "electron_args+=('${SCALE_FLAG}')" "$LAUNCHER_LIB"; then
+    skip "UI scale already pinned to $scale, one screen pixel per Figma pixel"
     return
   fi
   # A block from an earlier run with another value: drop it, comment and all,
@@ -260,11 +283,10 @@ patch_ui_scale() {
     warn "  Figma renders under the GTK text factor, a little blurred; see README.md"
   else
     sed -i \
-      "s|^\([[:space:]]*\)electron_args+=('--ozone-platform=wayland')$|&\n\1# ${SCALE_MARK}: 4/3 x 0.75 = one screen pixel per Figma pixel at\n\1# 100% zoom, so pixel-aligned canvas edges stay crisp. 8 argv elements with\n\1# a URL: the most the figma:// handoff parses. See README.md.\n\1electron_args+=('${SCALE_FLAG}')|" \
+      "s|^\([[:space:]]*\)electron_args+=('--ozone-platform=wayland')$|&\n\1# ${SCALE_MARK}: 1 / the monitor scale, one screen pixel per Figma\n\1# pixel at 100% zoom, so pixel-aligned canvas edges stay crisp. 8 argv\n\1# elements with a URL: the most the figma:// handoff parses. See README.md.\n\1electron_args+=('${SCALE_FLAG}')|" \
       "$LAUNCHER_LIB"
-    if bash -n "$LAUNCHER_LIB" 2>/dev/null &&
-       grep -q "^[[:space:]]*electron_args+=('${SCALE_FLAG}')$" "$LAUNCHER_LIB"; then
-      say "UI scale pinned to ${SCALE_FLAG#*=} — native Wayland launches at 8 argv elements"
+    if bash -n "$LAUNCHER_LIB" 2>/dev/null && grep -qF "electron_args+=('${SCALE_FLAG}')" "$LAUNCHER_LIB"; then
+      say "UI scale pinned to $scale (1 / the monitor scale) — native Wayland launches at 8 argv elements"
     else
       die "the UI scale patch corrupted $LAUNCHER_LIB — reinstall with --force"
     fi
