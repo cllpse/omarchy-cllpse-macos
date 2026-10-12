@@ -28,6 +28,10 @@ apply.sh pull you back.
 `../revert.sh`, which is why it is a library rather than a step and has no
 executable bit to invite running it.
 
+**Figma's canvas follows `monitor-scale`.** `../figma/figma.sh` sets Figma's
+forced scale to 1 / this value, one screen pixel per Figma pixel, so after
+changing the scale re-run it as well (see `../figma/README.md`).
+
 **These values are hardware-specific.** What ships here is tuned for one
 ~102 PPI 3840x2160 display (a 43" TV); `gdk-scale` in particular is wrong on a HiDPI
 panel, where Omarchy's default of 2 is right. Re-run `save-display.sh` on your

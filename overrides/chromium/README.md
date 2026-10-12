@@ -13,12 +13,12 @@ stall a run halfway through (it was step 9). Calling this with no argument
 ## 2. Drawing at 2×, and the fractional UI scale before it
 
 Since 2026-10-12 Chromium draws at 2× and Hyprland scales the window down by
-1.5, as macOS does at its in-between "looks like" resolutions. Two flags, both
-needed:
+1.6 at the monitor's 1.25 (1.5 at the 4/3 it was decided at), as macOS does at
+its in-between "looks like" resolutions. Two flags, both needed:
 
 - `WaylandFractionalScaleV1` in `--disable-features` turns off Wayland's
   fractional-scale protocol, so Hyprland asks for a whole-number buffer scale,
-  2 at the monitor's 1.33333.
+  2 at the monitor's 1.25, as at 4/3.
 - `--force-device-scale-factor=2` then sets Chromium's whole rendering scale.
   In this mode it does not touch layout: one DIP, and at 100% zoom one CSS
   pixel, is one desktop pixel, drawn as 2×2 device pixels.
@@ -40,8 +40,8 @@ Chromium's own GPU work grows 2.2×, with 2.25× the pixels, and the GPU never
 left its lowest clock. Overall it came out cheaper, because the fractional
 window was 1 px off its viewport (1541 against 1540 device px), which made
 Hyprland's work per frame 2.5×; at 2× there is no such mismatch. The cost is
-in the text: drawn at 2× and shrunk by 1.5 with smoothing, a little softer
-than native rendering at 4/3. The UI has no separate scale in this mode, so
+in the text: drawn at 2× and shrunk by 1.5 with smoothing (1.6 at 1.25), a
+little softer than native rendering. The UI has no separate scale in this mode, so
 the toolbar is at one desktop px per DIP, about 5% over 0.95 (table below).
 2 is a whole number, which turns off the fractional fix described below, but
 at 2 every DIP edge falls on a whole device row, so there is no
@@ -53,8 +53,8 @@ on the canvas's text and icons.
 
 From 2026-10-11 to 12, `--force-device-scale-factor=0.95` pinned Chromium's UI
 scale. It was picked at monitor scale 1.25, where 1.25 × 0.95 = 1.1875 device
-pixels per DIP, exactly 19 for every 16. At the current 1.33333 (also since
-2026-10-11) it is 1.2667, 19 for every 15. The sizes in desktop px below are
+pixels per DIP, exactly 19 for every 16. At 1.33333 (2026-10-11 to 12) it
+was 1.2667, 19 for every 15. The sizes in desktop px below are
 the same at either scale.
 Chromium's
 toolbar is fixed in DIPs (a 34-DIP address bar and buttons, 35-DIP tabs), and

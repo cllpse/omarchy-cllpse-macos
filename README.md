@@ -324,10 +324,10 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   without touching layout. Pages report `devicePixelRatio` 2 and load their
   sharp images (at 1.33 they loaded 1×, under Google's 1.5× threshold), while
   a CSS pixel stays one desktop pixel at the default zoom of 100%, as on
-  macOS. Hyprland shrinks the window by 1.5, as macOS does at its in-between
+  macOS. Hyprland shrinks the window by 1.6 (2 / 1.25), as macOS does at its in-between
   resolutions. Measured, it was cheaper than the fractional window it
   replaced, which sat 1 px off its viewport and cost Hyprland 2.5× per frame;
-  the trade is text a little softer than native rendering at 4/3. The toolbar
+  the trade is text a little softer than native rendering. The toolbar
   is at one desktop px per DIP: 14px address bar text in a 34px bar, tab titles
   12px. Chromium does not follow `omarchy display text size`. Before
   2026-10-12 the flag was 0.95 with fractional scaling on, a UI scale that put
