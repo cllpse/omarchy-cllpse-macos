@@ -1,8 +1,9 @@
 #!/bin/bash
 # Undo everything overrides/apply.sh did. Idempotent.
-# Sudo is needed by five steps near the end: removing the keyd config apply.sh
+# Sudo is needed by six steps near the end: removing the keyd config apply.sh
 # installed, dropping the CPU power limits back to the firmware's own and
-# removing their unit, putting /etc/fstab's Btrfs compression level back,
+# removing their unit, handing the TV's DSC bit rate back to amdgpu and
+# removing its unit, putting /etc/fstab's Btrfs compression level back,
 # removing the Chromium managed-policy file, and removing the Chromium theme
 # extension's policy, files and sudoers rule. Everything else is user-level.
 # Neither keyd nor ryzenadj is ever uninstalled -- this script did not install
@@ -601,6 +602,21 @@ if [[ -f /etc/systemd/system/ryzen-tdp.service ]]; then
     sudo ryzenadj --stapm-limit=45000 --slow-limit=45000 --fast-limit=54000 >/dev/null 2>&1 || true
   fi
   sudo rm -f /etc/systemd/system/ryzen-tdp.service /etc/default/ryzen-tdp
+  sudo systemctl daemon-reload
+fi
+
+# The TV's DSC bit rate (apply.sh step 10b). Disabling the unit does not undo
+# it -- amdgpu keeps both debugfs settings until a reboot -- so this hands the
+# rate back to amdgpu first, which blanks the TV once while the link
+# re-modesets, and only then removes the helper and its settings.
+if [[ -f /etc/systemd/system/cllpse-dsc.service || -e /usr/local/bin/cllpse-dsc-bpp ]]; then
+  say "Removing the DSC bit-rate unit (needs sudo)"
+  sudo systemctl disable --now cllpse-dsc.service >/dev/null 2>&1 || true
+  if [[ -x /usr/local/bin/cllpse-dsc-bpp ]]; then
+    say "handing the TV's DSC bit rate back to amdgpu"
+    sudo /usr/local/bin/cllpse-dsc-bpp off >/dev/null 2>&1 || true
+  fi
+  sudo rm -f /etc/systemd/system/cllpse-dsc.service /usr/local/bin/cllpse-dsc-bpp /etc/default/cllpse-dsc
   sudo systemctl daemon-reload
 fi
 

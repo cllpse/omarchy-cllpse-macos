@@ -18,7 +18,7 @@ _CLLPSE_LIB_LOADED=1
 # too -- root has no session bus, so dconf cannot commit and every write is a
 # warning rather than an error, which makes a sudo run look like it is working.
 #
-# The four steps that genuinely need root call `sudo` themselves, at the point
+# The six steps that genuinely need root call `sudo` themselves, at the point
 # they need it, so the correct invocation is always the unprivileged one.
 if (( EUID == 0 )); then
   cat >&2 <<'ROOT'
@@ -32,8 +32,8 @@ refusing to run as root.
 
       ./overrides/apply.sh
 
-  The four steps that need root (keyd, chromium-policy, ryzen, btrfs) call sudo
-  themselves and will prompt when they get there.
+  The six steps that need root (keyd, chromium-policy, chromium-theme, ryzen,
+  dsc, btrfs) call sudo themselves and will prompt when they get there.
 ROOT
   exit 1
 fi

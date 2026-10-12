@@ -1,0 +1,153 @@
+#!/bin/bash
+# The DSC bit rate on the Samsung TV's DisplayPort link. Root-owned, installed
+# to /usr/local/bin by overrides/dsc/dsc.sh and run at boot by
+# cllpse-dsc.service. See overrides/dsc/README.md for why.
+#
+#   cllpse-dsc-bpp boot     wait for the TV in a mode the rate fits, set it, check it took
+#   cllpse-dsc-bpp on       set it now (the next frame re-modesets)
+#   cllpse-dsc-bpp off      hand the rate back to amdgpu (12 bpp on this TV)
+#   cllpse-dsc-bpp status   what the GPU is sending, and whether it is ours
+#
+# Both settings are amdgpu debugfs files, held per connector in RAM: they
+# survive suspend and the TV going off and on, and are gone at every reboot.
+
+set -uo pipefail
+
+CONF=/etc/default/cllpse-dsc
+# shellcheck source=overrides/dsc/cllpse-dsc.env
+[[ -r $CONF ]] && source "$CONF"
+: "${DSC_BPP_X16:?not set in $CONF}" "${DSC_MAX_CLOCK_KHZ:?}" "${DSC_EDID:?}" "${DSC_ADAPTER_USB:?}"
+
+# EDID manufacturer id and product code, as SAM:30707.
+edid_id() { # $1 edid file
+  local b v s="" c
+  read -ra b < <(od -An -tu1 -j8 -N4 "$1")
+  (( ${#b[@]} == 4 )) || return 1
+  v=$(( b[0] << 8 | b[1] ))
+  for c in 10 5 0; do s+=$(printf "\\$(printf %03o $(( ((v >> c) & 31) + 64 )))"); done
+  echo "$s:$(( b[2] | b[3] << 8 ))"
+}
+
+adapter_present() {
+  local d
+  for d in /sys/bus/usb/devices/*; do
+    [[ -r $d/idVendor ]] || continue
+    [[ "$(<"$d/idVendor"):$(<"$d/idProduct")" == "$DSC_ADAPTER_USB" ]] && return 0
+  done
+  return 1
+}
+
+# Sets NAME (DP-1) and DBG (its amdgpu debugfs directory) for the connector
+# showing the TV, behind the adapter. Fails when either is missing.
+locate() {
+  local d card
+  adapter_present || return 1
+  for d in /sys/class/drm/card*-*; do
+    [[ -r $d/edid && $(<"$d/status") == connected ]] || continue
+    [[ $(edid_id "$d/edid") == "$DSC_EDID" ]] || continue
+    card=${d##*/}; NAME=${card#*-}; card=${card%%-*}
+    for DBG in "/sys/kernel/debug/dri/${card#card}" /sys/kernel/debug/dri/*; do
+      [[ -e $DBG/$NAME/dsc_bits_per_pixel ]] && return 0
+    done
+  done
+  return 1
+}
+
+# A debugfs value, without the NUL padding amdgpu pads its reads with.
+rd() { tr -d '\0\n ' <"$1" 2>/dev/null; }
+
+# The pixel clock (kHz) of the mode on $NAME, from the DRM atomic state.
+mode_clock() {
+  awk -v c="$NAME" '
+    /^[^[:space:]]/ { crtc = ""; conn = "" }
+    /^crtc\[/       { crtc = $2 }
+    /^connector\[/  { conn = $2 }
+    crtc != "" && $1 == "mode:" { clock[crtc] = $4 }
+    conn == c && $1 ~ /^crtc=/  { sub(/^crtc=/, "", $1); want = $1 }
+    END { if (want in clock) print clock[want] }
+  ' "$DBG/state" 2>/dev/null
+}
+
+# One write() and no retry. dsc_disable_passthrough's handler returns 0 bytes
+# written instead of the count, so a shell `echo >` retries it forever, as a
+# root process spinning a core.
+write_once() { # $1 file  $2 value
+  python3 -c 'import os, sys
+fd = os.open(sys.argv[1], os.O_WRONLY)
+os.write(fd, sys.argv[2].encode())
+os.close(fd)' "$1" "$2"
+}
+
+# Passthrough off first: the bpp write is what flags the connector for a full
+# re-modeset on the next frame, and that modeset must already see both.
+set_rate() { # $1 passthrough-off (1|0)  $2 bpp x16 in hex, 0x0 = amdgpu's own
+  write_once "$DBG/$NAME/dsc_disable_passthrough" "$1" &&
+    write_once "$DBG/$NAME/dsc_bits_per_pixel" "$2"
+}
+
+bpp_text() { awk -v x="$(( $1 ))" 'BEGIN { printf "%g", x / 16 }'; }
+
+fits() { # does the mode on $NAME carry the forced rate on the link?
+  local clock; clock=$(mode_clock)
+  [[ -n $clock ]] && (( clock <= DSC_MAX_CLOCK_KHZ ))
+}
+
+cmd_status() {
+  locate || { echo "TV ($DSC_EDID) behind adapter $DSC_ADAPTER_USB: not found"; return 1; }
+  local en bpp clock
+  en=$(rd "$DBG/$NAME/dsc_clock_en"); bpp=$(rd "$DBG/$NAME/dsc_bits_per_pixel"); bpp=${bpp:-0}
+  clock=$(mode_clock)
+  echo "$NAME, mode pixel clock ${clock:-?} kHz (the forced rate fits up to $DSC_MAX_CLOCK_KHZ)"
+  if [[ $en == 1 ]]; then
+    echo "DSC on at $(bpp_text "$bpp") bpp$( (( bpp == DSC_BPP_X16 )) && echo ", the forced rate" || echo ", amdgpu's own choice")"
+  else
+    echo "DSC off at this mode"
+  fi
+}
+
+cmd_on() {
+  locate || { echo "TV not found; nothing set" >&2; return 1; }
+  fits || { echo "the mode on $NAME ($(mode_clock) kHz) does not fit $(bpp_text "$DSC_BPP_X16") bpp; nothing set" >&2; return 1; }
+  set_rate 1 "$DSC_BPP_X16" && echo "$NAME: forced $(bpp_text "$DSC_BPP_X16") bpp, from the next modeset"
+}
+
+cmd_off() {
+  locate || { echo "TV not found; nothing to clear" >&2; return 1; }
+  set_rate 0 0x0 && echo "$NAME: back to amdgpu's own rate"
+}
+
+# Polls until the TV is up in a mode the rate fits. At a mode without DSC (the
+# console's 4K60) it sets the rate once, so the first DSC modeset already uses
+# it; at a DSC mode it checks the decoder runs at the rate, setting it again up
+# to three times. Never touches a mode the rate does not fit: amdgpu would
+# reject that modeset outright.
+cmd_boot() {
+  local tries=0 stored=0 bpp
+  while :; do
+    if locate && fits; then
+      if [[ $(rd "$DBG/$NAME/dsc_clock_en") == 1 ]]; then
+        bpp=$(rd "$DBG/$NAME/dsc_bits_per_pixel")
+        if (( ${bpp:-0} == DSC_BPP_X16 )); then
+          echo "$NAME: DSC at $(bpp_text "$DSC_BPP_X16") bpp"
+          return 0
+        fi
+        if (( tries++ == 3 )); then
+          echo "$NAME: still $(bpp_text "${bpp:-0}") bpp after 3 tries; handing the rate back to amdgpu" >&2
+          set_rate 0 0x0
+          return 1
+        fi
+        set_rate 1 "$DSC_BPP_X16"
+        sleep 5
+        continue
+      elif (( ! stored )); then
+        set_rate 1 "$DSC_BPP_X16" && stored=1
+      fi
+    fi
+    sleep 3
+  done
+}
+
+case "${1:-}" in
+  boot|on|off|status) "cmd_$1" ;;
+  *) echo "usage: cllpse-dsc-bpp boot|on|off|status" >&2; exit 2 ;;
+esac

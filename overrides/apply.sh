@@ -7,7 +7,7 @@
 #   apply.sh --all      everything, no prompt
 #   apply.sh --look     only the steps that change how it looks
 #   apply.sh <id>...    only these, always in the order below
-#   apply.sh --list     every id, and which five need sudo
+#   apply.sh --list     every id, and which six need sudo
 #
 # This script is now an ORCHESTRATOR. Each override owns a script and a README
 # in its own directory -- overrides/cursor/cursor.sh and overrides/cursor/
@@ -18,9 +18,10 @@
 #     apply, hyprctl reload, the Btrfs mount option). They have no folder to
 #     live in and stay inline here.
 #   * the ORDER itself, which is the one thing a per-folder script cannot own.
-#     Sudo is needed by exactly five steps and they are all late on purpose:
+#     Sudo is needed by exactly six steps and they are all late on purpose:
 #     8b (keyd), 9 (the Chromium managed policy), 9b (the Chromium theme
-#     extension), 10 (CPU power limits) and 11 (Btrfs). chromium/chromium.sh
+#     extension), 10 (CPU power limits), 10b (the TV's DSC bit rate) and
+#     11 (Btrfs). chromium/chromium.sh
 #     takes a `user`/`policy` argument for precisely this reason -- its two
 #     halves run at opposite ends of a run.
 #
@@ -67,6 +68,7 @@
 #   9b.  Chromium theme extension, light + dark, swapped live on
 #        every theme set; installs a passwordless sudo rule (sudo)    chromium-theme/
 #   10.  CPU power limits (sudo), hardware-gated, opt-in               ryzen/
+#   10b. DSC bit rate on the TV's link (sudo), hardware-gated, opt-in  dsc/
 #   11.  Btrfs compression level (sudo) -- last, and the only step
 #        that edits a file the machine will not boot without           [inline]
 
@@ -395,6 +397,13 @@ else
   echo "    • CPU power limits (10) are opt-in and were not part of this run:"
   echo "      apply.sh ryzen"
 fi
+if _want dsc; then
+  echo "    • the TV's DSC bit rate (10b) is set now and again at every boot;"
+  echo "      sudo cllpse-dsc-bpp status, values in /etc/default/cllpse-dsc"
+else
+  echo "    • the TV's DSC bit rate (10b) is opt-in and was not part of this run:"
+  echo "      apply.sh dsc"
+fi
 echo "    • boot splash / login screen (needs sudo, not run by this script):"
 echo "        omarchy plymouth set by theme omarchy-cllpse-theme-dark   # or -light"
 
@@ -483,6 +492,7 @@ STEPS=(
   "chromium-policy|sudo|Chromium managed policy (sudo)|run:chromium policy|"
   "chromium-theme|sudo|Chromium theme extension, light/dark on theme set (sudo)|run:chromium-theme|"
   "ryzen|optin|CPU power limits (sudo)|run:ryzen|"
+  "dsc|optin|DSC bit rate on the TV's link (sudo)|run:dsc|"
   "btrfs|sudo|Btrfs compression level (sudo)|fn:step_btrfs|"
 )
 
@@ -498,7 +508,8 @@ _ids()   { printf '%s\n' "${STEPS[@]}" | cut -d'|' -f1; }
 # does -- and figma.sh finishes by calling `apply.sh --all` itself, so having
 # it in --all would recurse. ryzen writes the CPU's power limits: a thermal
 # decision for one machine, made by asking for it rather than swept up in a
-# full run (figma.sh's included).
+# full run (figma.sh's included). dsc is the same kind of decision for one
+# display: a compression rate past what its adapter states it can decode.
 _auto_ids() { printf '%s\n' "${STEPS[@]}" | awk -F'|' '$2!="optin"{print $1}'; }
 
 _validate_look() {
@@ -521,7 +532,7 @@ Apply the cllpse-macos theme + the system overrides it needs. Idempotent.
   apply.sh --help          this
 
 Ids are listed by --list, with whatever each one needs. Prerequisites are
-added automatically and announced. Five steps need sudo and are marked; skip
+added automatically and announced. Six steps need sudo and are marked; skip
 those and the run needs no password at all.
 EOF
 }
@@ -592,10 +603,11 @@ choose_steps() {
   esac
 
   # Stage two: tick as many as you like. The list is everything --all would run,
-  # plus ryzen. bar and figma are not in it, both having had their own entry
-  # above; ryzen is opt-in too but has no entry of its own, so this is where it
-  # is opted into. That is why the filter names bar and figma rather than
-  # skipping every `optin` step -- a new top-level entry has to be added to it.
+  # plus ryzen and dsc. bar and figma are not in it, both having had their own
+  # entry above; ryzen and dsc are opt-in too but have no entry of their own, so
+  # this is where they are opted into. That is why the filter names bar and
+  # figma rather than skipping every `optin` step -- a new top-level entry has
+  # to be added to it.
   local menu=() s id note label
   for s in "${STEPS[@]}"; do
     IFS='|' read -r id note label _ _ <<<"$s"

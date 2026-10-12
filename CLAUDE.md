@@ -101,6 +101,18 @@ selection (`#D3E3FD`, Chromium's palette) cannot be fixed alongside it. Probe:
 `jq -r .extensions.theme.id ~/.config/chromium/Default/Preferences`. See
 `overrides/chromium-theme/README.md`.
 
+### The TV's DSC bit rate is a debugfs override, set again at every boot
+
+amdgpu sizes the 4K120 stream by the TV's HDMI DSC rules (12 bpp, 2:1), though
+the VMM7100 adapter is what decodes it. `apply.sh dsc` installs
+`cllpse-dsc.service`, which forces 20 bpp through amdgpu's
+`dsc_disable_passthrough` + `dsc_bits_per_pixel` debugfs files. Those live in
+RAM per connector, so only a reboot loses them. While it is set, 4K144/165
+exceed the link and amdgpu rejects the modeset: `sudo cllpse-dsc-bpp off`
+first. Never `echo` into `dsc_disable_passthrough`: its handler returns 0 bytes
+written, so `echo` retries forever as a root process. Probe:
+`sudo cllpse-dsc-bpp status`. See `overrides/dsc/README.md`.
+
 ### The two plugins cancel each other over Hyprland's event socket
 
 Opening either one sends `hl.dsp.event("overlay-open>><plugin id>")`, which
@@ -263,6 +275,7 @@ or `<`, and files with no paint at all (simple-icons bare `<path>`).
 | Supermenu ranking, invariants, traps | `omarchy-cllpse-plugin-supermenu/AGENTS.md` |
 | Task patterns for agents | `AGENTS.md` (this dir) |
 | Per-app override details | `overrides/<app>/README.md` |
+| The TV's DSC bit rate: why 12 bpp, how 20 is forced | `overrides/dsc/README.md` |
 | Chromium theme extension: design, mechanism, Chromium source findings | `overrides/chromium-theme/README.md` |
 | Window switcher design log | `reference/window-switcher-notes.md` |
 | Keybind parity audit | `KEYBINDS-PARITY.md` |

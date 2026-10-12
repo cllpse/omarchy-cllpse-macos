@@ -12,7 +12,7 @@ so it can't ship inside a theme folder.
 **Never with `sudo`.** These are user-level scripts keyed on `$HOME`; as root
 that is `/root`, so everything installs into root's home and leaves your desktop
 untouched — and `gsettings` fails silently, because root has no session bus, so
-the run *looks* like it worked. The five steps that need root call `sudo`
+the run *looks* like it worked. The six steps that need root call `sudo`
 themselves when they get there. `lib.sh` refuses outright if `EUID` is 0.
 
 ```bash
@@ -21,7 +21,7 @@ themselves when they get there. `lib.sh` refuses outright if `EUID` is 0.
 ./apply.sh --all            # everything, no prompt
 ./apply.sh --look           # only the steps that change how the desktop looks
 ./apply.sh cursor icons     # only these, still in the canonical order
-./apply.sh --list           # every id, and which five need sudo
+./apply.sh --list           # every id, and which six need sudo
 ./revert.sh                 # undo everything, restoring what the machine had before
 ./figma/figma.sh            # install or update Figma Desktop, then run apply.sh --all
 ```
@@ -81,10 +81,12 @@ checklist, having had its own entry above.
 
 `ryzen` is `optin` too, for a different reason: it writes the CPU's power
 limits, a thermal decision for one machine that should be made by asking for it
-rather than swept up in a full run (`figma.sh`'s `--all` included). It has no
-top-level entry, so it stays in the checklist; the checklist skips `bar` and
-`figma` by id rather than skipping every `optin` step. Run it with
-`apply.sh ryzen` or by ticking it.
+rather than swept up in a full run (`figma.sh`'s `--all` included). `dsc` is
+`optin` for the same reason, on the display side: it pushes one TV's DSC
+compression past what its adapter states it can decode. Neither has a
+top-level entry, so both stay in the checklist; the checklist skips `bar` and
+`figma` by id rather than skipping every `optin` step. Run them with
+`apply.sh ryzen` / `apply.sh dsc` or by ticking them.
 
 Ticking anything in that checklist also runs `state`, which records what the
 machine had before — only useful if it happens on the first run that changes
@@ -114,7 +116,7 @@ name it in: several steps only work after an earlier one — `hypr-reload` reloa
 Hyprland against the keyd that `keyd` just restarted — and letting the menu
 reorder them would be a silent way to break a run.
 
-Skipping the five sudo steps means the run needs no password at all, which is
+Skipping the six sudo steps means the run needs no password at all, which is
 the quickest way to reapply the user-level half of the config.
 
 `figma/figma.sh` is the odd one out: it is the only script here that reaches
@@ -134,12 +136,13 @@ generates — `monospace` then falls back to the packaged default on its own —
 tells you the terminal configs may still name SF Mono rather than guessing a
 replacement.
 
-Both are idempotent and safe to re-run. Neither needs sudo except five steps in
+Both are idempotent and safe to re-run. Neither needs sudo except six steps in
 each — keyd's config plus the `keyd` group grant (`apply.sh` step 8b),
 installing/removing the Chromium managed-policy file (step 9), the Chromium
 theme extension's CRXs, policy writer and passwordless rule (step 9b), the CPU
-power limits (step 10) and `/etc/fstab`'s Btrfs compression level (step 11) — everything else
-in both scripts is user-level.
+power limits (step 10), the TV's DSC bit rate (step 10b) and `/etc/fstab`'s
+Btrfs compression level (step 11) — everything else in both scripts is
+user-level.
 
 ## Before running `apply.sh`
 
@@ -261,7 +264,7 @@ the order the table below sets out. Two things deliberately do not live in a
 folder — steps that configure the system rather than an app (gsettings, the
 theme apply, `hyprctl reload`, the Btrfs mount option), which have no folder to
 go in and stay inline; and the **order**, which is the one thing a per-folder
-script cannot own. Sudo is needed by five steps and they are all late on
+script cannot own. Sudo is needed by six steps and they are all late on
 purpose, which is why `chromium/chromium.sh` takes a `user`/`policy` argument:
 its two halves run at opposite ends of a run.
 
@@ -300,6 +303,7 @@ script works the same whether you run it by hand or `apply.sh` calls it.
 | 9 | Chromium managed policy: context-menu declutter, new tabs open `about:blank`, plus two force-installed extensions. Needs **sudo**. **Full detail: [`chromium/README.md`](chromium/README.md).** | `/etc/chromium/policies/managed/cllpse-macos.json` |
 | 9b | Chromium theme extension: a light and a dark theme generated from the two themes' `colors.toml`, packed with per-machine keys, force-installed by managed policy and swapped live by a theme-set hook on every `omarchy theme set` (any other Omarchy theme turns it off). Installs a passwordless sudo rule for one root-owned writer and its three exact arguments, the way Omarchy's own `color.json` writer is set up. Needs **sudo**. **Full detail: [`chromium-theme/README.md`](chromium-theme/README.md).** | `/usr/local/share/cllpse-macos/chromium-theme/`, `/usr/local/bin/cllpse-chromium-theme-policy`, `/etc/sudoers.d/cllpse-chromium-theme`, `/etc/chromium/policies/managed/zz-cllpse-macos-theme.json`, `~/.config/omarchy/hooks/theme-set.d/chromium-theme.sh`, keys in `$STATE/chromium-theme/` |
 | 10 | CPU power limits via `ryzenadj`, reapplied at boot and on resume. Hardware-gated, and **opt-in**: `--all` skips it; `apply.sh ryzen` or the checklist runs it. Needs **sudo**. **Full detail: [`ryzen/README.md`](ryzen/README.md).** | `/etc/default/ryzen-tdp`, `/etc/systemd/system/ryzen-tdp.service` |
+| 10b | The TV's DSC bit rate: amdgpu sizes the 4K120 stream by the TV's HDMI DSC rules (12 bpp, 2:1) and then has the VMM7100 adapter decode it, so the TV's limit never applied. A root helper sets two amdgpu debugfs files, the adapter's own caps plus a forced 20 bpp (1.2:1), and a unit sets them again at every boot, since amdgpu keeps them in RAM. Gated on the TV's EDID and the adapter's USB id, never written at a mode the rate does not fit (4K144/165), and **opt-in**: `--all` skips it; `apply.sh dsc` or the checklist runs it. Needs **sudo**. **Full detail: [`dsc/README.md`](dsc/README.md).** | `/usr/local/bin/cllpse-dsc-bpp`, `/etc/default/cllpse-dsc`, `/etc/systemd/system/cllpse-dsc.service` |
 | 11 | Btrfs compression: `compress=zstd` (a bare `zstd` is the kernel's level 3) → `compress=zstd:1` on every btrfs line in `/etc/fstab`, then a live `mount -o remount` of each so it doesn't wait for a reboot. Level 3 costs ~2–3× the CPU of level 1 at compression for ~5–10% better ratio — the wrong trade on a disk that was 4% full when this was decided (10% on 2026-10-09) and a CPU that is thermally capped. Backs `/etc/fstab` up first, rewrites **only** lines whose FS-type field is `btrfs` (a commented line, a `compress-force=`, or the same string on an ext4 line are all left alone — tested), and verifies with `findmnt --verify` before leaving it in place, restoring the backup if that fails. Bails out entirely if the machine mounts btrfs at mixed levels. Needs **sudo** | `/etc/fstab`, plus a live remount of each btrfs mountpoint |
 
 `7\*` is not a separate step in the script — starship, the Cursor chrome repaint, yazi's syntect theme, hunk, gh-dash and ytm-player are all theme-set hooks installed from inside step 7. It is split out here because a hook behaves differently from a config file: it re-runs on every `omarchy theme set`.
@@ -500,7 +504,7 @@ It is **not** a complete machine build. On a clean install these are the gaps:
 
 | Gap | Effect |
 |---|---|
-| **Five steps use sudo (8b's keyd config and group grant, step 9's Chromium policy, step 9b's Chromium theme extension, step 10's CPU power limits and step 11's `/etc/fstab` compression level), all deliberately near the end.** No package installation happens anywhere — `keyd` in particular must already be present, and step 8b skips with the `pacman -S keyd` line if it is not — see *Before running `apply.sh`* above for the full list and what each omission costs. `bibata-cursor-theme-bin` is the only one that fails loudly-ish (warned about, and the cursor theme is set in `gsettings`/`hl.env` regardless, so it falls back visibly); every other guard just skips, at most with one line in the output. The two non-package channels, `mise` (`hunk`, `gh`) and `gh extension` (`gh-dash`), won't be restored by a `pacman -Qqe` rebuild | Cursor visibly wrong; other items silently absent |
+| **Six steps use sudo (8b's keyd config and group grant, step 9's Chromium policy, step 9b's Chromium theme extension, step 10's CPU power limits, step 10b's DSC bit rate and step 11's `/etc/fstab` compression level), all deliberately near the end.** No package installation happens anywhere — `keyd` in particular must already be present, and step 8b skips with the `pacman -S keyd` line if it is not — see *Before running `apply.sh`* above for the full list and what each omission costs. `bibata-cursor-theme-bin` is the only one that fails loudly-ish (warned about, and the cursor theme is set in `gsettings`/`hl.env` regardless, so it falls back visibly); every other guard just skips, at most with one line in the output. The two non-package channels, `mise` (`hunk`, `gh`) and `gh extension` (`gh-dash`), won't be restored by a `pacman -Qqe` rebuild | Cursor visibly wrong; other items silently absent |
 | **Cursor editor not installed.** The `settings.json` merge is skipped when both `/usr/bin/cursor` and `~/.config/Cursor/User/` are absent. The merge itself needs no network step, but three of its keys name themes from the Bearded marketplace extensions (`workbench.preferred{Light,Dark}ColorTheme`, `workbench.iconTheme`), which fall back silently until those are installed — see *Before running `apply.sh`* | Merge skipped on a machine without Cursor |
 | **Third-party plugins are not installed.** `apply.sh` has no source URL for any of them, and step 7h's recorded `bar.layout` names exactly one — `io.github.thisisgm.omapods`, whose entry is inert without the plugin, since `Bar.qml` resolves an unknown widget id to a null component. Step 7h does *say so* rather than leaving that silent, and *Before running `apply.sh`* above carries the two install commands. The other widgets that were there (`dizziee.system-updates`, `jankeesvw.notification-center`, `io.github.twiking.omasettings`) were removed along with the plugins. Since a third-party plugin is enabled iff its id appears somewhere in `shell.json`, a layout without it *is* the uninstall as far as the shell is concerned; the plugin directory under `~/.config/omarchy/plugins/` still has to be deleted by hand | Nothing to render, and nothing to install |
 | **`display.conf` values are hardware-specific** — text size 13, monitor scale 1.33333, GDK scale 1 are tuned for one ~102 PPI 3840x2160 display (a 43" TV). `gdk-scale` in particular is wrong on a HiDPI panel, where Omarchy's default of 2 is right | Wrong sizing on different hardware, applied confidently |
@@ -562,6 +566,7 @@ differences above are the ones to check by hand.
 - **What the argv cap costs, and the alternative if that changes.** Only Wayland input-method support, in Figma alone. fcitx5 here runs a bare `keyboard-us` passthrough with no engine installed, and the Preonic's Danish letters come from xkb via `wl_keyboard`, which `text-input` is not in the path of — so nothing on this machine currently uses those two flags. Install a real fcitx5 engine and it becomes a live loss. The alternative, verified working: drop `--enable-features=UseOzonePlatform,WaylandWindowDecorations` instead and keep both IME flags. `UseOzonePlatform` is default-on in this Chromium, so the app still runs natively (`hyprctl clients` reports `xwayland: false`), and the launch lands at 8 — correct, but with **zero headroom**, so one added upstream flag silently brings the login loop back. With the UI scale flag also in, that alternative lands at 9 and breaks login, so it now costs the scale flag too. The IME pair is the better thing to give up while it is unused.
 - **The `keyd` group grant (8b) needs a reboot, and a relogin is not enough.** `uwsm` starts Hyprland as a unit of the systemd *user manager*, and with logind's stock `KillUserProcesses=no` that manager survives a logout — so every process on the desktop keeps inheriting the group set the manager was created with. Measured: two full graphical logins after the grant, Hyprland's `/proc/<pid>/status` still read the old `Groups:`. The tell is `getent group keyd` listing you while `id` does not. Nothing is broken in the meantime: `cllpse-figma-keyd` falls back to `newgrp`, which is setuid-root and reads `/etc/group` directly, so the remap works in the session that granted it — the reboot just moves it onto the fast path.
 - **The CPU power limits (10) are live the moment the step runs**, and reapplied at boot and on resume — `ryzenadj` writes to the SMU at runtime and its settings persist across neither, which is the whole reason the unit exists rather than a line in a login script. Check them with `systemctl status ryzen-tdp`, or read them back with no root at all from `/sys/kernel/ryzen_smu_drv/pm_table` (STAPM limit, STAPM value, PPT fast limit, PPT fast value, PPT slow limit, PPT slow value — little-endian floats, in that order) if the `ryzen_smu` module is loaded. A `oneshot` that has already run shows as `inactive (dead)`; that is success, not failure.
+- **The TV's DSC bit rate (10b) is live the moment the step runs**: the bpp write flags the output for a re-modeset on the next frame, so the TV blanks once. It is reapplied at every boot, and only a reboot loses it: amdgpu keeps it in RAM per connector, through suspend and the TV going off and on. `sudo cllpse-dsc-bpp status` reads the rate the adapter decodes at. While it is set, 4K144 and 4K165 do not fit the link and amdgpu rejects them, so run `sudo cllpse-dsc-bpp off` before trying either, and `on` after.
 - **Step 11's `zstd:1` applies to NEW writes only.** A mount option is not a property of the data — existing extents keep whatever level they were written at until something rewrites them. `btrfs filesystem defragment -r -czstd` would rewrite them and is deliberately *not* run: on a filesystem with Snapper snapshots it unshares extents and can multiply disk usage. Reads are unaffected either way, since zstd decompression speed is essentially level-independent.
 - **The boot splash / login screen needs its own command, deliberately not run by `apply.sh`'s main flow**: `omarchy plymouth set by theme omarchy-cllpse-theme-dark` (or `-light`), which needs sudo. Step 8 prints this as a reminder.
 
@@ -639,6 +644,9 @@ ryzen/ryzen-tdp.env           the power limits themselves: 50W sustained / 58W b
 ryzen/ryzen-tdp.service       reapplies them at boot AND on resume -- ryzenadj's settings survive neither (installed to /etc/systemd/system with sudo)
 ryzen/burst-bench.py          times fixed all-core work at several burst limits, which is what settled the 58W figure; needs sudo, restores the env file's limits on exit, not run by apply.sh
 ryzen/hwgraph.py              live bar graphs (bright top, dimmed body) with dotted, labelled gridlines: CPU clock + Tctl, with sustained power against its limit as a label line (needs ryzen_smu), the GPU's utilisation (orange) + edge temperature (mint), the memory clock, each RAM stick's and the SSD's temperature, each labelled with its current reading, mean and peak, the CPU's and RAM's throttle points as red lines; logs every sample to ~/.local/state/hwgraph/ and replays the last 24 h on start; no root, no deps, not run by apply.sh
+dsc/cllpse-dsc-bpp            the root helper (boot|on|off|status): gates on the TV's EDID and the adapter's USB id, writes amdgpu's dsc_disable_passthrough and dsc_bits_per_pixel once each (echo would loop on the first), reads the decoder's rate back (installed to /usr/local/bin with sudo)
+dsc/cllpse-dsc.env            the rate (0x140 = 20 bpp), the largest pixel clock it fits (1188 MHz), the TV and adapter ids (installed to /etc/default/cllpse-dsc with sudo)
+dsc/cllpse-dsc.service        sets it again at every boot, waiting for the TV -- amdgpu keeps it in RAM only (installed to /etc/systemd/system with sudo)
 chromium/policies-managed.json  spellcheck/translate/password/autofill/Print/Cast/QR-code/Reading-list off, NewTabPageLocation about:blank, plus ExtensionInstallForcelist pinning uBlock Origin Lite + Proton Pass (managed policy, installed to /etc with sudo). DevTools deliberately absent — see the follow-ups section
 chromium-theme/build.py        renders a Chromium theme manifest from a colors.toml: background = darker_background (light) / dark_background (dark), active tab = lighter_background, text = light_foreground, toolbar icons computed so the derived toolbar/page line equals the address field's background, the same focused or not
 chromium-theme/chromium-theme.sh  step 9b (sudo): packs light + dark with per-machine keys in $STATE, installs the CRXs root-owned to /usr/local/share/cllpse-macos/chromium-theme, the writer to /usr/local/bin and its passwordless rule to /etc/sudoers.d/cllpse-chromium-theme, links the theme-set hook, applies the current mode

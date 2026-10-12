@@ -18,13 +18,14 @@ Both are **their own repositories**, added here as submodules at the repo root
 Built against **Omarchy 4.0.4** (`quattro`). The `master` branch is stale at
 3.8.5 and uses an incompatible theme format — this will not work there.
 
-`apply.sh` is idempotent and installs no packages. It makes one decision about
-your hardware — the CPU power limits in step 10 — and gates it on the exact CPU
-and chassis it was measured on, so it is inert anywhere else. That step is also
-opt-in: `--all` skips it, and `apply.sh ryzen` runs it. Five steps need
-sudo (keyd, the Chromium managed policy, the Chromium theme extension, those
-power limits, and the Btrfs compression level in `/etc/fstab`) and everything
-else is user-level. The theme extension's step also installs a passwordless sudo
+`apply.sh` is idempotent and installs no packages. It makes two decisions about
+your hardware — the CPU power limits in step 10 and the TV's DSC bit rate in
+step 10b — and gates each on the exact hardware it was measured on (the CPU and
+chassis; the TV and its USB-C adapter), so both are inert anywhere else. Both
+steps are also opt-in: `--all` skips them, and `apply.sh ryzen` / `apply.sh dsc`
+runs them. Six steps need sudo (keyd, the Chromium managed policy, the Chromium
+theme extension, those power limits, that bit rate, and the Btrfs compression
+level in `/etc/fstab`) and everything else is user-level. The theme extension's step also installs a passwordless sudo
 rule, scoped to one root-owned script and three exact arguments, so that
 `omarchy theme set` can swap Chromium between light and dark without a prompt. Six things to settle first; everything after
 them can be handed to an agent.

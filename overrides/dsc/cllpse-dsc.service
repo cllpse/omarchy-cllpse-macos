@@ -1,0 +1,16 @@
+[Unit]
+Description=Force the DSC bit rate on the Samsung TV's DisplayPort link
+# amdgpu holds the setting in RAM per connector: it survives suspend and the TV
+# going off and on, and nothing persists it across a reboot.
+After=systemd-modules-load.service sys-kernel-debug.mount
+ConditionPathExists=/usr/local/bin/cllpse-dsc-bpp
+
+[Service]
+# exec, not oneshot: it waits for the TV and for Hyprland's first DSC mode, and
+# a oneshot wanted by multi-user.target would hold back the boot (and the login
+# it is waiting for) until it returned.
+Type=exec
+ExecStart=/usr/local/bin/cllpse-dsc-bpp boot
+
+[Install]
+WantedBy=multi-user.target
