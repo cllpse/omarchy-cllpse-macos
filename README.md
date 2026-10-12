@@ -316,27 +316,27 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   only moved off the chord. Its plugin README has the ranking in full and one
   Omarchy 4.0.4 bug it works around: a third-party `menu` plugin is never
   handed the shell's app library, so it runs its own.
-- **Chromium's UI scale is pinned at 0.95, and page zoom undoes it for pages.**
-  `overrides/chromium/chromium-flags.conf` passes
-  `--force-device-scale-factor=0.95`, which on Wayland replaces the GTK text
-  factor as Chromium's UI scale. It was picked at monitor scale 1.25, where
-  1.25 × 0.95 = 1.1875 device pixels per DIP, 19 for every 16, so Chromium's
-  mostly-multiple-of-2-and-4 DIP sizes fell on 16ths of a pixel and multiples
-  of 8 on half pixels. At the current 1.33333 it is 1.2667, 19 for every 15;
-  the sizes in desktop pixels below are the same at either scale. Chromium's toolbar is fixed in DIPs with 14-DIP address bar
-  text whatever the GTK font, so following the GTK factor made the address
-  bar read as huge (15.5px text in a 37.7px bar). At 0.95 that text is
-  13.3px, the same as every other app's, and tab titles 11.4px. The cost is that
-  Chromium no longer follows `omarchy display text size`.
-  The default page zoom is 100/0.95 = 105.263%, derived from the flag by
-  `overrides/chromium/chromium.sh` and written by `default-zoom.py`, so pages
-  render at the monitor scale (1.33333 device pixels per CSS pixel): one CSS
-  pixel per desktop pixel, as on macOS. The flag has to be
-  fractional: the old `--force-device-scale-factor=1` made Chromium report a
-  whole-number scale, which turned off its fix for fractional scales, and one
-  device row above the toolbar/page line stayed 25% transparent and showed
-  the wallpaper. `overrides/chromium/README.md` §2 has the source trail. There
-  is no command-line flag for default zoom — it is the profile preference
+- **Chromium draws at 2× and Hyprland scales it down.**
+  `overrides/chromium/chromium-flags.conf` disables `WaylandFractionalScaleV1`,
+  so Hyprland asks Chromium for a whole-number buffer scale, and passes
+  `--force-device-scale-factor=2`, which then sets Chromium's rendering scale
+  without touching layout. Pages report `devicePixelRatio` 2 and load their
+  sharp images (at 1.33 they loaded 1×, under Google's 1.5× threshold), while
+  a CSS pixel stays one desktop pixel at the default zoom of 100%, as on
+  macOS. Hyprland shrinks the window by 1.5, as macOS does at its in-between
+  resolutions. Measured, it was cheaper than the fractional window it
+  replaced, which sat 1 px off its viewport and cost Hyprland 2.5× per frame;
+  the trade is text a little softer than native rendering at 4/3. The toolbar
+  is at one desktop px per DIP: 14px address bar text in a 34px bar, tab titles
+  12px. Chromium does not follow `omarchy display text size`. Before
+  2026-10-12 the flag was 0.95 with fractional scaling on, a UI scale that put
+  the address bar text at 13.3px, with the default page zoom at 100/0.95 =
+  105.263% to undo it for pages; `chromium.sh` still derives the zoom that way
+  whenever fractional scaling is on. A whole-number scale there turned off
+  Chromium's fix for fractional scales and let the wallpaper show through one
+  row above the toolbar; at 2× every edge lands on a whole device row.
+  `overrides/chromium/README.md` §2 has the measurements and source trail.
+  There is no command-line flag for default zoom — it is the profile preference
   `partition.default_zoom_level`, stored as `ln(factor)/ln(1.2)` — and
   Chromium must be closed when it is written, since it rewrites `Preferences`
   from memory on exit.

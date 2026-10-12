@@ -47,11 +47,16 @@ fi
 
 # See README.md (4)
 if [[ -x "$HERE/chromium/default-zoom.py" ]]; then
-  # 100 / the UI scale in chromium-flags.conf, so page content is back at the
-  # monitor scale: 105.263% for 0.95. Printed with %g, as
+  # 100% while chromium-flags.conf disables WaylandFractionalScaleV1: the scale
+  # flag then sets the rendering scale and leaves layout alone. Otherwise the
+  # flag is a UI scale that pages inherit, and 100 / it puts them back at the
+  # monitor scale (105.263% for 0.95). Printed with %g, as
   # `default-zoom.py --print` reports it, so record_prior recognises the value
   # as ours on a re-run.
-  _zoom="$(awk -F= '/^--force-device-scale-factor=/ { printf "%g", 100 / $2; exit }' \
+  _zoom="$(awk -F= '
+    /^--force-device-scale-factor=/ && scale == "" { scale = $2 }
+    /^--disable-features=/ && /[=,]WaylandFractionalScaleV1(,|$)/ { whole = 1 }
+    END { if (scale != "") printf "%g", whole ? 100 : 100 / scale }' \
     "$HERE/chromium/chromium-flags.conf")"
   [[ -n $_zoom ]] || _zoom=100
   record_prior "$STATE/previous-chromium-zoom" \

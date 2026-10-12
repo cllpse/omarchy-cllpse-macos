@@ -10,9 +10,48 @@ because it is the only part needing sudo and a password prompt should not
 stall a run halfway through (it was step 9). Calling this with no argument
 -- which is what running it by hand does -- does both, in that order.
 
-## 2. A fractional scale flag, 0.95, and the page zoom that undoes it
+## 2. Drawing at 2×, and the fractional UI scale before it
 
-Since 2026-10-11, `--force-device-scale-factor=0.95` pins Chromium's UI
+Since 2026-10-12 Chromium draws at 2× and Hyprland scales the window down by
+1.5, as macOS does at its in-between "looks like" resolutions. Two flags, both
+needed:
+
+- `WaylandFractionalScaleV1` in `--disable-features` turns off Wayland's
+  fractional-scale protocol, so Hyprland asks for a whole-number buffer scale,
+  2 at the monitor's 1.33333.
+- `--force-device-scale-factor=2` then sets Chromium's whole rendering scale.
+  In this mode it does not touch layout: one DIP, and at 100% zoom one CSS
+  pixel, is one desktop pixel, drawn as 2×2 device pixels.
+
+Pages report `devicePixelRatio` 2, so media queries, `srcset` and
+`image-set()` all choose sharp images. At 1.33 they chose 1×, being under
+Google's 1.5× threshold, and Gmail's icons were stretched by a third.
+Neither flag works alone: fractional off with the old 0.95 drew at 0.95× and
+was upscaled, blurrier than before; with fractional on, the scale flag only
+replaces the UI scale, as described below.
+
+| Measured on a throwaway Chromium at this browser's size | Before (0.95, fractional) | 2× |
+|---|---|---|
+| Chromium's GPU busy, scrolling | 5.6% | 12.0% |
+| Hyprland's GPU busy, scrolling | 51% | 21% |
+| Power, scrolling / 1080p60 video / idle | 15.2 / 11.8 / 5.4 W | 12.3 / 10.3 / 5.4 W |
+
+Chromium's own GPU work grows 2.2×, with 2.25× the pixels, and the GPU never
+left its lowest clock. Overall it came out cheaper, because the fractional
+window was 1 px off its viewport (1541 against 1540 device px), which made
+Hyprland's work per frame 2.5×; at 2× there is no such mismatch. The cost is
+in the text: drawn at 2× and shrunk by 1.5 with smoothing, a little softer
+than native rendering at 4/3. The UI has no separate scale in this mode, so
+the toolbar is at one desktop px per DIP, about 5% over 0.95 (table below).
+2 is a whole number, which turns off the fractional fix described below, but
+at 2 every DIP edge falls on a whole device row, so there is no
+part-transparent row to fix. That is reasoned from the cause, not measured.
+
+`../figma/README.md` measured the same mode for Figma and rejected it there,
+where there are no 1× images to gain: Hyprland's downscale left a grey fringe
+on the canvas's text and icons.
+
+From 2026-10-11 to 12, `--force-device-scale-factor=0.95` pinned Chromium's UI
 scale. It was picked at monitor scale 1.25, where 1.25 × 0.95 = 1.1875 device
 pixels per DIP, exactly 19 for every 16. At the current 1.33333 (also since
 2026-10-11) it is 1.2667, 19 for every 15. The sizes in desktop px below are
@@ -27,25 +66,26 @@ whole toolbar and its text together:
 |---|---|---|---|---|
 | GTK factor, 71/64 (2026-10-10 to 11) | 13.3 | 15.5 | 37.7 | |
 | 0.9 (measured, a few hours on 2026-10-11) | 10.8 | 12.6 | 30.6 | |
-| **0.95 (now)** | **11.4** | **13.3** | **32.3** | |
+| 0.95 (2026-10-11 to 12) | 11.4 | 13.3 | 32.3 | |
+| **2, fractional off (now)** | **12** | **14** | **34** | |
 
 At the GTK factor, tab titles matched the desktop's text, but the address bar
-read as huge next to everything else. At 0.95 its text is 13.3, the same as
-every other app's, and tab titles are a step smaller, as Safari's are. The
-scale was picked for its ratio. 0.9 came first, at 9/8, the cleanest under 1.
-Asked to go up a step, 0.95 was the clean one between 0.91 and 0.98: 19/16,
-so edges fall on 16ths of a pixel and multiples of 8 DIP on half pixels. At
-1.387 none line up. The flags file has the candidates. The cost: Chromium no
-longer follows `omarchy display text size`, so this number has to move by
-hand with it. Pages scale with it too, so the default zoom is 1/0.95,
-105.263% (§4), which puts them back at the monitor's 1.33333 device px per
-CSS px.
+read as huge next to everything else. At 0.95 its text was 13.3, the same as
+every other app's, and tab titles a step smaller, as Safari's are. The scale
+was picked for its ratio. 0.9 came first, at 9/8, the cleanest under 1. Asked
+to go up a step, 0.95 was the clean one between 0.91 and 0.98: 19/16, so edges
+fell on 16ths of a pixel and multiples of 8 DIP on half pixels. At 1.387 none
+line up. The flags file's git history has the candidates. The cost: Chromium
+no longer follows `omarchy display text size`, so the number has to move by
+hand with it. Pages scaled with it too, so the default zoom was 1/0.95,
+105.263% (§4), which put them back at the monitor's 1.33333 device px per
+CSS px. At 2× Chromium still ignores the text size, and the zoom is 100%.
 
 For a day before that there was no flag at all. The UI followed the monitor
 scale times the GTK text factor, 10/9 at text size 13, which Chromium rounds
 to 71/64 (1.387 device px per DIP), and pages were at Chromium's own 100%.
 
-**Why the old `=1` flag went, and why this one is fractional.** `--force-device-scale-factor=1` was written to pin the
+**Why the old `=1` flag went, and why 0.95 was fractional.** `--force-device-scale-factor=1` was written to pin the
 device pixel ratio to 1 under the monitor scale (browser UI 20% under the
 desktop at 1.25, as tuned on DP-2; 25% at 1.33333), paired with 110% zoom.
 On Chromium 152 under Wayland it no longer did that (measured 2026-10-10):
@@ -84,8 +124,8 @@ and 110% zoom replaced both (§2, §4).
 The flag file is Omarchy's, so our lines go in a fenced block, as in every
 other shared config here. The launcher skips "#" lines, which makes the
 markers inert. Our scale flag is inside the block. A copy outside it would be
-passed twice, or, if it is an old whole-number `=1`, turn the fix off again,
-so `chromium.sh` deletes any copy outside the block.
+passed twice, or, if it is an old whole-number `=1` in fractional mode, turn
+the fix off again, so `chromium.sh` deletes any copy outside the block.
 
 ## 3. A repeated --enable-features is not merged
 
@@ -101,25 +141,30 @@ an Omarchy feature off on the next update.
 way: Omarchy ships no such line today, but if it ever adds one, ours would
 drop it just as silently.
 
-## 4. Default page zoom 105.263%, derived from the scale flag
+## 4. Default page zoom, derived from the scale flag
 
-Since 2026-10-11 the default zoom is 100 divided by the scale flag in §2:
-105.263% for 0.95. `chromium.sh` reads the flag and computes it, so the two
-can't drift apart. Page size is the product of the two, 1.2667 × 1.0526 =
+`chromium.sh` reads the flags file and computes the zoom, so the two can't
+drift apart. While `WaylandFractionalScaleV1` is disabled, as now (§2), the
+scale flag sets only the rendering scale, a CSS pixel is already one desktop
+pixel, and the zoom is **100%**. With fractional scaling on, the flag is a UI
+scale that pages inherit, and the zoom is 100 divided by it.
+
+From 2026-10-11 to 12 that gave 105.263% for 0.95. Page size was the product of
+the two, 1.2667 × 1.0526 =
 1.33333 device px per CSS px (1.1875 × 1.0526 = 1.25 when picked). That is
-exactly the monitor scale, so a CSS pixel is one desktop pixel. Page content
-renders the way any app does at the monitor scale, and
-the scale-down only reaches the browser's own UI. It is also the macOS
-relationship: there a CSS pixel is one point, so web body text is 16 against
-the system's 13; here it is 16 desktop px against every app's 13.3.
+exactly the monitor scale, so a CSS pixel was one desktop pixel, as it is
+at 2× and 100%. That is the macOS relationship: there a CSS pixel is one
+point, so web body text is 16 against the system's 13; here it is 16 desktop
+px against every app's 13.3.
 
-105.263% is not a step on Chromium's zoom ladder (100, 110, 125…). Ctrl+0
-returns to it, since it is the default. Ctrl+plus and Ctrl+minus go to 110% or
-100% and never land back on it.
+105.263% was not a step on Chromium's zoom ladder (100, 110, 125…): Ctrl+plus
+and Ctrl+minus went to 110% or 100% and never landed back on it. 100% is on
+the ladder.
 
 History: 110% paired with the old `=1` flag until 2026-10-10. It was dropped
 with the flag (pages then followed the GTK factor at 100%). It came back a day
-later with the new flag, at 125% (with 0.9), then 110% (with 0.95), then this. Like every Preferences write, it needs
+later with the new flag, at 125% (with 0.9), then 110% (with 0.95), then
+105.263%, then 100% with the 2× rendering on 2026-10-12. Like every Preferences write, it needs
 Chromium closed (see the script).
 
 There is no command-line flag for default page zoom; the script header has
@@ -234,15 +279,14 @@ as a DevTools bug.
 
 ## From the step table
 
-Chromium: `--force-device-scale-factor=0.95`, so the UI is 19/15 device px
-per DIP at 1.33333 (19/16 at 1.25) and the address bar text is the desktop's 13.3 (§2), with the default
-page zoom at 100/0.95 = `105.263%`, so pages render at the monitor scale;
-fractional, since
-`--force-device-scale-factor=1` turned off Chromium's fix for the see-through
-row above the toolbar/page line at fractional scales (§2); `--enable-features=…,OverlayScrollbar` for the
+Chromium: drawn at 2× and scaled down by Hyprland (§2):
+`--force-device-scale-factor=2` with `WaylandFractionalScaleV1` disabled, so
+pages report `devicePixelRatio` 2 and load sharp images while layout stays in
+desktop pixels, the toolbar at one desktop px per DIP (14 px address bar
+text) and the default page zoom at `100%` (§4); `--enable-features=…,OverlayScrollbar` for the
 thin auto-hiding scrollbar (restating Omarchy's own feature, because a
 repeated `--enable-features` is last-wins rather than merged);
-`--disable-features=MediaSessionService`, the only lever that removes the
+`--disable-features=MediaSessionService,…`, the only lever that removes the
 global-media-controls button beside the profile avatar — at the cost of
 Chromium's MPRIS export (media keys, now-playing widgets); and a neutral
 browser UI — Omarchy's `BrowserThemeColor` policy runs our grey seed through

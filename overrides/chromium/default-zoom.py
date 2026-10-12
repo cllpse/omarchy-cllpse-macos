@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Set, report or clear Chromium's default page zoom for every site.
 
-apply.sh sets 100 divided by the UI scale in chromium-flags.conf (2026-10-11):
-105.263% for 0.95, so pages are back at the monitor scale. It set 110% until
-2026-10-10, nothing for a day, then briefly 125% and 110%.
+apply.sh sets 100% while chromium-flags.conf disables WaylandFractionalScaleV1
+(the 2x rendering, since 2026-10-12), and otherwise 100 divided by the UI scale
+there, which put pages back at the monitor scale: 105.263% for 0.95 on
+2026-10-11. It set 110% until 2026-10-10, nothing for a day, then briefly 125%
+and 110%.
 See README.md (4).
 
 There is no command-line flag for this. Checked against the shipped binary on
