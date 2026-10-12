@@ -96,8 +96,8 @@ and nothing measurable on a 12s one.
 
 ## 4. Watching it live: `hwgraph.py`
 
-[`hwgraph.py`](hwgraph.py) graphs the CPU, each RAM stick and the SSD on one
-screen as soft bars, sampling every 500 ms, one sample a column, newest on
+[`hwgraph.py`](hwgraph.py) graphs the CPU, the GPU, each RAM stick and the SSD
+on one screen as soft bars, sampling every 500 ms, one sample a column, newest on
 the right. Each scale's labels sit in one column at the right end beside the
 newest reading, right-aligned so their last characters line up. In the
 107-column tile a graph shows ~50 s. It sampled once a second until
@@ -108,7 +108,7 @@ is the live view for this folder's numbers, where thermal-log is the record and
 
 Every sample is also appended to a CSV a day in `~/.local/state/hwgraph/`
 (`$XDG_STATE_HOME/hwgraph/`), as
-`time,clock_ghz,cpu_w,cpu_c,ram_mts,ram1_c,ram2_c,ssd_c`, a failed reading
+`time,clock_ghz,cpu_w,cpu_c,gpu_pct,gpu_c,ram_mts,ram1_c,ram2_c,ssd_c`, a failed reading
 left empty.
 On start hwgraph replays the last 24 hours of it, so the graphs, *overall*
 and *peak* survive a restart. Where samples are more than 5 s apart (hwgraph
@@ -157,6 +157,21 @@ seconds, when it bursts towards 58 W until the slow average catches up (§3).
 
 Its temperature is Tctl from `k10temp` on 17-92°C.
 
+The GPU, the 8745HS's Radeon 780M, gets two graphs, added on 2026-10-12 on
+request. They are orange, xterm's colour 208 (`#FF8700`, near macOS's system
+orange): the sixteen ANSI colours are the six hues already in use and their
+bright twins, and Ghostty draws 16-255 as xterm's fixed palette
+(`palette-generate` is off). *GPU – utilisation* is amdgpu's
+`gpu_busy_percent` (`/sys/class/drm/card1/device/`), the share of time the
+graphics engine was busy, on 0-100% in thirds (0, 33, 67, 100) for four
+lines like every other graph. *GPU – temperature* is the `edge` sensor
+(`temp1` of the `amdgpu` hwmon on the same PCI device), in whole degrees, on
+the CPU's 17-92°C so the two read line for line. It has no red line: amdgpu
+gives it no crit file, and the GPU shares the die with the CPU, which
+throttles on Tctl, graphed above. At idle on 2026-10-12 edge read 42-44°C
+against Tctl's 45.6-48.1°C. With no `gpu_busy_percent` both graphs are left
+out, and with no matching hwmon the temperature.
+
 *RAM – frequency* graphs the memory's data rate in MT/s: the memory clock
 (MCLK) from the GPU driver's `pp_dpm_mclk` (`/sys/class/drm/card1/device/`,
 world-readable), the level it marks `*`, doubled, since DDR moves data on
@@ -187,7 +202,8 @@ drive's Composite sensor (`temp1` of its `nvme` hwmon) on 15-90°C: it idles at
 height, where those spans' only fitting step was 35°, so both were retuned for
 a 15° step, the CPU to 25-100°C. The first version (2026-10-04) also graphed
 CPU utilisation and SSD busy time, with read/write MB/s; they were dropped to
-keep the screen to clocks and heat.
+keep the screen to clocks and heat. GPU utilisation is the exception, asked
+for on 2026-10-12.
 
 The CPU and RAM graphs each draw their throttle point as a red dotted line,
 with a red label. Both values were checked against the machine and its
@@ -273,11 +289,12 @@ its low and high lines. The one with the fewest lines then takes its four,
 the cheapest first on a tie, while rows last. The two RAM sticks share one
 scale and move together. Rows still spare stretch every graph's line spacing
 together, or none, so the graphs keep one height. The full-height tile on
-this screen is 49 rows (read with `stty size` on the live terminal). Six
-graphs of four rows and seven labels are 31 rows; one blank row above the
-power line and three-row gaps between the other blocks are 16 more, 47, with
-two spare at the bottom. A quarter-height tile (25 rows) gets two-row gaps and
-only low and high lines. For a few hours on 2026-10-07 every graph had six
+this screen is 49 rows (read with `stty size` on the live terminal). Eight
+graphs of four rows and nine labels are 41 rows; one blank row above the
+power line and one-row gaps between the other blocks are 8 more, exactly 49.
+Two-row gaps would need 56. Until the GPU's two graphs came in on 2026-10-12,
+six graphs had three-row gaps with two rows spare. A quarter-height tile (25
+rows) gets no gaps and only low and high lines (two-row gaps before). For a few hours on 2026-10-07 every graph had six
 lines, with five graphs: 49 rows exactly with the power line tucked under the
 clock, and before that tuck the 49-row tile got two-row gaps (three needed
 51). The memory clock's graph took those rows back, at four lines a graph.
@@ -319,8 +336,8 @@ picture, checked on 2026-10-04. btop 1.4.7 graphs one temperature
 clock as text. s-tui reads every sensor and shows all of them at once, 16
 cores of clock and utilisation plus every hwmon on the board. Sensors are found
 by hwmon name rather than number, so boot order doesn't matter. A missing
-`k10temp` or `nvme` sensor exits with a message, and with no `spd5118` the RAM
-rows are left out.
+`k10temp` or `nvme` sensor exits with a message; with no `spd5118` the RAM
+rows are left out, and with no amdgpu the GPU's.
 
 ## From the step table
 

@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Live graphs for the CPU, each RAM stick and the SSD, one screen, no deps.
+"""Live graphs for the CPU, GPU, each RAM stick and the SSD, one screen, no deps.
 
   hwgraph.py                            q quits
 
 CPU graphs its average clock and Tctl, with its sustained power as a label
-line (with ryzen_smu loaded); RAM graphs its memory clock, and each stick
-and the SSD their temperature. Every graph is labelled current (the latest reading), overall
+line (with ryzen_smu loaded); the GPU its utilisation and temperature; RAM
+graphs its memory clock, and each stick and the SSD their temperature. Every
+graph is labelled current (the latest reading), overall
 (the mean) and peak (the highest). Every sample is logged to LOG_DIR, and a
 restart replays the last LOG_HOURS of it, so overall and peak cover that and
 everything since. See README.md (4) in this directory for the sensors, the
@@ -40,8 +41,9 @@ DOT = "┄"  # gridline: three dashes per cell, at the row's vertical centre
 # their scale's top, counting down from it in steps. Every graphed scale
 # takes four lines, one step: the clock 2-5 GHz in 1, the memory clock its
 # lowest to highest DPM level in MT/s, the CPU 17-92°C and the SSD 15-90°C in 25,
-# the RAM 25-85°C in 20. A window too short for four falls back to the low
-# and high lines.
+# the RAM 25-85°C in 20, the GPU's utilisation 0-100% in thirds and its
+# temperature on the CPU's 17-92°C. A window too short for four falls back to
+# the low and high lines.
 #
 # CPU throttles at 92°C Tctl, Geekom's firmware limit under AMD's 100°C
 # Tjmax: pm_table 0x004C0009's Tctl limit (offset 0x40, per RyzenAdj) reads
@@ -52,6 +54,9 @@ DOT = "┄"  # gridline: three dashes per cell, at the row's vertical centre
 # rating of the modules' X5R capacitors. The hub sensor graphed approximates
 # the DRAM case temperature. The SSD's Composite sensor idles at 16-27°C,
 # hence its floor; it tops out at its 89.85°C max.
+# The GPU has no throttle line: amdgpu gives its edge sensor no crit file, and
+# it shares the die with the CPU, which throttles on Tctl (the CPU's graph);
+# edge reads ~3°C under Tctl.
 # Power is limited at the PPT slow limit, read live. It has a label row and
 # no graph (plot False): its current turns red at the limit all the same.
 Scale = namedtuple("Scale", "lo hi steps label limit", defaults=(None,))
@@ -75,11 +80,17 @@ def megatransfers(v):
     return f"{v:g}MT/s"
 
 
+def percent(v):
+    return f"{v:.0f}%"
+
+
 GHZ_FLOOR, GHZ_STEP = 2, 1
 CPU_THROTTLE = 92
 CPU_TEMP = Scale(CPU_THROTTLE - 75, CPU_THROTTLE, (25,), degrees, CPU_THROTTLE)
 RAM_STEP = 20  # down from the 85°C crit: 25, 45, 65, 85
 SSD_TEMP = Scale(15, 90, (25,), degrees)
+GPU_LOAD = Scale(0, 100, (100 / 3,), percent)
+GPU_TEMP = CPU_TEMP._replace(limit=None)
 GAP = 3  # blank rows between blocks: the most, up to this, that leaves every
          # graph its full grid
 TIGHT = 1  # blank rows between a graph and a label-only block under it
@@ -189,6 +200,27 @@ class MemClock(Series):
         try:
             return 2 * next(mhz for mhz, now in self._levels() if now)
         except (OSError, ValueError, IndexError, StopIteration):
+            return None  # logged empty, drawn as a break
+
+
+class Busy(Series):
+    """The GPU's utilisation in percent: amdgpu's gpu_busy_percent, the share
+    of time its graphics engine was busy, as the SMU averages it. device is
+    the GPU's PCI device, to find its hwmon by. No gpu_busy_percent raises
+    OSError."""
+
+    def __init__(self):
+        found = sorted(glob.glob("/sys/class/drm/card*/device/gpu_busy_percent"))
+        if not found:
+            raise OSError("no gpu_busy_percent")
+        self.path = found[0]
+        self.device = os.path.realpath(os.path.dirname(self.path))
+        super().__init__(GPU_LOAD)
+
+    def measure(self):
+        try:
+            return int(read(self.path))
+        except (OSError, ValueError):
             return None  # logged empty, drawn as a break
 
 
@@ -478,8 +510,11 @@ def main(win):
     curses.curs_set(0)
     curses.start_color()
     curses.use_default_colors()
-    names = ("freq", "power", "cpu", "ram", "ssd", "hot")
+    # The GPU's orange is xterm's 208 (#FF8700): the sixteen ANSI colours are
+    # the six hues below and their bright twins.
+    names = ("freq", "power", "cpu", "gpu", "ram", "ssd", "hot")
     colors = (curses.COLOR_MAGENTA, curses.COLOR_CYAN, curses.COLOR_BLUE,
+              208 if curses.COLORS >= 256 else curses.COLOR_WHITE,
               curses.COLOR_YELLOW, curses.COLOR_GREEN, curses.COLOR_RED)
     c = {}
     for pair, (name, color) in enumerate(zip(names, colors), 1):
@@ -497,6 +532,16 @@ def main(win):
                         first("k10temp", CPU_TEMP,
                               "the CPU row reads an AMD CPU's Tctl"),
                         "cpu", "°", 1, "cpu_c"))
+    try:
+        busy = Busy()
+        graphs.append(Graph("GPU – utilisation", busy, "gpu", "%", 0,
+                            "gpu_pct"))
+        for device, h in hwmons("amdgpu"):
+            if device == busy.device:
+                graphs.append(Graph("GPU – temperature", Sensor(h, GPU_TEMP),
+                                    "gpu", "°", 1, "gpu_c"))
+    except OSError:
+        pass  # no amdgpu: no GPU graphs
     try:
         graphs.append(Graph("RAM – frequency", MemClock(), "freq", "MT/s", 0,
                             "ram_mts"))
