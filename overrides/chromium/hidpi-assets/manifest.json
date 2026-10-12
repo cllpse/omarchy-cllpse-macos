@@ -1,0 +1,25 @@
+{
+  "manifest_version": 3,
+  "name": "cllpse HiDPI assets",
+  "version": "0.1.0",
+  "description": "Tells pages the screen is 2x, so they serve their sharp images, without rendering anything bigger.",
+  "host_permissions": ["<all_urls>"],
+  "background": { "service_worker": "worker.js" },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["rewrite.js", "hidpi.js"],
+      "run_at": "document_start",
+      "all_frames": true,
+      "match_origin_as_fallback": true,
+      "world": "MAIN"
+    },
+    {
+      "matches": ["<all_urls>"],
+      "js": ["rewrite-isolated.js", "bridge.js"],
+      "run_at": "document_start",
+      "all_frames": true,
+      "match_origin_as_fallback": true
+    }
+  ]
+}

@@ -622,6 +622,7 @@ cursor/bearded-dark-colors.json   GENERATED -- 318 workbench colours, merged by 
 cursor/bearded-dark-tokens.json   GENERATED -- 55 textMate + 10 semantic rules, merged into settings.json by apply.sh, scoped to the dark variant so light mode is untouched
 chromium/chromium-flags.conf  --force-device-scale-factor=0.95 + --enable-features=…,OverlayScrollbar + --disable-features=MediaSessionService (fenced into Omarchy's flags file)
 chromium/chromium_prefs.py    shared plumbing for the two profile-preference scripts below
+chromium/hidpi-assets/        SHELVED trial, loaded by nothing: an extension that tells pages the screen is 2x so they serve sharp images (see its README.md)
 chromium/default-zoom.py      reads, sets or clears the default page zoom (a profile preference, no flag exists); apply.sh sets 100 / the UI scale, 105.263% for 0.95
 chromium/neutral-theme.py     system (GTK) theme + grayscale -> a neutral browser UI (the theme-colour policy can only give a tinted palette)
 keyd/default.conf             identity config pinned to the Preonic, plus the inert [figma:C] / [figma_ctrl:C] layers the runtime bind activates (installed to /etc with sudo)
