@@ -203,8 +203,9 @@ SF Mono has real italics and must be excluded from any synthesis rule.
 ### Type scale [measured]
 
 `NSFont.systemFontSize` is **13.0** on macOS 27, not 12. The shell's `base-size`
-should be 13. Sizes below are macOS's own text styles, read from
-`NSFont.preferredFont(forTextStyle:)`:
+should be 13. `overrides/display/display.conf` ships 14 since 2026-10-13, a
+machine preference rather than this spec. Sizes below are macOS's own text
+styles, read from `NSFont.preferredFont(forTextStyle:)`:
 
 ```
 caption 10   (caption1 / caption2 / footnote)

@@ -37,8 +37,8 @@ The text size isn't held here; the factor carries it.
 VS Code draws its own UI (sidebar, tabs) at 13 CSS px, and the editor and
 terminal take their own sizes. `window.zoomLevel` -0.439 is 1.2^-0.439 = 12/13,
 which puts the 13px UI at 12. `editor.fontSize` and
-`terminal.integrated.fontSize` are 13 so they land there too. At text size 13
-all three come out at 13.3 desktop px (13 × 12/13 × 71/64).
+`terminal.integrated.fontSize` are 13 so they land there too. At text size 14
+all three come out at 14.6 desktop px (13 × 12/13 × 78/64; 13.3 at 13).
 
 History, same day: `editor.fontSize` used to be copied from the text size in
 px. That counted the text size twice, once in the px and once in Electron's

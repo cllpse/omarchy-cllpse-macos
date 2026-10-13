@@ -155,7 +155,7 @@ the two, 1.2667 × 1.0526 =
 exactly the monitor scale, so a CSS pixel was one desktop pixel, as it is
 at 2× and 100%. That is the macOS relationship: there a CSS pixel is one
 point, so web body text is 16 against the system's 13; here it is 16 desktop
-px against every app's 13.3.
+px against every app's 14.7 (13.3 at text size 13).
 
 105.263% was not a step on Chromium's zoom ladder (100, 110, 125…): Ctrl+plus
 and Ctrl+minus went to 110% or 100% and never landed back on it. 100% is on
