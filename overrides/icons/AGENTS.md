@@ -5,7 +5,7 @@ contract — what a file must look like, and which directory it belongs in. This
 file is how you find out *which* files are worth adding, and how to make a new
 one sit correctly beside the ones already here.
 
-**Ship the set as it is.** The 24 silhouettes in `icons/` and the 76 full-colour marks in `verbatim/` — and the same 100
+**Ship the set as it is.** The 24 silhouettes in `icons/` and the 77 full-colour marks in `verbatim/` — and the same 101
 ones in the switcher submodule — are aligned and committed. Do not run a bulk
 pass over either. Everything below applies to
 marks you are **adding**; a sweep that "fixes" the existing set is how `hunk`
@@ -13,7 +13,7 @@ lost its background box once already.
 
 ## Keeping the two repos in step
 
-Both this repo and the plugin carry all 100 marks, and nothing enforces that they
+Both this repo and the plugin carry all 101 marks, and nothing enforces that they
 match — the de-duplication that once made the plugin the single source was
 deliberately undone when both were asked to be complete. So a mark added or
 refitted in one silently diverges from the other. It happened the day the split
@@ -57,8 +57,8 @@ cannot recolour anything, so it needs the repainted copies `app-icons.sh` writes
 out of `icons/`.
 
 **The full-colour marks are in this repository too, so a colour mark is added
-twice.** `verbatim/` here holds 76 of them; the switcher submodule,
-`omarchy-cllpse-plugin-switcher/icons/`, holds the same 76 among all 100 it ships
+twice.** `verbatim/` here holds 77 of them; the switcher submodule,
+`omarchy-cllpse-plugin-switcher/icons/`, holds the same 77 among all 101 it ships
 for its own tiles. `app-icons.sh` copies the one here verbatim into
 `~/.icons/cllpse-color/apps/` so the menu gets the mark too — and on this machine
 the switcher finds that copy before the plugin's own, so a mark refitted in the
@@ -99,6 +99,16 @@ its `viewBox` padded square where the other's is tight to the ink) is reached
 only as a terminal process icon, for a title whose first word is `cursor`, or
 on a machine with no entry naming the class.
 Check a live window with `hyprctl clients -j | grep '"class"'`.
+
+**`claude-desktop.svg` and `claude-code.svg` are one file under two keys**, and
+they stay byte-identical. The Claude app (package `claude-desktop`, added
+2026-10-13) has class `com.anthropic.Claude`, and `com.anthropic.Claude.desktop`
+carries `StartupWMClass=com.anthropic.Claude` and `Icon=claude-desktop`. So
+`claude-desktop.svg` serves both the menu row and, through `classIndex`, the
+tile, and no class-named copy is needed. It also outranks the package's own
+icon, which ships only as hicolor PNGs, because the sweep checks SVGs before
+PNGs. `claude-code.svg` is what a terminal running Claude Code resolves to,
+through the `claude` → `claude-code` alias.
 
 ## 1. Find candidates
 

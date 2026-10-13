@@ -125,7 +125,7 @@ set.
 
 ## Verify icon alignment between repos
 
-Both this repo and the switcher submodule carry the same 100 marks. They can
+Both this repo and the switcher submodule carry the same 101 marks. They can
 silently drift.
 
 ```bash

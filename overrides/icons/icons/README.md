@@ -107,7 +107,7 @@ than correctly. Edge-to-edge on the long axis is the whole contract (it said
 "inside a square canvas" until the section above was checked against the
 code). Every file in this directory and in the switcher's `icons/` is
 edge-to-edge, bar `pi`, inset on purpose; the canvases are not all square — 5 of
-the 24 here and 26 of the switcher's 100 are tight to their ink, `grok` the
+the 24 here and 26 of the switcher's 101 are tight to their ink, `grok` the
 fifth and twenty-sixth since 2026-10-09 (it was 4 and 25).
 
 **Strip export artefacts.** Design tools emit invisible bounding rectangles —

@@ -655,7 +655,7 @@ chromium-theme/cllpse-chromium-theme-policy  the root-owned writer (light|dark|o
 chromium-theme/switcher/       the switcher extension (MV3, force-installed): on a policy refresh it enables the named theme, which Chromium applies without the "Installed theme" bar a fresh install raises
 omarchy/shell-bar.json        the recorded bar: widget layout, centerAnchor, disabledPlugins (jq-written into shell.json by step 7h)
 icons/icons/              app icons REPAINTED to the theme: <Icon=>.svg placed by hand; see its README for the naming + silhouette contract
-icons/verbatim/           full-colour marks copied UNTOUCHED; same 76 the switcher plugin ships, kept in step by hand
+icons/verbatim/           full-colour marks copied UNTOUCHED; same 77 the switcher plugin ships, kept in step by hand
 hooks/post-update.d/cllpse-macos-repair.sh  re-links our hooks/themes/plugin after an omarchy update, then re-syncs the icons
 hooks/post-boot.d/cllpse-bar-layout.sh  restores the declared bar layout once per session (`omarchy.sh --bar-only`), since the bar is drag-reorderable
 hooks/theme-set.d/app-icons.sh  syncs icons/icons/ into ~/.icons/cllpse-flat/apps/ in the active theme's foreground, on every theme switch; ALSO copies icons/verbatim/ untouched into ~/.icons/cllpse-color/apps/ so the menu gets the full-colour marks
