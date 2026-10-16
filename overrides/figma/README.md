@@ -68,31 +68,39 @@ under 9 argv elements and `FIGMA_USE_WAYLAND=1` pushes it over
 at 9 or more, the second instance's argv fails to parse across the singleton
 socket, and it then seizes the lock and kills the first. The symptom is not a
 login error — the app closes, reopens and asks you to log in again, forever.
-The script comments out the two Wayland IME flags to bring the native path to 7;
-the UI scale flag then takes it to 8, the most that parses. **There is no
-headroom left**: a flag added here, or by upstream, must replace one. Diagnose
+The script comments out the two Wayland IME flags to bring the native path to 7,
+one under the most that parses. The UI scale flag took it to 8 from 2026-10-12
+to 16 (below). **One flag of headroom** is left: a second one added here, or
+by upstream, must replace one. Diagnose
 from `~/.cache/figma-desktop-linux/launcher.log`, which records every launch's
 full argv.
 
 ## UI scale
 
-On native Wayland Figma gets `--force-device-scale-factor` = 1 / the monitor
-scale: **0.8 at the current 1.25**, 0.75 at 4/3. That flag replaces Chromium's
-UI scale, which here is the GTK text factor (1.4375 at text size 17). The
-window still renders at the monitor scale, and the flag on top makes it
-1.25 × 0.8 = **one screen pixel per Figma pixel** at 100% canvas zoom, two at
-200%. Every edge on a whole design pixel then lands on a whole screen pixel. At
+Since 2026-10-16 Figma's UI scale is not pinned: it is the GTK text factor,
+like every other Electron app's (1.4375 at text size 17), at the monitor's
+scale 1, so 1.4375 screen pixels per Figma pixel at 100% canvas zoom. At scale
+1 the pin below would be 1, a UI 30% smaller than the rest. `figma.sh` removes
+the pin where an earlier run left it in the launcher. The canvas is
+antialiased at that fraction, as in the "no flag" rows of the table below, but
+Hyprland no longer resamples it: at monitor scale 1 the buffer is the window
+(reasoned, not measured). Judged by eye.
+
+From 2026-10-12 to 16, on native Wayland Figma got `--force-device-scale-factor`
+= 1 / the monitor scale: **0.8 at 1.25**, 0.75 at 4/3. That flag replaces
+Chromium's UI scale, which here is the GTK text factor. The window still
+rendered at the monitor scale, and the flag on top made it 1.25 × 0.8 = **one
+screen pixel per Figma pixel** at 100% canvas zoom, two at 200%. Every edge on a whole design pixel then lands on a whole screen pixel. At
 the monitor's 4/3 alone (the flag at 1, used until 2026-10-12), only one edge
 in three did: the other two fell between screen pixels and were antialiased
 into a two-pixel grey smear, which is what read as a fuzzy canvas. The
 interface is one screen pixel per CSS pixel, 25% smaller than at 4/3.
 
-`figma.sh` works the flag out from `monitor-scale` in
+`figma.sh` worked the flag out from `monitor-scale` in
 [`../display/display.conf`](../display/display.conf), snapped to the 1/120
 steps of the fractional-scale protocol as Hyprland snaps it (1.33333 is
-160/120, so exactly 0.75), and falls back to the first monitor's live scale.
-After changing the scale, run `save-display.sh` and then `figma.sh` again:
-it rewrites the flag in the launcher and Figma picks it up on its next start.
+160/120, so exactly 0.75), and fell back to the first monitor's live scale.
+After a scale change it had to run again, to rewrite the flag in the launcher.
 
 Chosen by eye on 2026-10-12, at 4/3, against 1 and 1.5. At 1.5 it was two
 screen pixels per Figma pixel, every edge crisp too, but the interface was 50%
@@ -104,10 +112,10 @@ them. They only read firmer when they get more pixels.
 Hyprland does not resample Figma at any of these. Figma uses the
 fractional-scale protocol, and Hyprland 0.56.2 draws such a window pixel for
 pixel, switching to nearest-neighbour when the buffer is a pixel or two off its
-box (`MISALIGNEDFSV1` in `ElementRenderer.cpp`). Chromium's 2× setup does not
-reach Figma either: `~/.config/chromium-flags.conf` is read only by
-`/usr/bin/chromium`, and none of Figma's processes carries
-`WaylandFractionalScaleV1` or another scale (checked 2026-10-12).
+box (`MISALIGNEDFSV1` in `ElementRenderer.cpp`). Chromium's flags do not reach
+Figma either: `~/.config/chromium-flags.conf` is read only by
+`/usr/bin/chromium`, and under Chromium's 2× setup none of Figma's processes
+carried `WaylandFractionalScaleV1` or another scale (checked 2026-10-12).
 
 Without a forced scale the canvas is blurred. At 4/3 × 1.109375 the tiled window's CSS
 size is not a whole number of device pixels, Chromium's output lands a

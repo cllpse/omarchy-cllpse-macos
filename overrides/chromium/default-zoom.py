@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """Set, report or clear Chromium's default page zoom for every site.
 
-apply.sh sets 12 x the GTK text factor / 13, which keeps macOS's ratio of web
-text to UI text: 133.329% at text size 17 (since 2026-10-16; 143.594% at 18 earlier that day, 112.818% at 14 from 2026-10-15). That is times
-100% while chromium-flags.conf disables WaylandFractionalScaleV1 (the 2x
-rendering, since 2026-10-12), and otherwise times 100 divided by the UI scale
-there, which put pages back at the monitor scale: 105.263% for 0.95 on
-2026-10-11, with no text part. It set 110% until 2026-10-10, nothing for a
-day, then briefly 125% and 110%, and 100% from 2026-10-12 to 15.
+Since 2026-10-16 apply.sh sets no default zoom: pages take Chromium's own 100%
+at its UI scale. Where an earlier version set one, it hands it back the way
+revert.sh does: the zoom recorded before the first apply, or --reset. Those
+versions set 12 x the GTK text factor / 13 (2026-10-15 to 16: 112.818% at text
+size 14, 143.594% at 18, 133.329% at 17), times 100% under the 2x rendering or
+100 / the UI scale otherwise, which gave 105.263% for 0.95 on 2026-10-11 with
+no text part. Before that, 110% until 2026-10-10, nothing for a day, briefly
+125% and 110%, and 100% from 2026-10-12 to 15.
 See README.md (4).
 
 There is no command-line flag for this. Checked against the shipped binary on

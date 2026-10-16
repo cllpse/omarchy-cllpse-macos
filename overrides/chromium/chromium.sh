@@ -44,41 +44,45 @@ if [[ -f "$HERE/chromium/chromium-flags.conf" ]]; then
         skip "Omarchy's $_switch names${_missing} — add it to chromium/chromium-flags.conf or the last line wins and drops it"
     done
   fi
+
+# See README.md (2)
+  # The UI scale is the odd 17th nearest the GTK factor, which Chromium rounds
+  # to 64ths, and it moves by hand with the text size: say so when step 7b's
+  # text size has moved the factor away from it.
+  _scale="$(grep -m1 '^--force-device-scale-factor=' "$HERE/chromium/chromium-flags.conf" | cut -d= -f2)"
+  _factor="$(gsettings get org.gnome.desktop.interface text-scaling-factor 2>/dev/null || true)"
+  if [[ -n $_scale && -n $_factor ]]; then
+    read -r _have _want < <(awk -v s="$_scale" -v f="$_factor" 'BEGIN {
+      g = int(f * 64 + 0.5) / 64; w = 1
+      for (n = 1; n <= 61; n += 2) if ((n / 17 - g) ^ 2 < (w / 17 - g) ^ 2) w = n
+      printf "%d %d\n", int(s * 17 + 0.5), w }')
+    [[ $_have == "$_want" ]] ||
+      skip "chromium-flags.conf's UI scale is $_have/17 but the text size asks for $_want/17: update it (chromium/README.md (2))"
+  fi
 fi
 
 # See README.md (4)
-if [[ -x "$HERE/chromium/default-zoom.py" ]]; then
-  # Two parts, multiplied. Geometry: 100% while chromium-flags.conf disables
-  # WaylandFractionalScaleV1, since the scale flag then sets the rendering
-  # scale and leaves layout alone; otherwise the flag is a UI scale that pages
-  # inherit, and 100 / it puts them back at the monitor scale (105.263% for
-  # 0.95). Text: web body text is 16 CSS px, which macOS sets against a 13 pt
-  # system font, and every app's text here is 12 px times the GTK factor that
-  # step 7b's text size has just set, so 12 x factor / 13 keeps macOS's ratio:
-  # 133.329% at text size 17 (factor 1.4444). Without a factor, geometry only.
-  # Rounded to 3 places and printed with %g, as `default-zoom.py --print`
-  # reports it, so record_prior recognises the value as ours on a re-run.
-  _factor="$(gsettings get org.gnome.desktop.interface text-scaling-factor 2>/dev/null || true)"
-  _zoom="$(awk -F= -v f="$_factor" '
-    /^--force-device-scale-factor=/ && scale == "" { scale = $2 }
-    /^--disable-features=/ && /[=,]WaylandFractionalScaleV1(,|$)/ { whole = 1 }
-    END { if (scale == "") exit
-          z = whole ? 100 : 100 / scale
-          if (f + 0 > 0) z *= 12 * f / 13
-          printf "%g", int(z * 1000 + 0.5) / 1000 }' \
-    "$HERE/chromium/chromium-flags.conf")"
-  [[ -n $_zoom ]] || _zoom=100
-  # Earlier versions of this step set 100 (2026-10-12 to 15) and 105.263
-  # (2026-10-11 to 12), so neither is the machine's own. The empty file marks
-  # the first apply as done when nothing was recorded: a later text size moves
-  # our own value, and without it the old one would be recorded as the
-  # machine's. revert.sh reads an empty file as "nothing recorded".
-  _prev_zoom="$("$HERE/chromium/default-zoom.py" --print 2>/dev/null || true)"
-  case "$_prev_zoom" in 100|105.263) _prev_zoom="" ;; esac
-  record_prior "$STATE/previous-chromium-zoom" "$_prev_zoom" "$_zoom"
-  [[ -e $STATE/previous-chromium-zoom ]] || : >"$STATE/previous-chromium-zoom"
-  say "Chromium default page zoom -> ${_zoom}%"
-  "$HERE/chromium/default-zoom.py" "$_zoom" || true
+if [[ -x "$HERE/chromium/default-zoom.py" && -e $STATE/previous-chromium-zoom ]]; then
+  # No default zoom since 2026-10-16: pages take Chromium's own 100% at the UI
+  # scale above. Earlier versions of this step set one (12 x the GTK factor /
+  # 13 under the 2x rendering, 105.263% for 0.95 before it) and left this state
+  # file behind, so hand it back the way revert.sh does: the zoom recorded
+  # before the first apply, or with nothing recorded, no key at all.
+  # Preferences cannot be written while Chromium runs, so the record then stays
+  # for the next run.
+  if pgrep -x chromium >/dev/null; then
+    skip "Chromium is running: quit it and re-run to hand back the default page zoom an earlier apply set"
+  else
+    _prev_zoom="$(<"$STATE/previous-chromium-zoom")"
+    if [[ -n $_prev_zoom ]]; then
+      say "Chromium default page zoom -> ${_prev_zoom}%, what the machine had before our first apply"
+      "$HERE/chromium/default-zoom.py" "$_prev_zoom" || true
+    else
+      say "Chromium default page zoom -> cleared (Chromium's own 100%)"
+      "$HERE/chromium/default-zoom.py" --reset || true
+    fi
+    rm -f "$STATE/previous-chromium-zoom"
+  fi
 fi
 
 # See README.md (5)

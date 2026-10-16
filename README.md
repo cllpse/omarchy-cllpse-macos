@@ -96,7 +96,9 @@ values tuned for one ~102 PPI 3840x2160 display (a 43" TV) and applies them conf
 
 Or edit the file. `gdk-scale` is the one to get right — `1` for standard DPI,
 `2` for a HiDPI panel (Omarchy's own default). A wrong value here is actively
-wrong, not merely unfamiliar.
+wrong, not merely unfamiliar. The shipped file has `2` on a standard-DPI TV
+since 2026-10-16, the author's choice of Omarchy's default: it reaches only X11
+apps under XWayland, which it draws at twice the size at monitor scale 1.
 
 **4. The keyboard layout is replaced — edit it out if it isn't yours.** Step 5c
 installs `overrides/xkb/symbols/us-danish-letters` into `~/.config/xkb/symbols/`,
@@ -282,8 +284,9 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   mouse moves*, so a cursor parked on the trigger produced ~0 events over 32s,
   and sliding along it ~500/s at under 4µs of client CPU each. One pixel is
   enough only because Hyprland clamps the cursor to the output, in a corner on
-  both axes at once (a warp to `99999,99999` lands at `2879,1619` on this
-  2880×1620 logical output, as it did at `3071,1279` on the earlier 3072×1280),
+  both axes at once (a warp to `99999,99999` lands at `2879,1619` on the
+  2880×1620 logical output at scale 4/3, as it did at `3071,1279` on the
+  earlier 3072×1280; at scale 1, since 2026-10-16, it is the output's last pixel),
   so a fast throw cannot overshoot it; the same pixel
   anywhere else on screen would be missed by exactly that gesture. This was the
   whole left edge first, and the corners are the same gesture with the accidents
@@ -319,32 +322,29 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   only moved off the chord. Its plugin README has the ranking in full and one
   Omarchy 4.0.4 bug it works around: a third-party `menu` plugin is never
   handed the shell's app library, so it runs its own.
-- **Chromium draws at 2× and Hyprland scales it down.**
-  `overrides/chromium/chromium-flags.conf` disables `WaylandFractionalScaleV1`,
-  so Hyprland asks Chromium for a whole-number buffer scale, and passes
-  `--force-device-scale-factor=2`, which then sets Chromium's rendering scale
-  without touching layout. Pages report `devicePixelRatio` 2 and load their
-  sharp images (at 1.33 they loaded 1×, under Google's 1.5× threshold), while
-  layout stays in desktop pixels. Hyprland shrinks the window by 1.6 (2 / 1.25), as macOS does at its in-between
-  resolutions. Measured, it was cheaper than the fractional window it
-  replaced, which sat 1 px off its viewport and cost Hyprland 2.5× per frame;
-  the trade is text a little softer than native rendering. The toolbar
-  is at one desktop px per DIP: 14px address bar text in a 34px bar, tab titles
-  12px. It does not follow `omarchy display text size`; pages do,
-  through the default page zoom, 12 × the GTK factor / 13: 133.329% at text
-  size 17 (143.594% at 18, 112.818% at 14), which keeps macOS's 16 to 13 between web body text and every app's
-  text (100% until 2026-10-15, one CSS pixel per desktop pixel). Before
-  2026-10-12 the flag was 0.95 with fractional scaling on, a UI scale that put
-  the address bar text at 13.3px, with the default page zoom at 100/0.95 =
-  105.263% to undo it for pages; `chromium.sh` still multiplies its zoom by
-  that whenever fractional scaling is on. A whole-number scale there turned off
-  Chromium's fix for fractional scales and let the wallpaper show through one
-  row above the toolbar; at 2× every edge lands on a whole device row.
-  `overrides/chromium/README.md` §2 has the measurements and source trail.
-  There is no command-line flag for default zoom — it is the profile preference
-  `partition.default_zoom_level`, stored as `ln(factor)/ln(1.2)` — and
-  Chromium must be closed when it is written, since it rewrites `Preferences`
-  from memory on exit.
+- **Chromium's UI scale is 25/17, held to whole pixels.** At monitor scale 1,
+  with Wayland's fractional scaling on, `overrides/chromium/chromium-flags.conf`
+  passes `--force-device-scale-factor=1.4705882353`, which replaces Chromium's
+  UI scale (otherwise the GTK text factor, 92/64 at text size 17), and
+  `enable-pixel-canvas-recording`, ChromeOS's default, which records every
+  view in whole pixels. Together they keep menu separators one pixel row
+  tall: a separator is a 1-DIP rectangle drawn without anti-aliasing, and at
+  the plain factor 2 of the 5 in the three-dot menu came out 2 px (measured
+  2026-10-16). 25/17 is the odd 17th nearest the factor, so it moves by hand
+  with the text size (23/17 at 16, 27/17 at 18) and `chromium.sh` says when.
+  Tab titles are 17.6px, menus 19.1px, address bar text 20.6px in a 50px bar,
+  and pages are at Chromium's own 100% zoom on the same scale. From 2026-10-12
+  to 16 Chromium drew at 2× with fractional scaling off and Hyprland shrank it
+  by 1.6 at the monitor's 1.25, so pages loaded their sharp images (at 1.47
+  they are under Google's 1.5× threshold again), with a default zoom of 12 ×
+  the GTK factor / 13 (133.329% at text size 17); before that the flag was
+  0.95, a UI scale undone for pages by a 105.263% zoom.
+  `overrides/chromium/README.md` §2 and §4 have the measurements and source
+  trail. There is no command-line flag for default zoom — it is the profile
+  preference `partition.default_zoom_level`, stored as `ln(factor)/ln(1.2)` —
+  and Chromium must be closed when it is written, since it rewrites
+  `Preferences` from memory on exit. `chromium.sh` now only hands back a zoom
+  an earlier version set.
 - **Four more Chromium settings, same step.** The flags file carries
   `--enable-features=…,OverlayScrollbar` — the thin, auto-hiding scrollbar
   macOS has, where Chromium otherwise draws a permanent gutter. It restates

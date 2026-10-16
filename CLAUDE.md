@@ -255,9 +255,10 @@ Use `String.fromCodePoint` for U+10000+ (Material Design range).
 ### `sourceSize` on SVG means rasterization resolution
 
 Leaving it unset rasterises at the SVG's intrinsic size, then scales up.
-Set it to `drawn × Screen.devicePixelRatio` (2 here, not the output scale —
-1.25 now, since 2026-10-12, as when measured; 1.33333 on 2026-10-08 to 10 and
-2026-10-11 to 12).
+Set it to `drawn × Screen.devicePixelRatio`, not the output scale. It was 2
+when measured, at output scale 1.25 (2026-10-12 to 16; 1.33333 on 2026-10-08
+to 10 and 2026-10-11 to 12). The output is at scale 1 since 2026-10-16, where
+it should be 1; not re-measured.
 
 ### Recolouring SVGs with regex has three failure modes
 

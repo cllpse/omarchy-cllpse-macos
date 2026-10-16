@@ -10,11 +10,46 @@ because it is the only part needing sudo and a password prompt should not
 stall a run halfway through (it was step 9). Calling this with no argument
 -- which is what running it by hand does -- does both, in that order.
 
-## 2. Drawing at 2×, and the fractional UI scale before it
+## 2. UI scale 25/17, held to whole pixels; 2× and 0.95 before it
 
-Since 2026-10-12 Chromium draws at 2× and Hyprland scales the window down by
-1.6 at the monitor's 1.25 (1.5 at the 4/3 it was decided at), as macOS does at
-its in-between "looks like" resolutions. Two flags, both needed:
+Since 2026-10-16 Chromium draws at the monitor's own scale, 1, with Wayland's
+fractional scaling on as Omarchy ships it. Two flags set its UI scale:
+
+- `--force-device-scale-factor=1.4705882353` (25/17). With fractional scaling
+  on, this flag replaces Chromium's UI scale, which would otherwise be the GTK
+  text factor rounded to 64ths: 92/64 = 1.4375 at text size 17. At monitor
+  scale 1 it is the whole device-pixel ratio, for the toolbar, tab titles,
+  menus and pages alike.
+- `enable-pixel-canvas-recording` in `--enable-features`, ChromeOS's default
+  and off on every other platform (`ui/base/ui_base_features.cc`). Each view
+  is then recorded in whole pixels: its edges are rounded to the pixel grid
+  and its drawing scaled by its snapped size over its size in DIPs
+  (`ui/views/paint_info.cc`).
+
+Both are there for menu separators. A separator is a 1-DIP rectangle filled
+without anti-aliasing (`MenuSeparator::OnPaint` →
+`NativeThemeBase::PaintMenuSeparator`), so at a fractional scale it covers
+one pixel row or two depending on where it starts: 23 of every 64 positions
+at 87/64. Measured in the three-dot menu at the plain text factor (87/64,
+2026-10-16): five full-width separators, 1, 1, 2, 1 and 2 px, with no blended
+rows. A separator view is 17 DIP tall. With pixel-canvas recording it snaps
+to 25 px at 25/17 wherever it sits, and in a view of odd height the line
+lands on exactly one row. Any odd 17th would do; 25/17 is the one nearest the
+text factor, 2.3% over it. That is reasoned from the source; the result was
+judged by eye, not re-measured. 25/17 is fractional, so Chromium's own fix
+for fractional scales, described below, stays on.
+
+The scale moves by hand with the text size, to the nearest odd 17th of the
+factor: 23/17 at 16, 25/17 at 17, 27/17 at 18. `chromium.sh` says so when the
+two drift apart. At 25/17 tab titles are 17.6 desktop px, menus 19.1 and the
+address bar text 20.6 in a 50 px bar. Pages are at Chromium's own 100% zoom
+(§4) on the same scale, so they report `devicePixelRatio` 1.47. That is under
+Google's 1.5× threshold, so pages load their 1× images again, the cost the 2×
+rendering below was chosen to avoid (reasoned, not checked).
+
+From 2026-10-12 to 16 Chromium drew at 2× and Hyprland scaled the window down
+by 1.6 at the monitor's 1.25 (1.5 at the 4/3 it was decided at), as macOS does
+at its in-between "looks like" resolutions. Two flags, both needed:
 
 - `WaylandFractionalScaleV1` in `--disable-features` turns off Wayland's
   fractional-scale protocol, so Hyprland asks for a whole-number buffer scale,
@@ -67,7 +102,8 @@ whole toolbar and its text together:
 | GTK factor, 71/64 (2026-10-10 to 11) | 13.3 | 15.5 | 37.7 | |
 | 0.9 (measured, a few hours on 2026-10-11) | 10.8 | 12.6 | 30.6 | |
 | 0.95 (2026-10-11 to 12) | 11.4 | 13.3 | 32.3 | |
-| **2, fractional off (now)** | **12** | **14** | **34** | |
+| 2, fractional off (2026-10-12 to 16) | 12 | 14 | 34 | |
+| **25/17, fractional on, monitor scale 1 (now)** | **17.6** | **20.6** | **50** | |
 
 At the GTK factor, tab titles matched the desktop's text, but the address bar
 read as huge next to everything else. At 0.95 its text was 13.3, the same as
@@ -79,8 +115,8 @@ line up. The flags file's git history has the candidates. The cost: Chromium
 no longer follows `omarchy display text size`, so the number has to move by
 hand with it. Pages scaled with it too, so the default zoom was 1/0.95,
 105.263% (§4), which put them back at the monitor's 1.33333 device px per
-CSS px. At 2× the toolbar still ignores the text size. Pages follow it since
-2026-10-15, through the default zoom (§4).
+CSS px. At 2× the toolbar still ignored the text size; pages followed it from
+2026-10-15 to 16, through the default zoom (§4).
 
 For a day before that there was no flag at all. The UI followed the monitor
 scale times the GTK text factor, 10/9 at text size 13, which Chromium rounds
@@ -142,17 +178,28 @@ an Omarchy feature off on the next update.
 way: Omarchy ships no such line today, but if it ever adds one, ours would
 drop it just as silently.
 
-## 4. Default page zoom, derived from the scale flag and the text size
+## 4. Default page zoom: Chromium's own since 2026-10-16
 
-`chromium.sh` computes the zoom from the flags file and from the GTK text
-factor that step 7b's text size has just set, so none of them can drift
-apart. Two parts, multiplied:
+Since 2026-10-16 `chromium.sh` sets no default zoom. Pages take Chromium's own
+100% at the UI scale (§2), 1.47 device px per CSS px, so web body text is
+23.5 px against the 17.3 of every app's text at text size 17: 1.36 to 1,
+above macOS's 1.23, and judged right by eye. On a machine where an earlier
+version of the step set a zoom, it hands that back as `revert.sh` does: the
+zoom recorded before its first apply, or with nothing recorded, the key
+cleared, which is Chromium's own default. Like every Preferences write it
+needs Chromium closed; while Chromium runs the step says so and keeps the
+record for the next run.
 
-- **Geometry.** While `WaylandFractionalScaleV1` is disabled, as now (§2), the
+The rest of this section is the zoom the step derived until then.
+`chromium.sh` computed it from the flags file and from the GTK text factor
+that step 7b's text size had just set, so none of them could drift apart. Two
+parts, multiplied:
+
+- **Geometry.** While `WaylandFractionalScaleV1` was disabled, 2026-10-12 to 16 (§2), the
   scale flag sets only the rendering scale and a CSS pixel is already one
   desktop pixel: 100%. With fractional scaling on, the flag is a UI scale that
   pages inherit, and this part is 100 divided by it.
-- **Text** (since 2026-10-15). 12 × the GTK factor / 13: **133.329%** at text
+- **Text** (2026-10-15 to 16). 12 × the GTK factor / 13: **133.329%** at text
   size 17 (factor 1.4444), 143.594% at 18, 112.818% at 14, 102.563% at 13. Without a readable factor, the
   zoom is the geometry part alone.
 
@@ -200,7 +247,7 @@ History: 110% paired with the old `=1` flag until 2026-10-10. It was dropped
 with the flag (pages then followed the GTK factor at 100%). It came back a day
 later with the new flag, at 125% (with 0.9), then 110% (with 0.95), then
 105.263%, then 100% with the 2× rendering on 2026-10-12, then 112.818% with
-the text part on 2026-10-15, 143.594% at text size 18 on 2026-10-16, and 133.329% at 17 the same day. Like every Preferences write, it needs Chromium
+the text part on 2026-10-15, 143.594% at text size 18 on 2026-10-16, and 133.329% at 17 the same day, before the step stopped setting one. Like every Preferences write, it needs Chromium
 closed (see the script).
 
 There is no command-line flag for default page zoom; the script header has
@@ -341,15 +388,15 @@ account picture would take precedence; the profile here is not signed in.
 
 ## From the step table
 
-Chromium: drawn at 2× and scaled down by Hyprland (§2):
-`--force-device-scale-factor=2` with `WaylandFractionalScaleV1` disabled, so
-pages report `devicePixelRatio` 2 and load sharp images while layout stays in
-desktop pixels, the toolbar at one desktop px per DIP (14 px address bar
-text) and the default page zoom at 12 × the GTK factor / 13, `133.329%` at
-text size 17, which keeps macOS's ratio of web text to UI text (§4); `--enable-features=…,OverlayScrollbar` for the
+Chromium: a UI scale held to whole pixels (§2):
+`--force-device-scale-factor=1.4705882353`, 25/17, the odd 17th nearest the
+GTK text factor, with `enable-pixel-canvas-recording`, so menu separators stay
+one pixel row tall at monitor scale 1 with fractional scaling on; no default
+page zoom, so pages are at Chromium's own 100% on that scale, and any zoom an
+earlier version set is handed back (§4); `--enable-features=…,OverlayScrollbar` for the
 thin auto-hiding scrollbar (restating Omarchy's own feature, because a
 repeated `--enable-features` is last-wins rather than merged);
-`--disable-features=MediaSessionService,…`, the only lever that removes the
+`--disable-features=MediaSessionService`, the only lever that removes the
 global-media-controls button beside the profile avatar — at the cost of
 Chromium's MPRIS export (media keys, now-playing widgets); and a neutral
 browser UI — Omarchy's `BrowserThemeColor` policy runs our grey seed through

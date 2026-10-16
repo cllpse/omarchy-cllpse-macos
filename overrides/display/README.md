@@ -28,13 +28,17 @@ apply.sh pull you back.
 `../revert.sh`, which is why it is a library rather than a step and has no
 executable bit to invite running it.
 
-**Figma's canvas follows `monitor-scale`.** `../figma/figma.sh` sets Figma's
-forced scale to 1 / this value, one screen pixel per Figma pixel, so after
-changing the scale re-run it as well (see `../figma/README.md`).
+**Figma's canvas no longer follows `monitor-scale`.** From 2026-10-12 to 16
+`../figma/figma.sh` forced Figma's scale to 1 / this value, one screen pixel
+per Figma pixel. It now leaves Figma at the GTK text factor and removes that
+pin (see `../figma/README.md`).
 
 **These values are hardware-specific.** What ships here is tuned for one
-~102 PPI 3840x2160 display (a 43" TV); `gdk-scale` in particular is wrong on a HiDPI
-panel, where Omarchy's default of 2 is right. Re-run `save-display.sh` on your
+~102 PPI 3840x2160 display (a 43" TV): monitor scale 1 and Omarchy's default
+GDK scale of 2 since 2026-10-16 (1.25 and 1 before). `gdk-scale` 1 is right for
+standard DPI and 2 for a HiDPI panel; the 2 here is the author's choice, and
+it reaches only X11 apps under XWayland, which it draws at twice the size at
+monitor scale 1. Re-run `save-display.sh` on your
 own machine before the first apply, or `apply.sh` will confidently assert
 someone else's sizing.
 
