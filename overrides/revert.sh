@@ -266,6 +266,11 @@ restore ~/.config/hunk/config.toml
 say "Removing ytm-player theme template + hook"
 [[ -L ~/.config/omarchy/hooks/theme-set.d/ytm-player.sh ]] && rm -f ~/.config/omarchy/hooks/theme-set.d/ytm-player.sh
 [[ -L ~/.config/omarchy/themed/ytm-player.toml.tpl ]] && rm -f ~/.config/omarchy/themed/ytm-player.toml.tpl
+
+# T3 Code's template (t3code/README.md). Only the link: the next theme set
+# renders Omarchy's own again, and T3 Code follows it live.
+say "Removing T3 Code theme template"
+[[ -L ~/.config/omarchy/themed/t3code.json.tpl ]] && rm -f ~/.config/omarchy/themed/t3code.json.tpl
 # theme.toml is ours whole, so it goes. config.toml is the USER's file -- the
 # hook rewrites its [ui] theme line and config-prefs.py sets nine preference
 # keys in it -- so restore a backup if apply.sh made one, but never delete it

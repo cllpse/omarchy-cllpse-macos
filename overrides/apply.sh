@@ -50,7 +50,7 @@
 #        and the keybind allowlist (was 6b)                            hypr/
 #   7.   the apps Omarchy doesn't theme:
 #          bat/ lazygit/ lsd/ yazi/ lazydocker/ gh-dash/ starship/
-#          cursor/ pi/ hunk/ ytm/ bash/ git/ torrenttui/
+#          cursor/ pi/ hunk/ ytm/ t3code/ bash/ git/ torrenttui/
 #   7b.  restore saved display scaling + text size                     display/
 #   7c.  session environment drop-ins                                  environment.d/
 #   7d.  Chromium flags, zoom and neutral UI                           chromium/ (user)
@@ -444,7 +444,7 @@ echo "        omarchy plymouth set by theme omarchy-cllpse-theme-dark   # or -li
 LOOKNFEEL=(
   fonts fontconfig monospace gtk-fonts hinting ghostty gtk-buttons
   hypr
-  bat lazygit lsd yazi lazydocker gh-dash starship cursor hunk ytm
+  bat lazygit lsd yazi lazydocker gh-dash starship cursor hunk ytm t3code
   icons omarchy theme
 )
 # state rides along for the same reason it does with a ticked selection:
@@ -479,6 +479,7 @@ STEPS=(
   "pi||Pi agent: OpenRouter auto-router|run:pi|"
   "hunk||hunk|run:hunk|"
   "ytm||ytm-player|run:ytm|"
+  "t3code||T3 Code: primary colour from the accent|run:t3code|"
   "bash||bash aliases + fzf|run:bash|"
   "git||git diff through hunk|run:git|"
   "torrenttui||TorrentTUI: download folder + ANSI theme|run:torrenttui|"
