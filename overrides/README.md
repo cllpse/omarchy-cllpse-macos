@@ -295,7 +295,7 @@ script works the same whether you run it by hand or `apply.sh` calls it.
 | 7\* | Prompt and diff colours that must be BAKED per theme rather than named: Starship has no config-import mechanism, and hunk's validator takes hex only. Plus T3 Code's colours, through a template that replaces Omarchy's.<br>**Detail: [`starship/`](starship/README.md), [`hunk/`](hunk/README.md), [`t3code/`](t3code/README.md)** | `~/.config/omarchy/hooks/theme-set.d/{starship-colors,hunk-colors}.sh` (symlinked), `~/.config/starship.toml`, `~/.config/hunk/config.toml`, `~/.config/omarchy/themed/t3code.json.tpl` (symlinked) |
 | 7b | Restore saved display scaling + text size. **Full detail: [`display/README.md`](display/README.md).** | `omarchy display text size`, the two scale variables in `~/.config/hypr/monitors.lua` |
 | 7c | Session environment drop-ins (Figma → native Wayland). Read at session start, so they need a relogin. **Full detail: [`environment.d/README.md`](environment.d/README.md).** | `~/.config/environment.d/50-cllpse-macos-figma-wayland.conf` |
-| 7d | Chromium flags (drawn at 2× and scaled down by Hyprland, so pages load sharp images, page zoom 12 × the GTK factor / 13: 112.818% at text size 14), overlay scrollbars, a neutral browser UI and our profile avatar. **Full detail: [`chromium/README.md`](chromium/README.md).** | fenced block in `~/.config/chromium-flags.conf` + `partition.default_zoom_level`, `extensions.theme.system_theme` and `browser.theme.is_grayscale2` in each `~/.config/chromium/*/Preferences` + `~/.config/chromium/Avatars/avatar_abstract_sandwich.png` |
+| 7d | Chromium flags (drawn at 2× and scaled down by Hyprland, so pages load sharp images, page zoom 12 × the GTK factor / 13: 143.594% at text size 18), overlay scrollbars, a neutral browser UI and our profile avatar. **Full detail: [`chromium/README.md`](chromium/README.md).** | fenced block in `~/.config/chromium-flags.conf` + `partition.default_zoom_level`, `extensions.theme.system_theme` and `browser.theme.is_grayscale2` in each `~/.config/chromium/*/Preferences` + `~/.config/chromium/Avatars/avatar_abstract_sandwich.png` |
 | 7e | Launcher entries. Figma Desktop's — the app gets `Name=` and `StartupWMClass` wrong for this desktop and regenerates its own entry on every launch. And T3 Code's, whose `StartupWMClass=t3code` misses its window class `com.t3tools.T3Code`: a copy with that one line corrected, derived from the package's on every run. **Full detail: [`applications/README.md`](applications/README.md).** | `~/.local/share/applications/figma-desktop-appimage.desktop`, `~/.local/share/applications/t3code.desktop`, and `~/Applications/figma-desktop/AppRun` restored if wrapped |
 | 7f | App icons for the menu, which draws app rows as a plain image and cannot recolour. **Full detail: [`icons/README.md`](icons/README.md).** | `~/.icons/cllpse-flat/apps/`, `~/.icons/cllpse-color/apps/`, `~/.config/omarchy/hooks/theme-set.d/app-icons.sh` (symlinked) |
 | 7f2 | Post-update repair hook — re-link what an `omarchy update` could quietly take out. **Full detail: [`hooks/README.md`](hooks/README.md).** | `~/.config/omarchy/hooks/post-update.d/cllpse-macos-repair.sh` (symlinked) |
@@ -417,7 +417,7 @@ though the values themselves are a preference.
 root, the GTK `text-scaling-factor` and the terminal point size together.
 
 **One text size** (2026-10-10). Every app's body text is that one number,
-14.7 desktop px at text size 14 (13.3 at 13), with Chromium pinned close to it:
+18.7 desktop px at text size 18 (14.7 at 14, 13.3 at 13), with Chromium pinned close to it:
 
 | App | Base size | Times |
 |---|---|---|
@@ -428,9 +428,9 @@ root, the GTK `text-scaling-factor` and the terminal point size together.
 | Cursor: UI / editor / terminal | 13 CSS px × zoom 12/13 | GTK factor |
 | Ghostty | `font-size=9` pt = 12px | GTK factor (`gtk-xft-dpi`) |
 
-The GTK factor is round(pt × text size / 12) / pt for the 9pt UI font: 11/9 at
-14 (10/9 at 13). So base 12px times the factor is the text size, up to that rounding.
-Chromium and Electron round the factor again, to 1/64ths (78/64 at 14, 71/64 at 13). Omarchy anchors 12px to factor
+The GTK factor is round(pt × text size / 12) / pt for the 9pt UI font: 14/9 at
+18 (11/9 at 14, 10/9 at 13). So base 12px times the factor is the text size, up to that rounding.
+Chromium and Electron round the factor again, to 1/64ths (100/64 at 18, 78/64 at 14, 71/64 at 13). Omarchy anchors 12px to factor
 1.0 and 9pt terminals. Its stock GTK font of 11pt (14.7px) sits above that
 anchor, which put every GTK, Chromium and Electron surface ~25% above the
 shell: 16-16.4px at 13. Hence the 9pt fonts in `apply.sh`'s gtk-fonts step.
@@ -448,7 +448,7 @@ a step below; since 2026-10-12 Chromium draws at 2× with fractional scaling
 off, which puts the toolbar at one desktop px per DIP: 14 and 12. Either way
 the toolbar no longer follows the text size. Pages do since 2026-10-15,
 through the default zoom: 12 × the factor / 13 keeps web body text at macOS's
-16 to 13 against the rest, 18.05 px at text size 14 (112.818%). It moves at
+16 to 13 against the rest, 22.98 px at text size 18 (143.594%; 18.05 at 14). It moves at
 the next apply rather than live (`chromium/README.md` §4).
 
 These are **the author's values**, tuned for a 43" 3840x2160 TV, and they are
@@ -526,7 +526,7 @@ It is **not** a complete machine build. On a clean install these are the gaps:
 | **Six steps use sudo (8b's keyd config and group grant, step 9's Chromium policy, step 9b's Chromium theme extension, step 10's CPU power limits, step 10b's DSC bit rate and step 11's `/etc/fstab` compression level), all deliberately near the end.** No package installation happens anywhere — `keyd` in particular must already be present, and step 8b skips with the `pacman -S keyd` line if it is not — see *Before running `apply.sh`* above for the full list and what each omission costs. `bibata-cursor-theme-bin` is the only one that fails loudly-ish (warned about, and the cursor theme is set in `gsettings`/`hl.env` regardless, so it falls back visibly); every other guard just skips, at most with one line in the output. The two non-package channels, `mise` (`hunk`, `gh`) and `gh extension` (`gh-dash`), won't be restored by a `pacman -Qqe` rebuild | Cursor visibly wrong; other items silently absent |
 | **Cursor editor not installed.** The `settings.json` merge is skipped when both `/usr/bin/cursor` and `~/.config/Cursor/User/` are absent. The merge itself needs no network step, but three of its keys name themes from the Bearded marketplace extensions (`workbench.preferred{Light,Dark}ColorTheme`, `workbench.iconTheme`), which fall back silently until those are installed — see *Before running `apply.sh`* | Merge skipped on a machine without Cursor |
 | **Third-party plugins are not installed.** `apply.sh` has no source URL for any of them, and step 7h's recorded `bar.layout` names exactly one — `io.github.thisisgm.omapods`, whose entry is inert without the plugin, since `Bar.qml` resolves an unknown widget id to a null component. Step 7h does *say so* rather than leaving that silent, and *Before running `apply.sh`* above carries the two install commands. The other widgets that were there (`dizziee.system-updates`, `jankeesvw.notification-center`, `io.github.twiking.omasettings`) were removed along with the plugins. Since a third-party plugin is enabled iff its id appears somewhere in `shell.json`, a layout without it *is* the uninstall as far as the shell is concerned; the plugin directory under `~/.config/omarchy/plugins/` still has to be deleted by hand | Nothing to render, and nothing to install |
-| **`display.conf` values are hardware-specific** — text size 14, monitor scale 1.25, GDK scale 1 are tuned for one ~102 PPI 3840x2160 display (a 43" TV). `gdk-scale` in particular is wrong on a HiDPI panel, where Omarchy's default of 2 is right | Wrong sizing on different hardware, applied confidently |
+| **`display.conf` values are hardware-specific** — text size 18, monitor scale 1.25, GDK scale 1 are tuned for one ~102 PPI 3840x2160 display (a 43" TV). `gdk-scale` in particular is wrong on a HiDPI panel, where Omarchy's default of 2 is right | Wrong sizing on different hardware, applied confidently |
 | **Tailscale has to be logged in already, and step 7i cannot verify itself.** The step skips unless `.BackendState` reads `Running`, so a clean install reaches it before `omarchy-install-service-tailscale` has ever run and it does nothing. Even when it succeeds it can only confirm the pref and the tailnet policy: a node cannot Tailscale-SSH to itself, so the connection is untestable from the machine it was just enabled on | Silently skipped until Tailscale is up; afterwards, working-but-unproven until a second node tries it |
 | **Some settings need a relogin** — the `environment.d` drop-in (Figma → Wayland) and `OMARCHY_MENU_FONT` are read at session start | State immediately after `apply.sh` is not the final state |
 | **`sync_fenced` creates the target if absent.** If `~/.config/ghostty/config` does not exist, the file it writes contains only our block — losing Omarchy's `config-file` line that pulls in theme colours | Terminal colours silently unthemed |
@@ -654,7 +654,7 @@ chromium/chromium-flags.conf  --force-device-scale-factor=2 + --enable-features=
 chromium/avatar.png           the profile avatar, copied over built-in avatar 55's downloaded picture (no pref or policy sets one)
 chromium/chromium_prefs.py    shared plumbing for the two profile-preference scripts below
 chromium/hidpi-assets/        SHELVED trial, loaded by nothing: an extension that tells pages the screen is 2x so they serve sharp images (see its README.md)
-chromium/default-zoom.py      reads, sets or clears the default page zoom (a profile preference, no flag exists); apply.sh sets 12 x the GTK factor / 13 (112.818% at text size 14), times 100% while fractional scaling is off (the 2x rendering), else times 100 / the UI scale
+chromium/default-zoom.py      reads, sets or clears the default page zoom (a profile preference, no flag exists); apply.sh sets 12 x the GTK factor / 13 (143.594% at text size 18), times 100% while fractional scaling is off (the 2x rendering), else times 100 / the UI scale
 chromium/neutral-theme.py     system (GTK) theme + grayscale -> a neutral browser UI (the theme-colour policy can only give a tinted palette)
 keyd/default.conf             identity config pinned to the Preonic, plus the inert [figma:C] / [figma_ctrl:C] layers the runtime bind activates (installed to /etc with sudo)
 keyd/keyd.service.d/restart.conf  Restart=on-failure + a 5-in-60 start limit for keyd, which ships with no restart policy and segfaults (installed to /etc/systemd/system with sudo)

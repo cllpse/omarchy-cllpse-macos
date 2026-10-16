@@ -2,7 +2,7 @@
 """Set, report or clear Chromium's default page zoom for every site.
 
 apply.sh sets 12 x the GTK text factor / 13, which keeps macOS's ratio of web
-text to UI text: 112.818% at text size 14 (since 2026-10-15). That is times
+text to UI text: 143.594% at text size 18 (since 2026-10-16; 112.818% at 14 from 2026-10-15). That is times
 100% while chromium-flags.conf disables WaylandFractionalScaleV1 (the 2x
 rendering, since 2026-10-12), and otherwise times 100 divided by the UI scale
 there, which put pages back at the monitor scale: 105.263% for 0.95 on
