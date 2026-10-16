@@ -192,6 +192,7 @@ restore ~/.config/yazi/theme.toml
 restore ~/.config/lazydocker/config.yml
 restore ~/.config/gh-dash/config.yml
 restore ~/.config/Cursor/User/settings.json
+restore ~/.config/torrenttui/config.toml
 
 say "Removing gh-dash theme-set hook"
 [[ -L ~/.config/omarchy/hooks/theme-set.d/gh-dash-colors.sh ]] && rm -f ~/.config/omarchy/hooks/theme-set.d/gh-dash-colors.sh

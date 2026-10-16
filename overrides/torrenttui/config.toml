@@ -1,0 +1,45 @@
+# TorrentTUI for cllpse-macos. Copied to ~/.config/torrenttui/config.toml by
+# torrenttui/torrenttui.sh (apply.sh step 7), after a one-time backup of
+# whatever was there. See README.md in this directory.
+#
+# Upstream's documented default config, with two values that are ours:
+#   download_dir  ~/Downloads, not upstream's ~/Downloads/torrents.
+#   theme         "system", upstream's default too, pinned here: it is the
+#                 ANSI palette, so it follows both cllpse themes like every
+#                 other TUI in this repo. The named themes are 24-bit and
+#                 dark-only. The in-app picker (T) rewrites this one line, and
+#                 the next apply puts it back.
+# Every key has a default in the app, so any line can be deleted.
+
+[general]
+download_dir = "~/Downloads"
+confirm_on_quit = true
+# watch_dir = "~/torrents/watch"  # optional; auto-add .torrent files dropped here
+
+[network]
+listen_port = 6881
+enable_dht = true
+enable_upnp = false           # opt in to open an external port via UPnP
+max_download_speed_kbps = 0   # KiB/s; 0 = unlimited (nonzero values below 16 are raised to 16)
+max_upload_speed_kbps = 0     # KiB/s; 0 = unlimited (nonzero values below 16 are raised to 16)
+http_api_bind = "127.0.0.1:0" # localhost-only by default (0 = auto-assigned port)
+
+[ui]
+refresh_rate_ms = 100
+enable_notifications = true
+theme = "system"              # ANSI: follows the terminal's palette, so both themes
+
+[player]
+command = ""                  # empty = OS default (xdg-open / open / start)
+args = []                     # extra args inserted before the URL
+
+[search]
+enable_apibay = true          # The Pirate Bay JSON API (apibay.org), no auth
+enable_torrents_csv = true    # torrents-csv.com public API, no auth
+timeout_secs = 8              # per-provider HTTP timeout (clamped to 1-30)
+max_results = 50              # cap on merged results (clamped to 1-500)
+
+[privacy]                     # all applied at startup; restart to change
+proxy_url = ""                # SOCKS5 proxy: "socks5://[user:pass@]host:port"
+blocklist_url = ""            # PeerGuardian .p2p list: path, ~/path, file:// or http(s)://
+bind_interface = ""           # bind all BitTorrent traffic to an interface, e.g. "wg0"

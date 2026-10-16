@@ -162,15 +162,17 @@ Install these first for a complete result.
 | AUR, via `omarchy pkg aur add` | `flea-bin` | the file manager (step 7j): folders, "Show in folder" and Open/Save dialogs all go to Flea, opened on SUPER+ALT+SPACE. The fourth dependency `apply.sh` configures but does not install. Upstream's recommended package: `omarchy pkg aur add flea-bin`, kept current by `omarchy update`. Omarchy's repository carries the same release as `flea` a day or more later. Install one, never both. Absent, the step skips and gives the command |
 | `mise use -g` | `hunk` `gh` | the `git diff` pager and the generated theme its hook writes; `gh` is what the row below runs through — this machine takes it from mise rather than `pacman`, so it is missing from a package-list restore too |
 | `gh extension install` | `dlvhdr/gh-dash` | the `dash` alias, and its theme-set colour hook |
+| GitHub release, verified with `gh` | [`thijsvos/torrentTUI`](https://github.com/thijsvos/torrentTUI) | the BitTorrent client, whose config step 7 writes. It is in no package manager, so the install is a release binary: download, `gh attestation verify`, `install` into `~/.local/bin`, in [`torrenttui/README.md`](torrenttui/README.md). Absent, the step skips and points there |
 | `omarchy plugin add` + its own `setup` | [`io.github.thisisgm.omapods`](https://github.com/thisisgm/omarchy-pods) | the AirPods widget — the one third-party plugin step 7h's `bar.layout` names, and the only entry in it this repo does not ship. Two commands, because the widget is a front end to a daemon: `omarchy plugin add https://github.com/thisisgm/omarchy-pods` clones the plugin, and `~/.config/omarchy/plugins/io.github.thisisgm.omapods/setup` builds `librepods` into `~/.local` and enables `librepods.service`. Skip `--enable`: it would place the widget on the bar itself, and the recorded layout already names it. Without the plugin the layout entry is inert; with the plugin but no daemon the icon is there and reads nothing |
 | Cursor marketplace | `beardedbear.beardedtheme` `beardedbear.beardedicons` | the Cursor colour + icon theme. The only marketplace dependency in the whole override; without them Cursor silently falls back to its defaults |
 
-`hunk`, `gh` and `gh-dash` are the three that are not packages, so a
+`hunk`, `gh`, `gh-dash` and TorrentTUI are the four that are not packages, so a
 `pacman -Qqe` restore will not bring them back:
 
 ```bash
 mise use -g hunk gh
 gh extension install dlvhdr/gh-dash
+# TorrentTUI: a release binary, verified with gh -- torrenttui/README.md
 ```
 
 **How each one fails if you skip it.** Only some of these are guarded, and the
@@ -178,7 +180,8 @@ difference matters — `apply.sh` runs under `set -euo pipefail`, so "degrades" 
 a property of how the call is written, not a promise:
 
 - *Guarded, with a skip message*: `lsd` (alias + theme files), `yazi`,
-  `lazydocker`, `gh-dash` and `hunk` (their theme configs), Cursor
+  `lazydocker`, `gh-dash` and `hunk` (their theme configs), TorrentTUI (its
+  config; the skip names its README for the install), Cursor
   (`settings.json` merge), `starship`
   (`|| skip`). `bibata-cursor-theme-bin` warns but the cursor theme is set in
   `gsettings`/`hl.env` anyway, so it falls back **visibly** — the one omission
@@ -286,7 +289,7 @@ script works the same whether you run it by hand or `apply.sh` calls it.
 | 5c | Danish letters on the Preonic's M0 layer — a static, single-group xkb symbols file, referenced by `hyprland-env.lua`'s `kb_layout`. **Full detail: [`xkb/README.md`](xkb/README.md).** | `~/.config/xkb/symbols/us-danish-letters` |
 | 6 | Five fenced snippets into the user's own hypr config: env + cursor theme + keyboard layout, decoration/blur/animations, window-switcher binds, mouse tuning, and `SUPER+SPACE` handed to the supermenu. **Full detail: [`hypr/README.md`](hypr/README.md).** | fenced blocks synced into `~/.config/hypr/hyprland.lua`, `looknfeel.lua`, `bindings.lua` and `input.lua` |
 | 6b | Keybind allowlist + macOS-parity shortcuts: scan the live binds, unbind what the allowlist omits, then re-sync the parity and window-management blocks. **Full detail: [`hypr/README.md`](hypr/README.md).** | `overrides/hypr/keybind-allowlist.conf` (seeded once, user-owned, committed); `overrides/hypr/keybind-current.conf` + `overrides/hypr/keybind-unbinds.lua` (both regenerated every run in the repo itself, gitignored); three more fenced blocks (`: keybinds`, `: macos-shortcuts`, `: window-management-mod`) in `~/.config/hypr/bindings.lua` |
-| 7 | The apps Omarchy doesn't theme. TUI palettes point at the terminal's ANSI slots (`gh-dash` cannot — see *How each app is themed*); `lsd` additionally needs `color.theme: custom` to read the remap. Plus Cursor's editor prefs, the shell aliases, the `git diff` pager and the `pi` agent's model routing (OpenRouter's auto-router).<br>**Per-override detail: [`bat/`](bat/README.md), [`lazygit/`](lazygit/README.md), [`lazydocker/`](lazydocker/README.md), [`lsd/`](lsd/README.md), [`yazi/`](yazi/README.md), [`gh-dash/`](gh-dash/README.md), [`cursor/`](cursor/README.md), [`pi/`](pi/README.md), [`bash/`](bash/README.md), [`git/`](git/README.md)** | `~/.config/bat/config`, `~/.config/lazygit/config.yml`, `~/.config/lazydocker/config.yml`, `~/.config/lsd/{config,colors}.yaml`, `~/.config/yazi/theme.toml`, `~/.config/gh-dash/config.yml` (merged), `~/.config/Cursor/User/settings.json`, `~/.pi/agent/settings.json` (merged), fenced blocks in `~/.bashrc` and `~/.config/git/config` |
+| 7 | The apps Omarchy doesn't theme. TUI palettes point at the terminal's ANSI slots (`gh-dash` cannot — see *How each app is themed*); `lsd` additionally needs `color.theme: custom` to read the remap. Plus Cursor's editor prefs, the shell aliases, the `git diff` pager, the `pi` agent's model routing (OpenRouter's auto-router) and TorrentTUI's download folder.<br>**Per-override detail: [`bat/`](bat/README.md), [`lazygit/`](lazygit/README.md), [`lazydocker/`](lazydocker/README.md), [`lsd/`](lsd/README.md), [`yazi/`](yazi/README.md), [`gh-dash/`](gh-dash/README.md), [`cursor/`](cursor/README.md), [`pi/`](pi/README.md), [`bash/`](bash/README.md), [`git/`](git/README.md), [`torrenttui/`](torrenttui/README.md)** | `~/.config/bat/config`, `~/.config/lazygit/config.yml`, `~/.config/lazydocker/config.yml`, `~/.config/lsd/{config,colors}.yaml`, `~/.config/yazi/theme.toml`, `~/.config/gh-dash/config.yml` (merged), `~/.config/Cursor/User/settings.json`, `~/.pi/agent/settings.json` (merged), `~/.config/torrenttui/config.toml`, fenced blocks in `~/.bashrc` and `~/.config/git/config` |
 | 7\* | Prompt and diff colours that must be BAKED per theme rather than named: Starship has no config-import mechanism, and hunk's validator takes hex only.<br>**Detail: [`starship/`](starship/README.md), [`hunk/`](hunk/README.md)** | `~/.config/omarchy/hooks/theme-set.d/{starship-colors,hunk-colors}.sh` (symlinked), `~/.config/starship.toml`, `~/.config/hunk/config.toml` |
 | 7b | Restore saved display scaling + text size. **Full detail: [`display/README.md`](display/README.md).** | `omarchy display text size`, the two scale variables in `~/.config/hypr/monitors.lua` |
 | 7c | Session environment drop-ins (Figma → native Wayland). Read at session start, so they need a relogin. **Full detail: [`environment.d/README.md`](environment.d/README.md).** | `~/.config/environment.d/50-cllpse-macos-figma-wayland.conf` |
@@ -470,6 +473,7 @@ take it:
 | `bat` | ANSI | `--theme=ansi` |
 | `lazygit` | ANSI | colour names + `bold`/`reverse` per theme key |
 | `lazydocker` | ANSI | same gocui colour layer and vocabulary as lazygit; four theme keys rather than lazygit's seven |
+| TorrentTUI | ANSI | `theme = "system"`, its default, pinned in `torrenttui/config.toml`; its named themes are 24-bit and dark-only. The in-app picker (`T`) rewrites that one line, and the next apply puts it back |
 | `lsd` | ANSI | `color.theme: custom` opts into `colors.yaml`; filetype colours go through `LS_COLORS` in `bash/shell.sh` instead |
 | `fzf` | live palette | `FZF_DEFAULT_OPTS` is *derived* in `bash/shell.sh` by reading `colors.toml` at shell start — real hex, not slots, because fzf needs more than 16 distinct roles |
 | `yazi` | ANSI + generated | Split by surface. **Chrome, filetypes and icons are ANSI** — the chrome preset already was; the ~725 icon rules were fixed hex and are regenerated onto ANSI names by `yazi/generate-icons.py`, which reads the table out of the installed binary (re-run after a yazi upgrade). **The previewer is generated**: syntect reads a `.tmTheme`, which is hex-only, so `yazi-syntax.sh` bakes one per theme. That is a deliberate trade — unset, the previewer highlights in ANSI and tracks the terminal live; set, it gets the full macOS palette and Xcode's project-vs-system symbol split, but only updates at theme-set. Delete `syntect_theme` from `yazi/theme.toml` to go back |
@@ -602,6 +606,8 @@ hooks/theme-set.d/chromium-theme.sh  swaps Chromium's force-installed theme exte
 ytm/config-prefs.py           ytm-player's nine preference keys (startup page, playhead style, clutter toggles), insert-or-replace into its config.toml
 ytm/cllpse-ytm-signin         sign-in with the keyring workaround (symlinked into ~/.local/bin)
 pi/pi.sh                      pi agent -> OpenRouter's auto-router: defaultProvider/defaultModel jq-merged into ~/.pi/agent/settings.json, stale modelThinkingLevels dropped
+torrenttui/config.toml        TorrentTUI: upstream's default config with download_dir ~/Downloads and the ANSI theme pinned
+torrenttui/torrenttui.sh      copies it to ~/.config/torrenttui/ after a one-time backup; skips when torrenttui is not installed (a release binary, see its README)
 xkb/symbols/us-danish-letters  US layout plus six otherwise-unused function keys for ae/oe/aa, the Preonic's M0 layer (installed to ~/.config/xkb/symbols/)
 lsd/config.yaml               color.theme: custom (opts into colors.yaml below)
 lsd/colors.yaml               user/group/size/date/etc. remapped from lsd's fixed 256-colour defaults onto basic ANSI; filetype colours (directory/executable/symlink/etc.) are LS_COLORS instead, in bash/shell.sh

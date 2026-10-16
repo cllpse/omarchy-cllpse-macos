@@ -50,7 +50,7 @@
 #        and the keybind allowlist (was 6b)                            hypr/
 #   7.   the apps Omarchy doesn't theme:
 #          bat/ lazygit/ lsd/ yazi/ lazydocker/ gh-dash/ starship/
-#          cursor/ pi/ hunk/ ytm/ bash/ git/
+#          cursor/ pi/ hunk/ ytm/ bash/ git/ torrenttui/
 #   7b.  restore saved display scaling + text size                     display/
 #   7c.  session environment drop-ins                                  environment.d/
 #   7d.  Chromium flags, zoom and neutral UI                           chromium/ (user)
@@ -434,7 +434,9 @@ echo "        omarchy plymouth set by theme omarchy-cllpse-theme-dark   # or -li
 #
 # Out: anything not about appearance -- keyboard layout (xkb), `git` (the pager,
 # not a palette), session env, the Figma launcher entry, the repair hook, input
-# remapping (keyd), which file manager the desktop asks for (flea), and
+# remapping (keyd), which file manager the desktop asks for (flea), where
+# TorrentTUI saves (torrenttui; its config pins the ANSI theme too, but
+# the download folder is the point), and
 # everything needing sudo or the network. Also out, and
 # deliberately: `display`, which is a hardware preference rather than a theme
 # and can resize everything on screen; and `chromium-user`, whose neutral UI is
@@ -479,6 +481,7 @@ STEPS=(
   "ytm||ytm-player|run:ytm|"
   "bash||bash aliases + fzf|run:bash|"
   "git||git diff through hunk|run:git|"
+  "torrenttui||TorrentTUI: download folder + ANSI theme|run:torrenttui|"
   "environment.d||Session environment drop-ins|run:environment.d|"
   "chromium-user||Chromium flags, zoom, neutral UI|run:chromium user|"
   "applications||Figma Desktop launcher entry|run:applications|"

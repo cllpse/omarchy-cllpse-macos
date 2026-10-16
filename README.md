@@ -62,6 +62,7 @@ omarchy-install-service-tailscale                # step 7i: the daemon, the logi
 yay -S ryzenadj                                  # step 10 — only on the Ryzen box it is gated on
 mise use -g hunk gh
 gh extension install dlvhdr/gh-dash
+# TorrentTUI is a release binary, verified with gh: overrides/torrenttui/README.md
 ```
 
 Plus two Cursor marketplace extensions, `beardedbear.beardedtheme` and
