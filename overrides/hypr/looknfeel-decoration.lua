@@ -36,7 +36,8 @@
 -- high (it curved a thin stroke's corner better); at 2.05 there is nothing to
 -- gain, and inside is the tidier model in a tiling WM.
 --
--- border_size is 2 (Omarchy's default). BUILD.md section 5's hairline (1) is
+-- border_size is 3, asked for on 2026-10-16: one over Omarchy's default 2,
+-- which shipped until then. BUILD.md section 5's hairline (1) is
 -- macOS-faithful but a weak focus cue in a tiling WM.
 --
 -- gaps_in/gaps_out follow BUILD.md section 5's Apple 8pt layout grid: 12
@@ -315,7 +316,7 @@ hl.config({
       contrast = 1.0,
     },
   },
-  general = { border_size = 2, gaps_in = 12, gaps_out = 24 },
+  general = { border_size = 3, gaps_in = 12, gaps_out = 24 },
   -- ── Group bar: OFF ───────────────────────────────────────────────────────
   -- Hyprland draws a row of tabs across the top of a grouped window. macOS has
   -- no equivalent -- window tabbing there is per-app (NSWindow tabs, inside the

@@ -249,7 +249,7 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   `decoration.border_part_of_window = true` (border drawn inside each window's
   tile), enables `decoration.blur` (size 3,
   passes 5, vibrancy 0.50, vibrancy_darkness 0.50, noise 0.02, brightness/contrast
-  1.0), keeps `general.border_size = 2` (Omarchy's default) with `gaps_in = 12` / `gaps_out = 24` (§5's Apple 8pt grid, `md`/`xxl` steps),
+  1.0), sets `general.border_size = 3` (one over Omarchy's default 2, since 2026-10-16) with `gaps_in = 12` / `gaps_out = 24` (§5's Apple 8pt grid, `md`/`xxl` steps),
   overrides window opacity to `1.0 0.875` (re-matched onto browsers directly too,
   since Omarchy pins those to their own `1.0 0.985` otherwise, and lifted back to
   `1 1` on a window showing a playing video), and divides every `hl.animation` leaf's
@@ -289,8 +289,8 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   whole left edge first, and the corners are the same gesture with the accidents
   taken out — an edge is crossed by anything that overshoots a window's left
   side, a scrollbar or a tab strip. Two costs, both deliberate: the four corner
-  pixels no longer pass clicks through — with `gaps_out = 24` plus a 2px border
-  the nearest window corner is at `26,26`, so what is behind them is the
+  pixels no longer pass clicks through — with `gaps_out = 24` plus a 3px border
+  the nearest window corner is at `27,27`, so what is behind them is the
   wallpaper — and the trigger stands down while a window on the focused
   workspace is fullscreen, so a video or a game cannot be interrupted by a
   pointer thrown into a corner. The HUD's own input region subtracts those four

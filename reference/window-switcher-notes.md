@@ -226,7 +226,7 @@ directly is what gets it the cold path for free.
 
 **The guard is `Hyprland.focusedWorkspace.hasFullscreen`, read as a function.**
 A fullscreen window is the one case where something real is drawn under a corner
-— Omarchy's `gaps_out` (24) plus `border_size` (2) put every window at `26, 26`,
+— Omarchy's `gaps_out` (24) plus `border_size` (3; 2 until 2026-10-16) put every window at `27, 27`,
 so ordinary windows never reach one — and the one case where a switcher
 appearing because the pointer was thrown into a corner is actively unwanted.
 Both that property and `ToplevelManager.activeToplevel.fullscreen` are live, but
