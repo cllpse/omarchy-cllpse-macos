@@ -375,6 +375,13 @@ six: the plain one plus `: keybinds` / `: macos-shortcuts` /
 `~/.config/bat/config` / `~/.config/lazygit/config.yml` /
 `~/.config/lsd/{config,colors}.yaml` / `~/.config/Cursor/User/settings.json` /
 `~/.config/starship.toml` are saved as `*.pre-cllpse` and restored on revert.
+That is `lib.sh`'s `backup()`, which every step that replaces a user file
+calls, and the first call wins. Since 2026-10-16, when there was no file to
+keep, it leaves a marker under `~/.local/state/cllpse-macos/no-prior/`
+instead, and revert.sh removes the file. Before that, the second run backed up
+what the first had written, so a revert restored our own file: seven such
+backups were found on this machine (bat, lazygit, lazydocker, both lsd files,
+yazi and hunk) and replaced with markers.
 
 Cursor `settings.json` is the one JSON target: `apply.sh` deep-merges
 `cursor/settings.json` with `jq` (`.[0] * .[1]` — our keys win, everything else

@@ -11,10 +11,9 @@ daemon, was the other candidate with a mouse.
 ## What the step does
 
 `torrenttui.sh` (apply.sh step 7) copies `config.toml` here to
-`~/.config/torrenttui/config.toml`, backing up whatever was there once. A file
-identical to ours is not backed up: on a machine with no config the second run
-would otherwise save our own copy as the machine's, and revert.sh would put it
-back instead of removing it (found on the first re-run, 2026-10-16). Two values
+`~/.config/torrenttui/config.toml`, backing up whatever was there once. Its
+first re-run, on 2026-10-16, backed up our own copy as the machine's, which is
+how `lib.sh`'s `backup()` came to record "nothing was here" instead. Two values
 in it are ours; the rest is upstream's documented default:
 
 - **`download_dir = "~/Downloads"`**, not upstream's `~/Downloads/torrents`.

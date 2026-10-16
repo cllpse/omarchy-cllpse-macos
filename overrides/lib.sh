@@ -51,7 +51,22 @@ mkdir -p "$STATE"
 
 say()  { printf '\033[34m▸\033[0m %s\n' "$*"; }
 skip() { printf '  \033[2m– %s\033[0m\n' "$*"; }
-backup() { [[ -s $1 && ! -e $1.pre-cllpse ]] && { cp "$1" "$1.pre-cllpse"; skip "backed up $1 -> $1.pre-cllpse"; } || true; }
+# Keeps $1 as it was before apply.sh first changed it, as $1.pre-cllpse, for
+# revert.sh to put back. First call wins. When there is nothing to keep then
+# (no file, or an empty one), a marker under $STATE/no-prior says so. Without
+# it a later run took our own file for the machine's: the first run had
+# nothing to back up, the second backed up what the first wrote, and revert.sh
+# restored that instead of removing the file (found with TorrentTUI,
+# 2026-10-16). revert.sh deletes the markers. $1 must be an absolute path.
+backup() { # $1 target
+  local none="$STATE/no-prior$1"
+  [[ -e $1.pre-cllpse || -e $none ]] && return 0
+  if [[ -s $1 ]]; then
+    cp "$1" "$1.pre-cllpse"; skip "backed up $1 -> $1.pre-cllpse"
+  else
+    mkdir -p "${none%/*}"; : >"$none"
+  fi
+}
 
 # Current contents of the fenced block in $3 — the lines between, but not
 # including, the $1/$2 marker lines.

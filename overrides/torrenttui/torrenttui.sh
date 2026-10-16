@@ -11,12 +11,7 @@ HERE="$OVERRIDES"
 # See README.md
 if command -v torrenttui >/dev/null 2>&1; then
   say "TorrentTUI -> ~/.config/torrenttui/config.toml (downloads to ~/Downloads, ANSI theme)"
-  mkdir -p ~/.config/torrenttui
-  # Our own copy is not worth keeping. On a machine that had no config, the
-  # first run has nothing to back up, and the second would otherwise save ours
-  # as the machine's, for revert.sh to put back instead of removing.
-  cmp -s "$HERE/torrenttui/config.toml" ~/.config/torrenttui/config.toml ||
-    backup ~/.config/torrenttui/config.toml
+  mkdir -p ~/.config/torrenttui; backup ~/.config/torrenttui/config.toml
   cp "$HERE/torrenttui/config.toml" ~/.config/torrenttui/config.toml
 else
   skip "TorrentTUI not installed — skipped its config (it is a release binary: torrenttui/README.md)"

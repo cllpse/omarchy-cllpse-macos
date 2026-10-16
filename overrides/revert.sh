@@ -498,6 +498,9 @@ if [[ -s $STATE/previous-pi-routing && -s $pi_settings ]] && command -v jq >/dev
   rm -f "$_pi"
 fi
 
+# backup()'s "nothing was here" markers (lib.sh). Every file they name has been
+# restored or removed above, so the next apply is a first apply again.
+rm -rf "$STATE/no-prior"
 rmdir "$STATE" 2>/dev/null || true
 
 # keyd (apply.sh step 8b). Order matters: drop any LIVE remap first, because a
