@@ -479,7 +479,7 @@ STEPS=(
   "pi||Pi agent: OpenRouter auto-router|run:pi|"
   "hunk||hunk|run:hunk|"
   "ytm||ytm-player|run:ytm|"
-  "t3code||T3 Code: primary colour from the accent|run:t3code|"
+  "t3code||T3 Code: every colour from the theme|run:t3code|"
   "bash||bash aliases + fzf|run:bash|"
   "git||git diff through hunk|run:git|"
   "torrenttui||TorrentTUI: download folder + ANSI theme|run:torrenttui|"
