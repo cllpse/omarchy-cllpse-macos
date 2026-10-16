@@ -110,11 +110,13 @@ icon, which ships only as hicolor PNGs, because the sweep checks SVGs before
 PNGs. `claude-code.svg` is what a terminal running Claude Code resolves to,
 through the `claude` → `claude-code` alias.
 
-**`com.t3tools.T3Code.svg` is named for the class because the entry names
-the wrong one.** T3 Code (`t3code-bin`, added 2026-10-16) reports class
-`com.t3tools.T3Code`, while `t3code.desktop` declares `StartupWMClass=t3code`
-and `Icon=t3code`, so `classIndex` joins nothing and only a class-named
-drop-in reaches the tile. The mark is Omarchy's own monochrome one, glyph
+**`com.t3tools.T3Code.svg` is named for the class.** T3 Code (`t3code-bin`,
+added 2026-10-16) reports class `com.t3tools.T3Code`, while the package's
+`t3code.desktop` declares `StartupWMClass=t3code` and `Icon=t3code`. Step 7e
+now writes a local copy with the class corrected (`../applications/README.md`
+§3), so `classIndex` joins and the tile reads its `Name=`; but the join would
+end at `Icon=t3code`, the package's full-colour icon. The class-named drop-in
+is looked up before the join, so it is what the tile draws. The mark is Omarchy's own monochrome one, glyph
 U+E908 of its `omarchy.ttf`, so it lives in `icons/` and is repainted. There is
 deliberately no `t3code.svg`: the menu row keeps the package's full-colour icon.
 

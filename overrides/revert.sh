@@ -124,6 +124,9 @@ done
 # launcher entry until then, which is the same state a machine that never ran
 # apply.sh and never launched Figma is in.
 restore ~/.local/share/applications/figma-desktop-appimage.desktop
+# T3 Code's corrected entry (applications/README.md (3)): ours whole, derived
+# from the package's, so removing it hands the package's back.
+restore ~/.local/share/applications/t3code.desktop
 update-desktop-database ~/.local/share/applications 2>/dev/null || true
 
 strip_fenced ~/.config/ghostty/config

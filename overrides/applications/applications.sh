@@ -1,5 +1,5 @@
 #!/bin/bash
-# Figma Desktop launcher entry
+# Launcher entries: Figma Desktop, and T3 Code's window class
 #
 # See README.md in this directory for what this does and why.
 # Runnable on its own, and called by ../apply.sh. $HERE is bound to overrides/
@@ -56,3 +56,28 @@ if [[ -f $_figma_tpl ]]; then
   fi
 fi
 
+
+# See README.md (3)
+# Derived from the package's own entry on every run, so a t3code-bin update to
+# Exec, Name or the URL handlers comes through; only the class line differs.
+_t3_pkg=/usr/share/applications/t3code.desktop
+_t3_entry=~/.local/share/applications/t3code.desktop
+_t3_class=com.t3tools.T3Code
+if [[ ! -f $_t3_pkg ]]; then
+  skip "T3 Code not installed — no entry to correct"
+elif ! grep -q '^StartupWMClass=' "$_t3_pkg"; then
+  skip "t3code.desktop declares no StartupWMClass any more — left alone, check applications/README.md (3)"
+else
+  _t3_rendered=$(sed "s|^StartupWMClass=.*|StartupWMClass=$_t3_class|" "$_t3_pkg")
+  if [[ -f $_t3_entry ]] && [[ $(cat "$_t3_entry") == "$_t3_rendered" ]]; then
+    skip "t3code.desktop already current"
+  else
+    say "T3 Code entry -> $_t3_entry (StartupWMClass=$_t3_class)"
+    mkdir -p ~/.local/share/applications
+    backup "$_t3_entry"
+    printf '%s\n' "$_t3_rendered" > "$_t3_entry"
+    update-desktop-database ~/.local/share/applications 2>/dev/null || true
+  fi
+  grep -qx "StartupWMClass=$_t3_class" "$_t3_pkg" &&
+    skip "t3code-bin now declares the right class itself — this section can go"
+fi

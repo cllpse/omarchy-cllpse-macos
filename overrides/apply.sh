@@ -54,7 +54,7 @@
 #   7b.  restore saved display scaling + text size                     display/
 #   7c.  session environment drop-ins                                  environment.d/
 #   7d.  Chromium flags, zoom and neutral UI                           chromium/ (user)
-#   7e.  Figma Desktop's launcher entry                                applications/
+#   7e.  launcher entries: Figma Desktop, T3 Code's window class       applications/
 #   7f.  app icons for the menu (repainted + verbatim)                 icons/
 #   7f2. post-update repair hook                                       hooks/
 #   7h.  Omarchy shell.json: switcher, bar, disabled plugins           omarchy/
@@ -433,7 +433,7 @@ echo "        omarchy plymouth set by theme omarchy-cllpse-theme-dark   # or -li
 # whatever the last full run installed. The aliases ride along.
 #
 # Out: anything not about appearance -- keyboard layout (xkb), `git` (the pager,
-# not a palette), session env, the Figma launcher entry, the repair hook, input
+# not a palette), session env, the launcher entries, the repair hook, input
 # remapping (keyd), which file manager the desktop asks for (flea), where
 # TorrentTUI saves (torrenttui; its config pins the ANSI theme too, but
 # the download folder is the point), and
@@ -485,7 +485,7 @@ STEPS=(
   "torrenttui||TorrentTUI: download folder + ANSI theme|run:torrenttui|"
   "environment.d||Session environment drop-ins|run:environment.d|"
   "chromium-user||Chromium flags, zoom, neutral UI|run:chromium user|"
-  "applications||Figma Desktop launcher entry|run:applications|"
+  "applications||Launcher entries: Figma Desktop, T3 Code's class|run:applications|"
   "icons||App icons for the menu|run:icons|"
   "hooks||Post-update repair hook|run:hooks|"
   "omarchy||Omarchy shell.json|run:omarchy|symlinks"
