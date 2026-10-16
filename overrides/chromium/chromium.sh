@@ -48,20 +48,35 @@ fi
 
 # See README.md (4)
 if [[ -x "$HERE/chromium/default-zoom.py" ]]; then
-  # 100% while chromium-flags.conf disables WaylandFractionalScaleV1: the scale
-  # flag then sets the rendering scale and leaves layout alone. Otherwise the
-  # flag is a UI scale that pages inherit, and 100 / it puts them back at the
-  # monitor scale (105.263% for 0.95). Printed with %g, as
-  # `default-zoom.py --print` reports it, so record_prior recognises the value
-  # as ours on a re-run.
-  _zoom="$(awk -F= '
+  # Two parts, multiplied. Geometry: 100% while chromium-flags.conf disables
+  # WaylandFractionalScaleV1, since the scale flag then sets the rendering
+  # scale and leaves layout alone; otherwise the flag is a UI scale that pages
+  # inherit, and 100 / it puts them back at the monitor scale (105.263% for
+  # 0.95). Text: web body text is 16 CSS px, which macOS sets against a 13 pt
+  # system font, and every app's text here is 12 px times the GTK factor that
+  # step 7b's text size has just set, so 12 x factor / 13 keeps macOS's ratio:
+  # 112.818% at text size 14 (factor 1.2222). Without a factor, geometry only.
+  # Rounded to 3 places and printed with %g, as `default-zoom.py --print`
+  # reports it, so record_prior recognises the value as ours on a re-run.
+  _factor="$(gsettings get org.gnome.desktop.interface text-scaling-factor 2>/dev/null || true)"
+  _zoom="$(awk -F= -v f="$_factor" '
     /^--force-device-scale-factor=/ && scale == "" { scale = $2 }
     /^--disable-features=/ && /[=,]WaylandFractionalScaleV1(,|$)/ { whole = 1 }
-    END { if (scale != "") printf "%g", whole ? 100 : 100 / scale }' \
+    END { if (scale == "") exit
+          z = whole ? 100 : 100 / scale
+          if (f + 0 > 0) z *= 12 * f / 13
+          printf "%g", int(z * 1000 + 0.5) / 1000 }' \
     "$HERE/chromium/chromium-flags.conf")"
   [[ -n $_zoom ]] || _zoom=100
-  record_prior "$STATE/previous-chromium-zoom" \
-    "$("$HERE/chromium/default-zoom.py" --print 2>/dev/null || true)" "$_zoom"
+  # Earlier versions of this step set 100 (2026-10-12 to 15) and 105.263
+  # (2026-10-11 to 12), so neither is the machine's own. The empty file marks
+  # the first apply as done when nothing was recorded: a later text size moves
+  # our own value, and without it the old one would be recorded as the
+  # machine's. revert.sh reads an empty file as "nothing recorded".
+  _prev_zoom="$("$HERE/chromium/default-zoom.py" --print 2>/dev/null || true)"
+  case "$_prev_zoom" in 100|105.263) _prev_zoom="" ;; esac
+  record_prior "$STATE/previous-chromium-zoom" "$_prev_zoom" "$_zoom"
+  [[ -e $STATE/previous-chromium-zoom ]] || : >"$STATE/previous-chromium-zoom"
   say "Chromium default page zoom -> ${_zoom}%"
   "$HERE/chromium/default-zoom.py" "$_zoom" || true
 fi

@@ -152,6 +152,8 @@ if [[ -x $HERE/chromium/default-zoom.py ]]; then
   else
     say "clearing Chromium default page zoom (its own default applies)"
     "$HERE/chromium/default-zoom.py" --reset || true
+    # apply.sh leaves it empty to mark its first apply as done.
+    rm -f "$STATE/previous-chromium-zoom"
   fi
 fi
 

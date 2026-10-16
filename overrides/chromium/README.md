@@ -79,7 +79,8 @@ line up. The flags file's git history has the candidates. The cost: Chromium
 no longer follows `omarchy display text size`, so the number has to move by
 hand with it. Pages scaled with it too, so the default zoom was 1/0.95,
 105.263% (§4), which put them back at the monitor's 1.33333 device px per
-CSS px. At 2× Chromium still ignores the text size, and the zoom is 100%.
+CSS px. At 2× the toolbar still ignores the text size. Pages follow it since
+2026-10-15, through the default zoom (§4).
 
 For a day before that there was no flag at all. The UI followed the monitor
 scale times the GTK text factor, 10/9 at text size 13, which Chromium rounds
@@ -141,31 +142,64 @@ an Omarchy feature off on the next update.
 way: Omarchy ships no such line today, but if it ever adds one, ours would
 drop it just as silently.
 
-## 4. Default page zoom, derived from the scale flag
+## 4. Default page zoom, derived from the scale flag and the text size
 
-`chromium.sh` reads the flags file and computes the zoom, so the two can't
-drift apart. While `WaylandFractionalScaleV1` is disabled, as now (§2), the
-scale flag sets only the rendering scale, a CSS pixel is already one desktop
-pixel, and the zoom is **100%**. With fractional scaling on, the flag is a UI
-scale that pages inherit, and the zoom is 100 divided by it.
+`chromium.sh` computes the zoom from the flags file and from the GTK text
+factor that step 7b's text size has just set, so none of them can drift
+apart. Two parts, multiplied:
 
-From 2026-10-11 to 12 that gave 105.263% for 0.95. Page size was the product of
-the two, 1.2667 × 1.0526 =
-1.33333 device px per CSS px (1.1875 × 1.0526 = 1.25 when picked). That is
-exactly the monitor scale, so a CSS pixel was one desktop pixel, as it is
-at 2× and 100%. That is the macOS relationship: there a CSS pixel is one
-point, so web body text is 16 against the system's 13; here it is 16 desktop
-px against every app's 14.7 (13.3 at text size 13).
+- **Geometry.** While `WaylandFractionalScaleV1` is disabled, as now (§2), the
+  scale flag sets only the rendering scale and a CSS pixel is already one
+  desktop pixel: 100%. With fractional scaling on, the flag is a UI scale that
+  pages inherit, and this part is 100 divided by it.
+- **Text** (since 2026-10-15). 12 × the GTK factor / 13: **112.818%** at text
+  size 14 (factor 1.2222), 102.563% at 13. Without a readable factor, the
+  zoom is the geometry part alone.
 
-105.263% was not a step on Chromium's zoom ladder (100, 110, 125…): Ctrl+plus
-and Ctrl+minus went to 110% or 100% and never landed back on it. 100% is on
-the ladder.
+The text part keeps macOS's ratio of web text to UI text. There a CSS pixel
+is one point, so web body text is 16 against the system's 13, 1.23 to 1. Here
+every app's text is 12 px times the factor, 14.7 desktop px at text size 14,
+so at 100% it was 16 against 14.7, 1.09 to 1, and pages read small next to
+everything else. At 112.818% body text is 18.05 desktop px. The text size
+departs from macOS's 13 on purpose (`reference/BUILD.md`), and pages now
+follow it rather than staying at macOS's proportions. The author had zoomed
+four sites to 110% by hand (Gmail, YouTube, LinkedIn, cllp.se), which pointed
+the same way; those entries were cleared so the sites follow the default. The
+cost is macOS's geometry: a CSS pixel is 1.128 desktop px rather than one, so
+a 1280 px layout takes 1444.
+
+The zoom follows the text size saved in `display.conf` when apply.sh runs,
+not live: `omarchy display text size` moves the GTK factor and not this. The
+toolbar does not follow the text size either way (§2).
+
+From 2026-10-11 to 12 the geometry part gave 105.263% for 0.95, with no text
+part. Page size was the product of the two, 1.2667 × 1.0526 = 1.33333 device
+px per CSS px (1.1875 × 1.0526 = 1.25 when picked). That is exactly the
+monitor scale, so a CSS pixel was one desktop pixel, as it was at 2× and 100%
+from 2026-10-12 to 15: macOS's geometry, one CSS pixel per point, which the
+text part gives up for macOS's text ratio.
+
+**A default between Chromium's zoom steps is added to them.** Ctrl+plus and
+Ctrl+minus walk Chromium's preset steps (…, 100, 110, 125, …), and
+`PageZoom::Zoom` (`components/zoom/page_zoom.cc`) inserts the default zoom
+when it is not one of them: 100 → 110 → 112.818 → 125, and Ctrl+0 returns to
+it. Read from Chromium's source on 2026-10-15, not yet measured on 152. Until
+then this section said Ctrl+plus and Ctrl+minus never landed back on 105.263%,
+which the source contradicts, and counted 100% being on the steps in its
+favour. The one cost: from the default, Ctrl+minus is a 2.5% step to 110%.
+
+For revert.sh, the step records the zoom found before its first apply,
+refusing 100 and 105.263, which earlier versions of this step set. When it
+records nothing it leaves the state file empty, which marks the first apply as
+done. Without that, a later text size, which moves our own value, would get
+the old value recorded as the machine's.
 
 History: 110% paired with the old `=1` flag until 2026-10-10. It was dropped
 with the flag (pages then followed the GTK factor at 100%). It came back a day
 later with the new flag, at 125% (with 0.9), then 110% (with 0.95), then
-105.263%, then 100% with the 2× rendering on 2026-10-12. Like every Preferences write, it needs
-Chromium closed (see the script).
+105.263%, then 100% with the 2× rendering on 2026-10-12, then 112.818% with
+the text part on 2026-10-15. Like every Preferences write, it needs Chromium
+closed (see the script).
 
 There is no command-line flag for default page zoom; the script header has
 what was checked, and the log scale the preference is stored in. revert.sh
@@ -309,7 +343,8 @@ Chromium: drawn at 2× and scaled down by Hyprland (§2):
 `--force-device-scale-factor=2` with `WaylandFractionalScaleV1` disabled, so
 pages report `devicePixelRatio` 2 and load sharp images while layout stays in
 desktop pixels, the toolbar at one desktop px per DIP (14 px address bar
-text) and the default page zoom at `100%` (§4); `--enable-features=…,OverlayScrollbar` for the
+text) and the default page zoom at 12 × the GTK factor / 13, `112.818%` at
+text size 14, which keeps macOS's ratio of web text to UI text (§4); `--enable-features=…,OverlayScrollbar` for the
 thin auto-hiding scrollbar (restating Omarchy's own feature, because a
 repeated `--enable-features` is last-wins rather than merged);
 `--disable-features=MediaSessionService,…`, the only lever that removes the

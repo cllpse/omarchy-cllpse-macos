@@ -290,7 +290,7 @@ script works the same whether you run it by hand or `apply.sh` calls it.
 | 7\* | Prompt and diff colours that must be BAKED per theme rather than named: Starship has no config-import mechanism, and hunk's validator takes hex only.<br>**Detail: [`starship/`](starship/README.md), [`hunk/`](hunk/README.md)** | `~/.config/omarchy/hooks/theme-set.d/{starship-colors,hunk-colors}.sh` (symlinked), `~/.config/starship.toml`, `~/.config/hunk/config.toml` |
 | 7b | Restore saved display scaling + text size. **Full detail: [`display/README.md`](display/README.md).** | `omarchy display text size`, the two scale variables in `~/.config/hypr/monitors.lua` |
 | 7c | Session environment drop-ins (Figma → native Wayland). Read at session start, so they need a relogin. **Full detail: [`environment.d/README.md`](environment.d/README.md).** | `~/.config/environment.d/50-cllpse-macos-figma-wayland.conf` |
-| 7d | Chromium flags (drawn at 2× and scaled down by Hyprland, so pages load sharp images, page zoom 100%), overlay scrollbars, a neutral browser UI and our profile avatar. **Full detail: [`chromium/README.md`](chromium/README.md).** | fenced block in `~/.config/chromium-flags.conf` + `partition.default_zoom_level`, `extensions.theme.system_theme` and `browser.theme.is_grayscale2` in each `~/.config/chromium/*/Preferences` + `~/.config/chromium/Avatars/avatar_abstract_sandwich.png` |
+| 7d | Chromium flags (drawn at 2× and scaled down by Hyprland, so pages load sharp images, page zoom 12 × the GTK factor / 13: 112.818% at text size 14), overlay scrollbars, a neutral browser UI and our profile avatar. **Full detail: [`chromium/README.md`](chromium/README.md).** | fenced block in `~/.config/chromium-flags.conf` + `partition.default_zoom_level`, `extensions.theme.system_theme` and `browser.theme.is_grayscale2` in each `~/.config/chromium/*/Preferences` + `~/.config/chromium/Avatars/avatar_abstract_sandwich.png` |
 | 7e | Figma Desktop's launcher entry — the app gets `Name=` and `StartupWMClass` wrong for this desktop and regenerates its own entry on every launch. **Full detail: [`applications/README.md`](applications/README.md).** | `~/.local/share/applications/figma-desktop-appimage.desktop`, and `~/Applications/figma-desktop/AppRun` restored if wrapped |
 | 7f | App icons for the menu, which draws app rows as a plain image and cannot recolour. **Full detail: [`icons/README.md`](icons/README.md).** | `~/.icons/cllpse-flat/apps/`, `~/.icons/cllpse-color/apps/`, `~/.config/omarchy/hooks/theme-set.d/app-icons.sh` (symlinked) |
 | 7f2 | Post-update repair hook — re-link what an `omarchy update` could quietly take out. **Full detail: [`hooks/README.md`](hooks/README.md).** | `~/.config/omarchy/hooks/post-update.d/cllpse-macos-repair.sh` (symlinked) |
@@ -434,7 +434,10 @@ bar text whatever the GTK font, so at the factor its address bar read as
 huge. `--force-device-scale-factor=0.95` put that text at 13.3 and tab titles
 a step below; since 2026-10-12 Chromium draws at 2× with fractional scaling
 off, which puts the toolbar at one desktop px per DIP: 14 and 12. Either way
-Chromium no longer follows the text size.
+the toolbar no longer follows the text size. Pages do since 2026-10-15,
+through the default zoom: 12 × the factor / 13 keeps web body text at macOS's
+16 to 13 against the rest, 18.05 px at text size 14 (112.818%). It moves at
+the next apply rather than live (`chromium/README.md` §4).
 
 These are **the author's values**, tuned for a 43" 3840x2160 TV, and they are
 not part of the macOS look — edit `display.conf` or re-run `display/save-display.sh` on
@@ -632,7 +635,7 @@ chromium/chromium-flags.conf  --force-device-scale-factor=2 + --enable-features=
 chromium/avatar.png           the profile avatar, copied over built-in avatar 55's downloaded picture (no pref or policy sets one)
 chromium/chromium_prefs.py    shared plumbing for the two profile-preference scripts below
 chromium/hidpi-assets/        SHELVED trial, loaded by nothing: an extension that tells pages the screen is 2x so they serve sharp images (see its README.md)
-chromium/default-zoom.py      reads, sets or clears the default page zoom (a profile preference, no flag exists); apply.sh sets 100% while fractional scaling is off (the 2x rendering), else 100 / the UI scale
+chromium/default-zoom.py      reads, sets or clears the default page zoom (a profile preference, no flag exists); apply.sh sets 12 x the GTK factor / 13 (112.818% at text size 14), times 100% while fractional scaling is off (the 2x rendering), else times 100 / the UI scale
 chromium/neutral-theme.py     system (GTK) theme + grayscale -> a neutral browser UI (the theme-colour policy can only give a tinted palette)
 keyd/default.conf             identity config pinned to the Preonic, plus the inert [figma:C] / [figma_ctrl:C] layers the runtime bind activates (installed to /etc with sudo)
 keyd/keyd.service.d/restart.conf  Restart=on-failure + a 5-in-60 start limit for keyd, which ships with no restart policy and segfaults (installed to /etc/systemd/system with sudo)

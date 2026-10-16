@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """Set, report or clear Chromium's default page zoom for every site.
 
-apply.sh sets 100% while chromium-flags.conf disables WaylandFractionalScaleV1
-(the 2x rendering, since 2026-10-12), and otherwise 100 divided by the UI scale
+apply.sh sets 12 x the GTK text factor / 13, which keeps macOS's ratio of web
+text to UI text: 112.818% at text size 14 (since 2026-10-15). That is times
+100% while chromium-flags.conf disables WaylandFractionalScaleV1 (the 2x
+rendering, since 2026-10-12), and otherwise times 100 divided by the UI scale
 there, which put pages back at the monitor scale: 105.263% for 0.95 on
-2026-10-11. It set 110% until 2026-10-10, nothing for a day, then briefly 125%
-and 110%.
+2026-10-11, with no text part. It set 110% until 2026-10-10, nothing for a
+day, then briefly 125% and 110%, and 100% from 2026-10-12 to 15.
 See README.md (4).
 
 There is no command-line flag for this. Checked against the shipped binary on
@@ -120,8 +122,8 @@ def read_percent():
 def main():
     # apply.sh pipes CLLPSE_CHROMIUM_ZOOM straight through, so a typo arrives
     # here as an argument. Fail with a sentence, not a traceback.
-    # No default value: the zoom apply.sh sets is derived there, from the scale flag, next to
-    # the step it pairs with, rather than hidden here.
+    # No default value: the zoom apply.sh sets is derived there, from the scale flag and the
+    # GTK text factor, next to the steps it pairs with, rather than hidden here.
     if len(sys.argv) < 2 or not sys.argv[1].strip():
         sys.exit("usage: default-zoom.py PERCENT | --print | --reset")
     raw = sys.argv[1].strip()
