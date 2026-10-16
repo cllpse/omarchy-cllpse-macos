@@ -331,8 +331,8 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   the trade is text a little softer than native rendering. The toolbar
   is at one desktop px per DIP: 14px address bar text in a 34px bar, tab titles
   12px. It does not follow `omarchy display text size`; pages do,
-  through the default page zoom, 12 × the GTK factor / 13: 143.594% at text
-  size 18 (112.818% at 14), which keeps macOS's 16 to 13 between web body text and every app's
+  through the default page zoom, 12 × the GTK factor / 13: 133.329% at text
+  size 17 (143.594% at 18, 112.818% at 14), which keeps macOS's 16 to 13 between web body text and every app's
   text (100% until 2026-10-15, one CSS pixel per desktop pixel). Before
   2026-10-12 the flag was 0.95 with fractional scaling on, a UI scale that put
   the address bar text at 13.3px, with the default page zoom at 100/0.95 =

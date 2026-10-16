@@ -224,7 +224,7 @@ patch_argv_cap() {
 
 # ── UI scale 1 / the monitor scale, on native Wayland ───────────────────────
 # --force-device-scale-factor replaces Chromium's UI scale, which would
-# otherwise be the GTK text factor (1.5625 at text size 18). Set to 1 / the
+# otherwise be the GTK text factor (1.4375 at text size 17). Set to 1 / the
 # monitor scale, it makes the window's monitor scale x the flag = one screen
 # pixel per Figma pixel at 100% canvas zoom (and two at 200%), so every edge on
 # a whole design pixel lands on a whole screen pixel: 0.8 at 1.25, 0.75 at 4/3.

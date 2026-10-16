@@ -55,7 +55,7 @@ if [[ -x "$HERE/chromium/default-zoom.py" ]]; then
   # 0.95). Text: web body text is 16 CSS px, which macOS sets against a 13 pt
   # system font, and every app's text here is 12 px times the GTK factor that
   # step 7b's text size has just set, so 12 x factor / 13 keeps macOS's ratio:
-  # 143.594% at text size 18 (factor 1.5556). Without a factor, geometry only.
+  # 133.329% at text size 17 (factor 1.4444). Without a factor, geometry only.
   # Rounded to 3 places and printed with %g, as `default-zoom.py --print`
   # reports it, so record_prior recognises the value as ours on a re-run.
   _factor="$(gsettings get org.gnome.desktop.interface text-scaling-factor 2>/dev/null || true)"
