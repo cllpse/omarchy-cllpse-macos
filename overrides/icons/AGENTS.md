@@ -5,7 +5,7 @@ contract — what a file must look like, and which directory it belongs in. This
 file is how you find out *which* files are worth adding, and how to make a new
 one sit correctly beside the ones already here.
 
-**Ship the set as it is.** The 24 silhouettes in `icons/` and the 77 full-colour marks in `verbatim/` — and the same 101
+**Ship the set as it is.** The 25 silhouettes in `icons/` and the 77 full-colour marks in `verbatim/` — and the same 102
 ones in the switcher submodule — are aligned and committed. Do not run a bulk
 pass over either. Everything below applies to
 marks you are **adding**; a sweep that "fixes" the existing set is how `hunk`
@@ -13,7 +13,7 @@ lost its background box once already.
 
 ## Keeping the two repos in step
 
-Both this repo and the plugin carry all 101 marks, and nothing enforces that they
+Both this repo and the plugin carry all 102 marks, and nothing enforces that they
 match — the de-duplication that once made the plugin the single source was
 deliberately undone when both were asked to be complete. So a mark added or
 refitted in one silently diverges from the other. It happened the day the split
@@ -58,7 +58,7 @@ out of `icons/`.
 
 **The full-colour marks are in this repository too, so a colour mark is added
 twice.** `verbatim/` here holds 77 of them; the switcher submodule,
-`omarchy-cllpse-plugin-switcher/icons/`, holds the same 77 among all 101 it ships
+`omarchy-cllpse-plugin-switcher/icons/`, holds the same 77 among all 102 it ships
 for its own tiles. `app-icons.sh` copies the one here verbatim into
 `~/.icons/cllpse-color/apps/` so the menu gets the mark too — and on this machine
 the switcher finds that copy before the plugin's own, so a mark refitted in the
@@ -109,6 +109,14 @@ tile, and no class-named copy is needed. It also outranks the package's own
 icon, which ships only as hicolor PNGs, because the sweep checks SVGs before
 PNGs. `claude-code.svg` is what a terminal running Claude Code resolves to,
 through the `claude` → `claude-code` alias.
+
+**`com.t3tools.T3Code.svg` is named for the class because the entry names
+the wrong one.** T3 Code (`t3code-bin`, added 2026-10-16) reports class
+`com.t3tools.T3Code`, while `t3code.desktop` declares `StartupWMClass=t3code`
+and `Icon=t3code`, so `classIndex` joins nothing and only a class-named
+drop-in reaches the tile. The mark is Omarchy's own monochrome one, glyph
+U+E908 of its `omarchy.ttf`, so it lives in `icons/` and is repainted. There is
+deliberately no `t3code.svg`: the menu row keeps the package's full-colour icon.
 
 ## 1. Find candidates
 

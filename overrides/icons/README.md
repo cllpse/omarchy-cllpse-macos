@@ -16,14 +16,14 @@ else.
 
 | source | published to | treatment |
 |---|---|---|
-| [`icons/`](icons/README.md) — 24 silhouettes | `~/.icons/cllpse-flat/apps/` | **repainted** to the theme `foreground` |
+| [`icons/`](icons/README.md) — 25 silhouettes | `~/.icons/cllpse-flat/apps/` | **repainted** to the theme `foreground` |
 | `verbatim/` — 77 full-colour marks | `~/.icons/cllpse-color/apps/` | **copied untouched** |
 
-101 marks across the two, and the split is the whole mechanism: the repaint is
+102 marks across the two, and the split is the whole mechanism: the repaint is
 keyed on the DIRECTORY, never on anything inside a file, so a multi-hue logo in
 `icons/` would come out flattened.
 
-`verbatim/` is a copy of the plugin's `icons/`, which carries the same 101 for
+`verbatim/` is a copy of the plugin's `icons/`, which carries the same 102 for
 its own tiles. **Both repos hold the full set, so a new mark goes in both** —
 see [`../../omarchy-cllpse-plugin-switcher/AGENTS.md`](../../omarchy-cllpse-plugin-switcher/AGENTS.md)
 for the rule the verbatim half follows: an icon is the source of truth for its
