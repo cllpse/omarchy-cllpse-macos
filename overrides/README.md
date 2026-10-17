@@ -295,7 +295,7 @@ script works the same whether you run it by hand or `apply.sh` calls it.
 | 7\* | Prompt and diff colours that must be BAKED per theme rather than named: Starship has no config-import mechanism, and hunk's validator takes hex only. Plus T3 Code's colours, through a template that replaces Omarchy's.<br>**Detail: [`starship/`](starship/README.md), [`hunk/`](hunk/README.md), [`t3code/`](t3code/README.md)** | `~/.config/omarchy/hooks/theme-set.d/{starship-colors,hunk-colors}.sh` (symlinked), `~/.config/starship.toml`, `~/.config/hunk/config.toml`, `~/.config/omarchy/themed/t3code.json.tpl` (symlinked) |
 | 7b | Restore saved display scaling + text size. **Full detail: [`display/README.md`](display/README.md).** | `omarchy display text size`, the two scale variables in `~/.config/hypr/monitors.lua` |
 | 7c | Session environment drop-ins (Figma → native Wayland). Read at session start, so they need a relogin. **Full detail: [`environment.d/README.md`](environment.d/README.md).** | `~/.config/environment.d/50-cllpse-macos-figma-wayland.conf` |
-| 7d | Chromium flags (UI scale 25/17 with pixel-canvas recording, so menu separators stay one pixel row tall; no default page zoom, and one an earlier version set is handed back), overlay scrollbars, a neutral browser UI and our profile avatar. **Full detail: [`chromium/README.md`](chromium/README.md).** | fenced block in `~/.config/chromium-flags.conf` + `partition.default_zoom_level`, `extensions.theme.system_theme` and `browser.theme.is_grayscale2` in each `~/.config/chromium/*/Preferences` + `~/.config/chromium/Avatars/avatar_abstract_sandwich.png` |
+| 7d | Chromium flags (UI scale 27/17 with pixel-canvas recording, so menu separators stay one pixel row tall; no default page zoom, and one an earlier version set is handed back), overlay scrollbars, a neutral browser UI and our profile avatar. **Full detail: [`chromium/README.md`](chromium/README.md).** | fenced block in `~/.config/chromium-flags.conf` + `partition.default_zoom_level`, `extensions.theme.system_theme` and `browser.theme.is_grayscale2` in each `~/.config/chromium/*/Preferences` + `~/.config/chromium/Avatars/avatar_abstract_sandwich.png` |
 | 7e | Launcher entries. Figma Desktop's — the app gets `Name=` and `StartupWMClass` wrong for this desktop and regenerates its own entry on every launch. And T3 Code's, whose `StartupWMClass=t3code` misses its window class `com.t3tools.T3Code`: a copy with that one line corrected, derived from the package's on every run. **Full detail: [`applications/README.md`](applications/README.md).** | `~/.local/share/applications/figma-desktop-appimage.desktop`, `~/.local/share/applications/t3code.desktop`, and `~/Applications/figma-desktop/AppRun` restored if wrapped |
 | 7f | App icons for the menu, which draws app rows as a plain image and cannot recolour. **Full detail: [`icons/README.md`](icons/README.md).** | `~/.icons/cllpse-flat/apps/`, `~/.icons/cllpse-color/apps/`, `~/.config/omarchy/hooks/theme-set.d/app-icons.sh` (symlinked) |
 | 7f2 | Post-update repair hook — re-link what an `omarchy update` could quietly take out. **Full detail: [`hooks/README.md`](hooks/README.md).** | `~/.config/omarchy/hooks/post-update.d/cllpse-macos-repair.sh` (symlinked) |
@@ -417,20 +417,20 @@ though the values themselves are a preference.
 root, the GTK `text-scaling-factor` and the terminal point size together.
 
 **One text size** (2026-10-10). Every app's body text is that one number,
-17.3 desktop px at text size 17 (18.7 at 18, 14.7 at 14, 13.3 at 13), with Chromium pinned close to it:
+18.7 desktop px at text size 18 (17.3 at 17, 14.7 at 14, 13.3 at 13), with Chromium pinned close to it:
 
 | App | Base size | Times |
 |---|---|---|
 | Omarchy shell, bar, switcher, supermenu, Flea | `base-size` = text size | — |
 | GTK apps (Files, Evince, file dialogs…) | `font-name` 9pt = 12px | GTK factor |
-| Chromium address bar / tab titles (and its web apps) | 14 DIP / `font-name` → 12 DIP | 25/17, pinned near the factor: 20.6 / 17.6 px |
+| Chromium address bar / tab titles (and its web apps) | 14 DIP / `font-name` → 12 DIP | 27/17, pinned near the factor: 22.2 / 19.1 px |
 | Google Chrome tab titles | `font-name` → 12 DIP | GTK factor (its own flags file, not ours) |
 | Cursor: UI / editor / terminal | 13 CSS px × zoom 12/13 | GTK factor |
 | Ghostty | `font-size=9` pt = 12px | GTK factor (`gtk-xft-dpi`) |
 
-The GTK factor is round(pt × text size / 12) / pt for the 9pt UI font: 13/9 at
-17 (14/9 at 18, 11/9 at 14, 10/9 at 13). So base 12px times the factor is the text size, up to that rounding.
-Chromium and Electron round the factor again, to 1/64ths (92/64 at 17, 100/64 at 18, 78/64 at 14, 71/64 at 13). Omarchy anchors 12px to factor
+The GTK factor is round(pt × text size / 12) / pt for the 9pt UI font: 14/9 at
+18 (13/9 at 17, 11/9 at 14, 10/9 at 13). So base 12px times the factor is the text size, up to that rounding.
+Chromium and Electron round the factor again, to 1/64ths (100/64 at 18, 92/64 at 17, 78/64 at 14, 71/64 at 13). Omarchy anchors 12px to factor
 1.0 and 9pt terminals. Its stock GTK font of 11pt (14.7px) sits above that
 anchor, which put every GTK, Chromium and Electron surface ~25% above the
 shell: 16-16.4px at 13. Hence the 9pt fonts in `apply.sh`'s gtk-fonts step.
@@ -440,11 +440,11 @@ another font size. Ghostty and Cursor are pinned in `ghostty/ghostty.conf` and
 
 On Wayland the factor is also Chromium's and every Electron app's whole-UI
 scale (toolbars, icons, pages), not a text-only one. Raising the text size
-grows them with it. Chromium's is pinned near it instead, at 25/17 for text
-size 17: the odd 17th that, with pixel-canvas recording, keeps menu
+grows them with it. Chromium's is pinned near it instead, at 27/17 for text
+size 18 (25/17 at 17): the odd 17th that, with pixel-canvas recording, keeps menu
 separators one pixel row tall (`chromium/README.md` §2). It moves by hand
 with the text size, and `chromium.sh` says when. Its toolbar is fixed in
-DIPs, with 14-DIP address bar text whatever the GTK font: 20.6 px at 25/17.
+DIPs, with 14-DIP address bar text whatever the GTK font: 22.2 px at 27/17.
 Pages are at Chromium's own 100% zoom on the same scale. Earlier pins:
 `--force-device-scale-factor=0.95` (2026-10-11 to 12, address bar text 13.3),
 then 2× with fractional scaling off (2026-10-12 to 16, 14 and 12), when the
@@ -528,7 +528,7 @@ It is **not** a complete machine build. On a clean install these are the gaps:
 | **Six steps use sudo (8b's keyd config and group grant, step 9's Chromium policy, step 9b's Chromium theme extension, step 10's CPU power limits, step 10b's DSC bit rate and step 11's `/etc/fstab` compression level), all deliberately near the end.** No package installation happens anywhere — `keyd` in particular must already be present, and step 8b skips with the `pacman -S keyd` line if it is not — see *Before running `apply.sh`* above for the full list and what each omission costs. `bibata-cursor-theme-bin` is the only one that fails loudly-ish (warned about, and the cursor theme is set in `gsettings`/`hl.env` regardless, so it falls back visibly); every other guard just skips, at most with one line in the output. The two non-package channels, `mise` (`hunk`, `gh`) and `gh extension` (`gh-dash`), won't be restored by a `pacman -Qqe` rebuild | Cursor visibly wrong; other items silently absent |
 | **Cursor editor not installed.** The `settings.json` merge is skipped when both `/usr/bin/cursor` and `~/.config/Cursor/User/` are absent. The merge itself needs no network step, but three of its keys name themes from the Bearded marketplace extensions (`workbench.preferred{Light,Dark}ColorTheme`, `workbench.iconTheme`), which fall back silently until those are installed — see *Before running `apply.sh`* | Merge skipped on a machine without Cursor |
 | **Third-party plugins are not installed.** `apply.sh` has no source URL for any of them, and step 7h's recorded `bar.layout` names exactly one — `io.github.thisisgm.omapods`, whose entry is inert without the plugin, since `Bar.qml` resolves an unknown widget id to a null component. Step 7h does *say so* rather than leaving that silent, and *Before running `apply.sh`* above carries the two install commands. The other widgets that were there (`dizziee.system-updates`, `jankeesvw.notification-center`, `io.github.twiking.omasettings`) were removed along with the plugins. Since a third-party plugin is enabled iff its id appears somewhere in `shell.json`, a layout without it *is* the uninstall as far as the shell is concerned; the plugin directory under `~/.config/omarchy/plugins/` still has to be deleted by hand | Nothing to render, and nothing to install |
-| **`display.conf` values are hardware-specific** — text size 17, monitor scale 1, GDK scale 2 (Omarchy's default; 1.25 and 1 until 2026-10-16) are tuned for one ~102 PPI 3840x2160 display (a 43" TV). `gdk-scale` 1 is right for standard DPI and 2 for a HiDPI panel; the 2 here is the author's choice, and it reaches only X11 apps under XWayland, which it draws at twice the size at monitor scale 1 | Wrong sizing on different hardware, applied confidently |
+| **`display.conf` values are hardware-specific** — text size 18, monitor scale 1, GDK scale 2 (Omarchy's default; 1.25 and 1 until 2026-10-16) are tuned for one ~102 PPI 3840x2160 display (a 43" TV). `gdk-scale` 1 is right for standard DPI and 2 for a HiDPI panel; the 2 here is the author's choice, and it reaches only X11 apps under XWayland, which it draws at twice the size at monitor scale 1 | Wrong sizing on different hardware, applied confidently |
 | **Tailscale has to be logged in already, and step 7i cannot verify itself.** The step skips unless `.BackendState` reads `Running`, so a clean install reaches it before `omarchy-install-service-tailscale` has ever run and it does nothing. Even when it succeeds it can only confirm the pref and the tailnet policy: a node cannot Tailscale-SSH to itself, so the connection is untestable from the machine it was just enabled on | Silently skipped until Tailscale is up; afterwards, working-but-unproven until a second node tries it |
 | **Some settings need a relogin** — the `environment.d` drop-in (Figma → Wayland) and `OMARCHY_MENU_FONT` are read at session start | State immediately after `apply.sh` is not the final state |
 | **`sync_fenced` creates the target if absent.** If `~/.config/ghostty/config` does not exist, the file it writes contains only our block — losing Omarchy's `config-file` line that pulls in theme colours | Terminal colours silently unthemed |
@@ -654,7 +654,7 @@ figma/                        installs/updates Figma Desktop from IliyaBrook/fig
 cursor/derive-dark-from-light.py  generates the dark scheme FROM Bearded Theme Light: contrast-preserving for text, delta-mirroring for surfaces, verbatim for alpha/accents/transparent. Re-run after a Bearded update
 cursor/bearded-dark-colors.json   GENERATED -- 318 workbench colours, merged by the theme hook under the chrome copy (dark mode only)
 cursor/bearded-dark-tokens.json   GENERATED -- 55 textMate + 10 semantic rules, merged into settings.json by apply.sh, scoped to the dark variant so light mode is untouched
-chromium/chromium-flags.conf  --force-device-scale-factor=1.4705882353 (25/17) + --enable-features=…,OverlayScrollbar,enable-pixel-canvas-recording + --disable-features=MediaSessionService, i.e. a UI scale near the text factor held to whole pixels, so menu separators stay one row tall (fenced into Omarchy's flags file)
+chromium/chromium-flags.conf  --force-device-scale-factor=1.5882352941 (27/17) + --enable-features=…,OverlayScrollbar,enable-pixel-canvas-recording + --disable-features=MediaSessionService, i.e. a UI scale near the text factor held to whole pixels, so menu separators stay one row tall (fenced into Omarchy's flags file)
 chromium/avatar.png           the profile avatar, copied over built-in avatar 55's downloaded picture (no pref or policy sets one)
 chromium/chromium_prefs.py    shared plumbing for the two profile-preference scripts below
 chromium/hidpi-assets/        SHELVED trial, loaded by nothing: an extension that tells pages the screen is 2x so they serve sharp images (see its README.md)

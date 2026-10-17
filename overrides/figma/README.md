@@ -78,9 +78,9 @@ full argv.
 ## UI scale
 
 Since 2026-10-16 Figma's UI scale is not pinned: it is the GTK text factor,
-like every other Electron app's (1.4375 at text size 17), at the monitor's
-scale 1, so 1.4375 screen pixels per Figma pixel at 100% canvas zoom. At scale
-1 the pin below would be 1, a UI 30% smaller than the rest. `figma.sh` removes
+like every other Electron app's (1.5625 at text size 18), at the monitor's
+scale 1, so 1.5625 screen pixels per Figma pixel at 100% canvas zoom. At scale
+1 the pin below would be 1, a UI 36% smaller than the rest. `figma.sh` removes
 the pin where an earlier run left it in the launcher. The canvas is
 antialiased at that fraction, as in the "no flag" rows of the table below, but
 Hyprland no longer resamples it: at monitor scale 1 the buffer is the window

@@ -182,7 +182,7 @@ for q in monospace sans-serif; do printf '    %-11s -> %s\n' "$q" "$(fc-match "$
 step_gtk_fonts() {
 # 9pt is 12px, Omarchy's text-size anchor (12px = factor 1.0), so GTK text
 # times the factor `omarchy display text size` sets lands on the text size
-# itself: 13pt = 17.3px at 17. Chromium and Electron take their UI font from
+# itself: 14pt = 18.7px at 18. Chromium and Electron take their UI font from
 # font-name and their whole-UI scale from the same factor, so their text lands
 # there too (2026-10-10; was 11/12/10, which put every GTK, Chromium and
 # Electron surface ~25% above the shell). The display step recomputes the

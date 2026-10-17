@@ -226,8 +226,8 @@ patch_argv_cap() {
 # From 2026-10-12 to 16 this script pinned Figma's UI scale on native Wayland
 # to 1 / the monitor scale (--force-device-scale-factor, 0.8 at 1.25), one
 # screen pixel per Figma pixel at 100% canvas zoom. Since 2026-10-16 Figma
-# follows the GTK text factor like every other Electron app (1.4375 at text
-# size 17); at monitor scale 1 the pin would be 1, a UI 30% smaller than the
+# follows the GTK text factor like every other Electron app (1.5625 at text
+# size 18); at monitor scale 1 the pin would be 1, a UI 36% smaller than the
 # rest. Without the flag the native launch is back to 7 argv elements.
 # README.md has the pin's measurements.
 #

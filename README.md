@@ -322,23 +322,24 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   only moved off the chord. Its plugin README has the ranking in full and one
   Omarchy 4.0.4 bug it works around: a third-party `menu` plugin is never
   handed the shell's app library, so it runs its own.
-- **Chromium's UI scale is 25/17, held to whole pixels.** At monitor scale 1,
+- **Chromium's UI scale is 27/17, held to whole pixels.** At monitor scale 1,
   with Wayland's fractional scaling on, `overrides/chromium/chromium-flags.conf`
-  passes `--force-device-scale-factor=1.4705882353`, which replaces Chromium's
-  UI scale (otherwise the GTK text factor, 92/64 at text size 17), and
+  passes `--force-device-scale-factor=1.5882352941`, which replaces Chromium's
+  UI scale (otherwise the GTK text factor, 100/64 at text size 18), and
   `enable-pixel-canvas-recording`, ChromeOS's default, which records every
   view in whole pixels. Together they keep menu separators one pixel row
   tall: a separator is a 1-DIP rectangle drawn without anti-aliasing, and at
   the plain factor 2 of the 5 in the three-dot menu came out 2 px (measured
-  2026-10-16). 25/17 is the odd 17th nearest the factor, so it moves by hand
-  with the text size (23/17 at 16, 27/17 at 18) and `chromium.sh` says when.
-  Tab titles are 17.6px, menus 19.1px, address bar text 20.6px in a 50px bar,
+  2026-10-16). 27/17 is the odd 17th nearest the factor, so it moves by hand
+  with the text size (23/17 at 16, 25/17 at 17) and `chromium.sh` says when.
+  Tab titles are 19.1px, menus 20.6px, address bar text 22.2px in a 54px bar,
   and pages are at Chromium's own 100% zoom on the same scale. From 2026-10-12
   to 16 Chromium drew at 2× with fractional scaling off and Hyprland shrank it
-  by 1.6 at the monitor's 1.25, so pages loaded their sharp images (at 1.47
-  they are under Google's 1.5× threshold again), with a default zoom of 12 ×
-  the GTK factor / 13 (133.329% at text size 17); before that the flag was
-  0.95, a UI scale undone for pages by a 105.263% zoom.
+  by 1.6 at the monitor's 1.25, so pages loaded their sharp images (at 1.59
+  they are over Google's 1.5× threshold again; 25/17's 1.47 was under it),
+  with a default zoom of 12 × the GTK factor / 13 (133.329% at text size
+  17); before that the flag was 0.95, a UI scale undone for pages by a
+  105.263% zoom.
   `overrides/chromium/README.md` §2 and §4 have the measurements and source
   trail. There is no command-line flag for default zoom — it is the profile
   preference `partition.default_zoom_level`, stored as `ln(factor)/ln(1.2)` —
