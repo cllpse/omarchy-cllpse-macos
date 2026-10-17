@@ -530,9 +530,11 @@ plugin-side theming. Under **omarchy-cllpse-theme** that means:
   card, the same `Border.surfaceSpec("menu", …)` card border and
   `selected-border` spec on the cursor cell, labels in
   `Style.font.heading`/Medium and the secondary line in `Style.font.bodySmall`
-  at 0.52. (Since 2026-10-11 both lines are `Style.font.title`, the supermenu's
-  item size, now that SUPER+SPACE opens the supermenu: the label Medium, the
-  secondary line at 0.52.) Cell height derives from those tokens with a floor, the way the
+  at 0.52. (Since 2026-10-11 the label is `Style.font.title`/Medium, the
+  supermenu's item size, now that SUPER+SPACE opens the supermenu. The
+  secondary line was `title` at 0.52 too until 2026-10-17, now `Style.font.body`
+  at 0.52: a stacked detail line a step under its name, as the menu's is.)
+  Cell height derives from those tokens with a floor, the way the
   menu's `baseRowHeight` does, so it survives `omarchy display text size`.
   **The one deliberate departure is the icon** at `Style.font.display` (2.0 rem):
   in the menu the icon sits inline beside a label, here it is the primary
