@@ -43,7 +43,7 @@
 #   3.   point monospace at SF Mono (omarchy font set)                 [inline]
 #   4.   point GTK / GNOME apps at SF Pro / SF Mono (gsettings)        [inline]
 #   5.   hinting back to GTK's default, slight (gsettings)            [inline]
-#        Ghostty font                                                  ghostty/
+#   5a.  Ghostty: font, prefs, unfocused-cursor shader                 ghostty/
 #   5b.  strip GTK window buttons (gsettings)                          [inline]
 #   5c.  the Preonic's Danish letters                                  xkb/
 #   6.   hypr env + decoration + switcher/supermenu binds + input,
@@ -464,7 +464,7 @@ STEPS=(
   "monospace||Point monospace at SF Mono (omarchy font set)|fn:step_monospace|fonts"
   "gtk-fonts||Point GTK / GNOME apps at SF Pro / SF Mono|fn:step_gtk_fonts|fonts"
   "hinting||Font hinting -> the default, slight (GTK/GNOME side)|fn:step_hinting|"
-  "ghostty||Ghostty font|run:ghostty|"
+  "ghostty||Ghostty font, prefs + unfocused-cursor shader|run:ghostty|"
   "gtk-buttons||Strip GTK window buttons|fn:step_gtk_buttons|"
   "xkb||Danish letters on the Preonic M0 layer|run:xkb|"
   "hypr||Hyprland env, decoration, binds, input + keybind allowlist|run:hypr|"
