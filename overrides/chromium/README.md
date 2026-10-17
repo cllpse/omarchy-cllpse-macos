@@ -62,11 +62,11 @@ nearest the factor: 19/17 at 16, 21/17 at 17, 23/17 at 18. Only 18 was judged
 by eye. `chromium.sh` says so when the two drift apart. At 23/17 tab titles
 are 16.2 desktop px, menus 17.6 and the address bar text 18.9 in a 46 px bar
 (19.1, 20.6, 22.2 and 54 at 27/17; 17.6, 19.1, 20.6 and 50 at 25/17). Pages
-are at Chromium's own 100% zoom (§4) on the same scale, so they report
-`devicePixelRatio` 1.35. That is under Google's 1.5× threshold, so pages load
-their 1× images, as at 25/17's 1.47; 27/17's 1.59 was over it and should
-have loaded the sharp ones, as under the 2× rendering below (reasoned, not
-checked).
+have their own default zoom (§4), 150 / the scale, 110.87% at 23/17, which
+puts them at 1.5 device px per CSS px. That is Google's 1.5× threshold, so
+they should load their sharp images, as under the 2× rendering below
+(reasoned, not checked). At Chromium's own 100% they were at the scale
+itself: 1.35 at 23/17, under it.
 
 Tried the same day and set aside: GTK's proportions outright. The GTK font at
 14 pt with the factor at 1.0 draws every GTK app the same and put Chromium, at
@@ -212,21 +212,35 @@ an Omarchy feature off on the next update.
 way: Omarchy ships no such line today, but if it ever adds one, ours would
 drop it just as silently.
 
-## 4. Default page zoom: Chromium's own since 2026-10-16
+## 4. Default page zoom: 1.5 device px per CSS px since 2026-10-17
 
-Since 2026-10-16 `chromium.sh` sets no default zoom. Pages take Chromium's own
-100% at the UI scale (§2), 1.35 device px per CSS px, so web body text is
-21.6 px against the 18.7 of every app's text at text size 18: 1.16 to 1,
-under macOS's 1.23. At the nearest odd 17th it was 1.36 to 1 (25.4 against
-18.7 at 27/17, 23.5 against 17.3 at 25/17), judged right by eye at text size
-17. 23/17 was picked on the toolbar, not on pages. On a machine where an earlier
-version of the step set a zoom, it hands that back as `revert.sh` does: the
-zoom recorded before its first apply, or with nothing recorded, the key
-cleared, which is Chromium's own default. Like every Preferences write it
-needs Chromium closed; while Chromium runs the step says so and keeps the
-record for the next run.
+Since 2026-10-17 `chromium.sh` sets the default zoom to 150 / the UI scale
+(§2), rounded up to 3 places: **110.87%** at 23/17. Pages are then at 1.5
+device px per CSS px (1.500006, so pages that switch at 1.5 still do), a
+3:2 ratio. Measured with a test pattern (a 512 × 256 PNG of 1px checkerboard
+and stripes, and 1px CSS bars) in throwaway windows at 23/17:
 
-The rest of this section is the zoom the step derived until then.
+| Pages at | Default zoom | 1px PNG patterns | CSS 1px bars / gaps | Web body text |
+|---|---|---|---|---|
+| 1 (1:1) | 73.913% | exact | 1 / 1 | 16 px |
+| 1.25 | 92.391% | 5–7 grey levels, repeat every 5 px | 1 / 1-2-1-1 | 20 px |
+| 1.3529 | 100% | 150–252 grey levels, no repeat within 60 px | 1 or 2 / 1 or 2, uneven | 21.6 px |
+| **1.5** | **110.87%** | 3 grey levels, repeat every 3 px | 2 / 1 | 24 px |
+
+Only 1:1 keeps a bitmap exact; at 1.5 its softening is even instead of a beat
+against the pixel grid. Pages report `devicePixelRatio` 1.5, Google's 1.5×
+threshold, so sites that switch there should serve their 2× images (reasoned,
+not checked). Web body text is 24 px against the 18.7 of every app's text at
+text size 18: 1.28 to 1, near macOS's 1.23 and the 1.36 judged right by eye at
+text size 17. From 2026-10-16 to 17 the step set none, and pages took
+Chromium's own 100% at the UI scale: 1.47 device px per CSS px at 25/17, 1.59
+at 27/17, 1.35 at 23/17.
+
+The zoom follows the scale in the flags file when apply.sh runs. Like every
+Preferences write it needs Chromium closed; while Chromium runs the step says
+so and changes nothing.
+
+The rest of this section is the zoom the step derived until 2026-10-16.
 `chromium.sh` computed it from the flags file and from the GTK text factor
 that step 7b's text size had just set, so none of them could drift apart. Two
 parts, multiplied:
@@ -266,7 +280,9 @@ text part gives up for macOS's text ratio.
 Ctrl+minus walk Chromium's preset steps (…, 100, 110, 125, …), and
 `PageZoom::Zoom` (`components/zoom/page_zoom.cc`) inserts the default zoom
 when it is not one of them: 125 → 133.329 → 150 (125 → 143.594 → 150 at
-text size 18, 100 → 110 → 112.818 → 125 at 14), and Ctrl+0 returns to it. Read from Chromium's source on 2026-10-15, not yet measured on 152. Until
+text size 18, 100 → 110 → 112.818 → 125 at 14), and Ctrl+0 returns to it.
+At 110.87% (since 2026-10-17) that is 110 → 110.87 → 125: Ctrl+minus is a
+0.8% step to 110%, Ctrl+plus 12.7% to 125%. Read from Chromium's source on 2026-10-15, not yet measured on 152. Until
 then this section said Ctrl+plus and Ctrl+minus never landed back on 105.263%,
 which the source contradicts, and counted 100% being on the steps in its
 favour. At 17 both steps from the default are ordinary ones: Ctrl+minus is
@@ -274,7 +290,8 @@ favour. At 17 both steps from the default are ordinary ones: Ctrl+minus is
 150%, and at 14 Ctrl+minus a 2.5% step to 110%.
 
 For revert.sh, the step records the zoom found before its first apply,
-refusing 100 and 105.263, which earlier versions of this step set. When it
+refusing 100, 105.263 and 12 × the factor / 13 (102.563 to 143.594), which
+earlier versions of this step set. When it
 records nothing it leaves the state file empty, which marks the first apply as
 done. Without that, a later text size, which moves our own value, would get
 the old value recorded as the machine's.
@@ -283,7 +300,8 @@ History: 110% paired with the old `=1` flag until 2026-10-10. It was dropped
 with the flag (pages then followed the GTK factor at 100%). It came back a day
 later with the new flag, at 125% (with 0.9), then 110% (with 0.95), then
 105.263%, then 100% with the 2× rendering on 2026-10-12, then 112.818% with
-the text part on 2026-10-15, 143.594% at text size 18 on 2026-10-16, and 133.329% at 17 the same day, before the step stopped setting one. Like every Preferences write, it needs Chromium
+the text part on 2026-10-15, 143.594% at text size 18 on 2026-10-16, and 133.329% at 17 the same day, before the step stopped setting one, and
+110.87% (1.5 device px per CSS px at 23/17) a day later, on 2026-10-17. Like every Preferences write, it needs Chromium
 closed (see the script).
 
 There is no command-line flag for default page zoom; the script header has
@@ -427,9 +445,9 @@ account picture would take precedence; the profile here is not signed in.
 Chromium: a UI scale held to whole pixels (§2):
 `--force-device-scale-factor=1.3529411765`, 23/17, two odd 17ths under the one
 nearest the GTK text factor, with `enable-pixel-canvas-recording`, so menu separators stay
-one pixel row tall at monitor scale 1 with fractional scaling on; no default
-page zoom, so pages are at Chromium's own 100% on that scale, and any zoom an
-earlier version set is handed back (§4); `--enable-features=…,OverlayScrollbar` for the
+one pixel row tall at monitor scale 1 with fractional scaling on; a default
+page zoom of 150 / that scale, 110.87%, so pages are at 1.5 device px per CSS
+px, a 3:2 ratio that resamples evenly (§4); `--enable-features=…,OverlayScrollbar` for the
 thin auto-hiding scrollbar (restating Omarchy's own feature, because a
 repeated `--enable-features` is last-wins rather than merged);
 `--disable-features=MediaSessionService`, the only lever that removes the

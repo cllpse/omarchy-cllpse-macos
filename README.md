@@ -336,19 +336,21 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   70px against a 46px header bar. It moves by hand with the text size (19/17
   at 16, 21/17 at 17) and `chromium.sh` says when.
   Tab titles are 16.2px, menus 17.6px, address bar text 18.9px in a 46px bar,
-  and pages are at Chromium's own 100% zoom on the same scale. From 2026-10-12
-  to 16 Chromium drew at 2× with fractional scaling off and Hyprland shrank it
-  by 1.6 at the monitor's 1.25, so pages loaded their sharp images (at 1.35
-  they are under Google's 1.5× threshold again; 27/17's 1.59 was over it),
-  with a default zoom of 12 × the GTK factor / 13 (133.329% at text size
-  17); before that the flag was 0.95, a UI scale undone for pages by a
-  105.263% zoom.
+  and pages have a default zoom of 150 / the scale, 110.87%, which puts them
+  at 1.5 device px per CSS px: a 3:2 ratio, so a resampled image or a 1px
+  line repeats every 3px instead of beating against the pixel grid as at the
+  scale's own 1.35 (test pattern, 2026-10-17), with web body text at 24px.
+  From 2026-10-12 to 16 Chromium drew at 2× with fractional scaling off and
+  Hyprland shrank it by 1.6 at the monitor's 1.25, so pages loaded their
+  sharp images (at 1.5 they are at Google's 1.5× threshold again), with a
+  default zoom of 12 × the GTK factor / 13 (133.329% at text size 17);
+  before that the flag was 0.95, a UI scale undone for pages by a 105.263%
+  zoom.
   `overrides/chromium/README.md` §2 and §4 have the measurements and source
   trail. There is no command-line flag for default zoom — it is the profile
   preference `partition.default_zoom_level`, stored as `ln(factor)/ln(1.2)` —
   and Chromium must be closed when it is written, since it rewrites
-  `Preferences` from memory on exit. `chromium.sh` now only hands back a zoom
-  an earlier version set.
+  `Preferences` from memory on exit.
 - **Four more Chromium settings, same step.** The flags file carries
   `--enable-features=…,OverlayScrollbar` — the thin, auto-hiding scrollbar
   macOS has, where Chromium otherwise draws a permanent gutter. It restates

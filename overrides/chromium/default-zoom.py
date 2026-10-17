@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Set, report or clear Chromium's default page zoom for every site.
 
-Since 2026-10-16 apply.sh sets no default zoom: pages take Chromium's own 100%
-at its UI scale. Where an earlier version set one, it hands it back the way
-revert.sh does: the zoom recorded before the first apply, or --reset. Those
+Since 2026-10-17 apply.sh sets 150 / the UI scale in chromium-flags.conf,
+110.87% at 23/17, which puts pages at 1.5 device px per CSS px. From 2026-10-16
+to 17 it set none, and pages took Chromium's own 100% at the UI scale. Earlier
 versions set 12 x the GTK text factor / 13 (2026-10-15 to 16: 112.818% at text
 size 14, 143.594% at 18, 133.329% at 17), times 100% under the 2x rendering or
 100 / the UI scale otherwise, which gave 105.263% for 0.95 on 2026-10-11 with
@@ -123,8 +123,8 @@ def read_percent():
 def main():
     # apply.sh pipes CLLPSE_CHROMIUM_ZOOM straight through, so a typo arrives
     # here as an argument. Fail with a sentence, not a traceback.
-    # No default value: the zoom apply.sh sets is derived there, from the scale flag and the
-    # GTK text factor, next to the steps it pairs with, rather than hidden here.
+    # No default value: the zoom apply.sh sets is derived there, from the scale
+    # flag, next to the step it pairs with, rather than hidden here.
     if len(sys.argv) < 2 or not sys.argv[1].strip():
         sys.exit("usage: default-zoom.py PERCENT | --print | --reset")
     raw = sys.argv[1].strip()

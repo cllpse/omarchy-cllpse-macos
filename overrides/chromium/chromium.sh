@@ -62,26 +62,33 @@ if [[ -f "$HERE/chromium/chromium-flags.conf" ]]; then
 fi
 
 # See README.md (4)
-if [[ -x "$HERE/chromium/default-zoom.py" && -e $STATE/previous-chromium-zoom ]]; then
-  # No default zoom since 2026-10-16: pages take Chromium's own 100% at the UI
-  # scale above. Earlier versions of this step set one (12 x the GTK factor /
-  # 13 under the 2x rendering, 105.263% for 0.95 before it) and left this state
-  # file behind, so hand it back the way revert.sh does: the zoom recorded
-  # before the first apply, or with nothing recorded, no key at all.
-  # Preferences cannot be written while Chromium runs, so the record then stays
-  # for the next run.
-  if pgrep -x chromium >/dev/null; then
-    skip "Chromium is running: quit it and re-run to hand back the default page zoom an earlier apply set"
-  else
-    _prev_zoom="$(<"$STATE/previous-chromium-zoom")"
-    if [[ -n $_prev_zoom ]]; then
-      say "Chromium default page zoom -> ${_prev_zoom}%, what the machine had before our first apply"
-      "$HERE/chromium/default-zoom.py" "$_prev_zoom" || true
+if [[ -x "$HERE/chromium/default-zoom.py" ]]; then
+  # Pages at 1.5 device px per CSS px: 150 / the UI scale in
+  # chromium-flags.conf, 110.87% at 23/17. At that 3:2 ratio a resampled image
+  # or a 1px line repeats every 3 device px; at the UI scale's own 1.3529 it
+  # beat against the pixel grid (test pattern, 2026-10-17). Rounded up to 3
+  # places, so the ratio lands just over 1.5 rather than under it, and printed
+  # with %g, as `default-zoom.py --print` reports it, so record_prior
+  # recognises the value as ours on a re-run.
+  _zoom="$(awk -F= '/^--force-device-scale-factor=/ {
+      z = 150 / $2 * 1000; r = int(z); if (r < z) r++
+      printf "%g", r / 1000; exit }' "$HERE/chromium/chromium-flags.conf")"
+  if [[ -n $_zoom ]]; then
+    # Earlier versions of this step set 100, 105.263 and 12 x the GTK factor /
+    # 13 (102.563 to 143.594), so none of those is the machine's own. The
+    # empty file marks the first apply as done when nothing was recorded, and
+    # revert.sh reads it as "nothing recorded". Preferences cannot be written
+    # while Chromium runs: it rewrites them from memory on exit.
+    if pgrep -x chromium >/dev/null; then
+      skip "Chromium is running: quit it and re-run to set the default page zoom to ${_zoom}%"
     else
-      say "Chromium default page zoom -> cleared (Chromium's own 100%)"
-      "$HERE/chromium/default-zoom.py" --reset || true
+      _prev_zoom="$("$HERE/chromium/default-zoom.py" --print 2>/dev/null || true)"
+      case "$_prev_zoom" in 100|105.263|102.563|112.818|133.329|143.594) _prev_zoom="" ;; esac
+      record_prior "$STATE/previous-chromium-zoom" "$_prev_zoom" "$_zoom"
+      [[ -e $STATE/previous-chromium-zoom ]] || : >"$STATE/previous-chromium-zoom"
+      say "Chromium default page zoom -> ${_zoom}%, pages at 1.5 device px per CSS px"
+      "$HERE/chromium/default-zoom.py" "$_zoom" || true
     fi
-    rm -f "$STATE/previous-chromium-zoom"
   fi
 fi
 
