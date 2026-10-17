@@ -46,16 +46,16 @@ if [[ -f "$HERE/chromium/chromium-flags.conf" ]]; then
   fi
 
 # See README.md (2)
-  # The UI scale is the odd 17th nearest the GTK factor, which Chromium rounds
-  # to 64ths, and it moves by hand with the text size: say so when step 7b's
-  # text size has moved the factor away from it.
+  # The UI scale is two odd 17ths under the one nearest the GTK factor, which
+  # Chromium rounds to 64ths, and it moves by hand with the text size: say so
+  # when step 7b's text size has moved the factor away from it.
   _scale="$(grep -m1 '^--force-device-scale-factor=' "$HERE/chromium/chromium-flags.conf" | cut -d= -f2)"
   _factor="$(gsettings get org.gnome.desktop.interface text-scaling-factor 2>/dev/null || true)"
   if [[ -n $_scale && -n $_factor ]]; then
     read -r _have _want < <(awk -v s="$_scale" -v f="$_factor" 'BEGIN {
       g = int(f * 64 + 0.5) / 64; w = 1
       for (n = 1; n <= 61; n += 2) if ((n / 17 - g) ^ 2 < (w / 17 - g) ^ 2) w = n
-      printf "%d %d\n", int(s * 17 + 0.5), w }')
+      printf "%d %d\n", int(s * 17 + 0.5), w - 4 }')
     [[ $_have == "$_want" ]] ||
       skip "chromium-flags.conf's UI scale is $_have/17 but the text size asks for $_want/17: update it (chromium/README.md (2))"
   fi

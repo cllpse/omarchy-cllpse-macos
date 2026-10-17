@@ -10,12 +10,12 @@ because it is the only part needing sudo and a password prompt should not
 stall a run halfway through (it was step 9). Calling this with no argument
 -- which is what running it by hand does -- does both, in that order.
 
-## 2. UI scale 27/17, held to whole pixels; 2× and 0.95 before it
+## 2. UI scale 23/17, held to whole pixels; 2× and 0.95 before it
 
 Since 2026-10-16 Chromium draws at the monitor's own scale, 1, with Wayland's
 fractional scaling on as Omarchy ships it. Two flags set its UI scale:
 
-- `--force-device-scale-factor=1.5882352941` (27/17). With fractional scaling
+- `--force-device-scale-factor=1.3529411765` (23/17). With fractional scaling
   on, this flag replaces Chromium's UI scale, which would otherwise be the GTK
   text factor rounded to 64ths: 100/64 = 1.5625 at text size 18. At monitor
   scale 1 it is the whole device-pixel ratio, for the toolbar, tab titles,
@@ -33,22 +33,51 @@ one pixel row or two depending on where it starts: 23 of every 64 positions
 at 87/64. Measured in the three-dot menu at the plain text factor (87/64,
 2026-10-16): five full-width separators, 1, 1, 2, 1 and 2 px, with no blended
 rows. A separator view is 17 DIP tall. With pixel-canvas recording it snaps
-to 27 px at 27/17 wherever it sits, and in a view of odd height the line
-lands on exactly one row. Any odd 17th would do; 27/17 is the one nearest the
-text factor, 1.6% over it (25/17 at text size 17, 2.3% over 92/64). That is
-reasoned from the source; the result was judged by eye at 25/17, not
-re-measured. 27/17 is fractional, so Chromium's own fix
-for fractional scales, described below, stays on.
+to 23 px at 23/17 wherever it sits, and in a view of odd height the line
+lands on exactly one row. Any odd 17th would do. That is reasoned from the
+source; the result was judged by eye at 25/17, not re-measured. 23/17 is
+fractional, so Chromium's own fix for fractional scales, described below,
+stays on.
 
-The scale moves by hand with the text size, to the nearest odd 17th of the
-factor: 23/17 at 16, 25/17 at 17, 27/17 at 18. `chromium.sh` says so when the
-two drift apart. At 27/17 tab titles are 19.1 desktop px, menus 20.6 and the
-address bar text 22.2 in a 54 px bar (17.6, 19.1, 20.6 and 50 at 25/17).
-Pages are at Chromium's own 100% zoom (§4) on the same scale, so they report
-`devicePixelRatio` 1.59. That is over Google's 1.5× threshold, so pages
-should load their sharp images again, as under the 2× rendering below. At
-25/17's 1.47 they were under it and loaded their 1× images (reasoned, not
+Which odd 17th: until 2026-10-17 the one nearest the text factor (25/17 at
+text size 17, then 27/17 at 18). Since then two under it, 23/17 at 18,
+picked by eye beside Nautilus and throwaway windows at 25/17 and 27/17. The
+UI scale grows Chromium's whole UI, where libadwaita scales only its text and
+keeps its bars, buttons and icons at 1×. Chromium 152 takes the GTK font's
+points × 4/3 as DIPs (`ui/gtk/gtk_ui.cc`), and on Wayland it folds the text
+factor into the device scale (`IncludeFontScaleInDeviceScale()`,
+`ui/gtk/wayland/gtk_ui_platform_wayland.cc`), so no setting scales its text
+alone. With tab titles matched to the desktop's, the bars were half again
+as tall. Measured 2026-10-17 from window captures (`grim -T`), in desktop px:
+
+| | Toolbar | Address bar |
+|---|---|---|
+| 27/17 | 70 | 54 |
+| 25/17 | 65 | 50 |
+| **23/17** | **60** | **46** |
+| Nautilus (libadwaita 1.9) | 46 (header bar) | 34 (path bar) |
+
+The scale moves by hand with the text size, two odd 17ths under the one
+nearest the factor: 19/17 at 16, 21/17 at 17, 23/17 at 18. Only 18 was judged
+by eye. `chromium.sh` says so when the two drift apart. At 23/17 tab titles
+are 16.2 desktop px, menus 17.6 and the address bar text 18.9 in a 46 px bar
+(19.1, 20.6, 22.2 and 54 at 27/17; 17.6, 19.1, 20.6 and 50 at 25/17). Pages
+are at Chromium's own 100% zoom (§4) on the same scale, so they report
+`devicePixelRatio` 1.35. That is under Google's 1.5× threshold, so pages load
+their 1× images, as at 25/17's 1.47; 27/17's 1.59 was over it and should
+have loaded the sharp ones, as under the 2× rendering below (reasoned, not
 checked).
+
+Tried the same day and set aside: GTK's proportions outright. The GTK font at
+14 pt with the factor at 1.0 draws every GTK app the same and put Chromium, at
+scale 1, at 19 px tab titles in a 49 px toolbar with a 39 px address bar. But
+the factor is also Ghostty's scale (`gtk-xft-dpi`) and every Electron app's,
+and they all shrank to 1/1.56. Chromium's Qt toolkit (`--ui-toolkit=qt
+--qt-version=6`) takes its font from Qt instead, so a font only Chromium sees
+is possible: Qt's built-in KDE theme, with `QT_QPA_PLATFORMTHEME=kde`,
+`KDE_SESSION_VERSION=4` and a private `$KDEHOME/share/config/kdeglobals`. A
+window ran but was not judged. Either way the address bar text stays 14 DIP,
+14 px at scale 1, against 19 for tab titles.
 
 From 2026-10-12 to 16 Chromium drew at 2× and Hyprland scaled the window down
 by 1.6 at the monitor's 1.25 (1.5 at the 4/3 it was decided at), as macOS does
@@ -107,7 +136,8 @@ whole toolbar and its text together:
 | 0.95 (2026-10-11 to 12) | 11.4 | 13.3 | 32.3 | |
 | 2, fractional off (2026-10-12 to 16) | 12 | 14 | 34 | |
 | 25/17, fractional on, monitor scale 1 (2026-10-16) | 17.6 | 20.6 | 50 | |
-| **27/17, fractional on, monitor scale 1 (now)** | **19.1** | **22.2** | **54** | |
+| 27/17, fractional on, monitor scale 1 (2026-10-17, morning) | 19.1 | 22.2 | 54 | |
+| **23/17, fractional on, monitor scale 1 (now)** | **16.2** | **18.9** | **46** | |
 
 At the GTK factor, tab titles matched the desktop's text, but the address bar
 read as huge next to everything else. At 0.95 its text was 13.3, the same as
@@ -185,10 +215,11 @@ drop it just as silently.
 ## 4. Default page zoom: Chromium's own since 2026-10-16
 
 Since 2026-10-16 `chromium.sh` sets no default zoom. Pages take Chromium's own
-100% at the UI scale (§2), 1.59 device px per CSS px, so web body text is
-25.4 px against the 18.7 of every app's text at text size 18: 1.36 to 1,
-above macOS's 1.23. It was judged right by eye at text size 17, where it
-was 23.5 against 17.3, the same 1.36. On a machine where an earlier
+100% at the UI scale (§2), 1.35 device px per CSS px, so web body text is
+21.6 px against the 18.7 of every app's text at text size 18: 1.16 to 1,
+under macOS's 1.23. At the nearest odd 17th it was 1.36 to 1 (25.4 against
+18.7 at 27/17, 23.5 against 17.3 at 25/17), judged right by eye at text size
+17. 23/17 was picked on the toolbar, not on pages. On a machine where an earlier
 version of the step set a zoom, it hands that back as `revert.sh` does: the
 zoom recorded before its first apply, or with nothing recorded, the key
 cleared, which is Chromium's own default. Like every Preferences write it
@@ -394,8 +425,8 @@ account picture would take precedence; the profile here is not signed in.
 ## From the step table
 
 Chromium: a UI scale held to whole pixels (§2):
-`--force-device-scale-factor=1.5882352941`, 27/17, the odd 17th nearest the
-GTK text factor, with `enable-pixel-canvas-recording`, so menu separators stay
+`--force-device-scale-factor=1.3529411765`, 23/17, two odd 17ths under the one
+nearest the GTK text factor, with `enable-pixel-canvas-recording`, so menu separators stay
 one pixel row tall at monitor scale 1 with fractional scaling on; no default
 page zoom, so pages are at Chromium's own 100% on that scale, and any zoom an
 earlier version set is handed back (§4); `--enable-features=…,OverlayScrollbar` for the

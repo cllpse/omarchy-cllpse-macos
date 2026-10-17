@@ -322,21 +322,24 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   only moved off the chord. Its plugin README has the ranking in full and one
   Omarchy 4.0.4 bug it works around: a third-party `menu` plugin is never
   handed the shell's app library, so it runs its own.
-- **Chromium's UI scale is 27/17, held to whole pixels.** At monitor scale 1,
+- **Chromium's UI scale is 23/17, held to whole pixels.** At monitor scale 1,
   with Wayland's fractional scaling on, `overrides/chromium/chromium-flags.conf`
-  passes `--force-device-scale-factor=1.5882352941`, which replaces Chromium's
+  passes `--force-device-scale-factor=1.3529411765`, which replaces Chromium's
   UI scale (otherwise the GTK text factor, 100/64 at text size 18), and
   `enable-pixel-canvas-recording`, ChromeOS's default, which records every
   view in whole pixels. Together they keep menu separators one pixel row
   tall: a separator is a 1-DIP rectangle drawn without anti-aliasing, and at
   the plain factor 2 of the 5 in the three-dot menu came out 2 px (measured
-  2026-10-16). 27/17 is the odd 17th nearest the factor, so it moves by hand
-  with the text size (23/17 at 16, 25/17 at 17) and `chromium.sh` says when.
-  Tab titles are 19.1px, menus 20.6px, address bar text 22.2px in a 54px bar,
+  2026-10-16). Any odd 17th does that. 23/17 is two under the one nearest the
+  factor (27/17), picked by eye beside Nautilus: the scale grows Chromium's
+  whole UI where libadwaita scales only its text, and at 27/17 its toolbar was
+  70px against a 46px header bar. It moves by hand with the text size (19/17
+  at 16, 21/17 at 17) and `chromium.sh` says when.
+  Tab titles are 16.2px, menus 17.6px, address bar text 18.9px in a 46px bar,
   and pages are at Chromium's own 100% zoom on the same scale. From 2026-10-12
   to 16 Chromium drew at 2× with fractional scaling off and Hyprland shrank it
-  by 1.6 at the monitor's 1.25, so pages loaded their sharp images (at 1.59
-  they are over Google's 1.5× threshold again; 25/17's 1.47 was under it),
+  by 1.6 at the monitor's 1.25, so pages loaded their sharp images (at 1.35
+  they are under Google's 1.5× threshold again; 27/17's 1.59 was over it),
   with a default zoom of 12 × the GTK factor / 13 (133.329% at text size
   17); before that the flag was 0.95, a UI scale undone for pages by a
   105.263% zoom.
