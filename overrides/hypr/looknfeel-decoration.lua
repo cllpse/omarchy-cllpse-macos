@@ -152,6 +152,11 @@ o.window(".*[Ff]igma.*", { tag = "-default-opacity", opacity = "1 1" })
 -- focus (autoplay while you are elsewhere) may get no flag; a reload while a
 -- video plays in a background tab records the wrong site until the next
 -- pause and play.
+--
+-- Some apps hold the inhibitor with no video in them. The Claude app
+-- (com.anthropic.Claude, Electron) does: on 2026-10-17 it reported
+-- inhibitingIdle true and kept the tag, so it never frosted when unfocused.
+-- Those classes are listed in not_video below and never count as playing.
 o.window({ tag = "video-playing" }, { opacity = "1 1" })
 
 local function has_tag(w, name)
@@ -168,6 +173,9 @@ local function site_of(title)
   return page:match(".* %- (.-)$") or page
 end
 
+-- Classes that inhibit idle without showing video (see the opacity block).
+local not_video = { ["com.anthropic.Claude"] = true }
+
 local video_site = {} -- window address -> the site its video started on
 local video_timer
 
@@ -178,7 +186,7 @@ local function sync_video_tags()
     open[addr] = true
     local ws = w.workspace
     if ws and ws.visible then
-      local playing = w.inhibiting_idle == true
+      local playing = w.inhibiting_idle == true and not not_video[w.class or ""]
       if not playing then
         video_site[addr] = nil
       elseif has_tag(w, "chromium-based-browser") then
