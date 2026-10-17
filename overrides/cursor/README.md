@@ -1,6 +1,8 @@
-# Cursor
+# Cursor and VS Code
 
 Cursor is themed in three separate places, because its settings live in three separate places: a JSON file we can merge, a SQLite DB we cannot, and a generated VS Code theme Omarchy owns.
+
+VS Code takes the same overrides from the same files, as `apply.sh`'s own `vscode` step (`cursor.sh vscode`); see [VS Code](#vs-code) at the end.
 
 ## 1. Cursor's window chrome
 
@@ -9,13 +11,19 @@ so the editor frame matches every other window instead of wearing Bearded's
 greys. Chrome only — the editor pane and syntax stay Bearded. Hook, because
 the palette changes per theme; see the hook for the scoping.
 
+It runs after the merge in (2), though it is numbered first: the hook reads
+the two Bearded variant names out of `settings.json`, and on a fresh profile
+only the merge has put them there. Until 2026-10-17 it ran first, so a first
+run left the chrome to the next theme set.
+
 ## 2. Cursor
 
 Cursor — deep-merge our editor prefs into settings.json with jq: our keys win,
 any key we don't set is kept. Omarchy owns workbench.colorTheme (it rewrites it
 to "Omarchy" on every `omarchy theme set`, via omarchy-theme-set-vscode), so
-cursor/settings.json deliberately omits it. Cursor is the only editor of this
-family installed here; VS Code / VSCodium would each want their own merge.
+cursor/settings.json deliberately omits it. Each editor then takes its own
+keys on top, from `settings.<id>.json`: `settings.cursor.json` holds the two
+only Cursor registers, `settings.vscode.json` VS Code's (see *VS Code*).
 
 ## 3. cursor/bearded-dark-tokens.json is the third input
 
@@ -200,3 +208,66 @@ rather than outweighing their neighbours. `tab.lastPinnedBorder` stays at full
 come from Omarchy's generated file rather than a second derivation of
 `colors.toml`, so there is nothing to drift, and both modes are correct by
 construction. Only the editor canvas and its syntax stay Bearded
+
+## VS Code
+
+`apply.sh vscode` runs `cursor.sh vscode`, which applies (1) to (4) to VS Code
+from the same files: the same `settings.json` merge with `settings.vscode.json`
+on top, the same dark tokens, and the same chrome hook, linked a second time as `vscode-chrome.sh`. The hook
+picks the editor by the name it was invoked under, so each link repaints only
+its own editor, and an editor whose step never ran has no link. The paths are
+in [`editors.sh`](editors.sh), the one table `cursor.sh`, the hook and
+`revert.sh` read: `~/.config/Code/User/` for the profile and
+`~/.vscode/extensions/` for Bearded's theme JSON. That's Microsoft's build,
+`visual-studio-code-bin`, which `omarchy-install-editor-vscode` installs.
+Code - OSS and VSCodium keep their profiles in other folders, so each would be
+one more case in that table.
+
+What differs:
+
+- **Each editor has its own keys.** `settings.cursor.json` holds
+  `cursor.inlineDiff.mode` and `workbench.agentsWindowButton.enabled`, which
+  VS Code 1.142 doesn't register. `settings.vscode.json` is what was set by
+  hand in VS Code on 2026-10-17, minus the two keys Omarchy owns
+  (`workbench.colorTheme`, and `update.mode`, which its installer writes) and
+  the four the shared file already sets the same way. It turns off the
+  command center, the back/forward buttons, the title-bar browser button, the
+  agents-window button and the chat sessions view, and makes the menu bar
+  `toggle` (Alt shows it) where Cursor's is `hidden`. `window.commandCenter`
+  and `workbench.navigationControl.enabled` are Cursor keys too, but only
+  VS Code's copy sets them; move them to `settings.json` to give Cursor the
+  same.
+- **(5) and (6) are Cursor's alone.** VS Code never had the watcher, and its
+  state DB has no such layout keys.
+- **Bearded has to be installed in VS Code too**:
+  `code --install-extension beardedbear.beardedtheme beardedbear.beardedicons`.
+  Until then the theme names fall back to VS Code's defaults, and the hook finds
+  no Bearded JSON. In light mode that leaves the active indent guide in the
+  theme's own colour, since there is no selection colour to copy, and the
+  re-tint is skipped.
+- **Install VS Code before running the step.** `omarchy-install-editor-vscode`
+  overwrites `~/.config/Code/User/settings.json` with `{"update.mode": "none"}`.
+  The merge keeps that key, but an install after the step wipes the merge.
+- **Text size is not measured.** The numbers in (4) were measured in Cursor,
+  on the system's Electron 42. VS Code 1.142 bundles its own, Electron 43.7.7
+  (Chromium 150), and whether that scales by the GTK factor the same way
+  hasn't been checked. `window.zoomLevel` is the key to look at; a VS
+  Code-only value goes in `settings.vscode.json`.
+
+Tested 2026-10-17 against a scratch `HOME`, not the live profile: it held the
+`settings.json` Omarchy's installer writes and the Bearded extension. The step
+kept `update.mode`, copied neither Cursor-only key, and produced the same
+`workbench.colorCustomizations` as Cursor's, and a second run of the hook
+changed nothing. The `revert.sh` loop, run on its own in that `HOME`, put the
+original file back and removed the link, and left an unreached Cursor profile
+alone. Seeded instead with the live VS Code `settings.json`, all 13 of its keys
+came through with their values. Then applied to the live profile the same day,
+once Bearded was installed there: none of its own keys changed (a
+`json.schemaDownload.trustedDomains` that VS Code writes itself, from a schema
+prompt, was left out of the repo and kept), and the chrome came out identical
+to Cursor's. Not checked on screen.
+
+`revert.sh` restores an editor's `settings.json` only if the step reached it
+(a backup, a no-prior marker, or its hook link), because `restore` removes a
+file it has no backup of, and VS Code on a machine that only ran `cursor` has
+a settings file of its own.

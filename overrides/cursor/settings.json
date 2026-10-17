@@ -71,7 +71,6 @@
   "workbench.activityBar.location": "hidden",
   "workbench.statusBar.visible": false,
   "workbench.layoutControl.enabled": false,
-  "workbench.agentsWindowButton.enabled": false,
   "window.autoDetectColorScheme": true,
   "workbench.preferredLightColorTheme": "Bearded Theme Light",
   "workbench.preferredDarkColorTheme": "Bearded Theme Black & Gold Soft",
@@ -88,6 +87,5 @@
   "extensions.ignoreRecommendations": true,
   "[typescript]": {
     "editor.defaultFormatter": "vscode.typescript-language-features"
-  },
-  "cursor.inlineDiff.mode": "unified"
+  }
 }

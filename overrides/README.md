@@ -2,7 +2,7 @@
 
 Everything the `omarchy-cllpse-theme` themes need that lives **outside** an
 Omarchy theme folder — fonts, fontconfig, GTK settings, font hinting, Hyprland
-env var + window decoration (rounding, blur), Cursor editor prefs, and colour
+env var + window decoration (rounding, blur), Cursor and VS Code editor prefs, and colour
 configs for apps Omarchy doesn't theme. Omarchy's design puts all of this at
 machine level (it applies to every theme, reading whatever palette is active),
 so it can't ship inside a theme folder.
@@ -155,6 +155,7 @@ Install these first for a complete result.
 | `yay -S` (AUR) | `bibata-cursor-theme-bin` | the cursor theme. Genuinely AUR — `pacman -S` will not find it |
 | `pacman -S` (`extra`) | `msedit` | the `edit` alias. Needs no theme config — see *How each app is themed* |
 | `pacman -S` (`omarchy` repo) | `cursor-bin` | the editor step 7 merges `settings.json` into, and the one the *Cursor marketplace* row below extends. Absent, the merge is skipped with a message saying so (the merge-by-hand message is for a `settings.json` `jq` cannot parse) |
+| `omarchy-install-editor-vscode`, optional | `visual-studio-code-bin` | the `vscode` step, which merges the same `settings.json` and chrome into VS Code. Install it **before** that step: the installer overwrites `~/.config/Code/User/settings.json`. Microsoft's build only; Code - OSS and VSCodium keep their profiles elsewhere (`cursor/editors.sh`). Absent, the step is skipped with a message saying so |
 | `yay -S` (AUR) + `pacman -S` | `ytm-player` (AUR) `python-secretstorage` (`extra`) | the music player. Step 7 writes its preferences through `ytm/config-prefs.py`, renders `themed/ytm-player.toml.tpl` and installs the `ytm-player.sh` theme hook, so its colours follow `omarchy theme set` like everything else. `python-secretstorage` is separate and easy to miss: without it `cllpse-ytm-signin` cannot read the Chromium keyring and sign-in fails through a `yt-dlp` path that gives no useful error |
 | `yay -S` (AUR) | `ryzenadj` | the CPU power limits (step 10), and only on the machine this repo was measured on — a Ryzen 7 8745HS in a Geekom A8. The step checks `/proc/cpuinfo` and DMI before writing anything, so on any other hardware it is inert whether or not `ryzenadj` is installed. `ryzen_smu` (DKMS) is optional and only buys the read-back of the live limits |
 | `pacman -S` (daemon) | `keyd` | Figma's Cmd+click / Cmd+scroll (step 8b). The first dependency that is a system service rather than a program — `tailscale` below is the other — and one of the two `apply.sh` configures with **sudo** (`ryzenadj` above is the other) — it writes `/etc/keyd/default.conf` and adds you to the `keyd` group. Install it *before* applying, or the step skips and you re-run later |
@@ -165,7 +166,7 @@ Install these first for a complete result.
 | Omarchy menu: Install > AI > T3 Code | `t3code-bin` (the `omarchy` repo) | the coding-agent app whose 57 colours step 7's template all sets from the theme (Omarchy's sets 25, and T3 Code generated the rest from the accent's hue: a blue-violet cast under both themes). Absent, the step skips and names the menu entry |
 | GitHub release, verified with `gh` | [`thijsvos/torrentTUI`](https://github.com/thijsvos/torrentTUI) | the BitTorrent client, whose config step 7 writes. It is in no package manager, so the install is a release binary: download, `gh attestation verify`, `install` into `~/.local/bin`, in [`torrenttui/README.md`](torrenttui/README.md). Absent, the step skips and points there |
 | `omarchy plugin add` + its own `setup` | [`io.github.thisisgm.omapods`](https://github.com/thisisgm/omarchy-pods) | the AirPods widget — the one third-party plugin step 7h's `bar.layout` names, and the only entry in it this repo does not ship. Two commands, because the widget is a front end to a daemon: `omarchy plugin add https://github.com/thisisgm/omarchy-pods` clones the plugin, and `~/.config/omarchy/plugins/io.github.thisisgm.omapods/setup` builds `librepods` into `~/.local` and enables `librepods.service`. Skip `--enable`: it would place the widget on the bar itself, and the recorded layout already names it. Without the plugin the layout entry is inert; with the plugin but no daemon the icon is there and reads nothing |
-| Cursor marketplace | `beardedbear.beardedtheme` `beardedbear.beardedicons` | the Cursor colour + icon theme. The only marketplace dependency in the whole override; without them Cursor silently falls back to its defaults |
+| Cursor marketplace, and VS Code's for the `vscode` step (`code --install-extension …`) | `beardedbear.beardedtheme` `beardedbear.beardedicons` | the colour + icon theme, in each editor. The only marketplace dependency in the whole override; without them the editor silently falls back to its defaults |
 
 `hunk`, `gh`, `gh-dash` and TorrentTUI are the four that are not packages, so a
 `pacman -Qqe` restore will not bring them back:
@@ -183,7 +184,7 @@ a property of how the call is written, not a promise:
 - *Guarded, with a skip message*: `lsd` (alias + theme files), `yazi`,
   `lazydocker`, `gh-dash` and `hunk` (their theme configs), TorrentTUI (its
   config; the skip names its README for the install), T3 Code (its template),
-  Cursor
+  Cursor and VS Code
   (`settings.json` merge), `starship`
   (`|| skip`). `bibata-cursor-theme-bin` warns but the cursor theme is set in
   `gsettings`/`hl.env` anyway, so it falls back **visibly** — the one omission
@@ -244,7 +245,7 @@ Two of those six are worth knowing about beyond the guard:
   and step 7h instead of aborting, but nothing says why. `pi` is the exception
   that does say so — and until 2026-10-09 it was the exception that aborted the
   whole run instead.
-- *Falls back silently*: the two Bearded Cursor extensions. The settings keys are written either way; Cursor just uses its own default theme and icons until the extensions are installed.
+- *Falls back silently*: the two Bearded extensions, in Cursor and in VS Code. The settings keys are written either way; the editor just uses its own default theme and icons until the extensions are installed.
 - *Harmless when absent*: `bat`, `lazygit` (their config files are copied
   regardless — a config for a program you have not installed yet), `fzf`
   (`FZF_DEFAULT_OPTS` is exported and simply unused), `hunk` (git writes the
@@ -291,7 +292,7 @@ script works the same whether you run it by hand or `apply.sh` calls it.
 | 5c | Danish letters on the Preonic's M0 layer — a static, single-group xkb symbols file, referenced by `hyprland-env.lua`'s `kb_layout`. **Full detail: [`xkb/README.md`](xkb/README.md).** | `~/.config/xkb/symbols/us-danish-letters` |
 | 6 | Five fenced snippets into the user's own hypr config: env + cursor theme + keyboard layout, decoration/blur/animations, window-switcher binds, mouse tuning, and `SUPER+SPACE` handed to the supermenu. **Full detail: [`hypr/README.md`](hypr/README.md).** | fenced blocks synced into `~/.config/hypr/hyprland.lua`, `looknfeel.lua`, `bindings.lua` and `input.lua` |
 | 6b | Keybind allowlist + macOS-parity shortcuts: scan the live binds, unbind what the allowlist omits, then re-sync the parity and window-management blocks. **Full detail: [`hypr/README.md`](hypr/README.md).** | `overrides/hypr/keybind-allowlist.conf` (seeded once, user-owned, committed); `overrides/hypr/keybind-current.conf` + `overrides/hypr/keybind-unbinds.lua` (both regenerated every run in the repo itself, gitignored); three more fenced blocks (`: keybinds`, `: macos-shortcuts`, `: window-management-mod`) in `~/.config/hypr/bindings.lua` |
-| 7 | The apps Omarchy doesn't theme. TUI palettes point at the terminal's ANSI slots (`gh-dash` cannot — see *How each app is themed*); `lsd` additionally needs `color.theme: custom` to read the remap. Plus Cursor's editor prefs, the shell aliases, the `git diff` pager, the `pi` agent's model routing (OpenRouter's auto-router) and TorrentTUI's download folder.<br>**Per-override detail: [`bat/`](bat/README.md), [`lazygit/`](lazygit/README.md), [`lazydocker/`](lazydocker/README.md), [`lsd/`](lsd/README.md), [`yazi/`](yazi/README.md), [`gh-dash/`](gh-dash/README.md), [`cursor/`](cursor/README.md), [`pi/`](pi/README.md), [`bash/`](bash/README.md), [`git/`](git/README.md), [`torrenttui/`](torrenttui/README.md)** | `~/.config/bat/config`, `~/.config/lazygit/config.yml`, `~/.config/lazydocker/config.yml`, `~/.config/lsd/{config,colors}.yaml`, `~/.config/yazi/theme.toml`, `~/.config/gh-dash/config.yml` (merged), `~/.config/Cursor/User/settings.json`, `~/.pi/agent/settings.json` (merged), `~/.config/torrenttui/config.toml`, fenced blocks in `~/.bashrc` and `~/.config/git/config` |
+| 7 | The apps Omarchy doesn't theme. TUI palettes point at the terminal's ANSI slots (`gh-dash` cannot — see *How each app is themed*); `lsd` additionally needs `color.theme: custom` to read the remap. Plus Cursor's editor prefs (VS Code's too, as the separate `vscode` step), the shell aliases, the `git diff` pager, the `pi` agent's model routing (OpenRouter's auto-router) and TorrentTUI's download folder.<br>**Per-override detail: [`bat/`](bat/README.md), [`lazygit/`](lazygit/README.md), [`lazydocker/`](lazydocker/README.md), [`lsd/`](lsd/README.md), [`yazi/`](yazi/README.md), [`gh-dash/`](gh-dash/README.md), [`cursor/`](cursor/README.md), [`pi/`](pi/README.md), [`bash/`](bash/README.md), [`git/`](git/README.md), [`torrenttui/`](torrenttui/README.md)** | `~/.config/bat/config`, `~/.config/lazygit/config.yml`, `~/.config/lazydocker/config.yml`, `~/.config/lsd/{config,colors}.yaml`, `~/.config/yazi/theme.toml`, `~/.config/gh-dash/config.yml` (merged), `~/.config/Cursor/User/settings.json` (and `~/.config/Code/User/settings.json`), `~/.pi/agent/settings.json` (merged), `~/.config/torrenttui/config.toml`, fenced blocks in `~/.bashrc` and `~/.config/git/config` |
 | 7\* | Prompt and diff colours that must be BAKED per theme rather than named: Starship has no config-import mechanism, and hunk's validator takes hex only. Plus T3 Code's colours, through a template that replaces Omarchy's.<br>**Detail: [`starship/`](starship/README.md), [`hunk/`](hunk/README.md), [`t3code/`](t3code/README.md)** | `~/.config/omarchy/hooks/theme-set.d/{starship-colors,hunk-colors}.sh` (symlinked), `~/.config/starship.toml`, `~/.config/hunk/config.toml`, `~/.config/omarchy/themed/t3code.json.tpl` (symlinked) |
 | 7b | Restore saved display scaling + text size. **Full detail: [`display/README.md`](display/README.md).** | `omarchy display text size`, the two scale variables in `~/.config/hypr/monitors.lua` |
 | 7c | Session environment drop-ins (Figma → native Wayland). Read at session start, so they need a relogin. **Full detail: [`environment.d/README.md`](environment.d/README.md).** | `~/.config/environment.d/50-cllpse-macos-figma-wayland.conf` |
@@ -311,7 +312,7 @@ script works the same whether you run it by hand or `apply.sh` calls it.
 | 10b | The TV's DSC bit rate: amdgpu sizes the 4K120 stream by the TV's HDMI DSC rules (12 bpp, 2:1) and then has the VMM7100 adapter decode it, so the TV's limit never applied. A root helper sets two amdgpu debugfs files, the adapter's own caps plus a forced 20 bpp (1.2:1), and a unit sets them again at every boot, since amdgpu keeps them in RAM. Gated on the TV's EDID and the adapter's USB id, never written at a mode the rate does not fit (4K144/165), and **opt-in**: `--all` skips it; `apply.sh dsc` or the checklist runs it. Needs **sudo**. **Full detail: [`dsc/README.md`](dsc/README.md).** | `/usr/local/bin/cllpse-dsc-bpp`, `/etc/default/cllpse-dsc`, `/etc/systemd/system/cllpse-dsc.service` |
 | 11 | Btrfs compression: `compress=zstd` (a bare `zstd` is the kernel's level 3) → `compress=zstd:1` on every btrfs line in `/etc/fstab`, then a live `mount -o remount` of each so it doesn't wait for a reboot. Level 3 costs ~2–3× the CPU of level 1 at compression for ~5–10% better ratio — the wrong trade on a disk that was 4% full when this was decided (10% on 2026-10-09) and a CPU that is thermally capped. Backs `/etc/fstab` up first, rewrites **only** lines whose FS-type field is `btrfs` (a commented line, a `compress-force=`, or the same string on an ext4 line are all left alone — tested), and verifies with `findmnt --verify` before leaving it in place, restoring the backup if that fails. Bails out entirely if the machine mounts btrfs at mixed levels. Needs **sudo** | `/etc/fstab`, plus a live remount of each btrfs mountpoint |
 
-`7\*` is not a separate step in the script — starship, the Cursor chrome repaint, yazi's syntect theme, hunk, gh-dash and ytm-player are all theme-set hooks installed from inside step 7. It is split out here because a hook behaves differently from a config file: it re-runs on every `omarchy theme set`.
+`7\*` is not a separate step in the script — starship, the Cursor and VS Code chrome repaint, yazi's syntect theme, hunk, gh-dash and ytm-player are all theme-set hooks installed from inside step 7. It is split out here because a hook behaves differently from a config file: it re-runs on every `omarchy theme set`.
 
 Step 7 has two targets that are **not** config files, both in Cursor's
 `~/.config/Cursor/User/globalStorage/state.vscdb`. Neither has a settings key, so
@@ -375,7 +376,7 @@ six: the plain one plus `: keybinds` / `: macos-shortcuts` /
 `: window-management-mod` / `: supermenu` / `: flea`);
 `revert.sh` deletes all of them, matching the suffix generically. Pre-existing
 `~/.config/bat/config` / `~/.config/lazygit/config.yml` /
-`~/.config/lsd/{config,colors}.yaml` / `~/.config/Cursor/User/settings.json` /
+`~/.config/lsd/{config,colors}.yaml` / `~/.config/{Cursor,Code}/User/settings.json` /
 `~/.config/starship.toml` are saved as `*.pre-cllpse` and restored on revert.
 That is `lib.sh`'s `backup()`, which every step that replaces a user file
 calls, and the first call wins. Since 2026-10-16, when there was no file to
@@ -385,9 +386,9 @@ what the first had written, so a revert restored our own file: seven such
 backups were found on this machine (bat, lazygit, lazydocker, both lsd files,
 yazi and hunk) and replaced with markers.
 
-Cursor `settings.json` is the one JSON target: `apply.sh` deep-merges
-`cursor/settings.json` with `jq` (`.[0] * .[1]` — our keys win, everything else
-stays). It refuses if the live file has JSONC comments `jq` can't parse, and
+Cursor's and VS Code's `settings.json` are the JSON targets: `cursor/cursor.sh`
+deep-merges `cursor/settings.json` into each with `jq` (`*` — our keys win,
+everything else stays), then the editor's own `cursor/settings.<id>.json` on top. It refuses if the live file has JSONC comments `jq` can't parse, and
 never writes an empty result. `workbench.colorTheme` is intentionally absent from
 our file — `omarchy-theme-set-vscode` rewrites it to `"Omarchy"` on every theme
 switch, and merging in a competing value would just lose that race.
@@ -425,7 +426,7 @@ root, the GTK `text-scaling-factor` and the terminal point size together.
 | GTK apps (Files, Evince, file dialogs…) | `font-name` 9pt = 12px | GTK factor |
 | Chromium address bar / tab titles (and its web apps) | 14 DIP / `font-name` → 12 DIP | 23/17, pinned under the factor: 18.9 / 16.2 px |
 | Google Chrome tab titles | `font-name` → 12 DIP | GTK factor (its own flags file, not ours) |
-| Cursor: UI / editor / terminal | 13 CSS px × zoom 12/13 | GTK factor |
+| Cursor (and VS Code, not measured): UI / editor / terminal | 13 CSS px × zoom 12/13 | GTK factor |
 | Ghostty | `font-size=9` pt = 12px | GTK factor (`gtk-xft-dpi`) |
 
 The GTK factor is round(pt × text size / 12) / pt for the 9pt UI font: 14/9 at
@@ -493,7 +494,7 @@ take it:
 | `gh-dash` | baked hex (theme-set hook) | termenv resolves a bare index against its OWN table and emits converted RGB, so slots 0-15 never reach the terminal — measured on v4.25.2, `"4"` rendered as xterm navy. Hex, regenerated per theme, is the only thing that tracks |
 | `starship` | generated | no ANSI surface worth using; `accent` is substituted into a template by a `theme-set` hook |
 | `yazi` previewer | generated | see the `yazi` row above |
-| Cursor chrome | generated | Chrome repainted from Omarchy's generated VS Code theme so the window frame matches every other window; the editor pane and syntax stay Bearded. **[`cursor/README.md`](cursor/README.md)** |
+| Cursor / VS Code chrome | generated | Chrome repainted from Omarchy's generated VS Code theme so the window frame matches every other window; the editor pane and syntax stay Bearded. **[`cursor/README.md`](cursor/README.md)** |
 | `hunk` | generated | **cannot** use ANSI — its validator takes hex only (`must be a hex color like #112233`) and every built-in theme is a bundled Shiki theme. A `theme-set` hook bakes `colors.toml` into `~/.config/hunk/config.toml`, including tinted diff backgrounds blended over the theme background |
 | `ytm-player` | generated + a flag | Two halves, because one of them is out of reach of a colour file. `themed/ytm-player.toml.tpl` renders per theme and the hook copies it to `~/.config/ytm-player/theme.toml`; but `theme.toml` cannot set Textual's `dark` flag, and that flag drives every *derived* contrast token, so the hook also rewrites `[ui] theme` in `config.toml` to `textual-light`/`textual-dark` from the theme's own `mode`. Insert-or-replace on that one key, so the preferences `apply.sh` wrote stay put |
 | T3 Code | generated (Omarchy's template, ours replacing it) | Omarchy renders `t3code.json` per theme and T3 Code follows it live, but generates every colour the theme leaves out from canvas and accent: surfaces in the accent's hue, the primary with it turned 50°, a blue-violet cast from macOS blue. Omarchy's sets 25 of 57; `themed/t3code.json.tpl` is Omarchy's plus the other 32, neutral greys mixed from `background` and `foreground`, the accent only on buttons, focus and the update banner |
@@ -528,7 +529,7 @@ It is **not** a complete machine build. On a clean install these are the gaps:
 | Gap | Effect |
 |---|---|
 | **Six steps use sudo (8b's keyd config and group grant, step 9's Chromium policy, step 9b's Chromium theme extension, step 10's CPU power limits, step 10b's DSC bit rate and step 11's `/etc/fstab` compression level), all deliberately near the end.** No package installation happens anywhere — `keyd` in particular must already be present, and step 8b skips with the `pacman -S keyd` line if it is not — see *Before running `apply.sh`* above for the full list and what each omission costs. `bibata-cursor-theme-bin` is the only one that fails loudly-ish (warned about, and the cursor theme is set in `gsettings`/`hl.env` regardless, so it falls back visibly); every other guard just skips, at most with one line in the output. The two non-package channels, `mise` (`hunk`, `gh`) and `gh extension` (`gh-dash`), won't be restored by a `pacman -Qqe` rebuild | Cursor visibly wrong; other items silently absent |
-| **Cursor editor not installed.** The `settings.json` merge is skipped when both `/usr/bin/cursor` and `~/.config/Cursor/User/` are absent. The merge itself needs no network step, but three of its keys name themes from the Bearded marketplace extensions (`workbench.preferred{Light,Dark}ColorTheme`, `workbench.iconTheme`), which fall back silently until those are installed — see *Before running `apply.sh`* | Merge skipped on a machine without Cursor |
+| **Cursor or VS Code not installed.** Each editor's `settings.json` merge and chrome hook are skipped when both its binary and its profile are absent (`/usr/bin/cursor` and `~/.config/Cursor/User/`; `/usr/bin/code` and `~/.config/Code/User/`). The merge itself needs no network step, but three of its keys name themes from the Bearded marketplace extensions (`workbench.preferred{Light,Dark}ColorTheme`, `workbench.iconTheme`), which fall back silently until those are installed — see *Before running `apply.sh`* | Merge skipped on a machine without that editor |
 | **Third-party plugins are not installed.** `apply.sh` has no source URL for any of them, and step 7h's recorded `bar.layout` names exactly one — `io.github.thisisgm.omapods`, whose entry is inert without the plugin, since `Bar.qml` resolves an unknown widget id to a null component. Step 7h does *say so* rather than leaving that silent, and *Before running `apply.sh`* above carries the two install commands. The other widgets that were there (`dizziee.system-updates`, `jankeesvw.notification-center`, `io.github.twiking.omasettings`) were removed along with the plugins. Since a third-party plugin is enabled iff its id appears somewhere in `shell.json`, a layout without it *is* the uninstall as far as the shell is concerned; the plugin directory under `~/.config/omarchy/plugins/` still has to be deleted by hand | Nothing to render, and nothing to install |
 | **`display.conf` values are hardware-specific** — text size 18, monitor scale 1, GDK scale 2 (Omarchy's default; 1.25 and 1 until 2026-10-16) are tuned for one ~102 PPI 3840x2160 display (a 43" TV). `gdk-scale` 1 is right for standard DPI and 2 for a HiDPI panel; the 2 here is the author's choice, and it reaches only X11 apps under XWayland, which it draws at twice the size at monitor scale 1 | Wrong sizing on different hardware, applied confidently |
 | **Tailscale has to be logged in already, and step 7i cannot verify itself.** The step skips unless `.BackendState` reads `Running`, so a clean install reaches it before `omarchy-install-service-tailscale` has ever run and it does nothing. Even when it succeeds it can only confirm the pref and the tailnet policy: a node cannot Tailscale-SSH to itself, so the connection is untestable from the machine it was just enabled on | Silently skipped until Tailscale is up; afterwards, working-but-unproven until a second node tries it |
@@ -611,7 +612,7 @@ yazi/theme.toml               ANSI theme; accent pinned to blue, chrome flattene
 yazi/generate-icons.py        rewrites yazi's ~725 icon rules onto ANSI names, read out of the installed binary — re-run after a yazi upgrade
 yazi/cllpse-macos.tmTheme.tpl  previewer syntax theme with {{ placeholders }} — Xcode's scope assignment in the macOS palette; hex-only, so generated per theme
 hooks/theme-set.d/yazi-syntax.sh  renders the template above into ~/.config/yazi/cllpse-macos.tmTheme on every theme switch, raising hues to 4.5:1 against the background
-hooks/theme-set.d/cursor-chrome.sh  copies Omarchy's window-chrome colours into Cursor's workbench.colorCustomizations (plus the muted@25% sidebar/tab dividers, and indent guides cut down to the active one, in the selection colour; the matching-bracket box is off in cursor/settings.json), scoped to the Bearded themes named in cursor/settings.json
+hooks/theme-set.d/cursor-chrome.sh  linked once per editor (cursor-chrome.sh, vscode-chrome.sh; the link's name picks the editor), copies Omarchy's window-chrome colours into that editor's workbench.colorCustomizations (plus the muted@25% sidebar/tab dividers, and indent guides cut down to the active one, in the selection colour; the matching-bracket box is off in cursor/settings.json), scoped to the Bearded themes named in cursor/settings.json
 gh-dash/theme.yml.tpl         theme.colors as HEX, baked from colors.toml by the theme-set hook and merged into gh-dash's own config.yml
 hooks/theme-set.d/gh-dash-colors.sh  that hook: renders the template above and replaces only theme.colors in ~/.config/gh-dash/config.yml on every theme switch
 hunk/config.toml.tpl          hunk's custom theme with {{ placeholders }} — hex only, so it is generated per theme
@@ -629,7 +630,10 @@ torrenttui/torrenttui.sh      copies it to ~/.config/torrenttui/ after a one-tim
 xkb/symbols/us-danish-letters  US layout plus six otherwise-unused function keys for ae/oe/aa, the Preonic's M0 layer (installed to ~/.config/xkb/symbols/)
 lsd/config.yaml               color.theme: custom (opts into colors.yaml below)
 lsd/colors.yaml               user/group/size/date/etc. remapped from lsd's fixed 256-colour defaults onto basic ANSI; filetype colours (directory/executable/symlink/etc.) are LS_COLORS instead, in bash/shell.sh
-cursor/settings.json          Cursor editor prefs, jq-merged in; omits workbench.colorTheme (Omarchy's) + extension-dependent keys
+cursor/settings.json          editor prefs Cursor and VS Code share, jq-merged in; omits workbench.colorTheme (Omarchy's) + extension-dependent keys
+cursor/settings.cursor.json   Cursor's own keys, merged over the shared ones in Cursor only
+cursor/settings.vscode.json   VS Code's own keys (as configured by hand 2026-10-17), merged over the shared ones in VS Code only
+cursor/editors.sh             the editors table (profile, extensions dir, hook link name) that cursor.sh, the chrome hook and revert.sh all read
 hypr/hyprland-env.lua         OMARCHY_MENU_FONT + cursor theme/size + no_warps + kb layout
 hypr/window-switcher-bindings.lua  SUPER+TAB keybinds driving the switcher plugin.
                                    The plugin repo ships a GENERIC copy for other

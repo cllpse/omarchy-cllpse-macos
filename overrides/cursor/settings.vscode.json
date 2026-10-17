@@ -1,0 +1,10 @@
+{
+  "window.menuBarVisibility": "toggle",
+  "window.commandCenter": false,
+  "workbench.navigationControl.enabled": false,
+  "workbench.browser.showInTitleBar": false,
+  "workbench.activityBar.compact": true,
+  "chat.titleBar.openInAgentsWindow.enabled": false,
+  "chat.viewSessions.enabled": false,
+  "chat.viewSessions.orientation": "stacked"
+}

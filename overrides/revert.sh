@@ -194,7 +194,6 @@ restore ~/.config/lsd/colors.yaml
 restore ~/.config/yazi/theme.toml
 restore ~/.config/lazydocker/config.yml
 restore ~/.config/gh-dash/config.yml
-restore ~/.config/Cursor/User/settings.json
 restore ~/.config/torrenttui/config.toml
 
 say "Removing gh-dash theme-set hook"
@@ -207,9 +206,28 @@ say "Removing starship theme-set hook"
 [[ -L ~/.config/omarchy/hooks/theme-set.d/starship-colors.sh ]] && rm -f ~/.config/omarchy/hooks/theme-set.d/starship-colors.sh
 restore ~/.config/starship.toml
 
-say "Removing Cursor chrome theme-set hook"
-[[ -L ~/.config/omarchy/hooks/theme-set.d/cursor-chrome.sh ]] && rm -f ~/.config/omarchy/hooks/theme-set.d/cursor-chrome.sh
-# The chrome lives in settings.json, which `restore` below puts back wholesale.
+# Cursor and VS Code, from the one table cursor.sh and the hook read too. The
+# chrome lives in settings.json, which `restore` puts back wholesale.
+#
+# Only for an editor apply.sh reached: restore() removes a file it has no
+# backup of, and an editor whose step never ran -- VS Code on a machine that
+# only ever ran `cursor` -- has a settings.json of its own. Reached means a
+# backup, a no-prior marker, or the hook link, which every run of the step
+# since the hook existed has left, including runs from before the markers.
+# shellcheck source=overrides/cursor/editors.sh
+source "$HERE/cursor/editors.sh"
+for _ed in "${EDITORS[@]}"; do
+  editor_spec "$_ed"
+  _settings="$EDITOR_USER/settings.json"
+  _link=~/.config/omarchy/hooks/theme-set.d/$EDITOR_HOOK
+  if [[ -e $_settings.pre-cllpse || -e $STATE/no-prior$_settings || -L $_link ]]; then
+    restore "$_settings"
+  fi
+  if [[ -L $_link ]]; then
+    say "Removing $EDITOR_NAME chrome theme-set hook"
+    rm -f "$_link"
+  fi
+done
 
 # Cursor's two layout keys are in state.vscdb, not settings.json, so `restore`
 # above does not reach them. Put back only what apply recorded — a recording

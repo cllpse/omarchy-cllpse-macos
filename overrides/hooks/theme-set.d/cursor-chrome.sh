@@ -1,6 +1,8 @@
 #!/bin/bash
 # Repaint Cursor's window chrome from the active Omarchy theme, on every
-# `omarchy theme set`.
+# `omarchy theme set` -- and VS Code's, through a second link (below). What is
+# said here about Cursor's CSS and bundle was measured in Cursor; VS Code is
+# the same workbench, but none of it was re-measured there.
 #
 # The colour theme itself is Bearded (see cursor/settings.json), chosen for its
 # editor and syntax colours. What Bearded also brings is its own window chrome,
@@ -26,10 +28,21 @@
 # scopes get the CURRENT palette, which is correct at all times: only one is
 # ever active, and the one that is active always matches the Omarchy mode that
 # selected it, because `window.autoDetectColorScheme` keys off the same signal.
+#
+# ONE FILE, ONE LINK PER EDITOR. cursor/cursor.sh links this script into
+# theme-set.d once for each editor whose step ran -- cursor-chrome.sh for
+# Cursor, vscode-chrome.sh for VS Code -- and the name it is invoked under picks
+# the editor out of cursor/editors.sh. An editor whose step never ran has no
+# link, so its settings.json is never touched. Run from the repo by its own
+# name, it is Cursor's.
 set -euo pipefail
 
+_self="$(readlink -f "${BASH_SOURCE[0]}")"
+source "$(dirname "$_self")/../../cursor/editors.sh"
+editor_by_hook "$(basename "${BASH_SOURCE[0]}")" || exit 0
+
 THEME="$HOME/.local/state/omarchy/current/theme/vscode-theme.json"
-SETTINGS="$HOME/.config/Cursor/User/settings.json"
+SETTINGS="$EDITOR_USER/settings.json"
 
 # The dark counterpart of Bearded Theme Light, derived by
 # cursor/derive-dark-from-light.py -- the editor-area colours only, since the
@@ -37,7 +50,7 @@ SETTINGS="$HOME/.config/Cursor/User/settings.json"
 # script's own symlink, because a hook runs from ~/.config/omarchy/hooks/.
 # Absent (or an older checkout) simply means dark mode keeps whatever the
 # Bearded dark variant paints, which is what it did before this existed.
-DERIVED="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../../cursor/bearded-dark-colors.json"
+DERIVED="$(dirname "$_self")/../../cursor/bearded-dark-colors.json"
 
 # The active Bearded variant's own JSON, resolved through the extension's
 # package.json (label -> path). It is needed for one thing only: the three
@@ -47,7 +60,7 @@ DERIVED="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../../cursor/bearded-da
 # re-tint is skipped and those families keep their own colours, which is
 # exactly what they did before.
 BEARDED=""
-_bext=$(ls -d "$HOME"/.cursor/extensions/beardedbear.beardedtheme-* 2>/dev/null | sort | tail -1 || true)
+_bext=$(ls -d "$EDITOR_EXT"/beardedbear.beardedtheme-* 2>/dev/null | sort | tail -1 || true)
 
 [[ -f $THEME ]] || exit 0
 [[ -f $SETTINGS ]] || exit 0

@@ -1,60 +1,75 @@
 #!/bin/bash
-# Cursor overrides: chrome hook, settings.json merge, window-layout state
+# Cursor and VS Code overrides: settings.json merge, chrome hook, and (Cursor
+# only) window-layout state
 #
-# See README.md in this directory for what this does and why.
+#   cursor.sh           Cursor
+#   cursor.sh vscode    VS Code, from the same files; apply.sh's `vscode` step
+#
+# The editors are a table in editors.sh. See README.md in this directory for
+# what this does and why.
 # Runnable on its own, and called by ../apply.sh. $HERE is bound to overrides/
 # (not this folder), so every path below reads exactly as it did when this
 # lived in apply.sh.
 set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib.sh"
 HERE="$OVERRIDES"
-
-# See README.md (1)
-if [[ -d ~/.config/Cursor/User ]]; then
-  say "Cursor chrome -> ~/.config/omarchy/hooks/theme-set.d/cursor-chrome.sh"
-  mkdir -p ~/.config/omarchy/hooks/theme-set.d
-  ln -sfn "$HERE/hooks/theme-set.d/cursor-chrome.sh" ~/.config/omarchy/hooks/theme-set.d/cursor-chrome.sh
-  "$HERE/hooks/theme-set.d/cursor-chrome.sh" || skip "cursor-chrome.sh produced nothing this run"
-fi
+source "$HERE/cursor/editors.sh"
+editor_spec "${1:-cursor}" || {
+  printf 'cursor.sh: unknown editor %s (one of: %s)\n' "$1" "${EDITORS[*]}" >&2
+  exit 2
+}
 
 # See README.md (2)
-cursor_settings=~/.config/Cursor/User/settings.json
-if [[ -x /usr/bin/cursor || -d ${cursor_settings%/*} ]]; then
-  mkdir -p "${cursor_settings%/*}"
-  if [[ -s $cursor_settings ]] && ! jq -e . "$cursor_settings" >/dev/null 2>&1; then
-    skip "Cursor settings.json has comments / trailing commas jq won't parse —"
+settings="$EDITOR_USER/settings.json"
+if [[ -x $EDITOR_BIN || -d $EDITOR_USER ]]; then
+  mkdir -p "$EDITOR_USER"
+  if [[ -s $settings ]] && ! jq -e . "$settings" >/dev/null 2>&1; then
+    skip "$EDITOR_NAME settings.json has comments / trailing commas jq won't parse —"
     skip "  merge $HERE/cursor/settings.json in by hand"
   else
-    backup "$cursor_settings"
+    backup "$settings"
     _merged=$(mktemp)
+    # Left to right, each input's keys winning over the last: the editor's own
+    # settings.json, ours for every editor, ours for this one alone
+    # (settings.<id>.json, if there is one), then the dark syntax tokens.
+    _inputs=()
+    [[ -s $settings ]] && _inputs+=("$settings")
+    _inputs+=("$HERE/cursor/settings.json")
+    _own="$HERE/cursor/settings.$EDITOR_ID.json"
+    [[ -f $_own ]] && _inputs+=("$_own")
 # See README.md (3)
     _tokens="$HERE/cursor/bearded-dark-tokens.json"
-    [[ -f $_tokens ]] && jq -e . "$_tokens" >/dev/null 2>&1 || _tokens="/dev/null"
-    if [[ -s $cursor_settings ]]; then
-      if [[ $_tokens == /dev/null ]]; then
-        jq -s '.[0] * .[1]' "$cursor_settings" "$HERE/cursor/settings.json" >"$_merged" 2>/dev/null || true
-      else
-        jq -s '.[0] * .[1] * .[2]' "$cursor_settings" "$HERE/cursor/settings.json" "$_tokens" >"$_merged" 2>/dev/null || true
-      fi
-    else
-      if [[ $_tokens == /dev/null ]]; then
-        jq . "$HERE/cursor/settings.json" >"$_merged" 2>/dev/null || true
-      else
-        jq -s '.[0] * .[1]' "$HERE/cursor/settings.json" "$_tokens" >"$_merged" 2>/dev/null || true
-      fi
-    fi
+    [[ -f $_tokens ]] && jq -e . "$_tokens" >/dev/null 2>&1 && _inputs+=("$_tokens")
+    jq -s 'reduce .[] as $x ({}; . * $x)' "${_inputs[@]}" >"$_merged" 2>/dev/null || true
 # See README.md (4): the font sizes are plain keys in cursor/settings.json now.
     if [[ -s $_merged ]]; then
-      mv "$_merged" "$cursor_settings"
-      say "Cursor -> $cursor_settings (jq merge)"
+      mv "$_merged" "$settings"
+      say "$EDITOR_NAME -> $settings (jq merge)"
     else
       rm -f "$_merged"
-      skip "Cursor settings merge produced nothing — left settings.json untouched"
+      skip "$EDITOR_NAME settings merge produced nothing — left settings.json untouched"
     fi
   fi
 else
-  skip "Cursor not installed — skipped settings.json merge"
+  skip "$EDITOR_NAME not installed — skipped settings.json merge and chrome hook"
 fi
+
+# See README.md (1). After the merge, because the hook reads the two Bearded
+# variant names out of settings.json, and on a fresh profile only the merge has
+# put them there. One hook file, linked once per editor: it repaints whichever
+# editor its link name belongs to (editors.sh), and it is run through that link.
+if [[ -d $EDITOR_USER ]]; then
+  _hook=~/.config/omarchy/hooks/theme-set.d/$EDITOR_HOOK
+  say "$EDITOR_NAME chrome -> $_hook"
+  mkdir -p "${_hook%/*}"
+  ln -sfn "$HERE/hooks/theme-set.d/cursor-chrome.sh" "$_hook"
+  "$_hook" || skip "$EDITOR_HOOK produced nothing this run"
+fi
+
+# Everything below is Cursor's alone: a watcher only Cursor ever had (retired
+# whether or not Cursor is still installed), and two keys in Cursor's own state
+# DB.
+[[ $EDITOR_ID == cursor ]] || exit 0
 
 # See README.md (5): retire the text-size watcher an earlier apply installed.
 if [[ -e ~/.config/systemd/user/cllpse-cursor-text-size.path || -L ~/.local/bin/cllpse-cursor-text-size ]]; then

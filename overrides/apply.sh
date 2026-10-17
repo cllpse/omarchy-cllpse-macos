@@ -51,6 +51,7 @@
 #   7.   the apps Omarchy doesn't theme:
 #          bat/ lazygit/ lsd/ yazi/ lazydocker/ gh-dash/ starship/
 #          cursor/ pi/ hunk/ ytm/ t3code/ bash/ git/ torrenttui/
+#        VS Code is its own step, run from cursor/ (`cursor.sh vscode`)
 #   7b.  restore saved display scaling + text size                     display/
 #   7c.  session environment drop-ins                                  environment.d/
 #   7d.  Chromium flags, zoom and neutral UI                           chromium/ (user)
@@ -444,7 +445,7 @@ echo "        omarchy plymouth set by theme omarchy-cllpse-theme-dark   # or -li
 LOOKNFEEL=(
   fonts fontconfig monospace gtk-fonts hinting ghostty gtk-buttons
   hypr
-  bat lazygit lsd yazi lazydocker gh-dash starship cursor hunk ytm t3code
+  bat lazygit lsd yazi lazydocker gh-dash starship cursor vscode hunk ytm t3code
   icons omarchy theme
 )
 # state rides along for the same reason it does with a ticked selection:
@@ -476,6 +477,7 @@ STEPS=(
   "gh-dash||gh-dash|run:gh-dash|"
   "starship||starship|run:starship|"
   "cursor||Cursor|run:cursor|"
+  "vscode||VS Code: Cursor's settings + chrome|run:cursor vscode|"
   "pi||Pi agent: OpenRouter auto-router|run:pi|"
   "hunk||hunk|run:hunk|"
   "ytm||ytm-player|run:ytm|"

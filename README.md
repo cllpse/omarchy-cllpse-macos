@@ -56,6 +56,7 @@ no `gh` extensions, no `mise` tools. These are the ones a stock Omarchy box does
 ```bash
 sudo pacman -S lsd ghostty yazi keyd python-secretstorage msedit
 sudo pacman -S cursor-bin                        # the `omarchy` repo, not `extra`
+omarchy-install-editor-vscode                    # optional, for the vscode step; first: it overwrites VS Code's settings.json
 yay -S bibata-cursor-theme-bin ytm-player        # AUR — pacman -S will NOT find these two
 omarchy pkg aur add flea-bin                     # AUR too — the file manager, step 7j
 omarchy-install-service-tailscale                # step 7i: the daemon, the login, the operator bit
@@ -66,8 +67,8 @@ gh extension install dlvhdr/gh-dash
 # T3 Code, if you use it: Omarchy menu > Install > AI > T3 Code
 ```
 
-Plus two Cursor marketplace extensions, `beardedbear.beardedtheme` and
-`beardedbear.beardedicons`. The table at the top of
+Plus two marketplace extensions, `beardedbear.beardedtheme` and
+`beardedbear.beardedicons`, in Cursor (and in VS Code, if you use it). The table at the top of
 [`overrides/README.md`](overrides/README.md) is the authoritative list and says
 what each one is for and **how it fails if you skip it** — worth reading, because
 only some are guarded and the failures do not look alike.
@@ -387,7 +388,8 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   paints some of them the window colour and others opaque `muted`), and
   re-tints the three colour families Cursor registers that Omarchy has no key
   for. Both light and dark follow, because the values are rendered from the
-  theme's own `colors.toml` tokens.
+  theme's own `colors.toml` tokens. VS Code gets all of it from the same files,
+  as its own step, `apply.sh vscode`.
 - **App rows in the menu are the one thing Omarchy does not tint.** Every other
   row is a Nerd Font glyph in `foreground`; an app row is a plain image of the
   vendor's logo, so 48 of the 52 visible entries here were full colour. The fix
