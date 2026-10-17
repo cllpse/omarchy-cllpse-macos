@@ -553,7 +553,7 @@ hl.animation({ leaf = "specialWorkspace", enabled = true, speed = 9 / 12, bezier
 -- Hyprland also runs a second, layout-side window alpha on this leaf, so it
 -- moves more than the focus fade.
 
--- ── Presentation-popup width ───────────────────────────────────────────────
+-- ── Presentation-popup size ────────────────────────────────────────────────
 -- The floating terminal Omarchy shows for `omarchy pkg remove` / install /
 -- menu actions (class org.omarchy.terminal, title "Omarchy") opens the
 -- OMARCHY block-art banner via omarchy-show-logo -- built from U+2580/2584/2588
@@ -564,16 +564,29 @@ hl.animation({ leaf = "specialWorkspace", enabled = true, speed = 9 / 12, bezier
 -- 875 x 1.25 = 1093.75 px -> seams. Invisible on a dark background, a stark
 -- white grid on the light theme's white popup.
 --
--- 896 is the nearest width above 875 that is a clean multiple for the cell grid
--- (896 x 1.25 = 1120 px exactly). Verified 2025-09-05 by screenshotting the
--- banner at 875..1000 in 1-4px steps: solid from 896 on, seamed below. This
--- rule loads after default.hypr.omarchy (hyprland.lua requires hypr.looknfeel
--- later), so it wins by file position. Height is left at Omarchy's 600.
+-- The width was 896 until 2026-10-17, the nearest above 875 that is a clean
+-- multiple for the cell grid (896 x 1.25 = 1120 px exactly). Verified
+-- 2025-09-05 by screenshotting the banner at 875..1000 in 1-4px steps: solid
+-- from 896 on, seamed below. The height was Omarchy's 600. This rule loads
+-- after default.hypr.omarchy (hyprland.lua requires hypr.looknfeel later), so
+-- it wins by file position.
 --
--- If `omarchy display text size` changes the Ghostty font size, the clean
--- width changes with the cell metrics -- re-sweep and update the 896. The same
--- goes for the monitor scale: the sweep was at 1.25, the scale again from
--- 2026-10-12 to 16. At 1.33333 (2026-10-11 to 12) 896 x 4/3 = 1194.67 px, where
--- the seams may have been back; that was never re-swept. At scale 1, since
--- 2026-10-16, every width is whole device pixels, so this cause is gone.
-hl.window_rule({ match = { tag = "floating-window", class = "org.omarchy.terminal" }, size = { 896, 600 } })
+-- The sweep was at scale 1.25. At 1.33333 (2026-10-11 to 12) 896 x 4/3 =
+-- 1194.67 px, where the seams may have been back; that was never re-swept. At
+-- scale 1, since 2026-10-16, every width is whole device pixels, so this cause
+-- is gone.
+--
+-- What sizes it now is the grid (2026-10-17). Text size 18 sets GTK's
+-- text-scaling-factor to 1.5556, which Ghostty applies to its points: 9pt
+-- draws 12x32 px cells, and the 14pt padding is 29 px a side. At 896 that is
+-- 69 columns, and the 81-column banner wrapped into a grid of blocks. The
+-- update prompt (banner, omarchy-update-confirm's box, gum's confirm and its
+-- help line) is 29 rows. So:
+--   width  = 2 x 29 + 81 x 12 = 1030
+--   height = 2 x 29 + 29 x 32 = 986
+-- Measured on the live popup, resized in place: solid and whole at 1030x986,
+-- wrapped at 896, the top rows scrolled off at a height of 600.
+--
+-- A new text size changes the cells and the padding: re-measure both (resize
+-- the popup with hl.dsp.window.resize and grim it) and redo the sums.
+hl.window_rule({ match = { tag = "floating-window", class = "org.omarchy.terminal" }, size = { 1030, 986 } })
