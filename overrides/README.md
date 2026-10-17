@@ -611,7 +611,7 @@ yazi/theme.toml               ANSI theme; accent pinned to blue, chrome flattene
 yazi/generate-icons.py        rewrites yazi's ~725 icon rules onto ANSI names, read out of the installed binary — re-run after a yazi upgrade
 yazi/cllpse-macos.tmTheme.tpl  previewer syntax theme with {{ placeholders }} — Xcode's scope assignment in the macOS palette; hex-only, so generated per theme
 hooks/theme-set.d/yazi-syntax.sh  renders the template above into ~/.config/yazi/cllpse-macos.tmTheme on every theme switch, raising hues to 4.5:1 against the background
-hooks/theme-set.d/cursor-chrome.sh  copies Omarchy's window-chrome colours into Cursor's workbench.colorCustomizations (plus the muted@25% sidebar/tab dividers), scoped to the Bearded themes named in cursor/settings.json
+hooks/theme-set.d/cursor-chrome.sh  copies Omarchy's window-chrome colours into Cursor's workbench.colorCustomizations (plus the muted@25% sidebar/tab dividers, and indent guides cut down to the active one, in the selection colour; the matching-bracket box is off in cursor/settings.json), scoped to the Bearded themes named in cursor/settings.json
 gh-dash/theme.yml.tpl         theme.colors as HEX, baked from colors.toml by the theme-set hook and merged into gh-dash's own config.yml
 hooks/theme-set.d/gh-dash-colors.sh  that hook: renders the template above and replaces only theme.colors in ~/.config/gh-dash/config.yml on every theme switch
 hunk/config.toml.tpl          hunk's custom theme with {{ placeholders }} — hex only, so it is generated per theme

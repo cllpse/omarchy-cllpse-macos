@@ -228,6 +228,36 @@ EXACT='["editor.background","editorGutter.background","minimap.background"]'
 SHADOW_LIGHT='#00000024'
 SHADOW_DARK='#00000059'
 
+# GUIDE token -- the indent guides, of which only the active one is drawn: the
+# guide of the scope the caret is in. Cursor has no setting for that, so the
+# inactive guides are painted out instead.
+#
+# INACTIVE is #00000001, not #00000000. Cursor's theming participant for the
+# guides (VS Code's indentGuides, read out of the 3.25.6 bundle) drops any level
+# whose inactive OR active colour is fully transparent, and with no level left
+# it emits no indent-guide rules at all -- so zero alpha would take the active
+# guide with it. 1/255 is invisible and still counts. Only level 1 is set:
+# both Bearded variants and the dark derivation set only level 1, and levels
+# 2-6 default to transparent, so they are dropped already.
+#
+# ACTIVE is the editor's selection colour, alpha included, so the scope guide
+# and selected text are one colour. editor.selectionBackground is in $KEEP, so
+# what Cursor paints is the dark derivation's value, else the active Bearded
+# variant's, and it is read in that same order: #22a5c94d (Bearded Theme
+# Light) on light, #54D7FB4D (the derivation) on dark -- 30% of each. Over
+# the window that is #BCE4EF on #FFFFFF and #2E5661 on #1E1E1E. Neither
+# source readable leaves the key alone, so the theme's own value shows.
+#
+# Getting here: first black / white at the alpha that lands on `muted`
+# (#00000042 / #FFFFFF40, i.e. #BDBDBD / #565656), which read too dark beside
+# the code; then 20% and 15% of the same; then Bearded's own guide teal
+# #68919c at 15%, 50% and 25%; then the selection colour.
+#
+# Set here and not in cursor/settings.json because both keys must be scoped:
+# the dark derivation sets editorIndentGuide.background1 to an opaque #666E70
+# inside the theme scopes, and a scoped key beats an unscoped one.
+GUIDE_INACTIVE='#00000001'
+
 # The rest of $FORCE is mode-independent: all three are fully transparent, and
 # zero alpha reads the same on any background.
 FORCE='{"tab.activeBorderTop":"#00000000","tab.unfocusedActiveBorderTop":"#00000000","editorGroupHeader.tabsBorder":"#00000000","editor.lineHighlightBorder":"#00000000"}'
@@ -385,6 +415,7 @@ fi
 
 if ! jq --slurpfile t "$THEME" --argjson keep "$KEEP" --argjson exact "$EXACT" --argjson force "$FORCE" \
        --arg shadow_light "$SHADOW_LIGHT" --arg shadow_dark "$SHADOW_DARK" \
+       --arg guide_inactive "$GUIDE_INACTIVE" \
        --argjson derived "$derived" --argjson bearded "$bearded" '
       # Hex helpers, for the tab bottom edges below. jq has no printf %02x and
       # no hex literal parser, so both directions are spelled out.
@@ -526,7 +557,12 @@ if ! jq --slurpfile t "$THEME" --argjson keep "$KEEP" --argjson exact "$EXACT" -
          | .["tab.border"] = ($divider // .["tab.border"])
          | .["sideBar.border"] = ($divider // .["sideBar.border"])
          | .["widget.border"] = ($muted // .["widget.border"])
-         | .["widget.shadow"] = $shadow) as $chrome
+         | .["widget.shadow"] = $shadow
+         | .["editorIndentGuide.background1"] = $guide_inactive
+         | (($derived["editor.selectionBackground"]
+             // $bearded["editor.selectionBackground"]) as $sel
+            | if $sel then .["editorIndentGuide.activeBackground1"] = $sel
+              else . end)) as $chrome
       # Derived editor-area colours go UNDERNEATH: every key the chrome copy
       # names wins, so the frame stays whatever Omarchy painted, and only what
       # the chrome does not claim -- editor surfaces, lists, inputs, terminal --

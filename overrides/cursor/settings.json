@@ -41,6 +41,7 @@
   "scss.hover.references": false,
   "html.hover.references": false,
   "editor.bracketPairColorization.enabled": false,
+  "editor.matchBrackets": "never",
   "editor.inlineSuggest.enabled": true,
   "typescript.updateImportsOnFileMove.enabled": "never",
   "html.autoCreateQuotes": false,

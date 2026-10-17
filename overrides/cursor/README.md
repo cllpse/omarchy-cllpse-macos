@@ -116,6 +116,41 @@ button and the `custom` title bar's min/max/close all hidden) merged into
 Omarchy. The Bearded keys are the override's one marketplace dependency;
 everything else in it is a stock Cursor key
 
+## Indent guides: only the current scope's
+
+Cursor has no "active guide only" setting, so `cursor-chrome.sh` paints the
+inactive indent guides out. `editorIndentGuide.background1` is `#00000001`.
+It isn't `#00000000` because Cursor's theming code (3.25.6, the VS Code
+`indentGuides` participant) drops any level whose inactive or active colour is
+fully transparent. With no level left it emits no indent-guide rules at all,
+so the active guide disappears too. An alpha of 1/255 is invisible and still
+counts.
+
+The guide that stays, the one for the scope the caret is in, is the editor's
+selection colour, alpha included: `editorIndentGuide.activeBackground1` is
+copied from `editor.selectionBackground`. That's `#22A5C94D` on light
+(Bearded Theme Light) and `#54D7FB4D` on dark (the dark derivation), 30% each.
+The hook reads it from the derivation, else the active Bearded variant, which
+is the same order Cursor resolves it in. Over the window it lands at
+`#BCE4EF` on `#FFFFFF` and `#2E5661` on `#1E1E1E`. Tried on the way: black /
+white at the alpha that lands on `muted` (`#BDBDBD` / `#565656`), which read
+too dark beside the code, then 20% and 15% of the same, then Bearded's own
+guide teal `#68919C` at 15%, 50% and 25%.
+
+The matching-bracket box is off (`editor.matchBrackets: "never"`, in
+`cursor/settings.json`), so the guide is the only scope marker. The two are
+independent: `matchBrackets` is read only by the bracket-matching controller,
+and the active guide comes from `getActiveIndentGuide`, which works off
+indentation, not brackets.
+
+Only level 1 is set. Both Bearded variants and the dark derivation set only
+level 1, and levels 2–6 default to transparent, so Cursor drops them already.
+These keys can't go in `cursor/settings.json`. The dark derivation puts an
+opaque `#666E70` for `background1` inside the theme scopes, and a scoped key
+beats an unscoped one, so the hook writes both keys into the scopes, after the
+derivation. Probe:
+`jq '."workbench.colorCustomizations" | map_values(objects | with_entries(select(.key | startswith("editorIndentGuide"))))' ~/.config/Cursor/User/settings.json`
+
 ## Window chrome
 
 The colour theme is Bearded, chosen for its editor and syntax colours, but
