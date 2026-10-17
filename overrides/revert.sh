@@ -130,6 +130,8 @@ restore ~/.local/share/applications/t3code.desktop
 update-desktop-database ~/.local/share/applications 2>/dev/null || true
 
 strip_fenced ~/.config/ghostty/config
+rm -f ~/.config/ghostty/shaders/cllpse-unfocused-cursor.glsl
+rmdir ~/.config/ghostty/shaders 2>/dev/null || true
 strip_fenced ~/.config/hypr/hyprland.lua
 strip_fenced ~/.config/hypr/looknfeel.lua
 strip_fenced ~/.config/hypr/bindings.lua

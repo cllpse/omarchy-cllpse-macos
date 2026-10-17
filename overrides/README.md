@@ -604,7 +604,8 @@ starship/starship.toml.tpl    stock starship.toml with {{ accent }} in place of 
 hooks/theme-set.d/starship-colors.sh  renders the template above into ~/.config/starship.toml on every theme switch
 fonts/                        20 SF .otf (SF Mono, SF Pro Text, SF Pro Display), plus comic-code/ -- 2 Comic Code .otf, the editor font, kept out of the SF glob
 fontconfig/conf.d/99-cllpse-macos-ui-font.conf   SF Pro for sans-serif/system-ui + optical-size crossover
-ghostty/ghostty.conf          the Comic Code font at 9pt, a few non-default prefs, and confirm-close-surface back on (Omarchy ships it off)
+ghostty/ghostty.conf          the Comic Code font at 9pt, a few non-default prefs, the unfocused-cursor shader, and confirm-close-surface back on (Omarchy ships it off)
+ghostty/unfocused-cursor.glsl the unfocused cursor as a block at 10% strength, not Ghostty's hollow outline; linked into ~/.config/ghostty/shaders/
 bat/config                    --theme="ansi"
 lazygit/config.yml            gui.theme with ANSI colour names
 lazydocker/config.yml         gui.theme with ANSI colour names (lazydocker's four keys)
