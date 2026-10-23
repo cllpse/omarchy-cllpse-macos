@@ -55,6 +55,7 @@
 #   7b.  restore saved display scaling + text size                     display/
 #   7c.  session environment drop-ins                                  environment.d/
 #   7d.  Chromium flags, zoom and neutral UI                           chromium/ (user)
+#   7d2. Chrome + Electron apps: fontconfig's hinting back            font-flags/
 #   7e.  launcher entries: Figma Desktop, T3 Code's window class       applications/
 #   7f.  app icons for the menu (repainted + verbatim)                 icons/
 #   7f2. post-update repair hook                                       hooks/
@@ -380,7 +381,7 @@ say "Done. Follow-ups:"
 echo "    • omarchy-restart-shell for OMARCHY_MENU_FONT + QML_DISABLE_DISTANCEFIELD (relogin for apps launched through uwsm)"
 echo "    • open a new shell for the fzf colours"
 echo "    • restart Ghostty / Foot windows for SF Mono + slight hinting"
-echo "    • relaunch running GTK / Qt apps for the SF autohint drop-in"
+echo "    • relaunch running GTK / Qt / Chromium / Chrome / Electron apps for the SF autohint"
 echo "    • light theme:  omarchy theme set omarchy-cllpse-theme-light"
 echo "    • the spellcheck/translate/password/autofill/Print/Cast/QR/reading-list policy (9)"
 echo "      already refreshed live if Chromium was running — no relaunch needed"
@@ -487,6 +488,7 @@ STEPS=(
   "torrenttui||TorrentTUI: download folder + ANSI theme|run:torrenttui|"
   "environment.d||Session environment drop-ins|run:environment.d|"
   "chromium-user||Chromium flags, zoom, neutral UI|run:chromium user|"
+  "font-flags||Chrome + Electron apps: fontconfig's hinting back|run:font-flags|"
   "applications||Launcher entries: Figma Desktop, T3 Code's class|run:applications|"
   "icons||App icons for the menu|run:icons|"
   "hooks||Post-update repair hook|run:hooks|"

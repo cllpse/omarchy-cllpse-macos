@@ -80,7 +80,9 @@ Apple's SF Pro and SF Mono carry no hints at all, so for these CFF fonts
 forces FreeType's autohinter for the three SF families. Qt Quick takes it only
 because `QML_DISABLE_DISTANCEFIELD=1` (`hyprland-env.lua`) replaces its
 distance-field text. Chromium and Electron above device scale 1 set hinting to
-none themselves. Hinting a TTF build (`ttfautohint`) does nothing at slight:
+none themselves, unless started with `--disable-font-subpixel-positioning`:
+`chromium-flags.conf`, `overrides/font-flags/` (Chrome, Electron apps) and
+`figma.sh` (Figma's launcher) add it. Hinting a TTF build (`ttfautohint`) does nothing at slight:
 FreeType autohints TrueType there regardless. Probe:
 `fc-match -v 'SFProText Nerd Font Propo' | grep autohint`. See
 `overrides/fontconfig/README.md`.

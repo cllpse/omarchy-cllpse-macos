@@ -43,10 +43,14 @@ What the autohinter reaches, and what it doesn't:
 - **The Omarchy shell, the switcher and the supermenu**: only because
   `QML_DISABLE_DISTANCEFIELD=1` ([`../hypr/hyprland-env.lua`](../hypr/hyprland-env.lua))
   switches Qt Quick from distance-field text, which takes no hinting, to native FreeType glyphs.
-- **Chromium and Electron apps**: no. Above a device scale of 1 they turn on
-  subpixel positioning and with it set hinting to none (`font_render_params_linux.cc`),
-  and every one of them runs above 1 here. `--disable-font-subpixel-positioning`
-  would bring it back; not used.
+- **Chromium, Chrome and the Electron apps**: yes, through a flag. Above a
+  device scale of 1 they turn on subpixel positioning and with it set hinting to
+  none (`font_render_params_linux.cc`), and every one of them runs above 1 here.
+  `--disable-font-subpixel-positioning` hands it back: [`../chromium/`](../chromium/chromium-flags.conf)
+  for Chromium, [`../font-flags/`](../font-flags/README.md) for Chrome and the
+  Electron apps, [`../figma/`](../figma/README.md) for Figma's panels. Checked
+  in headless Chromium at 23/17 (2026-10-23): the top row of an H at 12 CSS px
+  went from 110 to 216, solid ink.
 - **Not at all**: Figma's canvas (its own glyphs), Ghostty (its own load flags,
   and Comic Code is hinted), Kitty (hardcoded).
 

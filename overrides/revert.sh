@@ -143,6 +143,14 @@ strip_fenced ~/.config/git/config
 # --force-device-scale-factor=1 in place after a full revert, with nothing in
 # the repo still pointing at the cause.
 strip_fenced ~/.config/chromium-flags.conf
+# font-flags/: the same fenced block in each Chrome / Electron app's flags file.
+# A file that held nothing else (most did not exist before) goes with it.
+for f in chrome code claude-desktop t3code electron; do
+  strip_fenced ~/.config/$f-flags.conf
+  if [[ -f ~/.config/$f-flags.conf ]] && ! grep -q '[^[:space:]]' ~/.config/$f-flags.conf; then
+    rm -f ~/.config/$f-flags.conf
+  fi
+done
 
 # The other half of that pair: page zoom. Same rule as the font — put back what
 # was recorded at first apply, and with nothing recorded clear the key rather

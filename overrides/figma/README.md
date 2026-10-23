@@ -52,11 +52,11 @@ the id is real, the slug never was.
 
 ## Inside the app directory
 
-The argv cap and the UI scale below are the only things in the repo written
-**inside** the app directory. An update replaces the directory and takes them
-with it, so `figma.sh` reapplies both on every run, including the
-already-up-to-date one: `./overrides/figma/figma.sh --no-apply` repairs an
-install without touching anything else. Both patch
+The argv cap, the UI scale below and the font-hinting flag are the only things
+in the repo written **inside** the app directory. An update replaces the
+directory and takes them with it, so `figma.sh` reapplies all three on every
+run, including the already-up-to-date one: `./overrides/figma/figma.sh --no-apply`
+repairs an install without touching anything else. All three patch
 `usr/lib/figma-desktop/launcher-common.sh`, each behind a marker comment, so a
 second run changes nothing.
 
@@ -70,10 +70,21 @@ socket, and it then seizes the lock and kills the first. The symptom is not a
 login error — the app closes, reopens and asks you to log in again, forever.
 The script comments out the two Wayland IME flags to bring the native path to 7,
 one under the most that parses. The UI scale flag took it to 8 from 2026-10-12
-to 16 (below). **One flag of headroom** is left: a second one added here, or
-by upstream, must replace one. Diagnose
+to 16 (below), and the font-hinting flag has since 2026-10-23. **No headroom is
+left**: any further flag, ours or upstream's, must replace one. Diagnose
 from `~/.cache/figma-desktop-linux/launcher.log`, which records every launch's
 full argv.
+
+## Font hinting
+
+Figma's panels are Chromium, and above a device scale of 1 Chromium sets
+hinting to none, so the SF autohint drop-in ([`../fontconfig/`](../fontconfig/README.md))
+never reached them. `figma.sh` adds `--disable-font-subpixel-positioning` to
+`build_electron_args()` behind its own marker, the flag
+[`../font-flags/`](../font-flags/README.md) gives every other Chromium-based app
+through its flags file (AppRun reads none). It is the eighth argv element on
+native Wayland. The canvas draws its own glyphs and is not reached (below).
+Since 2026-10-23.
 
 ## UI scale
 

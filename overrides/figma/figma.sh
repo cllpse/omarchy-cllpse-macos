@@ -258,6 +258,37 @@ unpin_ui_scale() {
   fi
 }
 
+# ── Font hinting: subpixel positioning off ───────────────────────────────────
+# The third thing this script does inside the app directory. Above a device
+# scale of 1, Chromium turns on subpixel positioning and sets hinting to none
+# (ui/gfx/font_render_params_linux.cc), so the SF autohint drop-in
+# (fontconfig/) never reached Figma's panels. --disable-font-subpixel-positioning
+# hands it back, as font-flags/ does for every other Chromium-based app. AppRun
+# reads no flags file, so the flag goes into build_electron_args(), where it
+# reaches both paths. Native Wayland then launches at 8 argv elements
+# (electron, 5 flags, app.asar, URL): the most the argv cap above lets the
+# figma:// handoff parse, so no headroom is left. The canvas draws its own
+# glyphs and is not reached. Since 2026-10-23.
+HINT_MARK='cllpse-macos: font hinting'
+patch_font_hinting() {
+  if grep -q "$HINT_MARK" "$LAUNCHER_LIB"; then
+    skip "font-hinting flag already applied"
+  elif ! grep -q "^[[:space:]]*electron_args+=('--disable-features=CustomTitlebar')$" "$LAUNCHER_LIB"; then
+    warn "the CustomTitlebar flag is not where it was — font-hinting flag NOT applied"
+    warn "  upstream changed build_electron_args(); re-check the flag count against"
+    warn "  the >= 9 threshold before adding it by hand"
+  else
+    sed -i "s|^\([[:space:]]*\)electron_args+=('--disable-features=CustomTitlebar')$|&\n\1# ${HINT_MARK}: fontconfig's hinting back above scale 1. See README.md.\n\1electron_args+=('--disable-font-subpixel-positioning')|" \
+      "$LAUNCHER_LIB"
+    if bash -n "$LAUNCHER_LIB" 2>/dev/null &&
+       grep -q "^[[:space:]]*electron_args+=('--disable-font-subpixel-positioning')$" "$LAUNCHER_LIB"; then
+      say "font-hinting flag applied — native Wayland launches at 8 argv elements"
+    else
+      die "the font-hinting patch corrupted $LAUNCHER_LIB — reinstall with --force"
+    fi
+  fi
+}
+
 patch_launcher() {
   if [[ ! -f $LAUNCHER_LIB ]]; then
     warn "launcher-common.sh is not where it was — argv cap NOT applied"
@@ -266,6 +297,7 @@ patch_launcher() {
   fi
   patch_argv_cap
   unpin_ui_scale
+  patch_font_hinting
 }
 
 if [[ -n $INSTALLED && $INSTALLED == "$TARGET" && $FORCE -eq 0 ]]; then

@@ -298,6 +298,7 @@ script works the same whether you run it by hand or `apply.sh` calls it.
 | 7b | Restore saved display scaling + text size. **Full detail: [`display/README.md`](display/README.md).** | `omarchy display text size`, the two scale variables in `~/.config/hypr/monitors.lua` |
 | 7c | Session environment drop-ins (Figma → native Wayland). Read at session start, so they need a relogin. **Full detail: [`environment.d/README.md`](environment.d/README.md).** | `~/.config/environment.d/50-cllpse-macos-figma-wayland.conf` |
 | 7d | Chromium flags (UI scale 23/17 with pixel-canvas recording, so menu separators stay one pixel row tall; a default page zoom of 150 / that scale, 110.87%, so pages sit at 1.5 device px per CSS px), overlay scrollbars, a neutral browser UI and our profile avatar. **Full detail: [`chromium/README.md`](chromium/README.md).** | fenced block in `~/.config/chromium-flags.conf` + `partition.default_zoom_level`, `extensions.theme.system_theme` and `browser.theme.is_grayscale2` in each `~/.config/chromium/*/Preferences` + `~/.config/chromium/Avatars/avatar_abstract_sandwich.png` |
+| 7d2 | `--disable-font-subpixel-positioning` for Chrome and the Electron apps (VS Code, Claude, T3 Code, Cursor, Obsidian), each through the flags file its own launcher reads. Above a device scale of 1 Chromium sets hinting to none; this hands fontconfig's (the SF autohint) back. Chromium's copy is in step 7d, Figma's in its own step<br>**Per-override detail: [`font-flags/`](font-flags/README.md)** | fenced blocks in `~/.config/{chrome,code,claude-desktop,t3code,electron}-flags.conf` |
 | 7e | Launcher entries. Figma Desktop's — the app gets `Name=` and `StartupWMClass` wrong for this desktop and regenerates its own entry on every launch. And T3 Code's, whose `StartupWMClass=t3code` misses its window class `com.t3tools.T3Code`: a copy with that one line corrected, derived from the package's on every run. **Full detail: [`applications/README.md`](applications/README.md).** | `~/.local/share/applications/figma-desktop-appimage.desktop`, `~/.local/share/applications/t3code.desktop`, and `~/Applications/figma-desktop/AppRun` restored if wrapped |
 | 7f | App icons for the menu, which draws app rows as a plain image and cannot recolour. **Full detail: [`icons/README.md`](icons/README.md).** | `~/.icons/cllpse-flat/apps/`, `~/.icons/cllpse-color/apps/`, `~/.config/omarchy/hooks/theme-set.d/app-icons.sh` (symlinked) |
 | 7f2 | Post-update repair hook — re-link what an `omarchy update` could quietly take out. **Full detail: [`hooks/README.md`](hooks/README.md).** | `~/.config/omarchy/hooks/post-update.d/cllpse-macos-repair.sh` (symlinked) |
@@ -477,8 +478,11 @@ so slight does nothing to it without step 2's autohint drop-in, which forces
 FreeType's autohinter for the SF families (2026-10-23). The shell's text takes
 it only because step 6 sets `QML_DISABLE_DISTANCEFIELD` (Qt Quick's distance
 fields take no hinting). Chromium and Electron apps run above a device scale of
-1, where they switch hinting off themselves. Not reached at all: Figma's canvas.
+1, where they switch hinting off themselves; `--disable-font-subpixel-positioning`
+(steps 7d and 7d2, and Figma's step) hands it back to every one of them. Not
+reached at all: Figma's canvas.
 Detail: [`fontconfig/README.md`](fontconfig/README.md).
+
 
 ## How each app is themed
 
@@ -554,7 +558,7 @@ differences above are the ones to check by hand.
 - **`omarchy-restart-shell`** for `OMARCHY_MENU_FONT` and `QML_DISABLE_DISTANCEFIELD` in the shell: Hyprland's own children see `hl.env` after the step-8c reload. Apps launched through uwsm read the systemd user environment, which only a **log out / back in** updates. (The `looknfeel.lua` decoration block — rounding, blur — picks up on the theme-set reload in step 8; the Omarchy shell re-reads what it mirrors on that same `omarchy theme set`, or `omarchy-restart-shell`.)
 - **Open a new shell** for the `fzf` colours.
 - **Restart Ghostty / Foot** windows for the new monospace font + slight hinting (Kitty/Alacritty reload themselves).
-- **Relaunch running GTK / Qt apps** to pick up the SF autohint drop-in.
+- **Relaunch running GTK / Qt / Chromium / Chrome / Electron apps** (Figma included) to pick up the SF autohint drop-in and the flag that lets Chromium-based apps use it.
 - **Log out / back in** for the `environment.d` drop-in — the systemd user session reads it at session start.
 - **The app icons (7f) appear as soon as the menu next opens** — `AppLibrary.refreshIcons()` rescans when a consumer opens, so no restart is needed to *find* them. Changing their *colour* is different: Qt caches decoded images by URL, and the path does not change between themes, so a re-render only shows up after a shell restart. `omarchy theme set` does not restart the shell (it pushes the palette over IPC), so `app-icons.sh` restarts it itself whenever its output actually changed — except on a locked session, where `omarchy-restart-shell` refuses and the old colour stands until the next theme change or shell restart.
 - **Quit Chromium before the step 7d zoom-clearing and theme halves**, and relaunch after. Chromium rewrites `Preferences` from memory on exit, so a write made while it is running is discarded; the script detects this and skips rather than reporting a change that will not survive. The flag half needs only a relaunch. Sites already zoomed with ctrl+/- keep their own `per_host_zoom_levels` and ignore the default.
