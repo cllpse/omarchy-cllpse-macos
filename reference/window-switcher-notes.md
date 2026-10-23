@@ -87,9 +87,59 @@ surface was click-through it received no Qt pointer events at all, so hover was
 done by running `hyprctl cursorpos -j` on a 40ms timer — 25 process spawns a
 second, ~3–4ms each, for the entire time the strip was on screen. A real input
 region gave it `hoverEnabled` for free. Measured shell CPU with the strip open:
-**1.0% → 0.0%**. `onPositionChanged` only fires on actual movement, which also
-replaced the old `hoverBase` distance threshold that existed to stop a resting
-cursor yanking the keyboard's selection.
+**1.0% → 0.0%**. This paragraph went on to say `onPositionChanged` only fires on
+actual movement, and the old `hoverBase` distance threshold, which stopped a
+resting cursor yanking the keyboard's selection, was dropped on the strength of
+it. That was wrong, and the threshold is back: see *A resting pointer is not
+hover* below.
+
+### A resting pointer is not hover (2.7.1)
+
+A quick `SUPER+TAB` with the pointer resting where the strip appears committed
+the tile under the pointer, not the window you came from. On Qt 6.11.2,
+`QQuickMouseArea::hoverEnterEvent` emits `positionChanged` as well as `entered`
+(`qquickmousearea.cpp`, tag `v6.11.2`), so the strip mapping under a still
+pointer reports a position at once. Only `hoverMoveEvent` checks that the
+position changed. A tile row shifting under a still pointer reports one too:
+the frame-synchronous hover Qt Quick sends while items are dirty arrives at a
+new item-local position.
+
+`_hoverAt` gates the hover branch, using two rules taken from shipped code:
+
+- **Distance, from Qt's `QMenu`.** `QMenuPrivate::hasMouseMoved` takes the mouse
+  as moved once it is more than `QApplication::startDragDistance()` from where
+  the menu popped up, manhattan (or after six motion events, which an 8000Hz
+  mouse produces in under a millisecond, so that half is left out). Here it is
+  `Qt.styleHints.startDragDistance`, 8px, the drag threshold the strip already
+  uses, measured in scene coordinates so the row moving is not motion.
+- **Time, from GNOME Shell's switcher.** `switcherPopup.js` calls
+  `_disableHover()` at construction ("so we ignore the enter-event if the
+  switcher appears underneath the current pointer location") and on every key
+  press and scroll. Hover is off for `DISABLE_HOVER_TIMEOUT`, 500ms. Here
+  `hoverHold` is 250ms, half that (500 at first, halved on request: still
+  longer than a quick tap, and the highlight lags a deliberate pointer less).
+  It restarts on every `next`/`prev`, the opening one included.
+
+Motion inside the hold moves the anchor instead of counting toward the 8px. A
+mouse knocked 15px during the tap therefore cannot arm hover later: the 8px have
+to be travelled after the hold. Once armed, hover stays armed until the next
+key press. A corner summon (`show`) starts armed, since there the pointer is the
+gesture. Clicks are not gated.
+
+What others do, for reference. GNOME also delays showing its popup by
+`POPUP_DELAY_TIMEOUT` (150ms) "so that fast Alt+Tab users aren't disturbed by
+the popup briefly flashing", and selects only on motion events, never on enter.
+KWin's TabBox delays its show the same way (`[TabBox] DelayTime` in `kwinrc`).
+Neither delay is used here: the strip appears at once on purpose.
+
+**Verified** with `qmltestrunner` on `QT_QPA_PLATFORM=offscreen`, so no display,
+pointer or keyboard is touched. The gate's text is cut out of `Hud.qml` and
+dropped into a test item with four 100px tiles under a real `MouseArea`. Six
+cases passed: strip appearing under a still pointer, a 15px bump inside the
+hold followed by a 1px nudge, jitter up to manhattan 8, a `TAB` after hover had
+taken over, a corner summon, and the row shifting 20px under a still pointer.
+With the gate replaced by `return true` (the old behaviour), five of the six
+fail. Only the corner summon passes, as it should.
 
 The `MouseArea` carries `cursorShape`: a pointing hand over the tiles, closing
 on one while it is being dragged.
@@ -253,6 +303,8 @@ focuses.
 One row or one column. A workspace that mixes horizontal and vertical splits has
 no ordering that a single strip of tiles could point at, and none is invented —
 see the walk below, which stops as soon as the layout declines to move.
+A drop on a window has a second offer that needs no ordering: it splits that
+window — see *Splitting a window* below.
 
 Ordinary press / move / release — no `Drag`/`DropArea`, because there is nothing
 for a `DropArea` to *be*. The drop targets are workspace groups, and a group is
@@ -402,6 +454,151 @@ every time:
   still shows — that is the drop target, and an empty workspace is a perfectly
   good one — but the caret stays down rather than pointing at a choice that does
   not exist.
+
+### Splitting a window (2.7.0)
+
+Over a tiled window's tile, on any workspace, a drop is aimed at that window
+rather than a boundary. The tile is cut into thirds of the row: the top third
+puts the dragged window above it, the bottom third below, the middle beside it,
+on whichever half the pointer is over. The bar on the tile's top or bottom edge
+(the caret turned on its side) and the caret at its side read one value,
+`dropSplit`, which is a dwindle direction (`u`/`d`/`l`/`r`). So what is drawn and
+what is dispatched cannot disagree.
+
+**The hint is the bar or the caret and nothing else.** The first cut also tinted
+the band the pointer was in and drew rules between the three bands. Both went
+on 2026-10-22, at the user's call. The bar is drawn at `card.ruleStroke`, the
+weight of the group rule — the strip's main separator — which is also the
+caret's weight. The tint under it had made it read heavier. The ghost still
+thins to 0.55 over a split. It is a 48px chip centred on the pointer, and in the
+top or bottom third of a 104px tile it sits right over the edge the bar is on.
+
+Dwindle has no "open A against B" to dispatch. What it has is the path a window
+takes into the tree, `CDwindleAlgorithm::addTarget` (read in Hyprland 0.56.2's
+source, not assumed). That path picks the window to split (`OPENINGON`), then the
+axis and side. So the drop is one `hyprctl eval` chunk (`_splitChunk`) that sets
+the path up to pick B and the side asked for, then floats A and tiles it again,
+which sends it through. That works whether A starts on B's workspace or another,
+and takes a window that started floating into the split too. What the path picks
+depends on whether B's workspace is on screen, so the chunk takes one of two
+roads, chosen live.
+
+**On screen.** With `use_active_for_splits` on (the default) and no focal point,
+`OPENINGON` is the *focused* window. The axis and side come from `preselect` if
+one is pending. Otherwise the target's shape decides (wider than tall: side by
+side) and `force_split = 2` puts the newcomer second, which is why the boundary
+walk can never put a window above a full-width one. So: focus B,
+`preselect <dir>`, tile A, `preselect none`, refocus whatever had focus.
+`preselect` is a layout message, and `CLayoutManager::layoutMsg` sends it to the
+focused monitor's active workspace (its special workspace if one is shown) with
+no workspace or window argument. That is why this road cannot leave the screen.
+
+**Off screen.** The focused window is not on that workspace, so `addTarget` falls
+through to `getClosestNode(MOUSECOORDS)`, the window nearest the pointer. With
+`smart_split` on, the pointer's offset from that window's centre picks the side
+by triangle: top, bottom, left or right, independent of the window's shape. So:
+read `smart_split`, set it on, `cursor.move` to the middle of B's half on that
+side (a quarter of B from its centre), tile A, then restore `smart_split` and the
+pointer. Nothing is focused and the visible workspace never changes.
+`hl.config` at runtime only parses the value and schedules a refresh
+(`hlConfig`, `LuaBindingsConfigRules.cpp`), so the toggle is cheap. This road
+can split a tall window left and right, which dwindle's shape rule never would.
+
+Ruled out on the way there:
+
+- **Targeted moves can't stand in for either road.** `window.move({ direction })`
+  splits whatever is next to A, on the axis its shape dictates, and its own
+  special case overwrites a pending `preselect` when A moves toward a
+  single-window partner. `window.swap({ target })` swaps, it does not split.
+  `movetoroot` takes a window but is still a layout message.
+- **Moving to a workspace passes no focal point**, so on a hidden workspace a
+  window lands next to whatever is nearest the pointer, wherever that happens to
+  be. The off-screen road works by choosing that position deliberately.
+- **`use_active_for_splits = false` doesn't help off screen.** With it off, a
+  hidden workspace falls through to `getFirstNode()`, the oldest node in the
+  tree, which may be an internal one.
+
+Both roads, the details:
+
+- **The pointer.** On screen it stays put with `cursor:no_warps` on (set here):
+  `Actions::focus` calls `warpCursor()`, and `CPointerController::warpTo` returns
+  early on `no_warps` unless forced. Without it the pointer would warp to B. Off
+  screen it is moved on purpose. Either way the chunk compares
+  `get_cursor_pos()` before and after and moves it back, and since `cursor.move`
+  forces the warp, only if it actually moved.
+- **The warp reaches the strip as motion.** `cursor.move` ends in
+  `simulateMouseMovement()`, and both warps arrive at the HUD's surface. Left
+  alone, that motion is hover and would move the highlight off the window that
+  was just dropped. `splitSettling` holds hover off for 600ms.
+- **Focus.** With `follow_mouse = 2` (set here) a warp only moves keyboard focus
+  if the window under the pointer differs from the focused one in floating
+  state (`float_switch_override_focus`). The tail refocuses the window that had
+  focus if anything changed, but **only if it is still on the visible
+  workspace**. Focusing a window anywhere else would switch to it, and the
+  window that had focus may be A, now on another workspace.
+- **The tail runs whatever happens.** The steps run under `pcall`, then
+  `preselect none` or the `smart_split` restore, plus a second unfloat of A,
+  always follow. A pending preselect would apply to the next window opened, and
+  a `smart_split` left on would steer every split after it.
+- **The checks run again live in Lua:** B tiled, no fullscreen on its workspace,
+  A not fullscreen, neither window in a group, layout `dwindle`, and on screen
+  no special workspace shown. A refusal falls back to the plain workspace move.
+  The strip checks what it can see beforehand (`_splitTileAt`): floating tiles,
+  the tile in the hand, a workspace with a fullscreen window and a non-dwindle
+  one keep the boundary offer.
+- **The focus round trip is kept out of the history.** On screen, both
+  activewindow events reach `onActiveToplevelChanged`. `splitFocusGuard`
+  ignores B for 600ms, and the hand-back is a no-op there because it returns to
+  `activeAddr`. Without the guard, the next `SUPER+TAB` would alternate to B.
+- **The auto-scroll redoes the whole hit-test** (`_dragTo`) rather than updating
+  only `dropWsId`. A strip scrolling under a still pointer changes the tile and
+  the slot as well. The slot was going stale before this.
+
+Verified on throwaway `foot` windows (2026-10-22), running the chunk exactly as
+`_splitChunk` generates it:
+
+- **On screen**, on the focused workspace: `u`, `d`, `l` and `r` each put A on
+  that side of B at half of B's box. A sent to workspace 9 first came back above
+  B with the view still on 3. Focus returned every time, the pointer never
+  moved, and closing both left the workspace exactly as it started. That was
+  before the chunk grew its second road; the on-screen steps are the same ones,
+  re-ordered under an `if`, and have not been re-run since.
+- **Off screen**, on workspaces 8 and 9 opened with `workspace = "8 silent"` so
+  nothing was focused. P and Q were side by side and A came in from 9: above P,
+  below P, left of P (a left/right split of a tall window), right of Q and above
+  Q all landed as aimed. `smart_split` read false after every chunk, and the
+  view stayed on 4 throughout.
+
+### Where each window sits (2.7.0)
+
+While a drag is over a workspace, each of its tiles carries a dot in the
+theme's accent (`#007AFF` in these themes) at the point of the tile matching
+where the window is on that workspace: a corner for a quarter, the middle of an
+edge for a half. `_placePositions` classifies each tiled window against the
+box its workspace's tiled windows cover between them, not against the monitor,
+so gaps, the bar and reserved space drop out without being known. Touching that
+box's left edge and not its right is left; both is the full width; neither is a
+middle column. Windows on an edge sit on it exactly, and a 4px slack absorbs
+rounding. **No dot for a window that would get the centre**, i.e. one that
+spans or sits in the middle of both axes: alone on its workspace, a middle
+column the full height, a middle row the full width. The centre says nothing
+about where to aim, and it lands on the tile's mark (2026-10-22, the user's
+call; it used to show). Floating and fullscreen windows are not part of the
+tiling and get none either, and nor does an empty workspace's tile. It sits in from the tile's edge by the card's padding
+(6px), the distance the tiles sit from the card's edge. It started at the tile's
+content padding (12px) and moved closer to the edges at the user's call.
+
+**Only during a drag, and only on the workspace under it** (2026-10-22, the
+user's call). It is the map a split is aimed by, and shown on every tile all the
+time it was noise. The dot's `visible` is bound to `dropReady` and
+`dropWsId`, the same pair the group highlight reads, so the dots and the
+highlight always mark the same workspace. Showing them on hover as well, for
+the workspace under the pointer, was tried on 2026-10-23. The user rolled it
+back the same day and preferred drag-only.
+
+The position is part of `_sameWins`, because a split can change it without
+changing the order. Two windows side by side, stacked instead, sort the same, and
+the dots would otherwise go stale.
 
 ## Back-and-forth
 
