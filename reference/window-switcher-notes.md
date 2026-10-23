@@ -600,6 +600,139 @@ The position is part of `_sameWins`, because a split can change it without
 changing the order. Two windows side by side, stacked instead, sort the same, and
 the dots would otherwise go stale.
 
+## Re-arranging workspaces (2.8.0)
+
+Each group has a handle floating under the card, centred on its run of tiles: a
+plain pill of solid accent (`#007AFF`), no border, nothing in it. **It is
+measured in one unit, the card's bottom inset** (border plus padding, the
+distance from the tiles down to the card's lower edge). A handle is
+`card.handleUnits` tall (1.75, stepped by quarters) and twice that wide: at
+base-size 18 the unit is 12 (3 + 9), so 42×21. It follows the text size and
+`switcher-card-padding` with the card.
+
+**It floats twice the card's padding below the card**, as the theme step
+nearest that: `Style.spacing.xxl`, which is exact, 2×6 = 12 at scale 1 and
+2×9 = 18 at base-size 18 (the user's call, 2026-10-23). It was one unit, 12
+here, as far outside the card as the tiles sit inside. "Padding" is taken
+without the border: twice the inset would be 24, equidistant from `xxxl` (21)
+and `huge` (27).
+
+**A handle takes a press `handleReach` below its pill**, the same unit as the
+gap (the user's call, the same day), so 18px of target under a 21px pill
+here, with nothing drawn there. The row is that much taller to carry it: it
+clips, and Qt delivers no input to a child outside a clipping parent. The
+hover band in `_overSwitcher` and the drop zone in `_wsDragTo` both read the
+row's height, so the handle stays shown over its reach and a carry there still
+drops.
+
+**Only the hovered workspace's handle shows**, crossfading between groups the
+way the highlight crossfades between tiles. **Its fade takes the items'
+length, `animDuration` (58ms), on its own curve:** `Easing.OutCubic`,
+Omarchy's QML fade curve, not `animCurve`. A separate `handleFadeDuration`
+existed briefly and was folded back into `animDuration` at the user's call. Both are the user's calls from
+2026-10-23. Doubling the length to 116ms came first and changed nothing on
+screen. Hyprland's `default` curve front-loads the change: at 120Hz a handle
+reached 60% in one frame and 73% in two at 116ms (73 and 87 at 58ms). An
+offscreen `qmltestrunner` copy of the delegate showed the fade running, with
+no delegates rebuilt, and jumping 0 → 77% on its first 60Hz tick. So it was
+the curve. The selection survives that curve because it steps the card's
+colour by a shade; a saturated pill on the desktop does not. OutCubic over
+116ms ran 20, 37, 52, 64, 73, 81% by frame (43, 72, 82, 94% on the test's
+ticks), and the outgoing handle ended at 0 and not visible. The user then took
+the length back to 58ms, where OutCubic runs 37, 64, 82, 92, 98%. `handleWsId` is a binding off
+the pointer's last panel position, not a value set on hover. Every MouseArea
+the pointer can be over reports to `_notePointer`: the click-away (made
+`hoverEnabled` for this), the tiles and the shown handle. So it follows the
+strip moving under a still pointer: a scroll, or the re-sort after a drop.
+`_wsUnder` works by x alone on `_wsAt`'s nearest-tile rule, over the card, the
+gap and the handle row, so the pointer can travel down from the tiles to the
+handle without crossing a gap where it hides. A carried handle stays shown
+wherever the pointer goes. None shows during a tile drag. A hidden handle is
+`visible: false`, so a press there reaches the click-away.
+
+How it got there, all on 2026-10-23 at the user's call: first 48×24 through
+`Style.space()` in the card's own chrome (menu background and border, a 3×2
+grip of dots at 0.52, the selected fill under the pointer), which drew at 72×36
+here; then solid accent with white dots at 44×22 the same way, 66×33 here and
+still too big; then this unit at two units, 48×24; then the dots dropped and
+1.5 units; then 1.75, every handle hidden until the pointer was over the
+switcher, and straight after, before it was ever seen, only the hovered
+workspace's. The first report gave 48×24 without saying it was at scale 1, so
+the 44×22 asked for next was a reduction from a size never on screen.
+
+**Using a handle never switches** (the user's call, the same day). A press sets
+`stayPut`: `commit()` then dismisses without focusing, `_stayPut` moves the
+highlight to `_hereIndex()` (the empty workspace on screen, else the focused
+window), and hover stops moving it. A SUPER+TAB strip opens on the MRU window,
+so before this a re-arrange followed by the release went there. A TAB, a click
+on a tile or `_dragStart` clears it, since each is a choice again, as do
+`_openStepped`, `close` and `dismiss`. A press on a handle without a drag counts
+too.
+
+Carrying one along the row moves that workspace to the boundary dropped on.
+The handle follows the pointer along the row, the group's tiles fade to 0.3 as
+a dragged tile does, and the target boundary is a group rule lit in
+`selectedText`, at the rules' full card height. It is centred in the padding at
+either end. The boundaries either side of the carried group are no-ops and draw
+nothing. The handles live outside the ListView, so their presses never reach
+`tiles`, and the two drags cannot overlap: `_dragCancel` clears both.
+
+**The places keep their numbers; the workspaces move between them.** The
+groups' ascending ids are the places, the carried workspace is taken out and put
+back at the boundary, and the workspace in place *p* takes place *p*'s id. An
+empty group is a place like any other. On a strip of 1–5 plus 8, dragging 8 to
+the front makes the old 5 the new 8. Compacting to 1–6 was the alternative,
+and it renumbers workspaces nobody touched.
+
+**Renumbered, not moved.** Hyprland 0.56.2 has `hl.dsp.workspace.change_id`
+(`CWorkspace::changeID`): same object, new id, the name following unless
+renamed, and it posts `changeworkspaceid>>OLD,NEW`. Windows, layout tree, split
+ratios and which workspace is on screen are all untouched. Moving every window
+instead would rebuild each tree in arrival order and lose the split ratios.
+`change_id` refuses a held id (`Actions::changeWorkspaceID`: "ID is taken"), so
+the chunk parks every moving workspace at 2000000000 + its old id, then places
+it. It checks first, and on any refusal it undoes in reverse: placed ones back to
+their parking ids, then all back home. `hl.dispatch` returns `{ ok, error,
+code }` rather than raising, which is what the chunk tests. `hyprctl eval`
+prints only `ok` or an error, so results were read back through a global
+and `error()`.
+
+**Layout has to be carried by hand.** Omarchy's toggle keeps dwindle or
+scrolling per id: a runtime `hl.workspace_rule` plus
+`~/.local/state/omarchy/workspace-layouts/<id>.lua`, loaded on every config
+load. Rules re-apply by the new id (hyprtester
+`workspaceChangeIDUpdatesRules`), and `CWorkspaceAlgoMatcher::
+updateWorkspaceLayouts` rebuilds a workspace only when its layout differs. So
+the chunk adds a rule on the new id where the layout differs from what that id
+already had, and permutes the files in the toggle's own format. It reads all
+of them before writing any. The rules land in the same pass, because
+`changeID` only schedules its refresh.
+
+**Quickshell 0.3.1 ignores `changeworkspaceid`** (`connection.cpp` has no
+branch for it), and a `HyprlandWorkspace`'s id is fixed once set. Omarchy's
+bar reads per-object `toplevels` and `focusedWorkspace`, so it would show the
+old numbers. `workspaceResync`, 120ms after the event, runs
+`refreshWorkspaces()` and `refreshMonitors()` after the 24ms
+`refreshToplevels()`. Toplevels re-link by workspace *name*, creating missing
+objects with id -1. `refreshWorkspaces` fills those ids, and `refreshMonitors`
+moves the active workspace. Both QML entry points run with `canCreate` false,
+so an object whose id stopped existing is never removed. **Open:** a re-arrange
+that empties an id above 5 leaves a dim bar pip until a config reload or a
+destroy event for that id. Every way found to force one has side effects: a
+`configreloaded` injected through `hl.dsp.event` reaches every socket2 client,
+and a focus round trip pollutes the workspace history.
+
+**Verified.** On the live desktop, the chunk swapped workspaces 3 and 4 (both
+off screen, all dwindle, no layout files): four windows changed workspace with
+identical geometry, names followed, and running the same chunk again restored
+`hyprctl clients` byte for byte. The rest ran against a mock `hl` in Lua 5.4,
+with the chunk generated from `Hud.qml` by Node. Five cases: a scrolling
+workspace dragged to the front of two saved dwindle ones (rules `1=scrolling
+3=dwindle`, files permuted), a refusal in phase 1 and in phase 2 (full
+rollback, no rules, files untouched), a drag past an empty place, and a target
+held by a workspace that is not moving (nothing changes). The drag itself, the
+handles' look and the bar's resync are for the user to judge on screen.
+
 ## Back-and-forth
 
 A single `SUPER+TAB` returns to the window you came from, and a second brings you
