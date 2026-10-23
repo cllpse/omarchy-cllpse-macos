@@ -61,6 +61,7 @@ say "Removing SF + Comic Code fonts + fontconfig drop-ins"
 rm -rf ~/.local/share/fonts/SF
 rm -rf ~/.local/share/fonts/ComicCode
 rm -f ~/.config/fontconfig/conf.d/99-cllpse-macos-ui-font.conf ~/.config/fontconfig/conf.d/99-sf-pro.conf
+rm -f ~/.config/fontconfig/conf.d/99-cllpse-macos-autohint.conf
 rm -f ~/.config/fontconfig/conf.d/11-cllpse-macos-hinting.conf ~/.config/fontconfig/conf.d/11-hinting-none.conf
 fc-cache -f >/dev/null 2>&1
 

@@ -73,6 +73,18 @@ for our drop-in icon sets (`~/.icons/cllpse-flat/` and `cllpse-color/`).
 The switcher reads four icon sources; the optional `~/.icons/cllpse-flat/apps/`
 is one of them. See `overrides/icons/AGENTS.md`.
 
+### SF ships unhinted; hinting reaches it only through the autohinter
+
+Apple's SF Pro and SF Mono carry no hints at all, so for these CFF fonts
+`hintslight` and `hintnone` render identically. `99-cllpse-macos-autohint.conf`
+forces FreeType's autohinter for the three SF families. Qt Quick takes it only
+because `QML_DISABLE_DISTANCEFIELD=1` (`hyprland-env.lua`) replaces its
+distance-field text. Chromium and Electron above device scale 1 set hinting to
+none themselves. Hinting a TTF build (`ttfautohint`) does nothing at slight:
+FreeType autohints TrueType there regardless. Probe:
+`fc-match -v 'SFProText Nerd Font Propo' | grep autohint`. See
+`overrides/fontconfig/README.md`.
+
 ### `flea --default` takes Cmd+Shift+F
 
 Flea (AUR `flea-bin`) is the file manager. Its own `flea --default` appends a

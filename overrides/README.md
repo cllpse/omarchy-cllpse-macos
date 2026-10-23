@@ -284,10 +284,10 @@ script works the same whether you run it by hand or `apply.sh` calls it.
 |---|---|---|
 | 0 | Record the font and theme the machine had *before* the first apply, so `revert.sh` has something true to restore. Written once; values already ours are refused | `~/.local/state/cllpse-macos/previous-{font,theme}` |
 | 1 | Symlink both `omarchy-cllpse-theme-{dark,light}/` folders as themes, and `omarchy-cllpse-plugin-switcher/` and `omarchy-cllpse-plugin-supermenu/` as plugins. All four are **submodules** ([dark](https://github.com/cllpse/omarchy-cllpse-theme-dark), [light](https://github.com/cllpse/omarchy-cllpse-theme-light), [switcher](https://github.com/cllpse/omarchy-cllpse-plugin-switcher), [supermenu](https://github.com/cllpse/omarchy-cllpse-plugin-supermenu)), so the step first refuses outright if any of those directories is empty — a plain `git clone` leaves it so, and symlinking a registered plugin id at nothing fails silently in the shell | `~/.config/omarchy/themes/omarchy-cllpse-theme-{dark,light}`, `~/.config/omarchy/plugins/cllpse.{window-switcher,supermenu}` |
-| 2 | Install SF + Comic Code fonts + the fontconfig drop-in (UI font)<br>**Per-override detail: [`fonts/`](fonts/README.md), [`fontconfig/`](fontconfig/README.md)** | `~/.local/share/fonts/{SF,ComicCode}/`, `~/.config/fontconfig/conf.d/99-cllpse-macos-ui-font.conf` (and deletes the retired `11-cllpse-macos-hinting.conf`) |
+| 2 | Install SF + Comic Code fonts + the fontconfig drop-ins (UI font, and the autohinter for SF, which ships unhinted)<br>**Per-override detail: [`fonts/`](fonts/README.md), [`fontconfig/`](fontconfig/README.md)** | `~/.local/share/fonts/{SF,ComicCode}/`, `~/.config/fontconfig/conf.d/99-cllpse-macos-ui-font.conf`, `99-cllpse-macos-autohint.conf` (and deletes the retired `11-cllpse-macos-hinting.conf`) |
 | 3 | Monospace → SF Mono (Omarchy's own knob) | `omarchy font set` → terminal configs + `fonts.conf` |
 | 4 | GTK/GNOME fonts → SF Pro / SF Mono | `gsettings org.gnome.desktop.interface` |
-| 5 | Font hinting → the default, slight: GTK's key is reset, which undoes the `none` this step set until 2026-10-12. fontconfig and Ghostty are at slight by their own defaults<br>**Per-override detail: [`fontconfig/`](fontconfig/README.md)** | `gsettings reset … font-hinting` (GTK/GNOME) |
+| 5 | Font hinting → the default, slight: GTK's key is reset, which undoes the `none` this step set until 2026-10-12. fontconfig and Ghostty are at slight by their own defaults. GTK 4 in its default mode ignores the key and draws at slight anyway<br>**Per-override detail: [`fontconfig/`](fontconfig/README.md)** | `gsettings reset … font-hinting` (GTK/GNOME) |
 | 5a | Ghostty: Comic Code at 9pt (Omarchy's text size through the GTK factor), a few non-default prefs, confirm-close-surface back on, and the unfocused cursor as a block at 10% strength by a custom shader, in place of Ghostty's hollow outline. Open windows keep what they started with<br>**Per-override detail: [`ghostty/`](ghostty/README.md)** | `~/.config/ghostty/config` (fenced block), `~/.config/ghostty/shaders/cllpse-unfocused-cursor.glsl` (link) |
 | 5b | GTK window buttons → none. Hyprland draws no titlebars; a GTK/libadwaita app's min/max/close is its own CSD, laid out from this key. `':'` vs Omarchy's `'appmenu:close'`. Electron/Qt ignore it — Cursor's are step 7 | `gsettings org.gnome.desktop.wm.preferences button-layout ':'` |
 | 5c | Danish letters on the Preonic's M0 layer — a static, single-group xkb symbols file, referenced by `hyprland-env.lua`'s `kb_layout`. **Full detail: [`xkb/README.md`](xkb/README.md).** | `~/.config/xkb/symbols/us-danish-letters` |
@@ -469,11 +469,16 @@ it is also what publishes a theme-folder edit — a new background, a changed
 `shell.*.toml` — to the live desktop.
 
 Hinting is slight, the system's, on all three fronts that don't share a knob:
-fontconfig's own default covers Qt / Alacritty / Electron / Chromium,
-`gsettings font-hinting` (reset to its default) covers GTK/GNOME, and Ghostty's
-default covers Ghostty (Kitty hardcodes light hinting). Until 2026-10-12 the
-repo forced `none` on all three; side by side on this TV, slight read sharper.
-Not reached by any of them: most of the bar's text, Figma's canvas.
+fontconfig's own default covers Qt / Alacritty, `gsettings font-hinting` (reset
+to its default) covers GTK 3, and Ghostty's default covers Ghostty (Kitty
+hardcodes light hinting). GTK 4 hardcodes slight in its default mode. Until
+2026-10-12 the repo forced `none` on all three. SF itself ships with no hints,
+so slight does nothing to it without step 2's autohint drop-in, which forces
+FreeType's autohinter for the SF families (2026-10-23). The shell's text takes
+it only because step 6 sets `QML_DISABLE_DISTANCEFIELD` (Qt Quick's distance
+fields take no hinting). Chromium and Electron apps run above a device scale of
+1, where they switch hinting off themselves. Not reached at all: Figma's canvas.
+Detail: [`fontconfig/README.md`](fontconfig/README.md).
 
 ## How each app is themed
 
@@ -546,10 +551,10 @@ differences above are the ones to check by hand.
 
 ## Follow-ups `apply.sh` can't do live
 
-- **Log out / back in** (or reboot) for `OMARCHY_MENU_FONT` — `hl.env` only applies at Hyprland start. (The `looknfeel.lua` decoration block — rounding, blur — picks up on the theme-set reload in step 8; the Omarchy shell re-reads what it mirrors on that same `omarchy theme set`, or `omarchy-restart-shell`.)
+- **`omarchy-restart-shell`** for `OMARCHY_MENU_FONT` and `QML_DISABLE_DISTANCEFIELD` in the shell: Hyprland's own children see `hl.env` after the step-8c reload. Apps launched through uwsm read the systemd user environment, which only a **log out / back in** updates. (The `looknfeel.lua` decoration block — rounding, blur — picks up on the theme-set reload in step 8; the Omarchy shell re-reads what it mirrors on that same `omarchy theme set`, or `omarchy-restart-shell`.)
 - **Open a new shell** for the `fzf` colours.
 - **Restart Ghostty / Foot** windows for the new monospace font + slight hinting (Kitty/Alacritty reload themselves).
-- **Relaunch running Chromium / Electron / Qt apps** to pick up slight hinting (GTK apps follow the gsettings change live).
+- **Relaunch running GTK / Qt apps** to pick up the SF autohint drop-in.
 - **Log out / back in** for the `environment.d` drop-in — the systemd user session reads it at session start.
 - **The app icons (7f) appear as soon as the menu next opens** — `AppLibrary.refreshIcons()` rescans when a consumer opens, so no restart is needed to *find* them. Changing their *colour* is different: Qt caches decoded images by URL, and the path does not change between themes, so a re-render only shows up after a shell restart. `omarchy theme set` does not restart the shell (it pushes the palette over IPC), so `app-icons.sh` restarts it itself whenever its output actually changed — except on a locked session, where `omarchy-restart-shell` refuses and the old colour stands until the next theme change or shell restart.
 - **Quit Chromium before the step 7d zoom-clearing and theme halves**, and relaunch after. Chromium rewrites `Preferences` from memory on exit, so a write made while it is running is discarded; the script detects this and skips rather than reporting a change that will not survive. The flag half needs only a relaunch. Sites already zoomed with ctrl+/- keep their own `per_host_zoom_levels` and ignore the default.

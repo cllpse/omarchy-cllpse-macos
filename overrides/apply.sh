@@ -39,7 +39,7 @@
 #   0.   record the pre-existing font and theme, for revert.sh        [inline]
 #   1.   symlink both themes + both plugins (switcher, supermenu)      [inline]
 #   2.   SF + Comic Code fonts                                         fonts/
-#        fontconfig drop-in (UI font)                                  fontconfig/
+#        fontconfig drop-ins (UI font, SF autohint)                    fontconfig/
 #   3.   point monospace at SF Mono (omarchy font set)                 [inline]
 #   4.   point GTK / GNOME apps at SF Pro / SF Mono (gsettings)        [inline]
 #   5.   hinting back to GTK's default, slight (gsettings)            [inline]
@@ -377,10 +377,10 @@ fi
 
 echo
 say "Done. Follow-ups:"
-echo "    • log out / back in (or reboot) for OMARCHY_MENU_FONT (shell popups)"
+echo "    • omarchy-restart-shell for OMARCHY_MENU_FONT + QML_DISABLE_DISTANCEFIELD (relogin for apps launched through uwsm)"
 echo "    • open a new shell for the fzf colours"
 echo "    • restart Ghostty / Foot windows for SF Mono + slight hinting"
-echo "    • relaunch running Chromium / Electron / Qt apps for slight hinting"
+echo "    • relaunch running GTK / Qt apps for the SF autohint drop-in"
 echo "    • light theme:  omarchy theme set omarchy-cllpse-theme-light"
 echo "    • the spellcheck/translate/password/autofill/Print/Cast/QR/reading-list policy (9)"
 echo "      already refreshed live if Chromium was running — no relaunch needed"
@@ -460,7 +460,7 @@ STEPS=(
   "state||Record the pre-existing font and theme, for revert.sh|fn:step_state|"
   "symlinks||Symlink both themes + both plugins (switcher, supermenu)|fn:step_symlinks|"
   "fonts||SF + Comic Code fonts|run:fonts|"
-  "fontconfig||fontconfig drop-in (UI font)|run:fontconfig|"
+  "fontconfig||fontconfig drop-ins (UI font, SF autohint)|run:fontconfig|"
   "monospace||Point monospace at SF Mono (omarchy font set)|fn:step_monospace|fonts"
   "gtk-fonts||Point GTK / GNOME apps at SF Pro / SF Mono|fn:step_gtk_fonts|fonts"
   "hinting||Font hinting -> the default, slight (GTK/GNOME side)|fn:step_hinting|"

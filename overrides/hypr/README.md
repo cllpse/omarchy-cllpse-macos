@@ -70,7 +70,7 @@ searchable in the supermenu.
 
 ## From the step table
 
-`OMARCHY_MENU_FONT` + cursor theme + `no_warps` + keyboard layout
+`OMARCHY_MENU_FONT` + `QML_DISABLE_DISTANCEFIELD` (native, hinted text in the shell and both plugins; [`../fontconfig/README.md`](../fontconfig/README.md)) + cursor theme + `no_warps` + keyboard layout
 (`hyprland.lua`), decoration/blur/opacity/animations (`looknfeel.lua`),
 window-switcher and supermenu keybinds (`bindings.lua`), mouse tuning (`input.lua`) +
 `decoration` (`rounding = 18` / `rounding_power = 2.05` — a hair off a

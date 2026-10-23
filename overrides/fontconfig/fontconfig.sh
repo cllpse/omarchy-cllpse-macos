@@ -1,5 +1,5 @@
 #!/bin/bash
-# fontconfig drop-in: UI font
+# fontconfig drop-ins: UI font, SF autohint
 #
 # See README.md in this directory for what this does and why.
 # Runnable on its own, and called by ../apply.sh. $HERE is bound to overrides/
@@ -9,7 +9,7 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib.sh"
 HERE="$OVERRIDES"
 
-say "Installing the fontconfig drop-in -> ~/.config/fontconfig/conf.d/"
+say "Installing the fontconfig drop-ins -> ~/.config/fontconfig/conf.d/"
 mkdir -p ~/.config/fontconfig/conf.d
 rm -f ~/.config/fontconfig/conf.d/99-sf-pro.conf     # legacy name
 # Hinting is the system's hintslight (/etc/fonts/conf.d/10-hinting-slight.conf).
@@ -17,4 +17,6 @@ rm -f ~/.config/fontconfig/conf.d/99-sf-pro.conf     # legacy name
 # either goes back to the system's.
 rm -f ~/.config/fontconfig/conf.d/11-cllpse-macos-hinting.conf ~/.config/fontconfig/conf.d/11-hinting-none.conf
 cp "$HERE/fontconfig/conf.d/99-cllpse-macos-ui-font.conf" ~/.config/fontconfig/conf.d/99-cllpse-macos-ui-font.conf
+# SF carries no hints, so slight only acts on it through the autohinter.
+cp "$HERE/fontconfig/conf.d/99-cllpse-macos-autohint.conf" ~/.config/fontconfig/conf.d/99-cllpse-macos-autohint.conf
 fc-cache -f >/dev/null 2>&1

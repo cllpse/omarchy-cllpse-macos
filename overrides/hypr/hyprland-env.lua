@@ -2,13 +2,27 @@
 -- Appended to ~/.config/hypr/hyprland.lua by overrides/apply.sh, which puts this
 -- block at the END of the file -- after `require("default.hypr.toggles")`. That
 -- position matters for the keyboard layout below.
--- hl.env only applies at Hyprland start, so relogin/reboot for the env vars.
+-- hl.env reaches Hyprland's own children from the next reload (checked
+-- 2026-10-23: a child exec'd after `hyprctl reload` saw a new variable), which
+-- covers the Omarchy shell. The systemd user environment, which apps launched
+-- through uwsm inherit, is only set at session start: relogin/reboot for those.
 
 -- Omarchy shell popups (menu, launcher, polkit, emoji, clipboard) draw in this
 -- family instead of the monospace alias -- see Style.qml menuFontFamily. The bar
 -- itself has no such override and stays on `monospace`. cllpse-macos wants the
 -- proportional macOS UI face here (BUILD.md section 4).
 hl.env("OMARCHY_MENU_FONT", "SFProText Nerd Font Propo")
+
+-- Qt Quick draws text as distance fields by default: unhinted and a touch soft.
+-- This makes every Text use native FreeType glyphs instead, so the bar, the
+-- Omarchy menus, the switcher and the supermenu take fontconfig's hinting,
+-- which for SF is the autohinter (fontconfig/conf.d/99-cllpse-macos-autohint.conf).
+-- Chosen by eye 2026-10-23 from a Qt Quick render of the plugins' text. Text
+-- under a scale transform blurs in native mode; the shell has a few (the
+-- slider's 1.15x hover, the monitor and speed-test panels). The shell inherits
+-- this from Hyprland: omarchy-launch-shell runs from autostart, and
+-- omarchy-restart-shell relaunches it through hl.dsp.exec_cmd.
+hl.env("QML_DISABLE_DISTANCEFIELD", "1")
 
 -- Cursor theme (Bibata Modern Ice). Xcursor only; Hyprland falls back from
 -- hyprcursor to Xcursor automatically since no hyprcursor variant is installed.
