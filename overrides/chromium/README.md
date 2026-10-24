@@ -2,6 +2,63 @@
 
 Two halves that run at opposite ends of an apply run: user-level flags, a neutral UI and the profile avatar early; the managed policy last, because it is the only part needing sudo.
 
+## Overview: how Chromium is scaled
+
+The current state, checked against the live machine on 2026-10-24: the running
+browser's command line, its profile and the GTK factor. Chromium 155.0.8059.84
+is installed. The source cited in this file was read on 152, and every flag and
+feature name below is still in 155's binary. §2 and §4 have the reasons and the
+measurements. Six layers, one owner each:
+
+| Layer | Set by | At text size 18 | What it scales |
+|---|---|---|---|
+| Monitor scale | `display.conf` → `monitors.lua` (step 7b) | 1 | the buffer: one device px per desktop px, no resampling by Hyprland |
+| Wayland fractional scaling | Omarchy's default, on (nothing here disables `WaylandFractionalScaleV1`) | — | makes the flag below a UI scale; from 2026-10-12 to 16 it was off and the flag set the rendering scale |
+| GTK text factor | `omarchy display text size` (step 7b) | 14/9, which Chromium rounds to 100/64 | on Wayland, Chromium's whole UI and pages; the next row replaces it |
+| UI scale | `--force-device-scale-factor=1.3529411765` in `chromium-flags.conf` | 23/17 | toolbar, tabs, menus and pages together: 1.3529 device px per DIP |
+| Whole-pixel views | `enable-pixel-canvas-recording` in the same file | on | each view snapped to the pixel grid, so a 1-DIP menu separator stays one row (reasoned from source, judged by eye) |
+| Default page zoom | `default-zoom.py`, derived from the flag | 150 / (23/17) = 110.87% | pages only: 1.5 device px per CSS px |
+
+In desktop px that comes to tab titles 16.2 (the 9 pt GTK font, 12 DIP), menus
+17.6, address bar text 18.9 (fixed at 14 DIP) in a 46 px bar, a 60 px toolbar,
+and web body text 24 (16 CSS px). Pages report `devicePixelRatio` 1.5. Every
+other app's text is 18.7. `--disable-font-subpixel-positioning` scales nothing,
+but without it Chromium turns hinting off above a device scale of 1, so the SF
+autohint would not reach its text (`../font-flags/README.md`).
+
+How it moves:
+
+- **Text size.** The flag does not follow it. The rule is two odd 17ths under
+  the one nearest the factor in 64ths: 19/17 at 16, 21/17 at 17, 23/17 at 18,
+  and only 18 was judged. `chromium.sh` reports drift and leaves the flag
+  alone. The zoom follows the flag at the next apply, which needs Chromium
+  closed. Both take effect when Chromium next starts.
+- **Ctrl+plus / Ctrl+minus**, or Cmd+= / Cmd+- through `macos-shortcuts.lua`,
+  walk Chromium's preset zoom steps with the default inserted among them:
+  110 → 110.87 → 125 (§4, read from source). Ctrl+0 returns to 110.87. A site
+  zoomed by hand keeps its own level in the profile, ahead of the default.
+- **Not reaching it:** `gdk-scale` 2 is for X11 apps under XWayland, and
+  Chromium runs on native Wayland (Omarchy's `--ozone-platform=wayland`).
+
+**Google Chrome gets none of this.** Its `~/.config/chrome-flags.conf` is
+Omarchy's stock file plus only our `font-flags` block, and its profile has no
+default zoom (checked 2026-10-24). So it runs at the GTK factor, 100/64. That
+gives tab titles 18.75 px, address bar text 21.9 and pages at 1.5625 device px
+per CSS px, with web body text at 25 px. Views are not snapped to whole
+pixels, so menu separators land on 1 or 2 rows, as Chromium's did at 87/64,
+and its scrollbars are the permanent gutter kind. These numbers are reasoned
+from Chromium's code path, not measured. Chrome 156.0.8078.47 is installed.
+
+Tried and set aside, with details in §2 and §4:
+
+- no flag, which leaves the factor (2026-10-10)
+- a 0.95 UI scale undone for pages by a 105.263% zoom (2026-10-11 to 12)
+- 2× with fractional scaling off, which Hyprland scaled down (2026-10-12 to 16)
+- 25/17 and 27/17, the odd 17ths nearest the factor (2026-10-16 to 17)
+- GTK's proportions at factor 1.0, which shrank Ghostty and every Electron app
+- the Qt toolkit with a font only Chromium reads (ran, not judged)
+- a page-side `devicePixelRatio` spoof (`hidpi-assets/`, shelved)
+
 ## 1. Two halves
 
 Two halves, and they run at DIFFERENT points of an apply.sh run: the
