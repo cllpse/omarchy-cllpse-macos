@@ -24,9 +24,9 @@
 -- If the shell is not running the dispatch is a no-op, which is the same
 -- outcome the old IPC toggle had.
 --
--- Not reachable while Figma is focused, like every SUPER chord the figma:C keyd
--- layer does not carve out -- see the note in macos-shortcuts.lua. TAB and Q are
--- the layer's carve-outs; SPACE is not one, so in Figma this does nothing.
+-- While Figma is focused the figma:C keyd layer turns SUPER into Control, so
+-- this chord arrives as CTRL + SPACE and never matches here. macos-shortcuts.lua
+-- binds that chord to the same toggle, enabled only while Figma has focus.
 hl.unbind("SUPER + SPACE")
 o.bind("SUPER + SPACE", "Supermenu", function()
   hl.dispatch(hl.dsp.global("cllpse-supermenu:toggle"))

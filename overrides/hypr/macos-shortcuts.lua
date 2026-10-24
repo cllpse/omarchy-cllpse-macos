@@ -468,9 +468,10 @@ o.bind("SUPER + minus", "Zoom out (Cmd+-)", zoom("minus"))
 --
 -- The cost, which is real and bounded: while Figma is focused Hyprland never
 -- sees SUPER, so a chord the layer does not carve out cannot reach a bind
--- here -- SUPER + SPACE among them. The layer's own carve-outs are TAB (the
--- window switcher, since Cmd+Tab is the app switcher on macOS and not a Figma
--- shortcut) and Q (below). WM_MOD is untouched -- it is Ctrl+Alt and only the
+-- here, unless it is bound again on the Ctrl chord it turns into, as
+-- SUPER + SPACE and SUPER + SHIFT + SPACE are below. The layer's own
+-- carve-outs are TAB (the window switcher, since Cmd+Tab is the app switcher
+-- on macOS and not a Figma shortcut) and Q (below). WM_MOD is untouched -- it is Ctrl+Alt and only the
 -- meta key is bound -- so workspaces and window management still work, which
 -- is the way out. Note the corollary: in Figma, SUPER + ALT emits Ctrl+Alt and
 -- therefore fires the WM_MOD binds.
@@ -512,6 +513,37 @@ end
 local figma_keyd_on = figma_focused()
 set_figma_keyd(figma_keyd_on)
 
+-- SUPER + SPACE (supermenu) and SUPER + SHIFT + SPACE (top bar) in Figma.
+-- The layer turns the meta key into Control, so Hyprland receives these as
+-- CTRL + SPACE and CTRL + SHIFT + SPACE (measured with an input.keyboard.key
+-- listener: Control_L, not Super_L, with Shift and Space unchanged). They are
+-- answered here, on the chord that actually arrives, rather than by a third
+-- keyd carve-out: that would need a sudo install and a keyd restart to land,
+-- and these are Hyprland binds either way.
+--
+-- Enabled only while Figma has focus, so everywhere else Ctrl+Space stays the
+-- app's (an editor's completion, for one). In Figma nothing is lost: it
+-- registers no Space accelerator. A physical Ctrl+Space there fires them too,
+-- since the figma_ctrl layer keeps Control as Control_L. The supermenu and the
+-- bar are layer surfaces and do not take window focus, so with the menu open
+-- Figma is still the active window and the same chord closes it again.
+local figma_space_binds = {
+  hl.bind("CTRL + SPACE", function()
+    hl.dispatch(hl.dsp.global("cllpse-supermenu:toggle"))
+  end, { description = "Supermenu (Figma: Cmd+Space arrives as Ctrl+Space)" }),
+  hl.bind("CTRL + SHIFT + SPACE", hl.dsp.exec_cmd("omarchy-toggle-bar"), {
+    description = "Toggle top bar (Figma: Cmd+Shift+Space arrives as Ctrl+Shift+Space)",
+  }),
+}
+
+local function set_figma_space_binds(on)
+  for _, bind in ipairs(figma_space_binds) do
+    bind:set_enabled(on)
+  end
+end
+
+set_figma_space_binds(figma_keyd_on)
+
 -- LEVEL-triggered going in, edge-triggered coming out, and the asymmetry is
 -- the whole point.
 --
@@ -539,6 +571,9 @@ set_figma_keyd(figma_keyd_on)
 -- per Figma boundary crossing. Still human-rate, and still no daemon.
 hl.on("window.active", function()
   local want = figma_focused()
+
+  -- Before the guard: no process, so nothing to save by skipping it.
+  set_figma_space_binds(want)
 
   if not want and not figma_keyd_on then
     return

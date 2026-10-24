@@ -42,6 +42,10 @@ therefore inert in Figma and arrives at Figma as the Ctrl-equivalent instead —
 `SUPER+SHIFT+3` becomes Ctrl+Shift+3, `SUPER+CTRL+Q` becomes a plain Ctrl+Q.
 That is the accepted cost recorded in `overrides/keyd/default.conf`; it is not a
 reason to skip a chord, but it is a reason not to promise it works everywhere.
+The way to reach Figma anyway, short of a keyd carve-out, is to bind the Ctrl
+chord the layer turns it into, enabled only while Figma has focus:
+`macos-shortcuts.lua` does that for `SUPER+SPACE` (supermenu) and
+`SUPER+SHIFT+SPACE` (top bar).
 
 ---
 
