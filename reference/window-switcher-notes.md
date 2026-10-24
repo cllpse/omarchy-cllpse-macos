@@ -550,7 +550,8 @@ Both roads, the details:
 - **The focus round trip is kept out of the history.** On screen, both
   activewindow events reach `onActiveToplevelChanged`. `splitFocusGuard`
   ignores B for 600ms, and the hand-back is a no-op there because it returns to
-  `activeAddr`. Without the guard, the next `SUPER+TAB` would alternate to B.
+  the front of `focusHistory`. Without the guard, the next `SUPER+TAB` would
+  alternate to B.
 - **The auto-scroll redoes the whole hit-test** (`_dragTo`) rather than updating
   only `dropWsId`. A strip scrolling under a still pointer changes the tile and
   the slot as well. The slot was going stale before this.
@@ -736,30 +737,74 @@ handles' look and the bar's resync are for the user to judge on screen.
 
 ## Back-and-forth
 
-A single `SUPER+TAB` returns to the window you came from, and a second brings you
-back — the alternation every Alt+Tab has. **The tiles are not reordered to do
+A single `SUPER+TAB` returns to the window or empty workspace you came from, and
+a second brings you back — the alternation every Alt+Tab has. **The tiles are not reordered to do
 it.** They stay sorted by workspace then on-screen position; the focus history
 only moves where the highlight *starts*.
 
-- The **first forward tap** lands on the previously focused window.
+- The **first forward tap** lands on the previously focused window or empty
+  workspace.
 - **Further taps in the same gesture** walk the positional order from there, so
   the highlight moves along the strip the way it looks like it should rather
   than hopping around a history the tiles do not show.
 - **SHIFT+TAB** is purely positional. Stepping backwards through a history the
   strip does not display has no visible meaning.
 
-The history is kept in the plugin (`activeAddr` / `prevAddr`, updated from
-`Hyprland.activeToplevel`) because nothing compositor-side offers it in a usable
-form: `activated` only ever says what is focused *now*, and `lastIpcObject`'s
-`focusHistoryID` is a stale snapshot — measured sitting at `2/1/0` across two
-focus changes. It shifts only when the focused window actually changes, so
-committing to the window you are already on cannot erase the one you wanted to
-go back to.
+The history is kept in the plugin (`focusHistory`, updated from
+`Hyprland.activeToplevel` and `Hyprland.focusedWorkspace`) because nothing
+compositor-side offers it in a usable form: `activated` only ever says what is
+focused *now*, and `lastIpcObject`'s `focusHistoryID` is a stale snapshot —
+measured sitting at `2/1/0` across two focus changes. It shifts only when where
+you are actually changes, so committing to the window you are already on cannot
+erase the one you wanted to go back to.
 
-If the remembered window is gone — closed, or moved to a special workspace the
-list filters out — `_mruIndex()` returns -1 and the tap falls back to the next
-window positionally. Verified by hiding it to the scratchpad mid-test: the tap
-landed on a live window rather than doing nothing.
+**It holds tiles, not windows** (2.8.2): a window by its address, an empty
+workspace by the `ws:N` its tile carries. Until 2.8.2 it held windows only, and
+a blank desktop broke the alternation both ways (the user's report,
+2026-10-24). A tap from one went to the window *before* the one you left, and a
+tap from that window never went back to the blank desktop. The cause is in
+Quickshell, not the plugin. Hyprland reports focus moving to an empty workspace
+as `activewindowv2>>` with no address, and Quickshell's handler returns on the
+failed parse (`connection.cpp:601`, 2b4501a). So `activeToplevel` and
+`activated` go on naming the window you left, and the history never moved.
+`_hereKey()` therefore reads "on an empty workspace" as *the active window is
+not on the focused workspace*, compared by id. `_activeIndex()` checks for the
+focused workspace's tile before `activated`, since `activated` is stale there.
+
+**A list, most recent first, eight deep**, not the last two. A switch to a
+window on another workspace arrives as two events, `workspacev2` first, and
+between them `_hereKey()` reads `ws:<new workspace>` with the old window still
+active. That workspace holds the window being switched to, so it has no tile.
+`_mruIndex()` returns the newest entry that has a tile and is not where you are,
+and steps over that key. With only two entries, the passing key would have
+pushed the real one out.
+
+The same skip covers an entry that has gone: a window closed or moved to a
+special workspace, or an empty workspace that has since got a window. The tap
+goes to the one before it. Before 2.8.2 that fell back to the next tile
+positionally. `_mruIndex()` returns -1, and the tap goes positional, only when
+no entry in the history is on the strip.
+
+Three details hold it together:
+- **Where you are is noted again at every open** (`_openStepped`). Closing the
+  last window on a workspace clears `activeToplevel` before the window leaves
+  the workspace, so no signal fires once the state is consistent.
+- **An empty workspace with no tile** (above 5) leaves `_hereIndex()` at -1. The
+  strip still steps from the window you left, but `_mruIndex()` does not skip
+  that window. It is the one to go back to.
+- **A workspace re-arrange renumbers the history** with the same `newId` map
+  that carries the highlight, and `_noteHere()` records nothing while the chunk
+  runs or `workspaceResync` is pending. In that window Quickshell's workspace
+  objects can disagree with the windows on them.
+
+Verified on 2026-10-24 against a mock `Hyprland` in Node. The harness ran
+`_hereKey`, `_noteHere`, `_hereIndex`, `_activeIndex` and `_mruIndex` extracted
+verbatim from `Hud.qml`, fed Quickshell's event order. Window to empty
+workspace and back, empty to empty, empty to a window on another workspace,
+the remembered window closed, the last window on a workspace closed, an empty
+workspace above 5 and the cold `focusHistoryID` path all land as described;
+HEAD's logic on the first case lands on the window before. Not yet exercised on
+the live desktop.
 
 Measured, four tiles, focus set to tile 2 having come from tile 0:
 
@@ -823,7 +868,11 @@ Measured against this build; each of these cost a debugging pass:
 - Addresses carry an `0x` prefix in `lastIpcObject` but **not** on the toplevel
   handle. Compared raw, nothing ever matches and every open starts from index 0.
 - `activated` is only set once Quickshell has seen an `activewindow` event, so on
-  the very first summon after a shell restart nothing reports it. There is a
+  the very first summon after a shell restart nothing reports it.
+- **Focusing an empty workspace does not clear `activeToplevel`.** Hyprland
+  sends `activewindowv2>>` with no address, Quickshell's handler returns on the
+  failed parse, and the window you left stays `activated`. Only `closewindow`
+  of that window clears it. See *Back-and-forth*. There is a
   `focusHistoryID` fallback for exactly that one cold case — accurate there,
   because the snapshot was just refreshed.
 
