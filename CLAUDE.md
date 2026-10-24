@@ -188,6 +188,15 @@ fontconfig then skips the whole drop-in and reports it only on stderr, which
 `fontconfig.sh` silences. A flag name quoted in a comment is enough: it
 turned the SF autohint off from 2026-10-23 to 24. `xmllint --noout` catches it.
 
+### Rewriting an installed font in place crashes the apps that map it
+
+`cp` over an existing file keeps its inode, and every running app that has the
+face memory-mapped reads the new bytes under the old offsets: Ghostty died in
+FreeType's autohinter the second the rebuilt SF Pro landed (2026-10-24).
+`fonts.sh` uses `cp --remove-destination`, so the old file stays valid for
+whoever has it open. Probe: `grep '(deleted)' /proc/$(pgrep -x quickshell)/maps`
+lists faces a process still reads from a replaced file.
+
 ### `grep -qxF` with pattern starting with `-`
 
 `grep -qxF "-- >>> cllpse-macos overrides >>>"` fails with
@@ -296,6 +305,7 @@ or `<`, and files with no paint at all (simple-icons bare `<path>`).
 | Supermenu ranking, invariants, traps | `omarchy-cllpse-plugin-supermenu/AGENTS.md` |
 | Task patterns for agents | `AGENTS.md` (this dir) |
 | Per-app override details | `overrides/<app>/README.md` |
+| How the SF fonts are built from Apple's DMGs | `overrides/fonts/README.md` |
 | The TV's DSC bit rate: why 12 bpp, how 20 is forced | `overrides/dsc/README.md` |
 | Chromium theme extension: design, mechanism, Chromium source findings | `overrides/chromium-theme/README.md` |
 | Window switcher design log | `reference/window-switcher-notes.md` |

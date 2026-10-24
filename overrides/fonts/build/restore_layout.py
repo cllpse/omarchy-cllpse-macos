@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Give a Nerd-patched SF face back Apple's layout: restore_layout.py APPLE PATCHED OUT
 
+Used for SF Pro and SF Mono alike (build-sf.sh).
+
 The Nerd Font patcher runs on fontforge, which renumbers every glyph in
 Unicode order and recompiles GSUB and GPOS. In SF Pro's uprights the kerning
 lookup no longer fits its 16-bit offsets after that, and fontforge writes it
@@ -12,8 +14,10 @@ fontTools as well, which splits it and loses pairs ("78" lost its -30).
 So, in order:
 
   1. Apple's GSUB and GPOS, with the few glyphs the patcher replaced (6 in
-     22.0: power symbols and a heart, which Nerd glyphs took over) pruned out
-     by fontTools' subsetter, closure off so nothing else changes.
+     SF Pro 22.0: power symbols and a heart, which Nerd glyphs took over)
+     pruned out by fontTools' subsetter, closure off so nothing else changes.
+     SF Mono has no GPOS (no kerning in a monospace face), so the empty one
+     fontforge writes is dropped instead.
   2. The patched font's glyphs put back in Apple's order, the Nerd glyphs
      after them, so the tables compile as compactly as Apple's did.
   3. fontforge's GDEF dropped (Apple ships none, and its classes would change
@@ -107,6 +111,11 @@ def main():
     top.charset = order
 
     for tag in ("GSUB", "GPOS"):
+        if tag not in apple:
+            # SF Mono ships no GPOS; fontforge writes an empty one.
+            if tag in patched:
+                del patched[tag]
+            continue
         apple[tag].table  # decompiled under Apple's names before it moves
         patched[tag] = apple[tag]
     for tag in ("GDEF", "PfEd"):

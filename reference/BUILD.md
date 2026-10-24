@@ -180,7 +180,8 @@ the base family name, so weight selection resolves within one family.
 
 Every face has a real italic, so nothing is synthesised. Until 2026-10-24 SF
 Pro shipped without its italics and fontconfig slanted the uprights; the SF Pro
-faces are now built from Apple's DMG (`overrides/fonts/README.md`).
+faces, and since the same day the SF Mono ones, are built from Apple's DMGs
+(`overrides/fonts/README.md`).
 
 ### Surface → face → weight
 
