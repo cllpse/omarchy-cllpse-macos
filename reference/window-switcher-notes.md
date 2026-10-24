@@ -110,8 +110,9 @@ new item-local position.
   as moved once it is more than `QApplication::startDragDistance()` from where
   the menu popped up, manhattan (or after six motion events, which an 8000Hz
   mouse produces in under a millisecond, so that half is left out). Here it is
-  `Qt.styleHints.startDragDistance`, 8px, the drag threshold the strip already
-  uses, measured in scene coordinates so the row moving is not motion.
+  `hoverDistance`, twice `Qt.styleHints.startDragDistance`: 16px, measured in
+  scene coordinates so the row moving is not motion. It was the 8px drag
+  threshold itself until 2.8.1, doubled on request. The strip's drags keep 8.
 - **Time, from GNOME Shell's switcher.** `switcherPopup.js` calls
   `_disableHover()` at construction ("so we ignore the enter-event if the
   switcher appears underneath the current pointer location") and on every key
@@ -120,9 +121,9 @@ new item-local position.
   longer than a quick tap, and the highlight lags a deliberate pointer less).
   It restarts on every `next`/`prev`, the opening one included.
 
-Motion inside the hold moves the anchor instead of counting toward the 8px. A
-mouse knocked 15px during the tap therefore cannot arm hover later: the 8px have
-to be travelled after the hold. Once armed, hover stays armed until the next
+Motion inside the hold moves the anchor instead of counting toward the 16px. A
+mouse knocked 30px during the tap therefore cannot arm hover later: the 16px
+have to be travelled after the hold. Once armed, hover stays armed until the next
 key press. A corner summon (`show`) starts armed, since there the pointer is the
 gesture. Clicks are not gated.
 
