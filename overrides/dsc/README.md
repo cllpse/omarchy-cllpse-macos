@@ -75,6 +75,15 @@ helper reads the mode from the DRM atomic state and never writes at one above
 `DSC_MAX_CLOCK_KHZ`. Once set, though, the override stays: switching to 165 at
 runtime is rejected until `sudo cllpse-dsc-bpp off`.
 
+**A saved 4K144/165 needs the unit disabled.** The console's 4K60 fits the
+rate, so the boot run writes it before Hyprland has picked a mode, and a 165
+saved in `monitors.lua` meets a forced 20 bpp on Hyprland's first modeset.
+amdgpu would reject it, and the helper would keep polling every 3 seconds for
+a mode it fits. Read from the boot path, not seen across a reboot. The TV runs
+at 165 from 2026-10-24, so the unit is off there: `sudo cllpse-dsc-bpp off`,
+`sudo systemctl disable cllpse-dsc.service` (`enable` and `on` for 120 again).
+`apply.sh dsc` enables it again, so leave it out while 165 is saved.
+
 **`echo` cannot write `dsc_disable_passthrough`.** Its handler returns 0 bytes
 written instead of the count, so a shell's `echo 1 >` retries forever, as a
 root process spinning a core and setting the value on every retry. The helper

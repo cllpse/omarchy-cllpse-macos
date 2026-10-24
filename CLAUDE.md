@@ -136,7 +136,9 @@ the VMM7100 adapter is what decodes it. `apply.sh dsc` installs
 `dsc_disable_passthrough` + `dsc_bits_per_pixel` debugfs files. Those live in
 RAM per connector, so only a reboot loses them. While it is set, 4K144/165
 exceed the link and amdgpu rejects the modeset: `sudo cllpse-dsc-bpp off`
-first. Never `echo` into `dsc_disable_passthrough`: its handler returns 0 bytes
+first. A *saved* 165 needs the unit disabled as well: the boot run sets 20 bpp
+at the console's 4K60, before Hyprland picks its mode. That is the state since
+2026-10-24 (165, amdgpu's 12 bpp, unit disabled). Never `echo` into `dsc_disable_passthrough`: its handler returns 0 bytes
 written, so `echo` retries forever as a root process. Probe:
 `sudo cllpse-dsc-bpp status`. See `overrides/dsc/README.md`.
 
