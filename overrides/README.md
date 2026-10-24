@@ -71,6 +71,14 @@ whole Lua state for nothing. `tailscale` is there for the same reason: it writes
 one pref inside tailscaled and nothing on disk. The skip only applies when **every** selected step
 is in that list, so `apply.sh bar gtk-buttons` still reloads.
 
+**A step that exits non-zero ends the run**, `set -e` being what it is, and
+`apply.sh` then names it, lists the selected steps it left unrun and gives the
+command to re-run it alone. Before that the stop was silent: from 2026-10-16 to
+24 every full run ended after step 7e, ahead of the theme and all six sudo
+steps, and the only sign was that it no longer asked for a password. It is an
+`EXIT` trap rather than `|| report` on each call, because inside an `if` or `||`
+bash switches `set -e` off for the whole of an inline step.
+
 `bar` is the first entry in the menu and the first step in `STEPS` because it is
 the cheapest and most repeated thing here: Omarchy's bar is drag-reorderable
 with no setting to turn that off (see [`omarchy/README.md`](omarchy/README.md)

@@ -770,14 +770,37 @@ if (( ${#SELECTED[@]} != ${#STEPS[@]} )); then
   say "running ${#_plan[@]} step(s): ${_plan[*]}"
 fi
 
+# A step that fails ends the run where it stands, and on its own that is
+# silent: from 2026-10-16 to 24 every full run stopped after step 7e, before the
+# theme and all six sudo steps, and the only sign was that it no longer asked
+# for a password. So name the step, and what it left unrun. A trap rather than
+# `|| report` on the call: inside an `if` or `||`, set -e is off for the whole
+# of an inline step, and those rely on it.
+_current=""
+_report_stop() {
+  local rc=$? s id after=0 rest=()
+  [[ -n $_current ]] && (( rc != 0 )) || return 0
+  for s in "${STEPS[@]}"; do
+    IFS='|' read -r id _ _ _ _ <<<"$s"
+    (( after )) && _want "$id" && rest+=("$id")
+    [[ $id == "$_current" ]] && after=1
+  done
+  printf '\033[31m✗\033[0m %s\n' "step $_current exited $rc — the run stopped there" >&2
+  (( ${#rest[@]} )) && printf '  %s\n' "not run: ${rest[*]}" >&2
+  printf '  %s\n' "re-run it alone to see why: apply.sh $_current" >&2
+}
+trap _report_stop EXIT
+
 _ran=0
 for s in "${STEPS[@]}"; do
   IFS='|' read -r id sudo label action needs <<<"$s"
   _want "$id" || continue
+  _current=$id
   case "$action" in
     fn:*)  "${action#fn:}" ;;
     run:*) run ${action#run:} ;;
   esac
   _ran=$((_ran+1))
 done
+_current=""
 (( _ran == ${#STEPS[@]} )) || say "ran $_ran of ${#STEPS[@]} steps"
