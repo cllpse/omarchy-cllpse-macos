@@ -81,9 +81,10 @@ circular arc; 2.1, 2.2 and a real 3-3.4 squircle were all tried and dropped /
 Omarchy pins those to `1.0 0.985` otherwise) + `1 1` on a window showing a
 playing video (a `video-playing` tag set from Hyprland's idle-inhibit flag; for
 Chromium only while the tab in view is on the site the video started on) + 4× animation speeds on whole
-120Hz frames (floor 7 frames, 58ms; was 3.5× on 0.6, 3× on 1), except the
+165Hz frames (floor 10 frames, 60.6ms; was 7 frames, 58ms at 120Hz, 3.5× on
+0.6, 3× on 1), except the
 focus fade (`fadeSwitch`), which Omarchy leaves off and which runs here at the
-58ms floor on `default`, like the plugins' fades +
+60.6ms floor on `default`, like the plugins' fades +
 `layer_rule` blur on the shell surfaces + `layer_rule` re-enabling the layer
 fade on the keyboard-driven panels, the window switcher and the supermenu (the
 switcher's scrim is switched off for now via `showScrim` in its `Hud.qml`, so

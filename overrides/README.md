@@ -353,7 +353,7 @@ blur drew nothing on them, yet blurring a full-screen layer halved its frame
 rate while it animated: 120 fps to 60 fps, measured on the switcher with Qt's
 render-loop timing (`looknfeel-decoration.lua` has the numbers).
 
-A second `layer_rule` re-enables Hyprland's layer fade (measured ~130ms when `fadeLayersIn` sat at the old 100ms floor; 58ms now, 7 frames at 120Hz) for the
+A second `layer_rule` re-enables Hyprland's layer fade (measured ~130ms when `fadeLayersIn` sat at the old 100ms floor; 60.6ms now, 10 frames at 165Hz) for the
 keyboard-driven panels — menu, clipboard, emojis, image-selector,
 keyboard-panel — and for both plugins. The supermenu replaced the menu on
 `SUPER+SPACE` and opens the way it did. The switcher has been in and out of the
@@ -661,7 +661,7 @@ hypr/keybind-current.conf     generated every apply, the raw scan before allowli
 hypr/macos-shortcuts.lua      word/line nav, close tab / window / whole app, undo/redo/save as Cmd-style chords
 hypr/window-management-mod.lua  window nav/arrangement moved SUPER -> CTRL+ALT (Preonic firmware workaround)
 hypr/input-tuning.lua         mouse sensitivity/accel + follow_mouse = 2 (scroll-under-cursor, click-to-focus) + wheel scroll_factor 1.5, trackpad 0.35
-hypr/looknfeel-decoration.lua rounding 18 / rounding_power 2.05 (a hair off a plain arc) / border_part_of_window true / blur 3/5, vibrancy 0.50 / border_size 3 (Omarchy's 2 until 2026-10-16) / gaps 12,24 / groupbar off / window opacity 1.0 0.875 (focused fully opaque, was 0.99 -- that 1% was ~60% of the blur cost; Figma opaque unfocused too, and any window showing a playing video: video-playing tag from the idle-inhibit flag (the Claude app excluded: it inhibits with no video), timer only while one is tagged) / 4x animations on whole 120Hz frames, floor 7 frames/58ms (was 3.5x on 0.6, 3x on 1), focus fade (fadeSwitch) on at 58ms/default / layer_rule blur on shell surfaces
+hypr/looknfeel-decoration.lua rounding 18 / rounding_power 2.05 (a hair off a plain arc) / border_part_of_window true / blur 3/5, vibrancy 0.50 / border_size 3 (Omarchy's 2 until 2026-10-16) / gaps 12,24 / groupbar off / window opacity 1.0 0.875 (focused fully opaque, was 0.99 -- that 1% was ~60% of the blur cost; Figma opaque unfocused too, and any window showing a playing video: video-playing tag from the idle-inhibit flag (the Claude app excluded: it inhibits with no video), timer only while one is tagged) / 4x animations on whole 165Hz frames, floor 10 frames/60.6ms (was 7 frames/58ms at 120Hz, 3.5x on 0.6, 3x on 1), focus fade (fadeSwitch) on at 60.6ms/default / layer_rule blur on shell surfaces
 bash/shell.sh                 FZF_DEFAULT_OPTS derived from the live palette + lsd alias/LS_COLORS + the edit/diff/log/dash aliases and the ytm keyring wrapper, each guarded on its tool
 git/pager.conf                `git diff` through the hunk pager (fenced into ~/.config/git/config, which also holds the user's own [user] block)
 display/                      display scaling + text size: the step, the capture tool, the shared lib and the saved values
