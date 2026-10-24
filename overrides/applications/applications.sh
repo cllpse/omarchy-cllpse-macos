@@ -78,6 +78,10 @@ else
     printf '%s\n' "$_t3_rendered" > "$_t3_entry"
     update-desktop-database ~/.local/share/applications 2>/dev/null || true
   fi
-  grep -qx "StartupWMClass=$_t3_class" "$_t3_pkg" &&
+  # An if, not `grep && skip`: as the script's last command a miss became its
+  # exit status, and apply.sh's set -e stopped every full run here, before the
+  # theme and all six sudo steps (2026-10-16 to 24).
+  if grep -qx "StartupWMClass=$_t3_class" "$_t3_pkg"; then
     skip "t3code-bin now declares the right class itself — this section can go"
+  fi
 fi
