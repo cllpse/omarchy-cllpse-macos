@@ -54,6 +54,19 @@ set by a Lua checker in `looknfeel-decoration.lua` from Hyprland's
 idle-inhibit flag; Hyprland has no event for that flag. Probe:
 `hyprctl clients -j | jq '.[] | {class, inhibitingIdle, tags}'`.
 
+### GTK 4.24 opts every GTK4 window out of blur
+
+GTK 4.24 attaches an `ext-background-effect-v1` object to every surface and
+sends an empty blur region unless a widget has `backdrop-filter: blur()`.
+Hyprland 0.56 obeys that object ahead of `decoration:blur` and every window
+rule, so an empty region means no blur. Changing the blur settings does
+nothing. Chromium and Electron don't use the protocol. `hyprland-env.lua` sets
+`GDK_WAYLAND_DISABLE=ext_background_effect_manager_v1` so GTK never binds it.
+It is read when a process starts, so a running Ghostty keeps blur off until its
+last window closes. Re-check Hyprland's `shouldBlur` on a bump: if it falls back
+to the config on an empty region, the variable can go. Probe:
+`tr '\0' '\n' < /proc/$(pgrep -xo ghostty)/environ | grep GDK_WAYLAND_DISABLE`
+
 ### Generated files (never commit)
 
 `btop.theme`, `hyprland.lua`, `vscode-theme.json`, `neovim.lua`, and terminal

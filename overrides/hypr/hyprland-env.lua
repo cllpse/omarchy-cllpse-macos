@@ -24,6 +24,20 @@ hl.env("OMARCHY_MENU_FONT", "SFProText Nerd Font Propo")
 -- omarchy-restart-shell relaunches it through hl.dsp.exec_cmd.
 hl.env("QML_DISABLE_DISTANCEFIELD", "1")
 
+-- GTK 4.24 attaches an ext-background-effect-v1 object to every surface it
+-- creates when the compositor offers the protocol (gdksurface-wayland.c), and
+-- leaves its blur region empty unless a widget has `backdrop-filter: blur()` of
+-- 10px or more. Hyprland 0.56 lets that object decide (shouldBlur in
+-- Renderer.cpp): an empty region is no blur, ahead of decoration:blur and every
+-- window rule. So from gtk4 4.24.1 (2026-10-24) no GTK4 window was blurred, and
+-- an unfocused Ghostty showed the wallpaper sharp through its 0.875. Chromium
+-- and Electron don't speak the protocol and kept their blur. This keeps GTK
+-- from binding it, as 4.22 never did; GTK apps lose only asking for blur
+-- themselves, which none here do. GTK's documented skip list
+-- (docs/reference/gtk/running.md), read once at startup: Ghostty is one
+-- process, so it takes effect once its last window has closed.
+hl.env("GDK_WAYLAND_DISABLE", "ext_background_effect_manager_v1")
+
 -- Cursor theme (Bibata Modern Ice). Xcursor only; Hyprland falls back from
 -- hyprcursor to Xcursor automatically since no hyprcursor variant is installed.
 -- Needs the bibata-cursor-theme package -- apply.sh warns if it is missing

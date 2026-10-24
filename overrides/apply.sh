@@ -379,6 +379,7 @@ fi
 echo
 say "Done. Follow-ups:"
 echo "    • omarchy-restart-shell for OMARCHY_MENU_FONT + QML_DISABLE_DISTANCEFIELD (relogin for apps launched through uwsm)"
+echo "    • quit Ghostty (its last window) and relaunch GTK4 apps for GDK_WAYLAND_DISABLE (blur)"
 echo "    • open a new shell for the fzf colours"
 echo "    • restart Ghostty / Foot windows for SF Mono + slight hinting"
 echo "    • relaunch running GTK / Qt / Chromium / Chrome / Electron apps for the SF autohint"

@@ -70,7 +70,7 @@ searchable in the supermenu.
 
 ## From the step table
 
-`OMARCHY_MENU_FONT` + `QML_DISABLE_DISTANCEFIELD` (native, hinted text in the shell and both plugins; [`../fontconfig/README.md`](../fontconfig/README.md)) + cursor theme + `no_warps` + keyboard layout
+`OMARCHY_MENU_FONT` + `QML_DISABLE_DISTANCEFIELD` (native, hinted text in the shell and both plugins; [`../fontconfig/README.md`](../fontconfig/README.md)) + `GDK_WAYLAND_DISABLE=ext_background_effect_manager_v1` (without it GTK 4.24 opts every GTK4 window, Ghostty included, out of Hyprland's blur; [`hyprland-env.lua`](hyprland-env.lua)) + cursor theme + `no_warps` + keyboard layout
 (`hyprland.lua`), decoration/blur/opacity/animations (`looknfeel.lua`),
 window-switcher and supermenu keybinds (`bindings.lua`), mouse tuning (`input.lua`) +
 `decoration` (`rounding = 18` / `rounding_power = 2.05` — a hair off a

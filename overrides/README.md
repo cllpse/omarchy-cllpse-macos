@@ -556,6 +556,7 @@ differences above are the ones to check by hand.
 ## Follow-ups `apply.sh` can't do live
 
 - **`omarchy-restart-shell`** for `OMARCHY_MENU_FONT` and `QML_DISABLE_DISTANCEFIELD` in the shell: Hyprland's own children see `hl.env` after the step-8c reload. Apps launched through uwsm read the systemd user environment, which only a **log out / back in** updates. (The `looknfeel.lua` decoration block — rounding, blur — picks up on the theme-set reload in step 8; the Omarchy shell re-reads what it mirrors on that same `omarchy theme set`, or `omarchy-restart-shell`.)
+- **Quit Ghostty entirely** (it is one process, so its last window) and relaunch other GTK4 apps for `GDK_WAYLAND_DISABLE`, which gives them back Hyprland's blur. Hyprland's children see it after the step-8c reload; D-Bus-activated apps after a **log out / back in**.
 - **Open a new shell** for the `fzf` colours.
 - **Restart Ghostty / Foot** windows for the new monospace font + slight hinting (Kitty/Alacritty reload themselves).
 - **Relaunch running GTK / Qt / Chromium / Chrome / Electron apps** (Figma included) to pick up the SF autohint drop-in and the flag that lets Chromium-based apps use it.
@@ -645,7 +646,7 @@ cursor/settings.json          editor prefs Cursor and VS Code share, jq-merged i
 cursor/settings.cursor.json   Cursor's own keys, merged over the shared ones in Cursor only
 cursor/settings.vscode.json   VS Code's own keys (as configured by hand 2026-10-17), merged over the shared ones in VS Code only
 cursor/editors.sh             the editors table (profile, extensions dir, hook link name) that cursor.sh, the chrome hook and revert.sh all read
-hypr/hyprland-env.lua         OMARCHY_MENU_FONT + cursor theme/size + no_warps + kb layout
+hypr/hyprland-env.lua         OMARCHY_MENU_FONT + QML_DISABLE_DISTANCEFIELD + GDK_WAYLAND_DISABLE (GTK4 blur) + cursor theme/size + no_warps + kb layout
 hypr/window-switcher-bindings.lua  SUPER+TAB keybinds driving the switcher plugin.
                                    The plugin repo ships a GENERIC copy for other
                                    people; this one is the local variant, and carries
