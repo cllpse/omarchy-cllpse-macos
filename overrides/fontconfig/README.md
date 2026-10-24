@@ -35,6 +35,13 @@ crossbars, but needed the alignment data repaired first and a font rebuild to
 ship. Hinting a TrueType copy with `ttfautohint` is no route: at slight, FreeType
 ignores TrueType hints and autohints any TTF anyway.
 
+**It did not load from 2026-10-23 to 24.** 48a2062 quoted the Chromium flag in
+the drop-in's comment, and XML allows no double hyphen inside a comment, so
+fontconfig skipped the whole file: `autohint` read False and SF went unhinted
+everywhere. `fontconfig.sh` now checks `fc-match -v` after `fc-cache`, which
+it silences, and says so when SF is not autohinted. Apps started before the
+fix keep the config they loaded until they restart.
+
 What the autohinter reaches, and what it doesn't:
 
 - **GTK 3 and 4**: yes, through cairo, which reads the drop-in's `autohint`.

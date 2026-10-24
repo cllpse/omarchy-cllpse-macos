@@ -182,6 +182,12 @@ boolean or zero default behind `//`.
 `hl.get_windows({ class = x })` with nil `x` is `hl.get_windows({})`,
 matching every window. Guard the value before it reaches the table.
 
+### XML comments cannot contain `--`
+
+fontconfig then skips the whole drop-in and reports it only on stderr, which
+`fontconfig.sh` silences. A flag name quoted in a comment is enough: it
+turned the SF autohint off from 2026-10-23 to 24. `xmllint --noout` catches it.
+
 ### `grep -qxF` with pattern starting with `-`
 
 `grep -qxF "-- >>> cllpse-macos overrides >>>"` fails with

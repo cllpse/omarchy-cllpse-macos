@@ -20,3 +20,8 @@ cp "$HERE/fontconfig/conf.d/99-cllpse-macos-ui-font.conf" ~/.config/fontconfig/c
 # SF carries no hints, so slight only acts on it through the autohinter.
 cp "$HERE/fontconfig/conf.d/99-cllpse-macos-autohint.conf" ~/.config/fontconfig/conf.d/99-cllpse-macos-autohint.conf
 fc-cache -f >/dev/null 2>&1
+# fontconfig skips a drop-in it cannot parse and says so only on stderr, so
+# check the result rather than the copy. Not `| grep -q`: under pipefail its
+# early exit fails the pipeline.
+[[ $(fc-match -v 'SFProText Nerd Font Propo' 2>/dev/null) == *'autohint: True'* ]] ||
+  skip "SF is not autohinted: a drop-in did not parse? fc-match -v 'SFProText Nerd Font Propo' 2>&1 | grep -i error"
