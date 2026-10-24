@@ -612,7 +612,7 @@ differences above are the ones to check by hand.
 apply.sh  revert.sh  lib.sh
 starship/starship.toml.tpl    stock starship.toml with {{ accent }} in place of every literal "cyan", plus a custom.git_branch module that middle-truncates long branch names to 24 chars
 hooks/theme-set.d/starship-colors.sh  renders the template above into ~/.config/starship.toml on every theme switch
-fonts/                        20 SF .otf (SF Mono, SF Pro Text, SF Pro Display), plus comic-code/ -- 2 Comic Code .otf, the editor font, kept out of the SF glob
+fonts/                        28 SF .otf (12 SF Mono; 16 SF Pro Text and Display with italics, built from Apple's DMG by build/), plus comic-code/ -- 2 Comic Code .otf, the editor font, kept out of the SF glob
 fontconfig/conf.d/99-cllpse-macos-ui-font.conf   SF Pro for sans-serif/system-ui + optical-size crossover
 ghostty/ghostty.conf          the Comic Code font at 9pt, a few non-default prefs, the unfocused-cursor shader, and confirm-close-surface back on (Omarchy ships it off)
 ghostty/unfocused-cursor.glsl the unfocused cursor as a block at 10% strength, not Ghostty's hollow outline; linked into ~/.config/ghostty/shaders/

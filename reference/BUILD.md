@@ -168,19 +168,19 @@ A working, verified `fonts.conf` is included beside this document.
 
 ### Weights available
 
-Verified with `fc-scan` against the 20 files in `fonts/` — this is what was
-supplied, not the full extent of Apple's families. Grouping is correct: every
-weight reports the base family name, so weight selection resolves within one
-family.
+Verified with `fc-scan` against the 28 files in `fonts/` — a selection, not
+the full extent of Apple's families. Grouping is correct: every weight reports
+the base family name, so weight selection resolves within one family.
 
 | Family | Weights | Italics |
 |---|---|---|
 | SF Mono | Light, Regular, Medium, SemiBold, Bold, Heavy | all six |
-| SF Pro Text | Regular, Medium, SemiBold, Bold | **none** |
-| SF Pro Display | Light, Regular, SemiBold, Bold | **none** |
+| SF Pro Text | Regular, Medium, SemiBold, Bold | all four |
+| SF Pro Display | Light, Regular, SemiBold, Bold | all four |
 
-SF Pro needs synthetic oblique — without it, italic requests render upright.
-SF Mono has real italics and must be excluded from any synthesis rule.
+Every face has a real italic, so nothing is synthesised. Until 2026-10-24 SF
+Pro shipped without its italics and fontconfig slanted the uprights; the SF Pro
+faces are now built from Apple's DMG (`overrides/fonts/README.md`).
 
 ### Surface → face → weight
 
