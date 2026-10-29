@@ -5,7 +5,7 @@ contract — what a file must look like, and which directory it belongs in. This
 file is how you find out *which* files are worth adding, and how to make a new
 one sit correctly beside the ones already here.
 
-**Ship the set as it is.** The 25 silhouettes in `icons/` and the 77 full-colour marks in `verbatim/` — and the same 102
+**Ship the set as it is.** The 26 silhouettes in `icons/` and the 77 full-colour marks in `verbatim/` — and the same 103
 ones in the switcher submodule — are aligned and committed. Do not run a bulk
 pass over either. Everything below applies to
 marks you are **adding**; a sweep that "fixes" the existing set is how `hunk`
@@ -13,7 +13,7 @@ lost its background box once already.
 
 ## Keeping the two repos in step
 
-Both this repo and the plugin carry all 102 marks, and nothing enforces that they
+Both this repo and the plugin carry all 103 marks, and nothing enforces that they
 match — the de-duplication that once made the plugin the single source was
 deliberately undone when both were asked to be complete. So a mark added or
 refitted in one silently diverges from the other. It happened the day the split
@@ -58,7 +58,7 @@ out of `icons/`.
 
 **The full-colour marks are in this repository too, so a colour mark is added
 twice.** `verbatim/` here holds 77 of them; the switcher submodule,
-`omarchy-cllpse-plugin-switcher/icons/`, holds the same 77 among all 102 it ships
+`omarchy-cllpse-plugin-switcher/icons/`, holds the same 77 among all 103 it ships
 for its own tiles. `app-icons.sh` copies the one here verbatim into
 `~/.icons/cllpse-color/apps/` so the menu gets the mark too — and on this machine
 the switcher finds that copy before the plugin's own, so a mark refitted in the

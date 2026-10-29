@@ -106,10 +106,11 @@ a file padded to 78% renders about a fifth *smaller* than its neighbours rather
 than correctly. Edge-to-edge on the long axis is the whole contract (it said
 "inside a square canvas" until the section above was checked against the
 code). Every file in this directory and in the switcher's `icons/` is
-edge-to-edge, bar `pi`, inset on purpose; the canvases are not all square — 6 of
-the 25 here and 27 of the switcher's 102 are tight to their ink,
-`com.t3tools.T3Code` the sixth and twenty-seventh since 2026-10-16, `grok` the
-fifth and twenty-sixth since 2026-10-09 (it was 4 and 25).
+edge-to-edge, bar `pi`, inset on purpose; the canvases are not all square — 7 of
+the 26 here and 28 of the switcher's 103 are tight to their ink,
+`superset` the seventh and twenty-eighth since 2026-10-29, `com.t3tools.T3Code`
+the sixth and twenty-seventh since 2026-10-16, `grok` the fifth and
+twenty-sixth since 2026-10-09 (it was 4 and 25).
 
 **Strip export artefacts.** Design tools emit invisible bounding rectangles —
 `<rect … fill-opacity="0">` spanning the canvas. They draw nothing today, but
