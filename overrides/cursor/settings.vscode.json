@@ -4,6 +4,13 @@
   "workbench.navigationControl.enabled": false,
   "workbench.browser.showInTitleBar": false,
   "workbench.activityBar.compact": true,
+  "workbench.experimental.modernUI": true,
+  "workbench.experimental.modernUIEditorTabStyle": "pill",
+  "workbench.experimental.modernUIUppercaseViewHeaders": true,
+  "workbench.modernUIFrostedGlassOpacity": 100,
+  "workbench.editor.showTabs": "multiple",
+  "workbench.editor.decorations.colors": false,
+  "workbench.editor.decorations.badges": true,
   "chat.titleBar.openInAgentsWindow.enabled": false,
   "chat.viewSessions.enabled": false,
   "chat.viewSessions.orientation": "stacked"

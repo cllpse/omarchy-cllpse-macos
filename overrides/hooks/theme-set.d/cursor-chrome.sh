@@ -426,7 +426,22 @@ if [[ -f $DERIVED ]] && jq -e . "$DERIVED" >/dev/null 2>&1 &&
   derived="$(<"$DERIVED")"
 fi
 
+# The modern UI's shell: the palette's next two steps down from the window
+# colour (colors.toml darker_background / dark_background -- #000000 / #1A1A1A
+# dark, #E6E6E6 / #F6F6F6 light). Empty, the modern-UI stage below is skipped.
+_toml="$(dirname "$THEME")/colors.toml"
+_tier() { sed -n "s/^$1[[:space:]]*=[[:space:]]*\"\(#[0-9A-Fa-f]\{6\}\)\".*/\1/p" "$_toml" 2>/dev/null | head -1; }
+SHELL_BG=$(_tier darker_background)
+SHELL_BG_INACTIVE=$(_tier dark_background)
+# On dark, darker_background is pure black (macOS shadowColor), which sits too
+# hard against the #1E1E1E cards: use dark_background for the shell instead.
+if [[ -n $SHELL_BG_INACTIVE && $(jq -r '.type // "light"' "$THEME") == dark ]]; then
+  SHELL_BG=$SHELL_BG_INACTIVE
+fi
+MODERN=$(jq -r '.["workbench.experimental.modernUI"] == true' "$SETTINGS")
+
 if ! jq --slurpfile t "$THEME" --argjson keep "$KEEP" --argjson exact "$EXACT" --argjson force "$FORCE" \
+       --argjson modern "$MODERN" --arg shell "$SHELL_BG" --arg shell_inactive "$SHELL_BG_INACTIVE" \
        --arg shadow_light "$SHADOW_LIGHT" --arg shadow_dark "$SHADOW_DARK" \
        --arg guide_inactive "$GUIDE_INACTIVE" \
        --argjson derived "$derived" --argjson bearded "$bearded" '
@@ -648,6 +663,33 @@ if ! jq --slurpfile t "$THEME" --argjson keep "$KEEP" --argjson exact "$EXACT" -
             | if $cur != null and ($c[$retint[$k]] != null)
               then .[$k] = ($cur | retint($c[$retint[$k]]))
               else . end)
+      # THE MODERN UI: floating cards on a darker shell. Only when
+      # workbench.experimental.modernUI is on (VS Code; cursor/settings.vscode.json),
+      # because the keys below flatten borders that classic mode needs. The
+      # cards keep the theme panel colour. What shows around them is the
+      # palette next step down (darker_background; on dark dark_background, see
+      # SHELL_BG), and the title bar joins it so
+      # the cards do not run into it. The outline each card draws takes its
+      # colour from surface.border, then widget.border (muted, which is the
+      # light edge), so surface.border, editor.border and the two modern*
+      # borders go to the card colour, and so do the classic dividers.
+      # No apostrophes in here: the whole jq program is a single-quoted string.
+      | if $modern and ($shell | length) > 0
+        then (.["panel.background"] // .["editor.background"]) as $card
+          | .["modernUI.shellBackground"] = $shell
+          | .["modernUI.inactiveShellBackground"] = $shell_inactive
+          | .["titleBar.activeBackground"] = $shell
+          | .["titleBar.inactiveBackground"] = $shell_inactive
+          | .["titleBar.border"] = $shell
+          | .["modernSash.gripForeground"] = "#00000000"
+          | reduce ("surface.border", "editor.border", "modernPanel.border",
+                    "modernActivityBar.border", "sideBar.border", "panel.border",
+                    "panelSection.border", "panelSectionHeader.border",
+                    "sideBarSectionHeader.border", "editorGroup.border",
+                    "editorGroupHeader.border", "tab.border", "tab.activeBorder",
+                    "tab.unfocusedActiveBorder", "tab.hoverBorder") as $k
+                   (.; .[$k] = $card)
+        else . end
         ) as $chrome
       | ( [ $set["workbench.preferredLightColorTheme"],
             $set["workbench.preferredDarkColorTheme"] ] | map(select(type == "string")) ) as $themes

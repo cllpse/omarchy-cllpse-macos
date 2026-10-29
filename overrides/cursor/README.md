@@ -237,6 +237,23 @@ What differs:
   and `workbench.navigationControl.enabled` are Cursor keys too, but only
   VS Code's copy sets them; move them to `settings.json` to give Cursor the
   same.
+- **VS Code runs the modern UI (2026-10-29).** `settings.vscode.json` sets
+  `workbench.experimental.modernUI` to `true` (`settings.json` keeps it `false`
+  for Cursor), with `pill` editor tabs, uppercase view headers, frosted-glass
+  opacity 100, tabs shown, and `workbench.editor.decorations.colors` off so a
+  tab's problem and git state shows as its badge, not as coloured text. While
+  `modernUI` is on, the hook adds a stage to the colours: the cards keep the
+  theme's panel colour and the shell around them, the title bar and the
+  unfocused shell take a darker step of the palette (`darker_background`, or
+  `dark_background` on dark, where the former is pure black: `#E6E6E6` light,
+  `#1A1A1A` dark; unfocused `dark_background`). Every card outline, which is
+  `surface.border`, then `widget.border` (the light edge), when
+  unset, is set to the card colour, as are the classic dividers, and
+  `modernSash.gripForeground` is transparent, which removes the drag dots.
+  Not reachable by setting or colour: the gap between cards (a fixed CSS
+  spacing step; `window.density.layout: compact` zeroes it along with the
+  rounding and outlines) and a background on the tab badge. Both need injected
+  CSS.
 - **(5) and (6) are Cursor's alone.** VS Code never had the watcher, and its
   state DB has no such layout keys.
 - **Bearded has to be installed in VS Code too**:

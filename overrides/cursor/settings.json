@@ -12,6 +12,7 @@
   "workbench.editor.enablePreview": false,
   "workbench.editor.enablePreviewFromQuickOpen": false,
   "workbench.editor.tabSizing": "fixed",
+  "workbench.experimental.modernUI": false,
   "window.restoreWindows": "all",
   "window.newWindowDimensions": "maximized",
   "keyboard.touchbar.enabled": false,
