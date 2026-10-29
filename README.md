@@ -65,6 +65,7 @@ mise use -g hunk gh
 gh extension install dlvhdr/gh-dash
 # TorrentTUI is a release binary, verified with gh: overrides/torrenttui/README.md
 # T3 Code, if you use it: Omarchy menu > Install > AI > T3 Code
+# Superset, if you use it: the unpacked Linux build in ~/Applications/superset/
 ```
 
 Plus two marketplace extensions, `beardedbear.beardedtheme` and

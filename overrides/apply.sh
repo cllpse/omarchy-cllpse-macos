@@ -50,7 +50,7 @@
 #        and the keybind allowlist (was 6b)                            hypr/
 #   7.   the apps Omarchy doesn't theme:
 #          bat/ lazygit/ lsd/ yazi/ lazydocker/ gh-dash/ starship/
-#          cursor/ pi/ hunk/ ytm/ t3code/ bash/ git/ torrenttui/
+#          cursor/ pi/ hunk/ ytm/ t3code/ superset/ bash/ git/ torrenttui/
 #        VS Code is its own step, run from cursor/ (`cursor.sh vscode`)
 #   7b.  restore saved display scaling + text size                     display/
 #   7c.  session environment drop-ins                                  environment.d/
@@ -447,7 +447,7 @@ echo "        omarchy plymouth set by theme omarchy-cllpse-theme-dark   # or -li
 LOOKNFEEL=(
   fonts fontconfig monospace gtk-fonts hinting ghostty gtk-buttons
   hypr
-  bat lazygit lsd yazi lazydocker gh-dash starship cursor vscode hunk ytm t3code
+  bat lazygit lsd yazi lazydocker gh-dash starship cursor vscode hunk ytm t3code superset
   icons omarchy theme
 )
 # state rides along for the same reason it does with a ticked selection:
@@ -484,6 +484,7 @@ STEPS=(
   "hunk||hunk|run:hunk|"
   "ytm||ytm-player|run:ytm|"
   "t3code||T3 Code: every colour from the theme|run:t3code|"
+  "superset||Superset: no opaque square behind README-type icons|run:superset|"
   "bash||bash aliases + fzf|run:bash|"
   "git||git diff through hunk|run:git|"
   "torrenttui||TorrentTUI: download folder + ANSI theme|run:torrenttui|"

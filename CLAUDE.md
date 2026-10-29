@@ -86,6 +86,18 @@ for our drop-in icon sets (`~/.icons/cllpse-flat/` and `cllpse-color/`).
 The switcher reads four icon sources; the optional `~/.icons/cllpse-flat/apps/`
 is one of them. See `overrides/icons/AGENTS.md`.
 
+### Superset's Changes-tree icons are patched inside its `app.asar`
+
+Its sprite builder strips each Material SVG's root tag, so seven icons whose
+root is `fill="none"` (`readme`, `changelog`, `diff`, `log`, `lib`, `document`,
+`settings`) inherit the row's status colour for a stray `<path d="M0 0h24v24H0z"/>`
+and draw an opaque square. `apply.sh superset` swaps that path for a
+same-length XML comment (14 places, no repack); `revert.sh` swaps it back. An
+app update replaces the asar and the square returns: run the step again. Never
+patch it in place, a running Superset reads the file by offset. Probe:
+`npx @electron/asar extract-file ~/Applications/superset/resources/app.asar dist/renderer/file-icons/readme.svg`
+See `overrides/superset/README.md`.
+
 ### SF ships unhinted; hinting reaches it only through the autohinter
 
 Apple's SF Pro and SF Mono carry no hints at all, so for these CFF fonts

@@ -315,6 +315,12 @@ elif [[ -e ~/.config/ytm-player/config.toml ]]; then
   say "left ~/.config/ytm-player/config.toml alone — its [ui] theme may still name textual-light/dark"
 fi
 
+# Superset's icon fix (superset/README.md): the one edit to an app's own files,
+# so it is put back byte for byte rather than left. A no-op once Superset is
+# gone or was never patched.
+say "Undoing the Superset icon fix"
+"$HERE/superset/superset.sh" --revert || true
+
 # App icons (apply.sh step 7f). The whole override is one directory we
 # created, so removing it hands every app back to its vendor icon; there is no
 # backup to restore because nothing pre-existing was replaced.
