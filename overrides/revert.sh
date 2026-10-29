@@ -321,6 +321,11 @@ fi
 say "Undoing the Superset icon fix"
 "$HERE/superset/superset.sh" --revert || true
 
+# Superset's two custom themes (superset-theme/README.md). They live in its
+# own app state, so the CLI takes them out; a no-op once Superset is gone.
+say "Removing Superset's light/dark themes"
+"$HERE/superset-theme/superset-theme.sh" --revert || true
+
 # App icons (apply.sh step 7f). The whole override is one directory we
 # created, so removing it hands every app back to its vendor icon; there is no
 # backup to restore because nothing pre-existing was replaced.
