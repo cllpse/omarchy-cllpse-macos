@@ -315,6 +315,14 @@ elif [[ -e ~/.config/ytm-player/config.toml ]]; then
   say "left ~/.config/ytm-player/config.toml alone — its [ui] theme may still name textual-light/dark"
 fi
 
+# Orca's Warp themes (orca/README.md). Only the files: what Orca imported is a
+# copy in its own settings, and goes from Orca's theme list, not from here. The
+# folders go only if they held nothing else, since a real Warp keeps its own there.
+say "Removing Orca's Warp themes"
+_warp_themes="${XDG_DATA_HOME:-$HOME/.local/share}/warp-terminal/themes"
+rm -f "$_warp_themes"/cllpse-macos-{light,dark}.yaml
+rmdir "$_warp_themes" "$(dirname "$_warp_themes")" 2>/dev/null || true
+
 # Superset's icon fix (superset/README.md): the one edit to an app's own files,
 # so it is put back byte for byte rather than left. A no-op once Superset is
 # gone or was never patched.
