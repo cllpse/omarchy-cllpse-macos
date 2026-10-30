@@ -250,8 +250,8 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   (26 is faithful but dramatic on tiled windows); this radius drives the shell
   surface corners too. `decoration.rounding_power = 2.05` (a hair off a circular
   arc — a stronger squircle pinches the border at the corner) with
-  `decoration.border_part_of_window = true` (border drawn inside each window's
-  tile), enables `decoration.blur` (size 3,
+  `decoration.border_part_of_window = false` (border drawn outside each window,
+  since 2026-10-30), enables `decoration.blur` (size 3,
   passes 5, vibrancy 0.50, vibrancy_darkness 0.50, noise 0.02, brightness/contrast
   1.0), sets `general.border_size = 3` (one over Omarchy's default 2, since 2026-10-16) with `gaps_in = 12` / `gaps_out = 24` (§5's Apple 8pt grid, `md`/`xxl` steps),
   overrides window opacity to `1.0 0.875` (re-matched onto browsers directly too,

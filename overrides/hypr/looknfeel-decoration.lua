@@ -30,11 +30,10 @@
 -- above 2.0 is therefore a deliberate hair of disagreement between a window's
 -- corner and the surfaces that mirror its radius.
 --
--- border_part_of_window = true (the Hyprland default, set explicitly) draws the
--- border inside each window's tile -- the content shrinks to fit -- rather than
--- as its own decoration outside it. `false` was used while rounding_power was
--- high (it curved a thin stroke's corner better); at 2.05 there is nothing to
--- gain, and inside is the tidier model in a tiling WM.
+-- border_part_of_window = false, asked for on 2026-10-30, draws the border as
+-- its own decoration outside the window rather than inside its tile (`true`,
+-- the Hyprland default, which shipped until then). It was used before too, while
+-- rounding_power was high, for the way it curves a thin stroke's corner.
 --
 -- border_size is 3, asked for on 2026-10-16: one over Omarchy's default 2,
 -- which shipped until then. BUILD.md section 5's hairline (1) is
@@ -271,7 +270,7 @@ hl.config({
     dim_inactive = false,
     rounding = 18,
     rounding_power = 2.05,
-    border_part_of_window = true,
+    border_part_of_window = false,
     blur = {
       enabled = true,
       size = 3,

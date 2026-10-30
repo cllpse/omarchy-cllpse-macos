@@ -273,7 +273,7 @@ Three facts drive the mapping:
 |---|---|---|
 | rounding | `18` | macOS window corner radius [chosen] — 26 is the reported Tahoe toolbar-window figure, but it is third-party and dramatic on tiled windows; 18 sits above the 12 fallback and inside the pre-Tahoe range (16 and 14 earlier). Drives the shell surface radius too |
 | rounding_power | `2.05` | a hair off Hyprland's plain circular arc (`2.0`) [chosen] — a stronger squircle (`3`–`3.4`) was tried, but the border renderer draws the stroke's outer edge under-curved above ≈ 3 and it pinches at the 45° corner, so it is kept near circular. `2.2` was the spec's original figure and shipped for a while; it read as an inconsistency against the shell rather than as a curve, was dropped to a plain `2.0`, then to `2.1` — the same idea at half the deviation — and settled at `2.05`, half that again. The knob is windows-only anyway — the shell surfaces that mirror `rounding` stay a pure arc |
-| border_part_of_window | `true` | the Hyprland default, set explicitly — border drawn *inside* each window's tile (content shrinks to fit) rather than as its own decoration outside it. `false` helped a thin stroke's corner at higher `rounding_power`; at `2.05` there is nothing to gain, and inside is tidier in a tiling WM |
+| border_part_of_window | `false` | asked for on 2026-10-30 — border drawn as its own decoration *outside* the window rather than inside its tile. `true` (the Hyprland default) shipped until then; `false` was also used earlier, while `rounding_power` was high, because it curved a thin stroke's corner better |
 | border_size | `3` | asked for on 2026-10-16, one over Omarchy's default `2`, which shipped until then; the macOS hairline (`1`) is a weak focus cue in a tiling WM [chosen] |
 | gaps_in | `12` | Apple 8pt grid, `md` step [chosen] — widened from the `sm` step (`8`) for more breathing room between tiled windows |
 | gaps_out | `24` | 2× inner step, the grid's `xxl` step [chosen] — widened from `lg` (`16`) |
@@ -302,8 +302,8 @@ under-curved, so above `rounding_power` ≈ 3 the stroke visibly fattens at the 
 corner. `border_part_of_window = false` (its own decoration rather than part of
 the window pass) buys headroom to ≈ 3.5–4, but there is no config fix past that
 in Hyprland 0.56.2 — which is why `rounding_power` is kept near circular at
-`2.05`. `border_part_of_window = true` then draws the border inside the tile;
-`false` only earned its keep when the corner curve was aggressive.
+`2.05`. It is `false` now (the border outside the window), on request rather than
+for the corner.
 
 Window decoration belongs in the user Hyprland config, not the theme: v4 strips
 `.lua` files from git-cloned themes, so a theme-shipped decoration file would
