@@ -334,6 +334,7 @@ or `<`, and files with no paint at all (simple-icons bare `<path>`).
 | Per-app override details | `overrides/<app>/README.md` |
 | How the SF fonts are built from Apple's DMGs | `overrides/fonts/README.md` |
 | The TV's DSC bit rate: why 12 bpp, how 20 is forced | `overrides/dsc/README.md` |
+| The TV's service menu, every item and value | `reference/samsung-qn90f-service-menu.md` |
 | Chromium theme extension: design, mechanism, Chromium source findings | `overrides/chromium-theme/README.md` |
 | Window switcher design log | `reference/window-switcher-notes.md` |
 | Keybind parity audit | `KEYBINDS-PARITY.md` |

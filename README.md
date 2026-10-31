@@ -212,7 +212,8 @@ omarchy-cllpse-plugin-supermenu/ SUBMODULE -> cllpse/omarchy-cllpse-plugin-super
                           what you pick. Its own repo, symlinked the same way
 reference/                BUILD.md (the spec) + window-switcher-notes.md (the plugin's
                           design log) + fonts.conf (BUILD's original, superseded) +
-                          cpu-tuning-claude-transcript.txt (where step 10's numbers came from)
+                          cpu-tuning-claude-transcript.txt (where step 10's numbers came from) +
+                          samsung-qn90f-service-menu.md (the TV's factory menu, every item)
 KEYBINDS-PARITY.md        the macOS keyboard gap: Apple's own shortcut list diffed against
                           the live bind set — what is free and unwired, what the keyboard's
                           firmware blocks, and what was ruled out. Nothing in it is
