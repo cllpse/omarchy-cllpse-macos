@@ -3,6 +3,7 @@
   "EnableMediaRouter": false,
   "QRCodeGeneratorEnabled": false,
   "ReadingListEnabled": false,
+  "ScrollToTextFragmentEnabled": false,
   "TranslateEnabled": false,
   "SpellcheckEnabled": false,
   "PasswordManagerEnabled": false,

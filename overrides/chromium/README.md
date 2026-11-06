@@ -518,8 +518,8 @@ ring is a dark teal without it)
 ## From the step table
 
 Chromium context-menu declutter: spellcheck, translate, password-save prompt,
-address/card autofill, Print, Cast, "Create QR Code", and "Add to reading
-list" off — all eight as enterprise policy, none as a Preferences key. (An
+address/card autofill, Print, Cast, "Create QR Code", "Add to reading
+list" and "Copy link to highlight" off — all nine as enterprise policy, none as a Preferences key. (An
 earlier version wrote the first five as plain `Preferences` booleans; a bare
 pref only changes the default, so Settings still showed the toggle as
 user-changeable, and per Chrome's own docs the bare `translate.enabled` pref
@@ -550,3 +550,20 @@ file is in place, and uBOL's filtering mode is a per-profile setting with no
 policy behind it — raise it from Basic to Optimal by hand, once
 
 Script: [`chromium.sh`](chromium.sh) — runnable on its own; [`../apply.sh`](../apply.sh) owns the order.
+
+## "Copy link to highlight" collapses the context menu on selected text
+
+Chromium 155 (measured 2026-11-06), Wayland. Right-click a short text selection
+on any http(s) page and the menu opens about 220 DIP wide with a scroll arrow
+under the fourth item: labels are faded off at the right edge ("Copy link to
+highlig", "Search Google for") and the rest is unreachable. A long selection
+widens the Search item and the menu comes out usable. A `file://` page is fine.
+It is not the UI scale: broken at 1, 1.1, 1.5, 2 and 23/17, with and without
+`enable-pixel-canvas-recording`. The menu is sized before "Copy link to
+highlight" (link-to-text, generated per page) is in it, and a Wayland popup
+cannot grow once mapped; this is inferred, not read from the source. Switching
+the item off makes the menu full-size (Copy, Search, Open in reading mode,
+separator, Inspect). `ScrollToTextFragmentEnabled: false` in
+`policies-managed.json` does it, which also stops `#:~:text=` links scrolling
+to their highlight. Related Chromium commit for the same family of Wayland
+sizing bugs (0,0 window position): b439ff333b4b.
