@@ -61,6 +61,7 @@ yay -S bibata-cursor-theme-bin ytm-player        # AUR — pacman -S will NOT fi
 omarchy pkg aur add flea-bin                     # AUR too — the file manager, step 7j
 omarchy-install-service-tailscale                # step 7i: the daemon, the login, the operator bit
 yay -S ryzenadj                                  # step 10 — only on the Ryzen box it is gated on
+sudo pacman -S avr-gcc avr-libc dfu-programmer   # step 7k — only to build and flash the Twister's firmware
 mise use -g hunk gh
 gh extension install dlvhdr/gh-dash
 # TorrentTUI is a release binary, verified with gh: overrides/torrenttui/README.md
@@ -530,6 +531,21 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   Flea's Settings ▸ About, puts the block back and takes the chord until the
   next `apply.sh flea`. Full detail in
   [`overrides/flea/README.md`](overrides/flea/README.md).
+- **The Midi Fighter Twister's top-left push cycles its LED colour, in the
+  firmware.** Step 7k (opt-in) builds DJ TechTools' open-source firmware with
+  two switch actions and a per-encoder flag and flashes it over the DFU
+  bootloader. On bank 4 every knob's turn sets its LED's hue from the value
+  and every push plays a two-second animation, every third one a colour
+  shift across all sixteen LEDs; the other action, a twelve-colour palette
+  per press kept in EEPROM, is there for any switch. It also runs on a
+  power bank, where stock firmware stays dark until a USB host configures
+  it, boots into the bank last selected, and ignores its side buttons. The
+  stock firmware cannot: its nine switch actions have no colour cycle, and a
+  host daemon was the alternative. The unit has run the build since
+  2026-11-02; it also moved it from the 2019-10-02 firmware to the 2026
+  source, which factory-reset the settings once (the step backs up and
+  replays them). Full detail in
+  [`overrides/twister/README.md`](overrides/twister/README.md).
 
 ## Also on the author's machine (not installed by `apply.sh`)
 
@@ -581,9 +597,9 @@ comm -23 <(pacman -Qqe | sort -u) \
 ```
 
 That prints every explicitly-installed package Omarchy's own lists do not
-contain — 32 here. Twelve of them are this repo's dependencies and are covered in
-[`overrides/README.md`](overrides/README.md) (`bibata-cursor-theme-bin`,
-`cursor-bin`, `flea-bin`, `ghostty`, `keyd`, `lsd`, `msedit`,
+contain — 35 here. Fifteen of them are this repo's dependencies and are covered in
+[`overrides/README.md`](overrides/README.md) (`avr-gcc`, `avr-libc`, `bibata-cursor-theme-bin`,
+`cursor-bin`, `dfu-programmer`, `flea-bin`, `ghostty`, `keyd`, `lsd`, `msedit`,
 `python-secretstorage`, `ryzenadj`, `tailscale`, `yazi`, `ytm-player`). Four more — `cmake`, `ninja`,
 `qt6-connectivity`, `qt6-tools` — are build dependencies, not runtime ones:
 the `io.github.thisisgm.omapods` `setup` script pulls them in to compile the

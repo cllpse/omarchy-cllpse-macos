@@ -1,0 +1,646 @@
+diff --git i/src/colorMap.h w/src/colorMap.h
+index 3e12e22..a1d2830 100644
+--- i/src/colorMap.h
++++ w/src/colorMap.h
+@@ -27,7 +27,7 @@
+ #ifndef COLORMAP_H_
+ #define COLORMAP_H_
+ 
+-	#include <ASF.H>
++	#include <asf.h>
+ 	
+ 	extern const uint8_t (*activeColorMap)[3];
+ 	void colorMap_init(void);
+diff --git i/src/config.c w/src/config.c
+index 6981f03..e783b92 100644
+--- i/src/config.c
++++ w/src/config.c
+@@ -311,6 +311,7 @@ static void sysExCmdBulkXfer(uint8_t length, uint8_t* buffer) // Process/ParseSy
+ 									 22, enc_cfg.indicator_display_type,
+ 									 23, enc_cfg.is_super_knob,
+ 									 24, enc_cfg.encoder_shift_midi_channel+1, // !Summer2016Update
++									 25, enc_cfg.color_from_rotation, // cllpse
+ 									};
+ 				
+ 			// Total number of bytes to transfer
+diff --git i/src/constants.h w/src/constants.h
+index f424edb..16dbb2c 100644
+--- i/src/constants.h
++++ w/src/constants.h
+@@ -79,7 +79,7 @@
+ 
+ 
+ // System Constants -------------------------------------------------------
+-#define EXTENDED_BANKS  // Comment out to use sequencer + 4 banks
++//#define EXTENDED_BANKS  // Comment out to use sequencer + 4 banks  [cllpse: 4 banks, as this unit's config is laid out]
+ 
+ #ifdef EXTENDED_BANKS
+ #define NUM_BANKS 8
+@@ -116,6 +116,8 @@
+ #define EE_ANIMATION_CHANNELS		0x000F	//Encoder and switch animation channels
+ #define EE_SLEEP_SETTINGS			0x0010  // Timeout (6 bits) + Animation (2 bits)
+ #define EE_BANK_ANIMATIONS_ENABLED	0x0011	// Bank change animations on/off
++#define EE_BOOT_BANK				0x0012	// cllpse: the bank to start in = the last one selected (0xFF = never set -> bank 1)
++#define CLLPSE_NO_SIDE_SWITCHES		// cllpse: the six side buttons do nothing at all
+ 
+ #define PACK_SLEEP_SETTINGS(timeout, anim)   (((timeout) & 0x3F) | (((anim) & 0x03) << 6))
+ #define GET_SLEEP_TIMEOUT(val)               ((val) & 0x3F)
+diff --git i/src/display_driver.c w/src/display_driver.c
+index 94513a4..a2d4f2c 100644
+--- i/src/display_driver.c
++++ w/src/display_driver.c
+@@ -229,7 +229,8 @@ void clear_display_buffer(void){
+  * every millisecond and decrements the animation frame counters.
+  */
+ 
+-volatile uint16_t animation_frames_remaining = 0;
++volatile uint16_t animation_frames_remaining = 0;
++volatile uint16_t ms_ticks = 0; // cllpse: see display_driver.h
+ 
+ void display_animation_timer(void)
+ {
+@@ -243,6 +244,7 @@ void display_animation_timer(void)
+ 	if (!sleep_mode_active) {
+ 		idle_timer++;
+ 	}
++	ms_ticks++; // cllpse: 127 ticks of 32 MHz/256 = 1.016 ms
+ }
+ 
+ 
+@@ -694,6 +696,30 @@ void set_encoder_indent(uint8_t encoder, uint8_t color_index)
+ 	}
+ }
+ 
++/** cllpse: the red/blue LED at the ring's 12 o'clock, red and blue each at
++ *  its own level (0..255, PWM over the frames like set_encoder_indent), so it
++ *  can carry a tint taken from the RGB LED's colour beside a white dot.
++ *  set_encoder_indicator_level resets these two bits on every redraw, so the
++ *  caller re-applies this after each one.
++ */
++void set_encoder_indent_rgb(uint8_t encoder, uint8_t red, uint8_t blue)
++{
++	uint8_t *ptr = display_frame_buffer;
++	ptr += ((15-encoder)*2);
++	for (uint8_t i=0;i<NUM_OF_FRAMES;++i)
++	{
++		*ptr |= 0x03;
++		uint8_t value = (i << 1)*(127/NUM_OF_FRAMES);
++		if (blue > value){
++			*ptr &= ~0x01;
++		}
++		if (red > value){
++			*ptr &= ~0x02;
++		}
++		ptr += 32;
++	}
++}
++
+ /** Builds various MIDI controlled animations for the RGB segments
+  *  Inputs:
+  *  encoder   - which encoder to set indent animation for
+diff --git i/src/display_driver.h w/src/display_driver.h
+index e52a23d..f326251 100644
+--- i/src/display_driver.h
++++ w/src/display_driver.h
+@@ -118,7 +118,8 @@
+ 	void set_encoder_rgb(uint8_t encoder, uint8_t color);
+ 	void set_encoder_rgb_level(uint8_t encoder, uint8_t color, uint8_t brightness);
+ 	
+-	void set_encoder_indent(uint8_t encoder, uint8_t color_index);
++	void set_encoder_indent(uint8_t encoder, uint8_t color_index);
++	void set_encoder_indent_rgb(uint8_t encoder, uint8_t red, uint8_t blue); // cllpse: the red/blue LED at 12 o'clock, each at its own level
+ 	
+ 	void set_encoder_indicator(uint8_t encoder, uint8_t position, bool has_detent, uint16_t type, 
+ 								uint8_t detent_color);
+@@ -138,6 +139,7 @@
+ 	void rainbow_demo(void);
+ 	//Sleep animations
+ 	extern volatile uint32_t idle_timer;
++	extern volatile uint16_t ms_ticks; // cllpse: ~1 ms ticks from the animation timer, never reset; wraps
+ 	extern volatile bool sleep_mode_active;
+ 	extern uint8_t sleep_timeout_minutes;
+ 	extern uint8_t sleep_animation_type;
+diff --git i/src/encoders.c w/src/encoders.c
+index 7f16e11..6e519de 100644
+--- i/src/encoders.c
++++ w/src/encoders.c
+@@ -53,6 +53,154 @@ uint16_t enc_switch_toggle_state[NUM_BANKS];	 // 16-Encoders Per Bank/ 1-bit per
+ 							// to the MIDI state we use this to track.
+ 												 
+ uint16_t switch_color_overide[NUM_BANKS];		 // Bit field to track if color override
++static uint8_t prevSwitchColorValue[16];         // last colour drawn per physical encoder (was declared beside the display code)
++static uint16_t prevIndentTint[16];              // cllpse: last red<<8|blue sent to the ring's red/blue LED; 0xFFFF = none
++
++// cllpse: one-shot animations, played by a SW_COLOR_TOGGLE press. Two kinds:
++// six "local" ones on the pressed encoder alone, and four "global" colour
++// shifts across all sixteen LEDs; every third press is a global one, each
++// set taken in turn so successive presses differ. ONESHOT_MS each, drawn
++// straight into the frame buffer from the main loop like the stock
++// animations; the normal display is forced to redraw when one ends.
++#define ONESHOT_MS 2000
++#define NUM_ONESHOTS 6
++#define NUM_GLOBAL_ANIMS 4
++static uint8_t  anim_presses = 0;      // every third press is global
++static uint16_t global_start = 0;
++static uint8_t  global_kind = 0, global_next = 0;
++static uint8_t  global_origin = 0;     // the pressed encoder, for the ripple and the spotlight
++static bool     global_active = false;
++static uint16_t oneshot_start[16];
++static uint8_t  oneshot_kind[16];
++static uint16_t oneshot_pattern[16];
++static uint8_t  oneshot_frame_no[16];
++static uint16_t oneshot_active = 0;  // bitfield by physical encoder
++static uint8_t  oneshot_next = 0;
++static uint16_t oneshot_rng = 0xACE1;
++
++static uint16_t now_ms(void);
++static uint16_t now_ms(void) { irqflags_t f = cpu_irq_save(); uint16_t v = ms_ticks; cpu_irq_restore(f); return v; }
++static uint16_t rng16(void);
++static uint16_t rng16(void) { oneshot_rng ^= oneshot_rng << 7; oneshot_rng ^= oneshot_rng >> 9; oneshot_rng ^= oneshot_rng << 8; return oneshot_rng; }
++// ring positions 0 (7 o'clock) .. 10 (5 o'clock); 5 is 12 o'clock
++static uint16_t ring_dot(int8_t p);
++static uint16_t ring_dot(int8_t p) { return (p < 0 || p > 10) ? 0 : (uint16_t)(0x8000u >> p); }
++static uint16_t ring_span(int8_t a, int8_t b);
++static uint16_t ring_span(int8_t a, int8_t b) { uint16_t m = 0; for (int8_t p = a; p <= b; ++p) m |= ring_dot(p); return m; }
++// triangle wave 0..255..0 over `period` ms
++static uint8_t tri(uint16_t t, uint16_t period);
++static uint8_t tri(uint16_t t, uint16_t period) { uint16_t ph = t % period; uint16_t half = period / 2; return (uint8_t)((ph < half ? ph : period - ph) * 255UL / half); }
++
++static void oneshot_begin(uint8_t idx);
++static void oneshot_begin(uint8_t idx)
++{
++	oneshot_start[idx] = now_ms();
++	oneshot_kind[idx] = oneshot_next;
++	oneshot_next = (oneshot_next + 1) % NUM_ONESHOTS;
++	oneshot_frame_no[idx] = 0xFF;
++	oneshot_active |= (1 << idx);
++}
++
++static void anim_trigger(uint8_t idx);
++static void anim_trigger(uint8_t idx)
++{
++	if (++anim_presses % 3 == 0) {
++		global_start = now_ms();
++		global_kind = global_next;
++		global_next = (global_next + 1) % NUM_GLOBAL_ANIMS;
++		global_origin = idx;
++		global_active = true;
++	} else {
++		oneshot_begin(idx);
++	}
++}
++
++// One LED of a global colour shift. Only the RGB LED and its red/blue tint
++// move; the rings stay as they are.
++static void global_draw(uint8_t idx, uint16_t t, uint8_t own_color);
++static void global_draw(uint8_t idx, uint16_t t, uint8_t own_color)
++{
++	uint8_t rgbb = pgm_read_byte(&brightnessMap[global_rgb_brightness]);
++	uint8_t row = idx / 4, col = idx % 4;
++	uint8_t c; uint8_t lv = rgbb;
++	switch (global_kind) {
++	case 0: { // wave: a rainbow rolls across the grid, two full wheels in the two seconds
++		c = 1 + (uint8_t)((t / 8 + col * 20 + row * 10) % 118);
++	} break;
++	case 1: { // ripple: hue and brightness radiate from the pressed knob by grid distance
++		uint8_t r0 = global_origin / 4, c0 = global_origin % 4;
++		uint8_t d = (uint8_t)((row > r0 ? row - r0 : r0 - row) + (col > c0 ? col - c0 : c0 - col)); // 0..6
++		c = 1 + (uint8_t)((t / 6 + (6 - d) * 18) % 118);
++		lv = (uint8_t)(((uint16_t)tri((uint16_t)(t + d * 90), 540) * rgbb) / 255); if (lv < 4) lv = 4;
++	} break;
++	case 2: { // twinkle: every LED jumps to a new colour and level every 100 ms
++		uint8_t fr = (uint8_t)(t / 100);
++		uint16_t h = (uint16_t)(fr * 37u + idx * 53u + fr * idx * 7u);
++		c = 1 + (uint8_t)(h % 118);
++		lv = (uint8_t)(((uint16_t)(40 + (h >> 3) % 88) * rgbb) / 127);
++	} break;
++	default: { // spotlight: every LED takes the pressed knob's colour and breathes, the pressed one solid
++		c = own_color ? own_color : 1;
++		if (idx != global_origin) lv = (uint8_t)(((uint16_t)tri(t, 1000) * rgbb) / 255);
++	} break;
++	}
++	set_encoder_rgb_level(idx, c, lv);
++	uint32_t rgb = pgm_read_dword(&activeColorMap[c][0]);
++	set_encoder_indent_rgb(idx, (uint8_t)(((uint16_t)((rgb >> 16) & 0xFF) * lv) / 127), (uint8_t)(((uint16_t)(rgb & 0xFF) * lv) / 127));
++}
++
++static void oneshot_draw(uint8_t idx, uint16_t t, uint8_t color, uint8_t red, uint8_t blue);
++static void oneshot_draw(uint8_t idx, uint16_t t, uint8_t color, uint8_t red, uint8_t blue)
++{
++	uint8_t indb = pgm_read_byte(&brightnessMap[global_ind_brightness]);
++	uint8_t rgbb = pgm_read_byte(&brightnessMap[global_rgb_brightness]);
++	switch (oneshot_kind[idx]) {
++	case 0: { // spin: a dot laps the ring every 330 ms, the LED breathes at 2 Hz
++		set_indicator_pattern_level(idx, ring_dot((t / 30) % 11), indb);
++		set_encoder_rgb_level(idx, color, (uint8_t)(((uint16_t)tri(t, 500) * rgbb) / 255));
++		set_encoder_indent_rgb(idx, red, blue);
++	} break;
++	case 1: { // burst: a spread from 12 o'clock out to the full ring and back, four times, the LED strobing
++		uint16_t ph = t % 500; uint8_t w = (uint8_t)((ph < 250 ? ph : 499 - ph) / 42);
++		set_indicator_pattern_level(idx, ring_span(5 - w, 5 + w), indb);
++		set_encoder_rgb_level(idx, color, ((t / 62) & 1) ? rgbb : 0);
++		set_encoder_indent_rgb(idx, red, blue);
++	} break;
++	case 2: { // rainbow: the LED sweeps the hue wheel twice while the whole ring breathes
++		uint8_t c = 1 + (uint8_t)(((uint32_t)(t % 1000) * 118) / 1000);
++		uint8_t lv = (uint8_t)(((uint16_t)tri(t, 1000) * indb) / 255); if (lv < 2) lv = 2;
++		set_indicator_pattern_level(idx, ring_span(0, 10), lv);
++		set_encoder_rgb_level(idx, c, rgbb);
++		uint32_t rgb = pgm_read_dword(&activeColorMap[c][0]);
++		set_encoder_indent_rgb(idx, (rgb >> 16) & 0xFF, rgb & 0xFF);
++	} break;
++	case 3: { // bounce: a dot bounces end to end every 400 ms, the red/blue LED alternates
++		uint16_t ph = t % 400; int8_t p = (int8_t)((ph < 200 ? ph : 399 - ph) / 19);
++		set_indicator_pattern_level(idx, ring_dot(p), indb);
++		set_encoder_rgb_level(idx, color, rgbb);
++		if ((t / 100) & 1) set_encoder_indent_rgb(idx, 255, 0); else set_encoder_indent_rgb(idx, 0, 255);
++	} break;
++	case 4: { // fill: the bar fills from the left in half a second, then drains from the left, twice; the LED follows the level
++		uint16_t ph = t % 1000; uint8_t n = (uint8_t)((ph < 500 ? ph : ph - 500) / 45); if (n > 11) n = 11;
++		uint16_t m = ph < 500 ? ring_span(0, (int8_t)n - 1) : ring_span((int8_t)n, 10);
++		uint8_t lv = ph < 500 ? n : 11 - n;
++		set_indicator_pattern_level(idx, m, indb);
++		set_encoder_rgb_level(idx, color, (uint8_t)(((uint16_t)lv * rgbb) / 11));
++		set_encoder_indent_rgb(idx, red, blue);
++	} break;
++	default: { // sparkle: three random ring LEDs every 50 ms, the LED white and flickering
++		uint8_t fr = (uint8_t)(t / 50);
++		if (fr != oneshot_frame_no[idx]) {
++			oneshot_frame_no[idx] = fr;
++			uint16_t r = rng16();
++			oneshot_pattern[idx] = ring_dot(r % 11) | ring_dot((r >> 4) % 11) | ring_dot((r >> 8) % 11);
++			set_encoder_rgb_level(idx, 127, (uint8_t)(((uint16_t)(32 + (r & 0x5F)) * rgbb) / 127));
++		}
++		set_indicator_pattern_level(idx, oneshot_pattern[idx], indb);
++		set_encoder_indent_rgb(idx, red, blue);
++	} break;
++	}
++}
+ 												 // was received for switch color
+ 												 
+ uint16_t enc_indicator_overide[NUM_BANKS];       // Bit field to track if indicator override
+@@ -234,11 +382,19 @@ void encoders_init(void)
+ 	}	 
+ 	 
+ 	// Initialize Per-Physical Encoder related variables
+-	for (uint8_t i = 0; i<PHYSICAL_ENCODERS;++i){ 
++	for (uint8_t i = 0; i<PHYSICAL_ENCODERS;++i){
+ 		encoder_detent_counter[i] = 0;
+ 		enc_switch_toggle_state[encoder_bank] = 0;
+ 	}
+ 
++	// cllpse: start in the bank that was selected last (change_encoder_bank
++	// keeps it in EEPROM), so a power cycle without a computer comes back to
++	// the same page. 0xFF (never set) and anything out of range mean bank 1.
++	{
++		uint8_t boot_bank = eeprom_read(EE_BOOT_BANK);
++		if (boot_bank < NUM_BANKS) encoder_bank = boot_bank;
++	}
++
+ 	// Initialize Per-Banked Encoder related variables 
+ 	for (uint8_t i = 0; i<BANKED_ENCODERS;++i){ 
+ 		if (encoder_settings[i].has_detent) {
+@@ -295,7 +451,8 @@ void get_encoder_config(uint8_t bank, uint8_t encoder, encoder_config_t *cfg_ptr
+ 	cfg_ptr->switch_midi_type		= 0;//(buffer[0] >> 1) & 0x01;
+ 	cfg_ptr->switch_midi_channel	= (buffer[0] >> 4) & 0x0F;
+ 	cfg_ptr->switch_midi_number		= buffer[1] & 0x7F;
+-	cfg_ptr->active_color			= buffer[2];
++	cfg_ptr->active_color			= buffer[2] & 0x7F;
++	cfg_ptr->color_from_rotation	= (buffer[2] >> 7) & 0x01; // cllpse
+ 	cfg_ptr->inactive_color			= buffer[3];
+ 	cfg_ptr->detent_color			= buffer[4] & 0x7F;
+ 	cfg_ptr->has_detent				= (buffer[4] >> 7) & 0x01;
+@@ -369,7 +526,12 @@ void save_encoder_config(uint8_t bank, uint8_t encoder, encoder_config_t *cfg_pt
+ 	
+ 	// Active and Inactive colors are saved in the third and fourth bytes	
+ 	if (cfg_ptr->active_color < 0x80){
+-		*buffer_ptr = cfg_ptr->active_color;
++		*buffer_ptr &= ~0x7F;
++		*buffer_ptr |= (0x7F & cfg_ptr->active_color);
++	}
++	if (cfg_ptr->color_from_rotation < 0x80){ // cllpse: bit 7 of the same byte
++		*buffer_ptr &= ~0x80;
++		*buffer_ptr |= (0x80 & (cfg_ptr->color_from_rotation << 7));
+ 	}
+ 	buffer_ptr++;  // 1-bit open
+ 		
+@@ -875,6 +1037,44 @@ bool process_encoder_input_rotary_detent(uint8_t i, uint8_t virtual_encoder_id,
+ }
+ #endif
+ 
++// cllpse: the colours SW_COLOR_CYCLE steps through, as indices into the active
++// colour map (colorMap7 / colorMap64), hue order then off. 0 is "LED off" as an
++// inactive colour. 126/127 are left out: the MIDI colour path refuses them too.
++static const uint8_t cycle_colors[] PROGMEM = {85, 69, 64, 62, 47, 36, 22, 17, 1, 96, 107, 0};
++#define NUM_CYCLE_COLORS (sizeof(cycle_colors) / sizeof(cycle_colors[0]))
++
++// cllpse: an encoder value 0..127 as a colour-map index 1..119, a full turn of
++// the hue wheel on the classic map (blue, green, yellow, red, magenta, purple);
++// 120..126 are near-duplicate dim blues and 0 would be off.
++static uint8_t value_to_color(uint8_t value);
++static uint8_t value_to_color(uint8_t value)
++{
++	return 1 + (uint8_t)(((uint16_t)value * 118) / 127);
++}
++
++static uint8_t next_cycle_color(uint8_t current);
++static uint8_t next_cycle_color(uint8_t current)
++{
++	for (uint8_t k = 0; k < NUM_CYCLE_COLORS; ++k) {
++		if (pgm_read_byte(&cycle_colors[k]) == current) {
++			return pgm_read_byte(&cycle_colors[(k + 1) % NUM_CYCLE_COLORS]);
++		}
++	}
++	return pgm_read_byte(&cycle_colors[0]); // not a palette colour yet: start at the first
++}
++
++// cllpse: persist one encoder's inactive colour without rewriting its page.
++// Same address arithmetic as get_encoder_config (8 bytes per encoder, 128 per
++// bank, from page ENC_SETTINGS_START_PAGE), under the same irq guard.
++static void save_inactive_color(uint8_t bank, uint8_t encoder, uint8_t color);
++static void save_inactive_color(uint8_t bank, uint8_t encoder, uint8_t color)
++{
++	uint16_t addr = (ENC_SETTINGS_START_PAGE * 32) + (bank * 128) + (encoder * 8) + EE_INACTIVE_COLOR_OFFSET;
++	cpu_irq_disable(); // as get_encoder_config does around its NVM access
++	eeprom_write(addr, color);
++	cpu_irq_enable();
++}
++
+ void process_encoder_input_switch(uint8_t i, uint8_t virtual_encoder_id, uint8_t banked_encoder_id, uint16_t bit) {
+ 	
+ 	if (get_bank_select_active()) {
+@@ -937,6 +1137,44 @@ void process_encoder_input_switch(uint8_t i, uint8_t virtual_encoder_id, uint8_t
+ 			}
+ 			break;
+ 			
++			// cllpse: SW_COLOR_CYCLE. On press the LED moves to the next palette
++			// colour and that colour becomes the encoder's inactive colour, in RAM
++			// and in EEPROM, so it survives bank changes and power loss and the
++			// Utility shows it. The switch's CC goes out as for CC Hold (127 on
++			// press, 0 on release) so a host still sees the press. Written
++			// straight to the colour buffer, override or not: the press is the
++			// user's intent, and a later MIDI colour still lands on top as before.
++			case SW_COLOR_CYCLE:{
++				if (bit & get_enc_switch_down()) {
++					enc_switch_midi_state[encoder_bank][i] = 127;
++					uint8_t next = next_cycle_color(encoder_settings[banked_encoder_id].inactive_color);
++					encoder_settings[banked_encoder_id].inactive_color = next;
++					switch_color_buffer[encoder_bank][i] = next;
++					save_inactive_color(encoder_bank, i, next);
++				} else {
++					enc_switch_midi_state[encoder_bank][i] = 0;
++				}
++				send_element_midi(SWITCH, banked_encoder_id, enc_switch_midi_state[encoder_bank][i],
++				enc_switch_midi_state[encoder_bank][i]);
++			}
++			break;
++
++			// cllpse: SW_COLOR_TOGGLE. A press plays the next one-shot animation
++			// on this encoder; every third press across the unit plays a colour
++			// shift on all sixteen LEDs instead (anim_trigger). The colour itself
++			// is untouched. The switch's CC goes out as CC Hold's would.
++			case SW_COLOR_TOGGLE:{
++				if (bit & get_enc_switch_down()) {
++					enc_switch_midi_state[encoder_bank][i] = 127;
++					anim_trigger(i);
++				} else {
++					enc_switch_midi_state[encoder_bank][i] = 0;
++				}
++				send_element_midi(SWITCH, banked_encoder_id, enc_switch_midi_state[encoder_bank][i],
++				enc_switch_midi_state[encoder_bank][i]);
++			}
++			break;
++
+ 			/*	The fine adjust action is handled in the encoder code, the
+ 				LED does not change state with this action */
+ 			case ENC_FINE_ADJUST:{}
+@@ -1265,7 +1503,9 @@ void send_element_midi(enc_control_type_t type, uint8_t banked_encoder_idx, uint
+ 				encoder_settings[banked_encoder_idx].switch_action_type == ENC_SHIFT_HOLD ||
+ 				encoder_settings[banked_encoder_idx].switch_action_type == ENC_SHIFT_TOGGLE ||
+ 				encoder_settings[banked_encoder_idx].switch_action_type == ENC_RESET_VALUE ||
+-				encoder_settings[banked_encoder_idx].switch_action_type == ENC_RESET_VALUE_INV){
++				encoder_settings[banked_encoder_idx].switch_action_type == ENC_RESET_VALUE_INV ||
++				encoder_settings[banked_encoder_idx].switch_action_type == SW_COLOR_CYCLE || // cllpse
++				encoder_settings[banked_encoder_idx].switch_action_type == SW_COLOR_TOGGLE){ // cllpse
+ 					
+ 				uint8_t adj_val = adjust_switch_value_by_encoder_value(banked_encoder_idx, value, state);
+ 				//midi_stream_raw_cc(encoder_settings[banked_encoder_idx].switch_midi_channel, 
+@@ -1596,7 +1836,7 @@ void process_shift_update(uint8_t idx, uint8_t value)
+ **/
+ 
+ static uint8_t prevIndicatorValue[16];
+-static uint8_t prevSwitchColorValue[16];
++// prevSwitchColorValue moved up beside the one-shot state (cllpse): the animations force redraws through it
+ static uint8_t prevEncoderAnimationValue[16];
+ static uint8_t prevSwAnimationValue[16];
+ 
+@@ -1660,11 +1900,69 @@ static void update_encoder_display_single(const uint8_t idx)
+ 	// First the indicator display
+ 	uint8_t currentValue = indicator_value_buffer[encoder_bank][idx];
+ 	uint8_t banked_encoder_idx = idx + encoder_bank*PHYSICAL_ENCODERS;				
++
++	// cllpse: a running global colour shift owns every encoder's LED
++	if (global_active) {
++		uint16_t t = now_ms() - global_start;
++		if (t >= ONESHOT_MS) {
++			global_active = false;
++			for (uint8_t k = 0; k < 16; ++k) { prevSwitchColorValue[k] = 0xFF; prevIndentTint[k] = 0xFFFF; }
++		} else {
++			global_draw(idx, t, switch_color_buffer[encoder_bank][global_origin]);
++			prevSwitchColorValue[idx] = 0xFF;
++			prevIndentTint[idx] = 0xFFFF;
++			if (!(oneshot_active & (1 << idx))) {
++				// keep the ring live underneath
++				if (currentValue != prevIndicatorValue[idx]) {
++					set_encoder_indicator(idx, currentValue, encoder_settings[banked_encoder_idx].has_detent,
++										encoder_settings[banked_encoder_idx].indicator_display_type,
++										encoder_settings[banked_encoder_idx].detent_color);
++					if (encoder_settings[banked_encoder_idx].color_from_rotation) {
++						uint8_t c = value_to_color(currentValue);
++						switch_color_buffer[encoder_bank][idx] = c;
++						encoder_settings[banked_encoder_idx].inactive_color = c;
++					}
++					prevIndicatorValue[idx] = currentValue;
++				}
++				return;
++			}
++		}
++	}
++	// cllpse: a running local one-shot owns this encoder's display
++	if (oneshot_active & (1 << idx)) {
++		uint16_t t = now_ms() - oneshot_start[idx];
++		if (t >= ONESHOT_MS) {
++			oneshot_active &= ~(1 << idx);
++			prevIndicatorValue[idx] = 0xFF;      // everything back as it was
++			prevSwitchColorValue[idx] = 0xFF;
++			prevIndentTint[idx] = 0xFFFF;
++		} else {
++			uint8_t shown = switch_color_buffer[encoder_bank][idx];
++			uint32_t rgb = pgm_read_dword(&activeColorMap[shown][0]);
++			oneshot_draw(idx, t, shown, (rgb >> 16) & 0xFF, rgb & 0xFF);
++			return;
++		}
++	}
+ 	if (currentValue != prevIndicatorValue[idx]) {
+ 		set_encoder_indicator(idx, currentValue, encoder_settings[banked_encoder_idx].has_detent,
+ 								encoder_settings[banked_encoder_idx].indicator_display_type,
+ 								encoder_settings[banked_encoder_idx].detent_color);
++		// cllpse: colour follows the value. Every path that moves the value
++		// (a turn, MIDI feedback, a reset) lands here, and so do the forced
++		// redraws at power-up and after a bank change (prev = 0xFF), so this
++		// is the one hook and the LED shows the value's colour from the first
++		// frame (blue at 0) rather than the configured inactive colour until
++		// the first turn. Written to the colour buffer and, in RAM, to the
++		// inactive colour, so a CC Hold release puts the rotated colour back
++		// rather than the configured one. Not to EEPROM: a turn is many ticks,
++		// and the chosen colour lives as long as the value does.
++		if (encoder_settings[banked_encoder_idx].color_from_rotation) {
++			uint8_t c = value_to_color(currentValue);
++			switch_color_buffer[encoder_bank][idx] = c;
++			encoder_settings[banked_encoder_idx].inactive_color = c;
++		}
+ 		prevIndicatorValue[idx] = currentValue;
++		prevIndentTint[idx] = 0xFFFF; // cllpse: the redraw cleared the red/blue LED; re-tint below
+ 	}
+ 	
+ 	// Next the RGB display
+@@ -1673,6 +1971,23 @@ static void update_encoder_display_single(const uint8_t idx)
+ 		set_encoder_rgb(idx, currentValue);
+ 		prevSwitchColorValue[idx] = currentValue;
+ 	}
++	// cllpse: the ring's one coloured element, the red/blue LED at 12 o'clock,
++	// carries the shown colour's red and blue (the ring has no green: green,
++	// yellow and cyan lose their green share, pure green goes dark). Only for
++	// colour-from-rotation encoders without a detent -- the stock detent
++	// display owns that LED otherwise. Scaled by the indicator brightness.
++	if (encoder_settings[banked_encoder_idx].color_from_rotation && !encoder_settings[banked_encoder_idx].has_detent) {
++		uint32_t rgb = pgm_read_dword(&activeColorMap[currentValue][0]);
++		uint8_t red = (rgb >> 16) & 0xFF, blue = rgb & 0xFF;
++		uint8_t level = pgm_read_byte(&brightnessMap[global_ind_brightness]);
++		red = (uint8_t)(((uint16_t)red * level) / 127);
++		blue = (uint8_t)(((uint16_t)blue * level) / 127);
++		uint16_t tint = ((uint16_t)red << 8) | blue;
++		if (tint != prevIndentTint[idx]) {
++			set_encoder_indent_rgb(idx, red, blue);
++			prevIndentTint[idx] = tint;
++		}
++	}
+ 	
+ 	// Finally if animation is active for this encoder run the animation
+ 	// If it has just changed from active to inactive reset the RGB to its
+@@ -1770,7 +2085,13 @@ void change_encoder_bank(uint8_t new_bank) // Change Bank
+ 		}*/		
+ 	} 
+ 	
+-	encoder_bank = new_bank;                                                 
++	encoder_bank = new_bank;
++	// cllpse: remember it for the next power-up (EE_BOOT_BANK), written only on a change
++	if (eeprom_read(EE_BOOT_BANK) != new_bank) {
++		cpu_irq_disable();
++		eeprom_write(EE_BOOT_BANK, new_bank);
++		cpu_irq_enable();
++	}
+ }
+ 
+ /**
+diff --git i/src/encoders.h w/src/encoders.h
+index 5d991ab..26588ee 100644
+--- i/src/encoders.h
++++ w/src/encoders.h
+@@ -69,6 +69,8 @@
+ 			ENC_FINE_ADJUST,
+ 			ENC_SHIFT_HOLD,
+ 			ENC_SHIFT_TOGGLE,
++			SW_COLOR_CYCLE,   // cllpse: each press steps the LED through a palette, kept as the inactive colour (value 9; EEPROM stores the action in a nibble, so up to 15)
++			SW_COLOR_TOGGLE,  // cllpse: each press plays the next one-shot animation on this encoder, every third one a colour shift across all sixteen LEDs (value 10; the name is from its first life as a hide/show toggle)
+ 		} enc_sw_action_type_t;
+ 	
+ 		// Encoder switch movement enum
+@@ -106,7 +108,7 @@
+ 		} display_type_t;
+ 
+ 		// Tag-Value table which holds the configuration for 1 encoder
+-		#define ENC_CFG_SIZE 15
++		#define ENC_CFG_SIZE 16
+ 		#define ENC_REL_FINE_LIMIT 0x04 // how many 'ticks' per output when encoder is Relative and Fine
+ 		typedef union {  // Each of these fields is designed to be written to directly from MIDI Sysex Data
+ 			struct {     // - so you can only use 7-bits of these uint8_t's to store data.
+@@ -125,6 +127,7 @@
+ 				uint8_t		    indicator_display_type;
+ 				uint8_t			is_super_knob;		
+ 				uint8_t			encoder_shift_midi_channel; // !Summer2016Update
++				uint8_t			color_from_rotation; // cllpse: 1 = the LED colour follows the encoder value (bit 7 of the active-colour EEPROM byte; SysEx tag 25)
+ 				//uint8_t			reset_value;
+ 			};
+ 			uint8_t bytes[ENC_CFG_SIZE];
+diff --git i/src/main.c w/src/main.c
+index 7c2a38d..5b8fd82 100644
+--- i/src/main.c
++++ w/src/main.c
+@@ -55,9 +55,31 @@ void board_init(void);
+ 
+ bool watchdog_flag = false;
+ 
++// cllpse: standalone mode. Stock, the display is enabled and the device
++// starts working only from EVENT_USB_Device_ConfigurationChanged, i.e. once a
++// USB host has configured it; on a power bank (VBUS, no host) it stays dark
++// for ever. So: if no host has configured the device STANDALONE_AFTER_MS after
++// power-up, do what that event does and run without one. LUFA's MIDI sends
++// and receives return at once while unconfigured, so the rest is unchanged,
++// and a host that turns up later configures the device as usual.
++#define STANDALONE_AFTER_MS 1000
++static bool standalone_mode = false;
++static void enter_standalone(void);
++static void enter_standalone(void)
++{
++	standalone_mode = true;
++	display_enable();
++	run_sparkle(6);
++	set_op_mode(normal);
++	refresh_display();
++	wdt_reset();
++	wdt_set_timeout_period(WDT_TIMEOUT_PERIOD_2KCLK);
++	wdt_enable();
++}
++
+ void Midifighter_Task(void); // -Wmissing-prototypes
+  void Midifighter_Task(void) {
+-	if (USB_DeviceState != DEVICE_STATE_Configured) {
++	if (USB_DeviceState != DEVICE_STATE_Configured && !standalone_mode) { // cllpse: standalone runs without a host
+ 		return;
+ 	}
+ 	
+@@ -226,6 +248,11 @@ void Midifighter_Task(void); // -Wmissing-prototypes
+ 
+ void main_loop(void); // -Wmissing-prototypes
+ void main_loop(void) {
++	// cllpse: no host after the grace period -> standalone
++	if (!standalone_mode && USB_DeviceState != DEVICE_STATE_Configured) {
++		irqflags_t f = cpu_irq_save(); uint16_t t = ms_ticks; cpu_irq_restore(f);
++		if (t > STANDALONE_AFTER_MS) enter_standalone();
++	}
+ 	// Read keys and motion tracking for User and MIDI events to process,
+ 	// setting LEDs to display the resulting state.
+ 	Midifighter_Task();
+@@ -369,6 +396,7 @@ void EVENT_USB_Device_ConfigurationChanged(void)
+ 		#if ENABLE_LEGACY_MIDI_USART_OUTPUT > 0
+ 			cancel_task();	// disable scheduled switch to legacy mode
+ 		#endif
++		standalone_mode = false; // cllpse: a host is here after all
+ 		display_enable();
+ 		// Display the start up animation
+ 		run_sparkle(6);
+diff --git i/src/side_switch.c w/src/side_switch.c
+index 1816c9b..5fa355a 100644
+--- i/src/side_switch.c
++++ w/src/side_switch.c
+@@ -113,6 +113,9 @@ side_sw_settings_t* get_side_switch_config(void)
+ 
+ void process_side_switch_input(void)  // MIDI Output: Digital Inputs -> Side Switches
+ {
++	#ifdef CLLPSE_NO_SIDE_SWITCHES
++	return; // cllpse: not read at all -- no bank change, no shift page, no native-mode combo, no MIDI
++	#endif
+ 	update_side_switch_state();
+ 	
+ 	static uint8_t prev_side_switch_state = 0;

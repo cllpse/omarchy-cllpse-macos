@@ -64,6 +64,8 @@
 #   7h.  Omarchy shell.json: switcher, bar, disabled plugins           omarchy/
 #   7i.  Tailscale SSH -- no sshd, no open port                      tailscale/
 #   7j.  Flea: folders, Show in folder, file dialogs, SUPER+ALT+SPACE  flea/
+#   7k.  Midi Fighter Twister: custom firmware, top-left push cycles
+#        its LED colour (sudo to flash), opt-in                        twister/
 #   8.   apply the theme                                               [inline]
 #   8b.  keyd identity config + Figma modifier remap (sudo)            keyd/
 #   8c.  hyprctl reload -- after 8b so the focus handler is seeded
@@ -439,7 +441,8 @@ echo "        omarchy plymouth set by theme omarchy-cllpse-theme-dark   # or -li
 #
 # Out: anything not about appearance -- keyboard layout (xkb), `git` (the pager,
 # not a palette), session env, the launcher entries, the repair hook, input
-# remapping (keyd), which file manager the desktop asks for (flea), where
+# remapping (keyd), which file manager the desktop asks for (flea), the
+# Twister's firmware (twister), where
 # TorrentTUI saves (torrenttui; its config pins the ANSI theme too, but
 # the download folder is the point), and
 # everything needing sudo or the network. Also out, and
@@ -502,6 +505,7 @@ STEPS=(
   "omarchy||Omarchy shell.json|run:omarchy|symlinks"
   "tailscale||Tailscale SSH — no sshd, no open port|run:tailscale|"
   "flea||Flea: default file manager + file dialogs, SUPER+ALT+SPACE|run:flea|hypr"
+  "twister|optin|Midi Fighter Twister: top-left push cycles its LED colour (custom firmware)|run:twister|"
   "theme||Apply the theme|fn:step_theme|symlinks"
   "keyd|sudo|keyd: Figma modifier remap (sudo)|run:keyd|hypr"
   "hypr-reload|auto|hyprctl reload|fn:step_hypr_reload|"

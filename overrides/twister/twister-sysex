@@ -1,0 +1,164 @@
+#!/usr/bin/python3
+"""SysEx to/from the Midi Fighter Twister over the ALSA sequencer (ctypes on
+libasound, no packages), so it works while Chrome's Web MIDI or anything else
+holds the device: rawmidi (amidi) is exclusive, the sequencer is not.
+
+  twister-sysex.py send  'F0 00 01 79 02 00 F7' [--wait 1.5]   send, print replies
+  twister-sysex.py pull | pull-all                               global config (+ all 64 encoders)
+  twister-sysex.py bootloader                                    jump to the DFU bootloader
+  twister-sysex.py set-action TAG ACTION                         bulk push one tag/value pair (hex TAG 1-based, ACTION decimal)
+  twister-sysex.py set-field TAG[,TAG..] FIELD VALUE             any config field (10-25, decimal) on one or more encoders, one global push at the end
+  twister-sysex.py restore FILE                                  replay a pull-all dump: every encoder, then the global settings
+  twister-sysex.py version                                       firmware date from the universal device inquiry
+"""
+import ctypes as C, re, sys, time, argparse
+
+SND_SEQ_OPEN_DUPLEX = 3; SND_SEQ_NONBLOCK = 1
+CAP = (1 << 0) | (1 << 1) | (1 << 5) | (1 << 6)
+PTYPE = (1 << 1) | (1 << 20)
+QUEUE_DIRECT, SUBSCRIBERS = 253, 254
+EV_SYSEX = 130; LEN_VARIABLE = 0x04
+
+class Addr(C.Structure): _fields_ = [("client", C.c_ubyte), ("port", C.c_ubyte)]
+class Ext(C.Structure):
+    _pack_ = 1; _layout_ = 'ms'
+    _fields_ = [("len", C.c_uint), ("ptr", C.c_void_p)]
+class Data(C.Union): _fields_ = [("ext", Ext), ("raw8", C.c_ubyte * 12)]
+class Event(C.Structure):
+    _fields_ = [("type", C.c_ubyte), ("flags", C.c_ubyte), ("tag", C.c_ubyte), ("queue", C.c_ubyte),
+                ("time", C.c_ubyte * 8), ("source", Addr), ("dest", Addr), ("data", Data)]
+assert C.sizeof(Event) == 28 and C.sizeof(Ext) == 12
+
+a = C.CDLL("libasound.so.2")
+a.snd_seq_open.argtypes = [C.POINTER(C.c_void_p), C.c_char_p, C.c_int, C.c_int]
+a.snd_seq_set_client_name.argtypes = [C.c_void_p, C.c_char_p]
+a.snd_seq_client_id.argtypes = [C.c_void_p]
+a.snd_seq_create_simple_port.argtypes = [C.c_void_p, C.c_char_p, C.c_uint, C.c_uint]
+a.snd_seq_connect_from.argtypes = a.snd_seq_connect_to.argtypes = [C.c_void_p, C.c_int, C.c_int, C.c_int]
+a.snd_seq_event_input.argtypes = [C.c_void_p, C.POINTER(C.POINTER(Event))]
+a.snd_seq_event_output_direct.argtypes = [C.c_void_p, C.POINTER(Event)]
+a.snd_seq_drain_output.argtypes = [C.c_void_p]
+a.snd_strerror.argtypes = [C.c_int]; a.snd_strerror.restype = C.c_char_p
+
+def ck(rc, what):
+    if rc < 0: raise OSError(-rc, f"{what}: {a.snd_strerror(rc).decode()}")
+    return rc
+
+def find_port(name="Midi Fighter Twister"):
+    cur = None
+    for line in open("/proc/asound/seq/clients"):
+        m = re.match(r'Client\s+(\d+) : "(.*)"', line)
+        if m: cur = int(m.group(1)) if m.group(2) == name else None; continue
+        m = re.match(r'\s+Port\s+(\d+) : ".*" \((\S+)\)', line)
+        if m and cur is not None and "R" in m.group(2) and "W" in m.group(2): return (cur, int(m.group(1)))
+    return None
+
+class Seq:
+    def __init__(self):
+        self.h = C.c_void_p()
+        ck(a.snd_seq_open(C.byref(self.h), b"default", SND_SEQ_OPEN_DUPLEX, SND_SEQ_NONBLOCK), "open")
+        a.snd_seq_set_client_name(self.h, b"twister-sysex")
+        self.client = a.snd_seq_client_id(self.h)
+        self.port = ck(a.snd_seq_create_simple_port(self.h, b"io", CAP, PTYPE), "port")
+        dev = find_port()
+        if not dev: sys.exit("no Midi Fighter Twister on the sequencer")
+        ck(a.snd_seq_connect_from(self.h, self.port, *dev), "connect_from")
+        ck(a.snd_seq_connect_to(self.h, self.port, *dev), "connect_to")
+        self.dev = dev
+
+    def send(self, data: bytes):
+        # one event per <= 256-byte chunk is the convention; our messages are short
+        buf = C.create_string_buffer(data, len(data))
+        ev = Event(); ev.type = EV_SYSEX; ev.flags = LEN_VARIABLE; ev.queue = QUEUE_DIRECT
+        ev.source.client, ev.source.port = self.client, self.port
+        ev.dest.client, ev.dest.port = SUBSCRIBERS, 0
+        ev.data.ext.len = len(data); ev.data.ext.ptr = C.addressof(buf)
+        ck(a.snd_seq_event_output_direct(self.h, C.byref(ev)), "output")
+
+    def recv(self, wait):
+        """Collect SysEx replies for `wait` seconds; returns a list of complete messages."""
+        msgs, cur, end = [], bytearray(), time.monotonic() + wait
+        evp = C.POINTER(Event)()
+        while time.monotonic() < end:
+            rc = a.snd_seq_event_input(self.h, C.byref(evp))
+            if rc < 0:
+                if -rc == 11: time.sleep(0.01); continue   # EAGAIN
+                ck(rc, "input")
+            ev = evp.contents
+            if ev.type != EV_SYSEX: continue
+            chunk = C.string_at(ev.data.ext.ptr, ev.data.ext.len)
+            cur += chunk
+            if cur and cur[-1] == 0xF7:
+                msgs.append(bytes(cur)); cur = bytearray()
+        return msgs
+
+def hx(b): return " ".join(f"{x:02X}" for x in b)
+
+def push_global_back(s, pairs=None):
+    """Push the global settings: `pairs` (hex strings, tag/value) plus whatever
+    tags the running firmware answers with that `pairs` lacks, or simply what
+    it answers with. Every bulk (per-encoder) push raises the LED drivers'
+    output-enable line (display_disable) and nothing lowers it but the global
+    push's confirmation animation, so this is how any push sequence must end."""
+    s.send(bytes.fromhex("F000017902 00F7".replace(" ", "")))
+    cur = [m for m in s.recv(1.5) if m[4] == 0x02]
+    pairs = list(pairs or [])
+    have = {pairs[i] for i in range(0, len(pairs), 2)}
+    if cur:
+        c = cur[0][6:-1]
+        for i in range(0, len(c), 2):
+            if f"{c[i]:02X}" not in have:
+                pairs += [f"{c[i]:02X}", f"{c[i+1]:02X}"]
+    msg = "F0 00 01 79 01 " + " ".join(pairs) + " F7"
+    s.send(bytes.fromhex(msg.replace(" ", "")))
+    print("pushed global settings:", msg)
+
+def main():
+    ap = argparse.ArgumentParser(); ap.add_argument("cmd"); ap.add_argument("args", nargs="*")
+    ap.add_argument("--wait", type=float, default=1.5); o = ap.parse_args()
+    s = Seq()
+    if o.cmd == "send":
+        for m in o.args: s.send(bytes.fromhex(m.replace(" ", "")))
+    elif o.cmd in ("pull", "pull-all"):
+        s.send(bytes.fromhex("F000017902 00F7".replace(" ", "")))
+        if o.cmd == "pull-all":
+            for t in range(1, 65): s.send(bytes([0xF0, 0, 1, 0x79, 4, 1, t, 0xF7]))
+            o.wait = max(o.wait, 4.0)
+    elif o.cmd == "bootloader":
+        s.send(bytes.fromhex("F0000179" "0301" "F7")); o.wait = 0
+    elif o.cmd == "set-field":
+        tags = [int(t, 16) for t in o.args[0].split(",")]; field, value = int(o.args[1]), int(o.args[2])
+        assert all(1 <= t <= 64 for t in tags) and 10 <= field <= 25 and 0 <= value <= 127
+        for t in tags:
+            s.send(bytes([0xF0, 0, 1, 0x79, 4, 0, t, 1, 1, 2, field, value, 0xF7])); time.sleep(0.12)
+        push_global_back(s)
+        for t in tags: s.send(bytes([0xF0, 0, 1, 0x79, 4, 1, t, 0xF7]))
+        o.wait = max(o.wait, 2.0)
+    elif o.cmd == "set-action":
+        tag, action = int(o.args[0], 16), int(o.args[1])
+        assert 1 <= tag <= 64 and 0 <= action <= 15
+        s.send(bytes([0xF0, 0, 1, 0x79, 4, 0, tag, 1, 1, 2, 0x0C, action, 0xF7]))
+        time.sleep(0.3)
+        push_global_back(s)
+        s.send(bytes([0xF0, 0, 1, 0x79, 4, 1, tag, 0xF7]))
+    elif o.cmd == "version":
+        s.send(bytes.fromhex("F07E7F0601F7"))
+        for m in s.recv(o.wait):
+            if m[:5] == bytes.fromhex("F07E7F0602"): print(f"{m[12]:02X}{m[13]:02X}-{m[14]:02X}-{m[15]:02X}"); return
+        sys.exit("no reply")
+    elif o.cmd == "restore":
+        # A pull-all dump is already in push format (the firmware answers a pull
+        # with push messages), so the encoder lines replay verbatim. The global
+        # settings go as one push: the dump's tag/value pairs, plus whatever tags
+        # the running firmware answers with that the dump lacks (a newer layout).
+        lines = [l.split() for l in open(o.args[0]) if l.startswith("F0")]
+        enc = [l for l in lines if l[4] == "04"]
+        glob = [l for l in lines if l[4] == "02"]
+        for m in enc:
+            s.send(bytes(int(x, 16) for x in m)); time.sleep(0.06)
+        print(f"replayed {len(enc)} encoder messages")
+        push_global_back(s, glob[0][6:-1] if glob else None)
+    else: sys.exit(__doc__)
+    for m in s.recv(o.wait): print(hx(m))
+
+if __name__ == "__main__": main()

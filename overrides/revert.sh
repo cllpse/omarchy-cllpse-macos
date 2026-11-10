@@ -539,6 +539,11 @@ if [[ -s $STATE/previous-flea-handler ]]; then
   rm -f "$STATE/previous-flea-handler" "$STATE/previous-flea-keys"
 fi
 
+# Midi Fighter Twister (apply.sh step 7k, opt-in). The top-left switch goes
+# back to CC Hold over SysEx; the custom firmware stays on the device, since
+# flashing is deliberate either way -- twister/README.md says how.
+"$HERE/twister/twister.sh" --revert || true
+
 # Pi agent (apply.sh step `pi`). Only the three keys pi.sh owns go back, from
 # the record -- not the .pre-cllpse backup wholesale, since the same file holds
 # pi's own settings (theme, TUI mode) that move on after an apply, the shell.json

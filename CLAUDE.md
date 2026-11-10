@@ -136,6 +136,37 @@ does the rest of `--default` itself, removes that block and binds Flea to
 SUPER+ALT+SPACE. Probe: `grep -n 'flea --default: begin' ~/.config/hypr/bindings.lua`.
 See `overrides/flea/README.md`.
 
+### The Twister runs a custom firmware; its EEPROM resets on a layout change
+
+The Midi Fighter Twister carries a build of DJ TechTools' open-source firmware
+(`overrides/twister/`, since 2026-11-02): the 2026-08-24 source plus two
+switch actions, *colour cycle* (9, a palette per press) and *colour toggle*
+(10, by its first name: a press plays a two-second animation, every third one
+a colour shift across all sixteen LEDs), and a 16th config
+field, *colour from rotation* (SysEx tag 25, bit 7 of the active-colour EEPROM
+byte), and *standalone mode*: with no USB host after 1 s the firmware
+enables itself as the configuration event would, so the unit runs on a power
+bank (stock stays dark). The six side buttons are dead by design, and the
+unit boots into the last selected bank (EEPROM 0x0012), bank 4, where
+rotation plus the animation push run on all sixteen with blended-bar
+indicators; changing bank now takes a host CC 0-3 on channel 4.
+The ring is eleven white LEDs plus one red/blue LED at 12 o'clock, so a dot
+cannot take the RGB LED's colour; that one LED carries the colour's red and
+blue shares instead (green goes dark). The stock nine
+have no colour cycle, and the device gives no way to ask which bank is showing
+or what colour an LED has (SysEx pulls return EEPROM only). Flashing the 2026
+source over the 2019 firmware **factory-reset every setting once**
+(`eeprom_init` checks a layout-version byte); `twister.sh flash` backs up and
+replays for that. Every per-encoder SysEx push darkens the whole unit until a
+global-settings push (its confirmation animation is what re-enables the LED
+drivers), so `twister-sysex` ends `set-action` and `restore` with one. Never
+`amidi` for anything that must work beside Chrome's
+Web MIDI: rawmidi is exclusive and turns `Device or resource busy` the moment a
+browser subscribes; `twister-sysex` uses the sequencer. The firmware's identity
+check is the device inquiry, not the USB id, which the build keeps. Probe:
+`overrides/twister/twister-sysex version` (2026-08-24 = ours) and
+`overrides/twister/twister.sh` (status). See `overrides/twister/README.md`.
+
 ### Chromium's theme is a policy-forced extension, swapped on theme set
 
 Not Omarchy's `BrowserThemeColor` seed: `zz-cllpse-macos-theme.json` masks it
@@ -347,6 +378,7 @@ or `<`, and files with no paint at all (simple-icons bare `<path>`).
 | Per-app override details | `overrides/<app>/README.md` |
 | How the SF fonts are built from Apple's DMGs | `overrides/fonts/README.md` |
 | The TV's DSC bit rate: why 12 bpp, how 20 is forced | `overrides/dsc/README.md` |
+| The Twister's firmware: the patch, the build, the flash, the unit as measured | `overrides/twister/README.md` |
 | The TV's service menu, every item and value | `reference/samsung-qn90f-service-menu.md` |
 | Chromium theme extension: design, mechanism, Chromium source findings | `overrides/chromium-theme/README.md` |
 | Window switcher design log | `reference/window-switcher-notes.md` |
