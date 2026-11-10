@@ -68,6 +68,7 @@ gh extension install dlvhdr/gh-dash
 # T3 Code, if you use it: Omarchy menu > Install > AI > T3 Code
 # Orca, if you use it: the AppImage from github.com/stablyai/orca's releases
 # Superset, if you use it: the unpacked Linux build in ~/Applications/superset/
+# Herdr, if you use it: the desktop app (herdr-app, self-updating, under ~/.local/share/herdr-app); the herdr core is Omarchy's package
 ```
 
 Plus two marketplace extensions, `beardedbear.beardedtheme` and

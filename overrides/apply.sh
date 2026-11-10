@@ -52,7 +52,7 @@
 #          bat/ lazygit/ lsd/ yazi/ lazydocker/ gh-dash/ starship/
 #          cursor/ pi/ hunk/ ytm/ t3code/ orca/ superset/ bash/ git/
 #          torrenttui/
-#          superset-theme/ superset-hotkeys/
+#          superset-theme/ superset-hotkeys/ herdr/
 #        VS Code is its own step, run from cursor/ (`cursor.sh vscode`)
 #   7b.  restore saved display scaling + text size                     display/
 #   7c.  session environment drop-ins                                  environment.d/
@@ -452,7 +452,7 @@ echo "        omarchy plymouth set by theme omarchy-cllpse-theme-dark   # or -li
 LOOKNFEEL=(
   fonts fontconfig monospace gtk-fonts hinting ghostty gtk-buttons
   hypr
-  bat lazygit lsd yazi lazydocker gh-dash starship cursor vscode hunk ytm t3code orca superset superset-theme
+  bat lazygit lsd yazi lazydocker gh-dash starship cursor vscode hunk ytm t3code orca superset superset-theme herdr
   icons omarchy theme
 )
 # state rides along for the same reason it does with a ticked selection:
@@ -493,6 +493,8 @@ STEPS=(
   "superset||Superset: no opaque square behind README-type icons|run:superset|"
   "superset-theme||Superset: both palettes as its light/dark themes|run:superset-theme|"
   "superset-hotkeys||Superset: 75 shortcuts unassigned (needs Superset closed)|run:superset-hotkeys|"
+  "herdr||Herdr: both palettes as its light/dark themes|run:herdr|"
+  "herdr-keys||Herdr: the keys dialog's three chords unbound|run:herdr keys|"
   "bash||bash aliases + fzf|run:bash|"
   "git||git diff through hunk|run:git|"
   "torrenttui||TorrentTUI: download folder + ANSI theme|run:torrenttui|"

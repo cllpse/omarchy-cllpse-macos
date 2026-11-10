@@ -208,6 +208,27 @@ at the console's 4K60, before Hyprland picks its mode. That is the state since
 written, so `echo` retries forever as a root process. Probe:
 `sudo cllpse-dsc-bpp status`. See `overrides/dsc/README.md`.
 
+### Herdr's theme picker beats its settings.json, and only the open window can change it
+
+The Herdr app (`herdr-app`, GPUI) keeps the theme the picker chose per layout in
+`~/.config/herdr-app/layouts/.state/main.json`, and that wins over `theme` in
+`settings.json`. The open window holds that state in memory, writes it only
+when its own pick changes and never reads it back, so a `jq` edit under a
+running window shows nothing and sits stale until the next pick (verified
+2026-11-09); `apply.sh herdr` goes through `herdr-app do app.theme --name <theme>`
+instead, which sets the half of the `{light, dark}` pair matching the named
+theme's lightness and re-reads the theme file, and picks Herdr's own pair
+first when the file disagrees, so the write happens. With no window,
+`herdr-app do` fails and the files are edited directly. The mods' `theme()` names are what a theme file's `colors` block can
+override; a probe mod that throws `JSON.stringify(themes())` under
+`herdr-app check` prints them all. Probe:
+`jq .theme ~/.config/herdr-app/layouts/.state/main.json`. See `overrides/herdr/README.md`.
+
+Its `keys.json` is read live, but any edit, even whitespace, stops Herdr
+refreshing it on upgrade: a later release's new default chord is then missing
+until added by hand. `apply.sh herdr-keys` makes that edit (three `app.help`
+chords removed). Probe: `diff <(jq -S . ~/.config/herdr-app/keys.json) <(jq -S . ~/.config/herdr-app/keys.json.pre-cllpse)`.
+
 ### The two plugins cancel each other over Hyprland's event socket
 
 Opening either one sends `hl.dsp.event("overlay-open>><plugin id>")`, which
@@ -417,6 +438,7 @@ or `<`, and files with no paint at all (simple-icons bare `<path>`).
 | The Twister's firmware: the patch, the build, the flash, the unit as measured | `overrides/twister/README.md` |
 | The TV's service menu, every item and value | `reference/samsung-qn90f-service-menu.md` |
 | Chromium theme extension: design, mechanism, Chromium source findings | `overrides/chromium-theme/README.md` |
+| Herdr's theme files: the palette mapping, the picker state, the CLI | `overrides/herdr/README.md` |
 | Window switcher design log | `reference/window-switcher-notes.md` |
 | Keybind parity audit | `KEYBINDS-PARITY.md` |
 

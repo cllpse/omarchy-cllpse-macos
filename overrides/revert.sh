@@ -340,6 +340,14 @@ say "Removing Superset's light/dark themes"
 say "Giving Superset its shortcuts back"
 "$HERE/superset-hotkeys/superset-hotkeys.sh" --revert || true
 
+# Herdr's two theme files (herdr/README.md), and the theme it was on before:
+# the key in its settings.json and the main layout's picked pair, through the
+# open window when there is one. A no-op once Herdr is gone.
+say "Removing Herdr's light/dark themes"
+"$HERE/herdr/herdr.sh" --revert || true
+say "Giving Herdr its keys dialog chords back"
+"$HERE/herdr/herdr.sh" keys --revert || true
+
 # App icons (apply.sh step 7f). The whole override is one directory we
 # created, so removing it hands every app back to its vendor icon; there is no
 # backup to restore because nothing pre-existing was replaced.
