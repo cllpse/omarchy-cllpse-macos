@@ -334,6 +334,12 @@ say "Undoing the Superset icon fix"
 say "Removing Superset's light/dark themes"
 "$HERE/superset-theme/superset-theme.sh" --revert || true
 
+# Superset's unassigned shortcuts (superset-hotkeys/README.md): overrides in its
+# localStorage, taken out so the defaults return. Skips, and says so, while
+# Superset is running; a no-op once it is gone.
+say "Giving Superset its shortcuts back"
+"$HERE/superset-hotkeys/superset-hotkeys.sh" --revert || true
+
 # App icons (apply.sh step 7f). The whole override is one directory we
 # created, so removing it hands every app back to its vendor icon; there is no
 # backup to restore because nothing pre-existing was replaced.

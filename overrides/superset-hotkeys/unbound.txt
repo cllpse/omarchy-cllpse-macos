@@ -1,0 +1,95 @@
+# Superset shortcuts to unbind, one id per line (superset-hotkeys.sh).
+# Everything after # is a note for people: title and the default Linux chord.
+# Ids are the keys of HOTKEYS_REGISTRY in the renderer bundle (see README.md).
+# Not listed, so still bound: CLEAR_TERMINAL CLOSE_PANE CLOSE_TAB FIND_IN_CHAT
+# FIND_IN_TERMINAL OPEN_COMMAND_PALETTE REOPEN_TAB TOGGLE_WORKSPACE_SIDEBAR UNDO
+# ZOOM_RESET
+
+# Navigation
+NAVIGATE_BACK        # Navigate Back  Ctrl+Shift+[
+NAVIGATE_FORWARD     # Navigate Forward  Ctrl+Shift+]
+QUICK_OPEN           # Quick Open File  Ctrl+Shift+P
+FIND_IN_FILE_VIEWER  # Find in File Viewer  Ctrl+Shift+F
+FIND_IN_CHANGES      # Find in Changes  Ctrl+Shift+F
+
+# Workspace
+JUMP_TO_WORKSPACE_1             # Switch to Workspace 1  Ctrl+Shift+1
+JUMP_TO_WORKSPACE_2             # Switch to Workspace 2  Ctrl+Shift+2
+JUMP_TO_WORKSPACE_3             # Switch to Workspace 3  Ctrl+Shift+3
+JUMP_TO_WORKSPACE_4             # Switch to Workspace 4  Ctrl+Shift+4
+JUMP_TO_WORKSPACE_5             # Switch to Workspace 5  Ctrl+Shift+5
+JUMP_TO_WORKSPACE_6             # Switch to Workspace 6  Ctrl+Shift+6
+JUMP_TO_WORKSPACE_7             # Switch to Workspace 7  Ctrl+Shift+7
+JUMP_TO_WORKSPACE_8             # Switch to Workspace 8  Ctrl+Shift+8
+JUMP_TO_WORKSPACE_9             # Switch to Workspace 9  Ctrl+Shift+9
+PREV_WORKSPACE                  # Previous Workspace  Ctrl+Shift+Alt+Up
+NEXT_WORKSPACE                  # Next Workspace  Ctrl+Shift+Alt+Down
+OPEN_ACTIVE_WORKSPACE_SWITCHER  # Switch to Active Workspace  Ctrl+Alt+;
+CLOSE_WORKSPACE                 # Close Workspace  Ctrl+Shift+Backspace
+NEW_WORKSPACE                   # New Workspace  Ctrl+Shift+N
+QUICK_CREATE_WORKSPACE          # Quick Create Workspace  Ctrl+Shift+Alt+N
+RUN_WORKSPACE_COMMAND           # Run Workspace Command  Ctrl+Shift+G
+FOCUS_TASK_SEARCH               # Focus Task Search  Ctrl+Shift+F
+OPEN_PROJECT                    # Add Project from Folder  Ctrl+Shift+Alt+O
+OPEN_PR                         # Open Pull Request  Ctrl+Shift+Alt+P
+OPEN_IN_APP                     # Open in Editor  Ctrl+Shift+O
+COPY_PATH                       # Copy Path  Ctrl+Shift+Alt+C
+
+# Layout
+TOGGLE_SIDEBAR                 # Toggle Right Sidebar  Ctrl+Shift+L
+TOGGLE_RIGHT_PANE_FULL_SCREEN  # Toggle Right Pane Full Screen  Ctrl+Shift+Alt+L
+OPEN_DIFF_VIEWER               # Open Changes  Ctrl+Shift+Alt+G
+SPLIT_RIGHT                    # Split Right  Ctrl+Shift+D
+SPLIT_DOWN                     # Split Down  Ctrl+Shift+Alt+D
+SPLIT_AUTO                     # Split Along Longer Side  Ctrl+Shift+E
+SPLIT_WITH_BROWSER             # Split with New Browser  Ctrl+Shift+Alt+S
+SPLIT_WITH_DESKTOP             # Split with Sandbox Desktop  Ctrl+Shift+Alt+Y
+SPLIT_WITH_MOBILE              # Split with Mobile Simulator  Ctrl+Shift+Alt+M
+EQUALIZE_PANE_SPLITS           # Equalize Pane Splits  Ctrl+Shift+0
+NEW_BROWSER                    # New Browser  Ctrl+Shift+Alt+B
+PREV_TAB_ALT                   # Previous Tab (Second Shortcut)  Ctrl+Shift+Tab
+NEXT_TAB_ALT                   # Next Tab (Second Shortcut)  Ctrl+Tab
+PREV_TAB                       # Previous Tab  Ctrl+Shift+Alt+Left
+NEXT_TAB                       # Next Tab  Ctrl+Shift+Alt+Right
+FOCUS_PANE_LEFT                # Focus Pane Left  unbound
+FOCUS_PANE_RIGHT               # Focus Pane Right  unbound
+FOCUS_PANE_UP                  # Focus Pane Up  unbound
+FOCUS_PANE_DOWN                # Focus Pane Down  unbound
+JUMP_TO_TAB_1                  # Switch to Tab 1  Ctrl+Shift+Alt+1
+JUMP_TO_TAB_2                  # Switch to Tab 2  Ctrl+Shift+Alt+2
+JUMP_TO_TAB_3                  # Switch to Tab 3  Ctrl+Shift+Alt+3
+JUMP_TO_TAB_4                  # Switch to Tab 4  Ctrl+Shift+Alt+4
+JUMP_TO_TAB_5                  # Switch to Tab 5  Ctrl+Shift+Alt+5
+JUMP_TO_TAB_6                  # Switch to Tab 6  Ctrl+Shift+Alt+6
+JUMP_TO_TAB_7                  # Switch to Tab 7  Ctrl+Shift+Alt+7
+JUMP_TO_TAB_8                  # Switch to Tab 8  Ctrl+Shift+Alt+8
+JUMP_TO_TAB_9                  # Switch to Tab 9  Ctrl+Shift+Alt+9
+
+# Terminal
+TOGGLE_TERMINAL_RICH_INPUT  # Toggle Terminal Rich Input  Ctrl+Shift+M
+NEW_GROUP                   # New Terminal  Ctrl+Shift+T
+CLOSE_TERMINAL              # Close Terminal  Ctrl+Shift+W
+SCROLL_TO_BOTTOM            # Scroll to Bottom  Ctrl+End
+OPEN_PRESET_1               # Open Terminal Script 1  Ctrl+1
+OPEN_PRESET_2               # Open Terminal Script 2  Ctrl+2
+OPEN_PRESET_3               # Open Terminal Script 3  Ctrl+3
+OPEN_PRESET_4               # Open Terminal Script 4  Ctrl+4
+OPEN_PRESET_5               # Open Terminal Script 5  Ctrl+5
+OPEN_PRESET_6               # Open Terminal Script 6  Ctrl+6
+OPEN_PRESET_7               # Open Terminal Script 7  Ctrl+7
+OPEN_PRESET_8               # Open Terminal Script 8  Ctrl+8
+OPEN_PRESET_9               # Open Terminal Script 9  Ctrl+9
+
+# Chat
+FOCUS_CHAT_INPUT     # Focus Chat Input  Ctrl+Shift+J
+NEW_CHAT             # New Chat  Ctrl+Shift+Alt+J
+CHAT_ADD_ATTACHMENT  # Add Attachment  Ctrl+Shift+U
+
+# Window
+ZOOM_IN   # Zoom In  Ctrl+=
+ZOOM_OUT  # Zoom Out  Ctrl+-
+
+# Help
+OPEN_SETTINGS    # Open Settings  Ctrl+,
+SHOW_HOTKEYS     # Show Keyboard Shortcuts  Ctrl+Shift+/
+CHECK_RESOURCES  # Check Resources  Ctrl+Shift+Alt+U

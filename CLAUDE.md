@@ -98,6 +98,19 @@ patch it in place, a running Superset reads the file by offset. Probe:
 `npx @electron/asar extract-file ~/Applications/superset/resources/app.asar dist/renderer/file-icons/readme.svg`
 See `overrides/superset/README.md`.
 
+### Superset's shortcuts are unassigned in its localStorage, which needs the app closed
+
+`apply.sh superset-hotkeys` writes a `null` for each id in
+`overrides/superset-hotkeys/unbound.txt` (75) into the `hotkey-overrides` key of
+`~/.config/Superset/Partitions/superset/Local Storage/leveldb`, what Backspace in
+Settings ▸ Keyboard writes. A running app holds the store's lock and writes its
+state back on exit, so the step skips and says so until Superset is quit. `pgrep`
+cannot tell: its pty daemon and host service keep the name `superset` after the
+window is gone, so the leveldb lock is the test. A shortcut Superset ships
+unbound on Linux (the four Focus Pane ones) has no chord to remove. Probe:
+`ls ~/.config/Superset/Partitions/superset/"Local Storage"/leveldb`, then the
+writer's own dump in `overrides/superset-hotkeys/README.md`. See that README.
+
 ### SF ships unhinted; hinting reaches it only through the autohinter
 
 Apple's SF Pro and SF Mono carry no hints at all, so for these CFF fonts

@@ -52,7 +52,7 @@
 #          bat/ lazygit/ lsd/ yazi/ lazydocker/ gh-dash/ starship/
 #          cursor/ pi/ hunk/ ytm/ t3code/ orca/ superset/ bash/ git/
 #          torrenttui/
-#          superset-theme/
+#          superset-theme/ superset-hotkeys/
 #        VS Code is its own step, run from cursor/ (`cursor.sh vscode`)
 #   7b.  restore saved display scaling + text size                     display/
 #   7c.  session environment drop-ins                                  environment.d/
@@ -489,6 +489,7 @@ STEPS=(
   "orca||Orca: both palettes as Warp themes to import|run:orca|"
   "superset||Superset: no opaque square behind README-type icons|run:superset|"
   "superset-theme||Superset: both palettes as its light/dark themes|run:superset-theme|"
+  "superset-hotkeys||Superset: 75 shortcuts unassigned (needs Superset closed)|run:superset-hotkeys|"
   "bash||bash aliases + fzf|run:bash|"
   "git||git diff through hunk|run:git|"
   "torrenttui||TorrentTUI: download folder + ANSI theme|run:torrenttui|"
