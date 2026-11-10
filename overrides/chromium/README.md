@@ -567,3 +567,47 @@ separator, Inspect). `ScrollToTextFragmentEnabled: false` in
 `policies-managed.json` does it, which also stops `#:~:text=` links scrolling
 to their highlight. Related Chromium commit for the same family of Wayland
 sizing bugs (0,0 window position): b439ff333b4b.
+
+## Google's AI and Lens surfaces
+
+Seven more policies, added 2026-11-06 with the names checked against the
+installed 155 binary and the values taken from Chromium's policy list, not
+tested for a visible effect yet: `LensOverlaySettings` 1, `LensRegionSearchEnabled`
+false, `LensDesktopNTPSearchEnabled` false (Lens everywhere), `GeminiSettings` 1,
+`GenAiDefaultSettings` 2 (the AI features as a group), `SearchContentSharingSettings`
+1 and `AIModeSettings` 1. There is no policy for "Open in reading mode" or
+"Search Google for…" in the selection menu; both stay.
+
+## The second batch: sharing, side panels, promos, telemetry
+
+Twenty-six more, picked 2026-11-06 from `claude.ai/artifact/NzPofFeB4pij5NaTXSqoGi`
+(every name, value and description read from the policy definitions of
+Chromium 155.0.8059.84, not tested for a visible effect). Several are
+redundant here and are kept so the intent is written down: `HelpMeWriteSettings`,
+`TabCompareSettings`, `HistorySearchSettings`, `CreateThemesSettings` and
+`ThirdPartyAiChatSettings` fall back to `GenAiDefaultSettings` (2, set above);
+`GeminiActOnWebSettings` and `GeminiSparkSettings` have no effect while
+`GeminiSettings` is 1; `SpellCheckServiceEnabled` follows `SpellcheckEnabled`;
+`ShowCastIconInToolbar` is overridden by `EnableMediaRouter`; `FeedbackSurveysEnabled`
+is also switched off by `MetricsReportingEnabled`; `HideWebStoreIcon` and
+`NTPCardsVisible` act on a new tab page that is `about:blank` here.
+
+- Sharing and panels: `DesktopSharingHubEnabled` (the omnibox share icon and
+  the 3-dot Share entry), `GoogleSearchSidePanelEnabled`, `SideSearchEnabled`,
+  `TabGroupSharingSettings` 1.
+- Pages: `BuiltInAIAPIsEnabled` false makes the Prompt, Summarizer, Writer and
+  Rewriter APIs throw for websites; it changes sites, not Chromium's UI.
+- Promos and prompts: `PromotionalTabsEnabled`, `PromotionsEnabled`,
+  `ExtensionReviewPromptsEnabled`, `FeedbackSurveysEnabled`,
+  `ShoppingListEnabled`, `MediaRecommendationsEnabled`,
+  `SigninInterceptionEnabled`.
+- History and telemetry: `HistoryClustersVisible` (`chrome://history/grouped`),
+  `MetricsReportingEnabled` (users cannot switch it back on),
+  `AlternateErrorPagesEnabled` (no failed-URL lookups against a Google service).
+
+Left out on purpose: `DefaultSearchProviderContextMenuAccessAllowed` ("Search
+Google for …" in the selection menu), `BookmarkBarEnabled` (would lock the bar
+off, Ctrl+Shift+B included), `ShowHomeButton`, and the eleven policies that do
+nothing on Linux desktop (iOS, ChromeOS, Android only, or defined for a later
+release).
+
