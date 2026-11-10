@@ -107,7 +107,7 @@ than correctly. Edge-to-edge on the long axis is the whole contract (it said
 "inside a square canvas" until the section above was checked against the
 code). Every file in this directory and in the switcher's `icons/` is
 edge-to-edge, bar `pi`, inset on purpose; the canvases are not all square — 7 of
-the 26 here and 28 of the switcher's 103 are tight to their ink,
+the 26 here and 28 of the switcher's 104 are tight to their ink,
 `superset` the seventh and twenty-eighth since 2026-10-29, `com.t3tools.T3Code`
 the sixth and twenty-seventh since 2026-10-16, `grok` the fifth and
 twenty-sixth since 2026-10-09 (it was 4 and 25).

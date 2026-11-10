@@ -5,7 +5,7 @@ contract — what a file must look like, and which directory it belongs in. This
 file is how you find out *which* files are worth adding, and how to make a new
 one sit correctly beside the ones already here.
 
-**Ship the set as it is.** The 26 silhouettes in `icons/` and the 77 full-colour marks in `verbatim/` — and the same 103
+**Ship the set as it is.** The 26 silhouettes in `icons/` and the 78 full-colour marks in `verbatim/` — and the same 104
 ones in the switcher submodule — are aligned and committed. Do not run a bulk
 pass over either. Everything below applies to
 marks you are **adding**; a sweep that "fixes" the existing set is how `hunk`
@@ -13,7 +13,7 @@ lost its background box once already.
 
 ## Keeping the two repos in step
 
-Both this repo and the plugin carry all 103 marks, and nothing enforces that they
+Both this repo and the plugin carry all 104 marks, and nothing enforces that they
 match — the de-duplication that once made the plugin the single source was
 deliberately undone when both were asked to be complete. So a mark added or
 refitted in one silently diverges from the other. It happened the day the split
@@ -57,8 +57,8 @@ cannot recolour anything, so it needs the repainted copies `app-icons.sh` writes
 out of `icons/`.
 
 **The full-colour marks are in this repository too, so a colour mark is added
-twice.** `verbatim/` here holds 77 of them; the switcher submodule,
-`omarchy-cllpse-plugin-switcher/icons/`, holds the same 77 among all 103 it ships
+twice.** `verbatim/` here holds 78 of them; the switcher submodule,
+`omarchy-cllpse-plugin-switcher/icons/`, holds the same 78 among all 104 it ships
 for its own tiles. `app-icons.sh` copies the one here verbatim into
 `~/.icons/cllpse-color/apps/` so the menu gets the mark too — and on this machine
 the switcher finds that copy before the plugin's own, so a mark refitted in the
@@ -253,7 +253,15 @@ first, so a duplicate silently wins there and the colour copy is dead.
 `icons/`, not with the colour set.** `hunk` is dark-on-cream: strip its box
 and treat it as a colour mark and you get a `#16140F` glyph on a `#1E1E1E` card,
 contrast 1.10, invisible. Either keep the background and stay with the colour
-set, or drop the background and move to `icons/`.
+set, or drop the background and move to `icons/`. `herdr-app` (added
+2026-11-09, from `~/Pictures/herdr.svg`) took the first route: a `#303438` ram
+on a `#F4F1E9` tile whose ram reaches the tile's right and bottom edges, so
+stripping the tile would leave a shape cut off by nothing. Its Figma alpha mask
+became a `clipPath`, the construct `docker` and `msedit` already use and Qt
+Quick was checked to honour (offscreen `qml` grab); the tile is Figma's
+smoothed corner, kept as a path rather than reduced to `rx`. One file serves
+both surfaces: the desktop entry's `Icon=`, its `StartupWMClass` and the live
+class are all `herdr-app`.
 
 Conversely, a file in `icons/` with a background rect is **broken**: the
 repaint rewrites the rect and the mark to the same colour and it renders as a
