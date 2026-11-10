@@ -649,7 +649,13 @@ two features exist *because* of the keyboard they flashed: step 5c's
 navigation from `SUPER` to `CTRL+ALT`, since the Preonic's firmware intercepts
 `SUPER` on the keys those binds used. The keyboard is also what `keyd`'s
 `[ids]` line is pinned to. Read that as provenance for otherwise-arbitrary
-decisions; reinstall the toolchain only if the firmware needs reflashing.
+decisions. The firmware source is the `cllpse/preonic-rev3_drop` repo (its
+`omarchy/` variant, cloned to `~/Sites/preonic-rev3_drop` on 2026-11-06, the
+day its underglow was turned off with `RGBLIGHT_ENABLE = no`); it builds
+without any of that toolchain in QMK's own container, `ghcr.io/qmk/qmk_cli`,
+over a shallow `qmk_firmware` clone with the `lib/chibios`,
+`lib/chibios-contrib`, `lib/printf` and `lib/lufa` submodules. Only flashing
+needs a local tool, `dfu-util`.
 
 **Helium — not currently installed.** It was an AppImage in `~/Applications/`
 (a Chromium fork, never a package, so it never appeared in the command's output
