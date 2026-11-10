@@ -217,6 +217,20 @@ the other, and Omarchy's shell has no bus for this: a plugin can only summon or
 hide itself. Change the event string in both repos or in neither. Probe:
 `hyprctl dispatch 'hl.dsp.event("overlay-open>>x")'` closes whichever is open.
 
+### Ghostty's prompt sits on the bottom row through bash, not Ghostty
+
+Ghostty has no setting for it. `overrides/bash/shell.sh` (Ghostty only, by
+`TERM_PROGRAM`) appends a CUD to the last row to `PROMPT_COMMAND`, and on a
+blank screen (first prompt, `clear`, Ctrl+L) prints twice the screen height in
+newlines so a screen of blank rows sits in scrollback: Ghostty 1.4.0 grows a
+window by pulling scrollback back only while the cursor is on the bottom row
+(`PageList.resize`), and with none to pull it appends rows *below* the prompt.
+Cmd+K lands in the same `bind -x` on Ctrl+L: `clear_screen` erases, then
+writes a form feed to the pty when OSC 133 says the cursor is at a prompt.
+`bind -x` is the one shell hook readline repaints after; a `WINCH` trap runs
+after readline's own redraw and cannot move the prompt. New shells only.
+Probe: `bind -X | grep C-l` in a fresh Ghostty. See `overrides/bash/README.md`.
+
 ## Unreachable on 4.0.4 — don't re-litigate
 
 These were checked against 4.0.4, not carried forward. The probes are named so
@@ -328,6 +342,18 @@ keyboard to it, invisibly. The supermenu's keystroke catcher unmaps instead.
 Separately, keys typed in the ~5-30 ms a focus change takes are discarded by
 fcitx5 when the window left had an input method active (upstream). Details
 and probes: `omarchy-cllpse-plugin-supermenu/AGENTS.md`.
+
+### A Ghostty probe window needs a dotted `--class`, and a hidden one never resizes its pty
+
+`ghostty --class=cllpse-probe` is silently ignored (GTK application ids need a
+period), so the window kept the stock class, missed its `workspace 4 silent` /
+`no_focus` rule and took the user's focus (2026-11-09); `io.cllpse.probe`
+works. A window rule's `match` is a regex, so `"^io%.cllpse%.probe$"` matches
+nothing (the `hl.get_windows` trap, again). And a window on a workspace nobody
+is looking at accepts `hl.dsp.window.resize` in Hyprland's eyes while its
+terminal keeps the old rows and columns: GTK does not resize an unmapped
+surface. Resize behaviour is read from Ghostty's source, or measured in a
+visible window with the user's go-ahead.
 
 ### `pgrep -f` matches whole command lines
 

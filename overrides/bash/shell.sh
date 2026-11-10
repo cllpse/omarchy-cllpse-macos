@@ -194,3 +194,88 @@ command -v hunk >/dev/null 2>&1 && alias log="hunk log"
 if command -v ytm >/dev/null 2>&1; then
   ytm() { XDG_CURRENT_DESKTOP="${XDG_CURRENT_DESKTOP:-Hyprland}:GNOME" command ytm "$@"; }
 fi
+
+# --- the prompt sits on the bottom row (Ghostty) ----------------------------
+# The macOS-terminal shape Warp calls "input at the bottom": a new window
+# prompts on its last row, not its first, and a cleared one does too. The
+# terminal has no such setting; it is the shell that places its prompt, so this
+# hooks the three moments the prompt is drawn somewhere other than the bottom.
+#
+# 1. Every prompt: PROMPT_COMMAND moves the cursor down to the last row. CUD
+#    (`ESC [ 9999 B`) clamps at the bottom and never scrolls, so whatever a
+#    command printed stays where it was, with blank rows between it and the
+#    prompt. Once the prompt is on the bottom row the next command's output
+#    scrolls past it the way it always did; this only ever acts after
+#    something left the cursor higher up: a fresh window, `clear`, a program
+#    that drew its own screen.
+#
+# 2. A blank screen (first prompt, after a clear): newlines instead of CUD,
+#    twice the screen's height. The first half walks the cursor to the bottom
+#    row; the second half scrolls, so a screen's worth of blank rows lands in
+#    scrollback. Load-bearing for resizes: Ghostty grows a window by pulling
+#    rows back out of scrollback when the cursor is on the bottom row
+#    (PageList.resize, pull_scrollback, 1.4.0), which is what keeps the prompt
+#    pinned when a neighbouring tile closes. With nothing in scrollback it
+#    appends blank rows BELOW the cursor instead, and the prompt is left
+#    mid-screen until the next Enter. Scrolling up right after a clear shows
+#    that blank screen; that is the cost. CUD alone cannot do this: the blank
+#    rows it leaves are on screen, not in history. Only a shell that knows the
+#    screen is blank may do it, since the newlines would scroll real output
+#    off the top: the first prompt of a window (_CLLPSE_BOTTOM_SEEN is exported
+#    so a nested `bash` does not take a used screen for a blank one), the
+#    `clear` wrapper, and the Ctrl+L handler below.
+#
+# 3. Ctrl+L and Cmd+K. Readline's own clear-screen redraws the prompt on the
+#    FIRST row; this `bind -x` replaces it with an erase plus the blank-screen
+#    fill, and readline redraws the prompt (typed text included) where the
+#    cursor ends up. Cmd+K reaches the same handler: Ghostty's `clear_screen`
+#    action (CTRL+SHIFT+K in ../ghostty/ghostty.conf, forwarded from SUPER+K)
+#    erases screen and scrollback itself, then, when its OSC 133 marks say the
+#    cursor is at a prompt, writes a form feed (0x0C) to the pty so the shell
+#    repaints (termio/Termio.zig clearScreen, 1.4.0). 0x0C is Ctrl+L to
+#    readline, so one binding covers both. Inside a program nothing is sent,
+#    and readline is not involved.
+#
+# Guarded on Ghostty by TERM_PROGRAM, which Ghostty exports and tmux and ssh
+# replace: inside either, the prompt is wherever it would have been. Nothing
+# here forks: the newlines come from a padded printf, not `seq`. LINES is
+# bash's own (checkwinsize is on by default), re-read on every resize before
+# the next keystroke; with it unset the handler falls back to CUD.
+if [[ ${TERM_PROGRAM-} == ghostty ]]; then
+  if [[ -z ${_CLLPSE_BOTTOM_SEEN-} ]]; then
+    export _CLLPSE_BOTTOM_SEEN=1
+    _cllpse_screen_blank=1
+  fi
+
+  _cllpse_prompt_bottom() {
+    local pad
+    if [[ -n ${_cllpse_screen_blank-} && ${LINES:-0} -gt 1 ]]; then
+      _cllpse_screen_blank=
+      printf -v pad '%*s' "$(( 2 * (LINES - 1) ))" ''
+      printf '%s' "${pad// /$'\n'}"
+    else
+      _cllpse_screen_blank=
+      printf '\e[9999B'
+    fi
+  }
+
+  _cllpse_clear_to_bottom() {
+    printf '\e[H\e[2J'
+    _cllpse_screen_blank=1
+    _cllpse_prompt_bottom
+  }
+  bind -x '"\C-l": _cllpse_clear_to_bottom'
+
+  # ncurses `clear` homes the cursor (and, by default, drops scrollback), so
+  # the next prompt sees a blank screen. `clear -x` keeps the scrollback and
+  # takes the plain path.
+  if command -v clear >/dev/null 2>&1; then
+    clear() { command clear "$@"; (( $# == 0 )) && _cllpse_screen_blank=1; }
+  fi
+
+  if [[ $(declare -p PROMPT_COMMAND 2>/dev/null) == 'declare -a'* ]]; then
+    PROMPT_COMMAND+=(_cllpse_prompt_bottom)
+  else
+    PROMPT_COMMAND="${PROMPT_COMMAND:+$PROMPT_COMMAND; }_cllpse_prompt_bottom"
+  fi
+fi
