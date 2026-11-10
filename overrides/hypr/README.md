@@ -77,8 +77,11 @@ window-switcher and supermenu keybinds (`bindings.lua`), mouse tuning (`input.lu
 circular arc; 2.1, 2.2 and a real 3-3.4 squircle were all tried and dropped /
 `border_part_of_window = false` (true until 2026-10-30), `blur` on @ size 3 / passes 5 / vibrancy 0.50,
 `border_size = 3` (Omarchy's 2 until 2026-10-16), `gaps_in/out = 12/24`) + window `opacity = 1.0 0.875`
-(re-matched onto `chromium-based-browser` / `firefox-based-browser` too, since
-Omarchy pins those to `1.0 0.985` otherwise) + `1 1` on a window showing a
+(on Omarchy 4.5's `transparent-window` tag, which this file puts on every
+window and takes off DaVinci Resolve, PiP, the webcam overlay, Steam, QEMU,
+RetroArch, the YouTube/Zoom web apps and Figma; until 2026-11-09 it re-matched
+4.0's `default-opacity` tag, which the 4.5 upgrade of 2026-11-06 removed, so
+unfocused windows went opaque for three days) + `1 1` on a window showing a
 playing video (a `video-playing` tag set from Hyprland's idle-inhibit flag; for
 Chromium only while the tab in view is on the site the video started on) + 4× animation speeds on whole
 165Hz frames (floor 10 frames, 60.6ms; was 7 frames, 58ms at 120Hz, 3.5× on

@@ -255,15 +255,19 @@ SF Pro and SF Mono share these metrics, so mixed text and code align vertically.
 ## 5. Window treatment
 
 Omarchy 4 defaults: `gaps_in 5`, `gaps_out 10`, `border_size 2`, `rounding 0`,
-shadow off, blur off. Windows are **not** opaque — `windows.lua` tags every
-window `default-opacity` and applies `opacity = "0.985 0.96"`. That rule has to
-be overridden; opacity 1.0 is not the default you inherit.
+shadow off, blur off. Omarchy 4.0.x windows were **not** opaque — `windows.lua`
+tagged every window `default-opacity` and applied `opacity = "0.985 0.96"`.
+Omarchy 4.5 (2026-11-06) inverted that: windows are opaque unless opted in, and
+only terminals, a few named apps and the `transparent` hotkey tag get
+`o.transparent_window()` (`0.985 0.96`, tagged `+transparent-window`). Either
+way the default is not what this spec wants and has to be set explicitly.
 
 Three facts drive the mapping:
 
 1. **macOS app windows are opaque.** Translucency is reserved for shell
-   surfaces — menu bar, Spotlight, notifications, popovers. Override Omarchy's
-   `default-opacity` rule to `1.0 1.0`.
+   surfaces — menu bar, Spotlight, notifications, popovers. Set the window
+   opacity rule to `1.0 1.0`. (Shipped: `1.0 0.875`, focused opaque and
+   unfocused glass; see `overrides/hypr/looknfeel-decoration.lua`.)
 2. **Blur belongs on layer surfaces**, not windows — the shell's layers, via
    Hyprland layer rules.
 3. **Focus is signalled by shadow depth**, not a coloured border: a hairline

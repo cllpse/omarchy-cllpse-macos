@@ -45,18 +45,32 @@
 -- to 5/10.
 
 -- ── Window opacity ──────────────────────────────────────────────────────────
--- default.hypr.windows tags every window +default-opacity, lets the per-app
--- files strip that tag again, then applies opacity = "0.985 0.96" to whatever
--- still carries it. All of that runs during default.hypr.omarchy, which is
--- required before hypr.looknfeel, so repeating the same tag match here lands
--- later in load order and wins the field.
+-- Omarchy 4.5 (here since 2026-11-06) makes window transparency opt-in.
+-- default.hypr.windows gives only terminals, a few named apps (omawrite,
+-- 1Password, Nautilus, LocalSend) and the transparency hotkey's `transparent`
+-- tag o.transparent_window(), which sets opacity = "0.985 0.96" and tags the
+-- window +transparent-window. Everything else is opaque, and nothing carries
+-- the 4.0 `default-opacity` tag this block matched until 2026-11-09: from the
+-- upgrade to then, unfocused windows had lost their glass, Ghostty excepted
+-- (Omarchy's own 0.96, too faint to notice).
 --
--- Match the TAG, not ".*". Omarchy removes default-opacity from things that
--- must not go translucent -- DaVinci Resolve, PiP and webcam overlays, Steam,
--- QEMU, RetroArch, YouTube/Zoom web apps -- and gives browsers their own
--- 1.0/0.985. A ".*" match silently overrides every one of those deliberate
--- exclusions, dimming video and colour-critical windows; matching the tag
--- inherits them all for free.
+-- This block restores the 4.0 shape under Omarchy's own tag. Every window is
+-- tagged +transparent-window, the ones that must stay opaque are untagged
+-- again, and the opacity goes on whatever keeps the tag. 4.0.x stripped its
+-- tag from DaVinci Resolve, PiP and webcam overlays, Steam, QEMU, RetroArch
+-- and the YouTube/Zoom web apps; 4.5 ships no exclusions, since nothing is
+-- transparent by default, so that list lives here now, matched by the classes
+-- and tags Omarchy's per-app files still set. Omarchy's tag rather than one
+-- of ours so Settings > Appearance > Windows > Window Opacity keeps working:
+-- its "opaque" choice (toggles/window-opaque.lua) pins that tag to 1 1 and
+-- loads after this file. All of this runs after default.hypr.windows, so the
+-- opacity rule lands later in load order than Omarchy's 0.985/0.96 on the
+-- same tag and wins the field. The `transparent` tag windows.lua reserves for
+-- its transparency hotkey (no bind for it ships in 4.5.0's hypr config) opts a
+-- window in; here every window already is, so it changes nothing.
+--
+-- Never a bare ".*" opacity rule: it would dim the exclusions below as well,
+-- and sit beyond the reach of Omarchy's opacity toggle.
 --
 -- Focused windows fully opaque, per BUILD.md section 5 ("macOS windows are
 -- opaque"). Unfocused drops to 0.875, not only as a focus cue.
@@ -96,33 +110,40 @@
 -- then 0.99 (with a brief return to 1.0 for the measurement above), and is
 -- back at 1.0; unfocused alone went through 0.9 and 0.88 on the way to 0.875.
 -- Ghostty and Cursor alone had 0.98 focused on 2026-10-11, removed on request.
-o.window({ tag = "default-opacity" }, { opacity = "1.0 0.875" })
+o.window(".*", { tag = "+transparent-window" })
 
--- ── Browser opacity: same unfocused glass as everything else ───────────────
--- default/hypr/apps/browser.lua strips +default-opacity from every
--- chromium/firefox-based browser and pins them to opacity "1.0 0.985", so the
--- tag-matched rule above never touches them -- browsers stay effectively opaque
--- when unfocused (98.5%) and no blur reads through. Re-match the browser tags
--- directly, after browser.lua has run, so browsers get the same 1.0/0.875
--- frost as the rest of the desktop. browser.lua removes the
--- chromium-based-browser tag from YouTube/Zoom web-app windows, so those stay
--- excluded here too.
-o.window({ tag = "chromium-based-browser" }, { opacity = "1.0 0.875" })
-o.window({ tag = "firefox-based-browser" }, { opacity = "1.0 0.875" })
+-- The 4.0.x exclusions. Classes and tags as default/hypr/apps/*.lua sets them
+-- (pip.lua, davinci-resolve.lua, steam.lua, retroarch.lua, webcam-overlay.lua,
+-- browser.lua's YouTube/Zoom web-app pattern); QEMU by the loose class match
+-- 4.0.x used. A matching window reads as video or colour-critical and keeps
+-- 1 1, focused or not.
+o.window({ tag = "pip" }, { tag = "-transparent-window" })
+o.window(".*[Rr]esolve.*", { tag = "-transparent-window" })
+o.window("steam", { tag = "-transparent-window" })
+o.window(".*[Qq]emu.*", { tag = "-transparent-window" })
+o.window("com.libretro.RetroArch", { tag = "-transparent-window" })
+o.window("^WebcamOverlay-(small|medium|large)$", { tag = "-transparent-window" })
+o.window("(^.+-youtube\\.com__.*$|^.+-app\\.zoom\\.us__wc_home.*$)", { tag = "-transparent-window" })
+
+o.window({ tag = "transparent-window" }, { opacity = "1.0 0.875" })
+
+-- Browsers need no rule of their own anymore. 4.0.x stripped them out of the
+-- tag and pinned them to 1.0/0.985, which this file re-matched onto the
+-- chromium-based-browser / firefox-based-browser tags to get the same glass;
+-- 4.5's browser.lua sets no opacity, so the blanket tag above covers them.
 
 -- ── Figma opacity: fully opaque, focused or not ────────────────────────────
 -- Figma Desktop (nickvdp/figma-desktop-linux, an AppImage repack of Figma's
 -- own Electron build) is a colour-critical design tool --
 -- same rationale Omarchy's own davinci-resolve.lua gives DaVinci Resolve:
 -- translucency, and the blur pass rendered behind it, distorts colour work.
--- Not one of Omarchy's stock exclusions (browser/video/DaVinci/PiP/Steam/QEMU/
--- RetroArch), so it still carried our +default-opacity 0.98/0.875 rule above
--- until now. Loosely matched -- ".*[Ff]igma.*" against the class, same idiom
+-- Not one of the 4.0.x stock exclusions (browser/video/DaVinci/PiP/Steam/QEMU/
+-- RetroArch), so it carried the tagged 0.98/0.875 rule above until 2026-09-05. Loosely matched -- ".*[Ff]igma.*" against the class, same idiom
 -- as davinci-resolve.lua's ".*[Rr]esolve.*" -- because the live window class
 -- is the lowercase "figma-desktop", not the "Figma" the AppImage's own
 -- .desktop declares as StartupWMClass. Strip the tag and set opacity explicitly, same
 -- belt-and-suspenders as Omarchy's own steam.lua / qemu.lua.
-o.window(".*[Ff]igma.*", { tag = "-default-opacity", opacity = "1 1" })
+o.window(".*[Ff]igma.*", { tag = "-transparent-window", opacity = "1 1" })
 
 -- ── Playing video: opaque, focused or not ─────────────────────────────────
 -- An unfocused window showing a playing video stays fully opaque. The same

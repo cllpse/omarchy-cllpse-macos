@@ -443,10 +443,16 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   (same α over each mode's own `background` colour); tune light up if it reads
   washed out.
 - **Focused windows fully opaque, unfocused at 0.875 so the blur renders through.**
-  Omarchy's `windows.lua` tags every window `+default-opacity`, lets the per-app
-  files strip that tag, then applies `0.985 0.96` to whatever still carries it.
-  `looknfeel-decoration.lua` repeats that *same tag match* later in load order and
-  sets `1.0 0.875`. Focused shipped at `0.99` for a long while — a hair of the
+  Omarchy 4.5 (here since 2026-11-06) makes transparency opt-in: `windows.lua`
+  gives only terminals, a few named apps and the `transparent` hotkey tag
+  `o.transparent_window()`, which sets `0.985 0.96` and tags the window
+  `+transparent-window`; everything else is opaque. `looknfeel-decoration.lua`
+  rebuilds 4.0's every-window shape under that tag: `.*` is tagged, the
+  windows that must stay opaque are untagged again, and `1.0 0.875` goes on
+  whatever keeps the tag, later in load order than Omarchy's own `0.985 0.96`
+  on the same tag. (4.0.x tagged every window `+default-opacity` itself and
+  this file re-matched that tag; the upgrade left it matching nothing until
+  2026-11-09.) Focused shipped at `0.99` for a long while — a hair of the
   same glass so it read as the same material as the unfocused windows rather
   than a flat cutout — and was kept knowing it was the most expensive thing on
   this desktop: `blur.ignore_opacity` is true, so it made Hyprland render a full
@@ -458,16 +464,16 @@ same name (`omarchy-cllpse-theme-dark` / `-light`).
   The blur *parameters* are not an alternative lever: `size 28 / passes 2`
   measured 16.61% against `size 7 / passes 4`'s 16.60%, because
   `new_optimizations` caches the static background and the cost is the damaged
-  area, not the kernel. Matching the tag rather than `.*` matters: Omarchy deliberately
-  untags what must not go translucent — DaVinci Resolve, PiP and webcam overlays,
-  Steam, QEMU, RetroArch, YouTube/Zoom web apps — and gives browsers their own
-  `1.0 0.985`, which the tag match above therefore never touches. Left as-is,
-  Chromium/Firefox windows would stay effectively opaque when unfocused (98.5%)
-  with no blur reading through, so `looknfeel-decoration.lua` re-matches
-  `chromium-based-browser` / `firefox-based-browser` directly (after
-  `browser.lua` has run) and pins those to `1.0 0.875` too — same glass as
-  everywhere else. The YouTube/Zoom exclusion still holds: `browser.lua` strips
-  the browser tag from those windows before this runs.
+  area, not the kernel. Omarchy's tag rather than one of ours, and never a bare
+  `.*` opacity rule: Settings ▸ Appearance ▸ Window Opacity's "opaque" pins
+  `transparent-window` to `1 1` after this file loads, so it keeps reaching
+  every window. The exclusions 4.0.x used to untag — DaVinci Resolve, PiP and
+  webcam overlays, Steam, QEMU, RetroArch, YouTube/Zoom web apps — are untagged
+  here now, matched by the classes and tags Omarchy's per-app files still set;
+  4.5 ships none of its own, since nothing is transparent by default. Browsers
+  need no rule anymore: 4.0.x pinned them to `1.0 0.985` outside the tag and
+  this file re-matched the browser tags to `1.0 0.875`; 4.5's `browser.lua`
+  sets no opacity, so the blanket tag covers them.
   Figma Desktop isn't one of Omarchy's stock colour-critical exclusions, so
   `looknfeel-decoration.lua` adds its own: `.*[Ff]igma.*` matched loosely
   against the class (the live window class is the lowercase `figma-desktop`,

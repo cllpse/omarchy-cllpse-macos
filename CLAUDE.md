@@ -39,14 +39,24 @@ the user files, so they land last and win.
 
 ### Window opacity works through a tag
 
-`windows.lua` tags every window `+default-opacity`. Per-app files under
-`default/hypr/apps/` **strip that tag** from things that must stay opaque
-(DaVinci Resolve, PiP, Steam, browsers, QEMU, etc.). Only then is
-`opacity = "0.985 0.96"` applied to whatever still carries it.
+Omarchy 4.5 (here since 2026-11-06) made transparency **opt-in**: `windows.lua`
+gives only terminals, a few named apps and the `transparent` hotkey tag
+`o.transparent_window()`, which sets `0.985 0.96` and tags the window
+`+transparent-window`. Everything else is opaque and no per-app file strips
+anything anymore. (4.0.x tagged every window `+default-opacity`, let the files
+under `default/hypr/apps/` strip it from what must stay opaque, then applied
+the opacity to the rest.) `looknfeel-decoration.lua` rebuilds that shape under
+Omarchy's tag: `.*` gets `+transparent-window`, the 4.0.x exclusions (DaVinci
+Resolve, PiP, webcam overlay, Steam, QEMU, RetroArch, YouTube/Zoom web apps)
+and Figma are untagged, and `opacity = "1.0 0.875"` goes on the tag. Omarchy's
+own tag, so Settings ▸ Appearance ▸ Window Opacity's "opaque" still reaches
+every window. The upgrade left the old tag match matching nothing from
+2026-11-06 to 09; a bump that renames the tag does it again. Probe:
+`hyprctl clients -j | jq '.[] | {class, tags}'` — every window but the
+exclusions lists `transparent-window*`.
 
-**Match the tag, never `.*`.** A blanket match silently overrides every
-deliberate exclusion and dims colour-critical and video windows.
-Figma Desktop was added: `.*[Ff]igma.*` against the class (live class is
+**Never a bare `.*` opacity rule.** It dims the exclusions and sits beyond the
+toggle's reach. Figma Desktop: `.*[Ff]igma.*` against the class (live class is
 lowercase `figma-desktop`), untagged and pinned to `1 1`.
 
 A window showing a playing video gets a `video-playing` tag at runtime (`1 1`),
